@@ -181,6 +181,10 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss  << argv[i+1]; ss >> BlockedvMvOffloadArgs::b;
       if(!UniqueID()) printf("Set vMv offload blocksize to %d\n", BlockedvMvOffloadArgs::b);
       i+=2;
+    }else if( cmd == "-vMv_offload_inner_blocksize" ){
+      std::stringstream ss; ss  << argv[i+1]; ss >> BlockedvMvOffloadArgs::bb;
+      if(!UniqueID()) printf("Set vMv offload inner blocksize to %d\n", BlockedvMvOffloadArgs::bb);
+      i+=2;
     }else if( cmd == "-nl" ){
       std::stringstream ss; ss  << argv[i+1]; ss >> nl;
       if(!UniqueID()) printf("Set nl to %d\n", nl);
@@ -370,12 +374,12 @@ int main(int argc,char *argv[])
 								   V_grid, W_grid,
 								   lattice, simd_dims_3d, tol);
   
-  if(0) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(1) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
 
   if(0) testModeMappingTranspose(a2a_arg);
 
 #ifdef USE_GRID
-  if(1) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
+  if(0) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
 #endif
 
   std::cout << "Done" << std::endl;

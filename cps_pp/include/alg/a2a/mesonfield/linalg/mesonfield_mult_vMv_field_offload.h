@@ -1,7 +1,14 @@
 #ifndef _MULT_VMV_FIELD_OFFLOAD_H_
 #define _MULT_VMV_FIELD_OFFLOAD_H_
 
+#include<set>
+
 CPS_START_NAMESPACE
+
+std::ostream & operator<<(std::ostream &os, const std::pair<int,int> &p){
+  os << '(' << p.first << "," << p.second << ')';
+  return os;
+}
 
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
@@ -469,6 +476,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 				VectorComplexType *into = Mr + scr + 12*(fr + nf*(x4d + vol4d*irblock_elem)); //store Mr in temp memory alloc
 				
 				//Do the j product-sum
+				//foreach(tmpir in irblock, scr, fr)   \sum_{j in jblock} M(ir, jl) * v(jr)_{scr,fr}(x)   reuse v(jr)_{scr,fr}(x)  ~irblock times
 				const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
 				
 				ScalarComplexType val_sum = jblock == 0 ? ScalarComplexType(0) : ACC::read(*into);
@@ -586,6 +594,320 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
     managed_free(Mr);
 
+  }//end of func
+
+
+
+
+
+
+
+  static void v5(PropagatorField &into,
+  		   const lA2AfieldType &l,
+  		   const MesonFieldType &M,
+  		   const rA2AfieldType &r,
+  		   bool conj_l, bool conj_r){
+    mult_vMv_field_offload_timers::timers &time = mult_vMv_field_offload_timers::get();
+
+    ++time.calls;
+
+    time.init1 -= dclock();
+
+    into.zero();
+
+    ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(l);
+    ModeContractionIndices<jLeftDilutionType,jRightDilutionType> j_ind(r);
+
+    assert(into.nodeSites(3) == GJP.TnodeSites()); //cannot be SIMD packed in t-direction
+    int Lt = GJP.Tnodes() * GJP.TnodeSites();
+    int nf = GJP.Gparity() + 1;
+    int nsimd = VectorComplexType::Nsimd();
+    size_t vol4d = into.size();
+    size_t t_off = GJP.TnodeSites() * GJP.TnodeCoor();
+    size_t blocksize = BlockedvMvOffloadArgs::b;
+    size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
+
+    typedef SIMT<VectorComplexType> ACC;
+    typedef typename ACC::value_type value_type;
+
+    //Need to compute \sum_i\sum_j v(il)_{scl,fl}(x)  M(ir, jl) * v(jr)_{scr,fr}(x)
+    
+    //Transform into   \sum_i' \sum_j'  v'(i')_{scl, fl}(x) M'(i',j') v'(j')_{scr, fr}(x)  alpha(scl,fl,t,i')   beta(scr,fr,t,j')
+    //i' and j' run over the full set of allowed index pairs
+    //alpha, beta are boolean masks that zero out pairs that are not valid for a particular sc,f,t
+    //v'(i')_{scl, fl}(x) = v(il[i'])_{scl, fl}(x)
+    //M'(i',j') = M(ir[i'],jl[j'])
+
+
+    //Then define
+    //va'(i')_{scl, fl}(x) =  alpha(scl,fl,t,i')  v'(i')_{scl, fl}(x)
+    //vb'(j')_{scr, fr}(x) =  beta(scr,fr,t,j')  v'(j')_{scr, fr}(x)
+    //Such that
+    //\sum_i' \sum_j'  va'(i')_{scl, fl}(x) M'(i',j') vb'(j')_{scr, fr}(x)  
+
+
+    std::set<std::pair<int,int> > il_ir_pairs_s;
+    std::set<std::pair<int,int> > jl_jr_pairs_s;
+
+    {
+      modeIndexSet ilp, irp, jlp, jrp;
+      irp.time = M.getRowTimeslice();
+      jlp.time = M.getColTimeslice();
+      for(int tv=0;tv<Lt;tv++){
+	ilp.time = jrp.time = tv;
+	for(int f=0;f<nf;f++){
+	  ilp.flavor = irp.flavor = jlp.flavor = jrp.flavor = f;
+	  for(int sc=0;sc<12;sc++){
+	    ilp.spin_color = irp.spin_color = jlp.spin_color = jrp.spin_color = sc;
+	
+	    const ModeMapType &i_ind_pairs = i_ind.getIndexVector(ilp,irp);
+	    for(int i=0;i<i_ind_pairs.size();i++) il_ir_pairs_s.insert(i_ind_pairs[i]);	    
+
+	    const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
+	    for(int j=0;j<j_ind_pairs.size();j++) jl_jr_pairs_s.insert(j_ind_pairs[j]);
+	  }
+	}
+      }
+    }
+    
+    std::vector< std::pair<int,int> > il_ir_pairs(il_ir_pairs_s.size());
+    std::map<std::pair<int,int>, int> il_ir_pairs_index_map;
+    int ii=0;
+    for(auto it=il_ir_pairs_s.begin(); it != il_ir_pairs_s.end(); it++){
+      il_ir_pairs[ii] = *it;
+      il_ir_pairs_index_map[*it] = ii;
+      ++ii;
+    }
+    int nil_ir_pairs = il_ir_pairs.size();
+
+    std::vector< std::pair<int,int> > jl_jr_pairs(jl_jr_pairs_s.size());
+    std::map<std::pair<int,int>, int> jl_jr_pairs_index_map;
+    ii=0;
+    for(auto it=jl_jr_pairs_s.begin(); it != jl_jr_pairs_s.end(); it++){
+      jl_jr_pairs[ii] = *it;
+      jl_jr_pairs_index_map[*it] = ii;
+      ++ii;
+    }
+    int njl_jr_pairs = jl_jr_pairs.size();
+
+    //Construct the masks
+    std::vector<bool> alpha(12*nf*Lt*nil_ir_pairs,false);
+    std::vector<bool> beta(12*nf*Lt*njl_jr_pairs,false);
+    
+    {
+      modeIndexSet ilp, irp, jlp, jrp;
+      irp.time = M.getRowTimeslice();
+      jlp.time = M.getColTimeslice();
+      for(int tv=0;tv<Lt;tv++){
+	ilp.time = jrp.time = tv;
+	for(int f=0;f<nf;f++){
+	  ilp.flavor = irp.flavor = jlp.flavor = jrp.flavor = f;
+	  for(int sc=0;sc<12;sc++){
+	    ilp.spin_color = irp.spin_color = jlp.spin_color = jrp.spin_color = sc;
+
+	    const ModeMapType &i_ind_pairs = i_ind.getIndexVector(ilp,irp);
+	    for(int i=0;i<i_ind_pairs.size();i++){
+	      const std::pair<int, int> &pair = i_ind_pairs[i];
+	      int pair_idx = il_ir_pairs_index_map[pair];
+	      alpha[sc + 12*(f+ nf*(tv + Lt*pair_idx))] = true;
+	    }
+	    const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
+	    for(int j=0;j<j_ind_pairs.size();j++){
+	      const std::pair<int, int> &pair = j_ind_pairs[j];
+	      int pair_idx = jl_jr_pairs_index_map[pair];
+	      beta[sc + 12*(f+ nf*(tv + Lt*pair_idx))] = true;
+	    }
+	  }
+	}
+      }
+    }
+
+    size_t niprime = nil_ir_pairs;
+    size_t njprime = njl_jr_pairs;
+
+    size_t field_size = 12 * nf * vol4d;
+    size_t vaprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
+    size_t vbprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
+    size_t Mprime_bytes = blocksize * blocksize * sizeof(ScalarComplexType);
+
+    VectorComplexType* vaprime = (VectorComplexType*)managed_alloc_check(vaprime_bytes);
+    VectorComplexType* vbprime = (VectorComplexType*)managed_alloc_check(vbprime_bytes);
+    ScalarComplexType* Mprime = (ScalarComplexType*)managed_alloc_check(Mprime_bytes);
+    VectorComplexType* Mvbprime = (VectorComplexType*)managed_alloc_check(vaprime_bytes);
+
+    //Do in blocks over i',j' to avoid taking too much space
+    size_t niprime_blocks = (niprime + blocksize-1)/blocksize;
+    size_t njprime_blocks = (njprime + blocksize-1)/blocksize;
+
+    time.init1 += dclock();
+    
+    for(size_t iprimeblock =0; iprimeblock < niprime_blocks; iprimeblock++){
+
+      time.init2 -= dclock();
+      size_t iprimestart = iprimeblock * blocksize;
+      size_t iprimelessthan = std::min(iprimestart + blocksize, niprime);
+      size_t niprime_block = iprimelessthan - iprimestart;
+
+      std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
+      std::cout << "Create va'" << std::endl;
+
+      //Create va'
+      accelerator_for(x4d, vol4d, nsimd,
+		      {
+			size_t xop, top;
+			into.fourToThree(xop, top, x4d);
+			size_t t_glob = top + t_off;
+			for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
+			  size_t iprimeb = iprime - iprimestart;
+			  for(int f=0;f<nf;f++){
+			    for(int sc=0;sc<12;sc++){
+			      VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index 
+			      value_type val = ACC::read(l.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f));
+			      val = conj_l ? Grid::conjugate(val) : val;
+			      val = val * double(alpha[sc + 12*(f+ nf*(t_glob + Lt*iprime))]);
+			      ACC::write(*into, val);
+			    }
+			  }
+			}
+		      });
+      time.init2 += dclock();
+
+
+      for(size_t jprimeblock =0; jprimeblock < njprime_blocks; jprimeblock++){
+	time.init2 -= dclock();
+	size_t jprimestart = jprimeblock * blocksize;
+	size_t jprimelessthan = std::min(jprimestart + blocksize, njprime);
+	size_t njprime_block = jprimelessthan - jprimestart;	
+
+	std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
+	std::cout << "Create vb'" << std::endl;
+
+
+	//Create vb'
+	accelerator_for(x4d, vol4d, nsimd,
+			{
+			  size_t xop, top;
+			  into.fourToThree(xop, top, x4d);
+			  size_t t_glob = top + t_off;
+			  for(size_t jprime = jprimestart; jprime < jprimelessthan; jprime++){
+			    size_t jprimeb = jprime - jprimestart;
+			    for(int f=0;f<nf;f++){
+			      for(int sc=0;sc<12;sc++){
+				VectorComplexType *into = vbprime + jprimeb + njprime_block*(sc + 12*(f + nf*x4d) );  //contiguous in summed index
+				value_type val = ACC::read(r.nativeElem(jl_jr_pairs[jprime].second, x4d, sc, f));
+				val = conj_r ? Grid::conjugate(val) : val;
+				val = val * double(beta[sc + 12*(f+ nf*(t_glob + Lt*jprime))]);
+				ACC::write(*into, val);
+			      }
+			    }
+			  }
+			});
+    
+	//Create Mprime
+	{
+	  ScalarComplexType *Mptr = Mprime;
+	  for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
+	    size_t iprimeb = iprime - iprimestart;
+	    size_t ir = il_ir_pairs[iprime].second;
+	    for(size_t jprime = jprimestart; jprime < jprimelessthan; jprime++){
+	      size_t jprimeb = jprime - jprimestart;
+	      size_t jl = jl_jr_pairs[jprime].first;
+	      *Mptr++ = M(ir, jl);
+	    }
+	  }
+	}
+    
+	time.init2 += dclock();
+
+
+	//Mprime * vbprime
+	time.Mr -= dclock();
+	memset(Mvbprime, 0, vaprime_bytes);
+
+	accelerator_for(x4d, vol4d, nsimd,
+			{
+			  size_t niprimeb_subblocks = (niprime_block + inner_blocksize - 1)/inner_blocksize;
+			  for(int iprimeb_subblock=0; iprimeb_subblock < niprimeb_subblocks; iprimeb_subblock++){
+			    size_t iprimeb_start = iprimeb_subblock * inner_blocksize;
+			    size_t iprimeb_lessthan = std::min( iprimeb_start + inner_blocksize, niprime_block );
+
+			    size_t njprimeb_subblocks = (njprime_block + inner_blocksize - 1)/inner_blocksize;
+			    for(int jprimeb_subblock=0; jprimeb_subblock < njprimeb_subblocks; jprimeb_subblock++){
+			      size_t jprimeb_start = jprimeb_subblock * inner_blocksize;
+			      size_t jprimeb_lessthan = std::min( jprimeb_start + inner_blocksize, njprime_block );
+
+			      for(int iprimeb=iprimeb_start;iprimeb<iprimeb_lessthan; iprimeb++){
+				for(int fr=0;fr<nf;fr++){
+				  for(int scr=0;scr<12;scr++){
+				    VectorComplexType *into = Mvbprime + iprimeb + niprime_block*(scr + 12*(fr + nf*x4d) );
+				    value_type sum = ACC::read(*into);
+				    VectorComplexType *rptr = vbprime + jprimeb_start + njprime_block*(scr + 12*(fr + nf*x4d) );
+				    ScalarComplexType *Mptr = Mprime + jprimeb_start + njprime_block * iprimeb;
+				
+				    for(int jprimeb=jprimeb_start;jprimeb<jprimeb_lessthan; jprimeb++){
+				      value_type rval = ACC::read(*rptr++); 
+				      ScalarComplexType Mval = *Mptr++;
+				      sum = sum + Mval * rval;
+				    }				
+				    ACC::write(*into, sum);
+				  }
+				}
+			      }
+			    }
+			  }
+			});
+	time.Mr += dclock();
+
+
+	time.v_Mr -= dclock();
+	accelerator_for(x4d, vol4d, nsimd,
+			{
+			  VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
+			  size_t niprimeb_subblocks = (niprime_block + inner_blocksize - 1)/inner_blocksize;
+			  for(int iprimeb_subblock=0; iprimeb_subblock < niprimeb_subblocks; iprimeb_subblock++){
+			    size_t iprimeb_start = iprimeb_subblock * inner_blocksize;
+			    size_t iprimeb_lessthan = std::min( iprimeb_start + inner_blocksize, niprime_block );
+
+			    for(int fl=0;fl<nf;fl++){
+			      for(int sl=0;sl<4;sl++){
+				for(int cl=0;cl<3;cl++){
+				  int scl = cl+3*sl;
+				  
+				  for(int fr=0;fr<nf;fr++){
+				    for(int sr=0;sr<4;sr++){
+				      for(int cr=0;cr<3;cr++){
+					int scr = cr+3*sr;
+				      
+					VectorComplexType &out = vsite_mat(sl,sr)(cl,cr)(fl,fr);
+					value_type sum = ACC::read(out);
+
+					VectorComplexType *lptr = vaprime + iprimeb_start + niprime_block*(scl + 12*(fl + nf*x4d) );
+					VectorComplexType *Mrptr = Mvbprime + iprimeb_start + niprime_block*(scr + 12*(fr + nf*x4d) );
+
+					for(int iprimeb=iprimeb_start;iprimeb<iprimeb_lessthan; iprimeb++){
+					  value_type lval = ACC::read(*lptr++); 
+					  value_type Mrval = ACC::read(*Mrptr++); 
+					  sum = sum + lval * Mrval;
+					}
+					ACC::write(out, sum);
+				      }
+				    }
+				  }
+				}
+			      }
+			    }
+			  }
+			});
+
+	time.v_Mr += dclock();
+      }
+    }
+
+    managed_free(vaprime);
+    managed_free(vbprime);
+    managed_free(Mprime);
+    managed_free(Mvbprime);
+    
   }//end of func
     
 

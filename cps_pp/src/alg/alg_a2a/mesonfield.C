@@ -14,6 +14,6 @@ int BlockedMesonFieldArgs::bpp(MF_COMPUTE_BPP);
 bool BlockedMesonFieldArgs::enable_profiling(false);  
 
 int BlockedvMvOffloadArgs::b(100);
-
+int BlockedvMvOffloadArgs::bb(24);
 
 CPS_END_NAMESPACE

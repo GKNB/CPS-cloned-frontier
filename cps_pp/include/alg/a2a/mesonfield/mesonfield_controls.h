@@ -45,6 +45,7 @@ public:
 
 struct BlockedvMvOffloadArgs{
   static int b; //block size in both indices of  \sum_i v^(i)(x) M^(i,j) v^(j)(x)
+  static int bb; //internal block size
 };
 
 
