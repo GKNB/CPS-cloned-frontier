@@ -25,11 +25,22 @@ template<typename mf_Policies>
 struct _mult_vMv_field_offload_fields<mf_Policies,1>{
   typedef CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> VectorMatrixType;
   typedef CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, Aligned128AllocPolicy> PropagatorField;
+  static inline typename mf_Policies::ComplexType & access(const int s1, const int c1, const int f1,
+							   const int s2, const int c2, const int f2,
+							   VectorMatrixType &M){
+    return M(s1,s2)(c1,c2)(f1,f2);
+  }
+    
 };
 template<typename mf_Policies>
 struct _mult_vMv_field_offload_fields<mf_Policies,0>{
   typedef CPSspinMatrix<CPScolorMatrix<typename mf_Policies::ComplexType> > VectorMatrixType;
   typedef CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, Aligned128AllocPolicy> PropagatorField;
+  static inline typename mf_Policies::ComplexType & access(const int s1, const int c1, const int f1,
+							   const int s2, const int c2, const int f2,
+							   VectorMatrixType &M){
+    return M(s1,s2)(c1,c2);
+  }
 };
 
 struct mult_vMv_field_offload_timers{
@@ -748,8 +759,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       size_t iprimelessthan = std::min(iprimestart + blocksize, niprime);
       size_t niprime_block = iprimelessthan - iprimestart;
 
-      std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
-      std::cout << "Create va'" << std::endl;
+      //std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
+      //std::cout << "Create va'" << std::endl;
 
       //Create va'
       accelerator_for(x4d, vol4d, nsimd,
@@ -779,8 +790,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	size_t jprimelessthan = std::min(jprimestart + blocksize, njprime);
 	size_t njprime_block = jprimelessthan - jprimestart;	
 
-	std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
-	std::cout << "Create vb'" << std::endl;
+	//std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
+	//std::cout << "Create vb'" << std::endl;
 
 
 	//Create vb'
@@ -878,7 +889,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 				      for(int cr=0;cr<3;cr++){
 					int scr = cr+3*sr;
 				      
-					VectorComplexType &out = vsite_mat(sl,sr)(cl,cr)(fl,fr);
+					VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
 					value_type sum = ACC::read(out);
 
 					VectorComplexType *lptr = vaprime + iprimeb_start + niprime_block*(scl + 12*(fl + nf*x4d) );

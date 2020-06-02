@@ -196,7 +196,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #endif
 
 #ifdef USE_GRID
-  if(1) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
+  if(0) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
 #endif
 
   if(0) timeAllReduce(false);
@@ -204,6 +204,10 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
 #ifdef USE_GRID
   if(0) test4DlowmodeSubtraction<GridA2ApoliciesType>(a2a_args, ntests, nthreads, lattice);
+#endif
+
+#ifdef USE_GRID
+  if(1) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 #endif
 }
 
@@ -297,6 +301,14 @@ int main(int argc,char *argv[])
     }else if( cmd == "-use_destructive_FFT" ){
       use_destructive_FFT = true;
       i++;
+    }else if( cmd == "-vMv_offload_blocksize" ){
+      std::stringstream ss; ss  << argv[i+1]; ss >> BlockedvMvOffloadArgs::b;
+      if(!UniqueID()) printf("Set vMv offload blocksize to %d\n", BlockedvMvOffloadArgs::b);
+      i+=2;
+    }else if( cmd == "-vMv_offload_inner_blocksize" ){
+      std::stringstream ss; ss  << argv[i+1]; ss >> BlockedvMvOffloadArgs::bb;
+      if(!UniqueID()) printf("Set vMv offload inner blocksize to %d\n", BlockedvMvOffloadArgs::bb);
+      i+=2;
     }else{
       i++;
     }
