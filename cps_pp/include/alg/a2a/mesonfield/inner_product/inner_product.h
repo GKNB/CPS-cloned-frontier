@@ -15,7 +15,7 @@ CPS_START_NAMESPACE
 //mf_Complex is the base complex type for the vectors
 //Output should be *double precision complex* even if the vectors are stored in single precision. Do this to avoid finite prec errors on spatial sum
 
-accelerator_inline void doAccum(std::complex<double> &to, const std::complex<double> &from){
+inline void doAccum(std::complex<double> &to, const std::complex<double> &from){
   to += from;
 }
 #ifdef USE_GRID

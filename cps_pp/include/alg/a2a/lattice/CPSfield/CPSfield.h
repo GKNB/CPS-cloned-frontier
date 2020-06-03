@@ -51,8 +51,14 @@ public:
     alloc();
   }
   CPSfield(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r): fsize(r.fsize), MappingPolicy(r){
-    alloc();
-    memcpy(f,r.f,sizeof(SiteType) * fsize);
+    if(copyControl::shallow() && AllocPolicy::UVMenabled == 1){
+      //std::cout << "CONSTRUCTOR SHALLOW COPY" << std::endl;
+      f = r.f;
+    }else{
+      //std::cout << "CONSTRUCTOR DEEP COPY" << std::endl;
+      alloc();
+      memcpy(f,r.f,sizeof(SiteType) * fsize);
+    }
   }
 
   //Copy from external pointer. Make sure you set the params and policies correctly because it has no way of bounds checking
@@ -60,6 +66,16 @@ public:
     fsize = this->nfsites() * SiteSize;
     alloc();
     memcpy(f,copyme,sizeof(SiteType) * fsize);
+  }
+
+  //Self destruct initialized (no more sfree!!)
+  virtual ~CPSfield(){
+    if(copyControl::shallow() && AllocPolicy::UVMenabled == 1){
+      //std::cout << "DESTRUCTOR SHALLOW" << std::endl;
+    }else{
+      //std::cout << "DESTRUCTOR DEEP" << std::endl;
+      freemem();
+    }
   }
   
   //Set the field to zero
@@ -137,11 +153,6 @@ public:
 
   //Set this field to the average of this and a second field, r
   void average(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r, const bool &parallel = true);
-
-  //Self destruct initialized (no more sfree!!)
-  virtual ~CPSfield(){
-    freemem();
-  }
 
   //Import and export field with arbitrary MappingPolicy (must have same Euclidean dimension!) and precision. Must have same SiteSize and FlavorPolicy
   //Optional inclusion of a mask for accepting sites from the input field

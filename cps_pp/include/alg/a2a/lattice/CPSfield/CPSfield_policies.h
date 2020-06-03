@@ -38,6 +38,7 @@ class StandardAllocPolicy{
   inline void readParams(std::istream &file){
     checkPolicyName(file, "ALLOCPOLICY", "StandardAllocPolicy");
   }
+  enum { UVMenabled = 0 }; //doesnt' support UVM
 };
 class Aligned128AllocPolicy{
  protected:
@@ -53,6 +54,7 @@ class Aligned128AllocPolicy{
   inline void readParams(std::istream &file){
     checkPolicyName(file, "ALLOCPOLICY", "Aligned128AllocPolicy");
   }
+  enum { UVMenabled = 1 }; //supports UVM
 };
 class NullAllocPolicy{
  protected:
@@ -67,6 +69,7 @@ class NullAllocPolicy{
   inline void readParams(std::istream &file){
     checkPolicyName(file, "ALLOCPOLICY", "NullAllocPolicy");
   }
+  enum { UVMenabled = 0 }; //no data so copy is free
 };
 class ManualAllocPolicy{
   void** ptr;
@@ -95,6 +98,7 @@ class ManualAllocPolicy{
   inline void readParams(std::istream &file){
     checkPolicyName(file, "ALLOCPOLICY", "ManualAllocPolicy");
   }
+  enum { UVMenabled = 0 }; //doesnt' support UVM
 };
 class ManualAligned128AllocPolicy{
   void** ptr;
@@ -109,11 +113,11 @@ class ManualAligned128AllocPolicy{
  public:
   inline void allocField(){
     if(*ptr == NULL)
-      *ptr = memalign_check(128,bs);    
+      *ptr = managed_alloc_check(128,bs);    
   }
   inline void freeField(){
     if(*ptr != NULL){
-      free(*ptr);
+      managed_free(*ptr);
       *ptr = NULL;
     }
   }
@@ -123,6 +127,7 @@ class ManualAligned128AllocPolicy{
   inline void readParams(std::istream &file){
     checkPolicyName(file, "ALLOCPOLICY", "ManualAligned128AllocPolicy");
   }
+  enum { UVMenabled = 1 }; //supports UVM
 };
 
 

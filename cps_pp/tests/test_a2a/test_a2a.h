@@ -1043,6 +1043,40 @@ void testComputeLowModeMADWF(const A2AArg &a2a_args, const LancArg &lanc_arg,
 
 }
 
+template<typename GridA2Apolicies>
+void testCPSfieldDeviceCopy(){
+  typedef typename GridA2Apolicies::ComplexType ComplexType;
+  int nsimd = ComplexType::Nsimd();
+  typename SIMDpolicyBase<4>::ParamType simd_dims;
+  SIMDpolicyBase<4>::SIMDdefaultLayout(simd_dims,nsimd,2); //only divide over spatial directions
+
+  typedef typename GridA2Apolicies::FermionFieldType FermionFieldType;
+  
+  FermionFieldType field(simd_dims);
+  field.testRandom();
+
+  ComplexType* into = (ComplexType*)managed_alloc_check(sizeof(ComplexType));
+  typedef SIMT<ComplexType> ACC;
+
+  ComplexType expect = *field.site_ptr(0);
+
+  copyControl::shallow() = true;
+  accelerator_for(x, 1, nsimd,
+		  {
+		    auto v = ACC::read(*field.site_ptr(x));
+		    ACC::write(*into, v);
+		  });
+  copyControl::shallow() = false;
+
+
+  std::cout << "Got " << *into << " expect " << expect << std::endl;
+  
+  assert( Reduce(expect == *into) );
+
+
+  managed_free(into);
+}
+
 
 #endif //USE_GRID
 

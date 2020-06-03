@@ -166,7 +166,7 @@ public:
   inline PtrWrapper(T* _t): t(_t){}
   inline ~PtrWrapper(){ if(t!=NULL) delete t; }
 
-  inline const bool assigned() const{ return t != NULL; }
+  inline bool assigned() const{ return t != NULL; }
   
   inline void set(T* _t){
     if(t!=NULL) delete t;

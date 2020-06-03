@@ -294,6 +294,11 @@ int main(int argc,char *argv[])
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
 
+  #ifdef USE_GRID
+  if(1) testCPSfieldDeviceCopy<A2Apolicies_grid>();
+  #endif
+
+#if 0 //TEST
 
   if(0) testSpinFlavorMatrices();
   if(0) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
@@ -374,13 +379,16 @@ int main(int argc,char *argv[])
 								   V_grid, W_grid,
 								   lattice, simd_dims_3d, tol);
   
-  if(1) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(0) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
 
   if(0) testModeMappingTranspose(a2a_arg);
 
 #ifdef USE_GRID
   if(0) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
 #endif
+
+
+#endif //TEST
 
   std::cout << "Done" << std::endl;
 
