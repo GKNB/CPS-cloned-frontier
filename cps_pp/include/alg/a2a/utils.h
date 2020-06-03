@@ -21,5 +21,6 @@
 #include "utils/SIMT.h"
 #include "utils/grid_simdlinalg.h"
 #include "utils/cublas_wrapper.h"
+#include "utils/ptr_wrapper.h"
 
 #endif

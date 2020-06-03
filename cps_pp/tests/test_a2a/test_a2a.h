@@ -1052,6 +1052,7 @@ void testCPSfieldDeviceCopy(){
 
   typedef typename GridA2Apolicies::FermionFieldType FermionFieldType;
   
+  //Test a host-allocated CPSfield
   FermionFieldType field(simd_dims);
   field.testRandom();
 
@@ -1072,6 +1073,25 @@ void testCPSfieldDeviceCopy(){
   std::cout << "Got " << *into << " expect " << expect << std::endl;
   
   assert( Reduce(expect == *into) );
+  
+  //Test a CPSfield allocated directly into managed memory such that it's contents are directly accessible to the device
+  ManagedPtrWrapper<FermionFieldType> wrp(field);
+  //wrp.emplace(field);
+  
+  memset(into, 0, sizeof(ComplexType));
+
+  copyControl::shallow() = true;
+  accelerator_for(x, 1, nsimd,
+		  {
+		    auto v = ACC::read(*wrp->site_ptr(x));
+		    ACC::write(*into, v);
+		  });
+  copyControl::shallow() = false;
+
+
+  std::cout << "Got " << *into << " expect " << expect << std::endl;
+  
+  assert( Reduce(expect == *into) );  
 
 
   managed_free(into);

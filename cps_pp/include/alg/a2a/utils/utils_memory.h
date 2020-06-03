@@ -150,45 +150,6 @@ inline void printBacktrace(std::ostream &to){
   for(int i=0;i<n;i++) to << tr[i] << std::endl;
 }
 
-//A class that owns data via a pointer that has an assignment and copy constructor which does a deep copy.
-template<typename T>
-class PtrWrapper{
-  T* t;
-public:
-  inline T* ptr(){ return t; }
-  inline T const* ptr() const{ return t; }
-  inline T& operator*(){ return *t; }
-  inline T* operator->(){ return t; }
-  inline T const& operator*() const{ return *t; }
-  inline T const* operator->() const{ return t; }
-  
-  inline PtrWrapper(): t(NULL){};
-  inline PtrWrapper(T* _t): t(_t){}
-  inline ~PtrWrapper(){ if(t!=NULL) delete t; }
-
-  inline bool assigned() const{ return t != NULL; }
-  
-  inline void set(T* _t){
-    if(t!=NULL) delete t;
-    t = _t;
-  }
-  inline void free(){
-    if(t!=NULL) delete t;
-    t = NULL;
-  }
-  
-  //Deep copies
-  inline PtrWrapper(const PtrWrapper &r): t(NULL){
-    if(r.t != NULL) t = new T(*r.t);
-  }
-
-  inline PtrWrapper & operator=(const PtrWrapper &r){
-    if(t!=NULL){ delete t; t = NULL; }
-    if(r.t!=NULL) t = new T(*r.t);
-  } 
-};
-
-
 //Empty shells for google perftools heap profile funcs
 #ifndef BASE_HEAP_PROFILER_H_
 inline void HeapProfilerStart(const char* nm){}
