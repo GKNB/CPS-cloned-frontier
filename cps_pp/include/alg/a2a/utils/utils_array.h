@@ -89,7 +89,7 @@ public:
   ManagedVector(const ManagedVector &r){
     if(copyControl::shallow()){
       v = r.v; sz = r.sz; own = false;
-      std::cout << "ManagedVector shallow copy" << std::endl;
+      //std::cout << "ManagedVector shallow copy" << std::endl;
     }else{
       if(!own){ own = true; v = NULL; }
       std::cout << "ManagedVector deep copy" << std::endl;

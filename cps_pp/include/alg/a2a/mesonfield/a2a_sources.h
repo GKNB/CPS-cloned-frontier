@@ -74,11 +74,11 @@ public:
 
   //Get the value of the source at a particular 3d site.
   //site is an 3d site index in the logical 3d volume (i.e. a SIMD site coordinate if vectorized)
-  accelerator_inline const mf_Complex & siteComplex(const int site) const{ return *src->site_ptr(site); }
+  accelerator_inline const mf_Complex & siteComplex(const size_t site) const{ return *src->site_ptr(site); }
 
   //On the GPU this pulls out an individual SIMD lane for the kernel to act on
-  //accelerator_inline const typename SIMT<mf_Complex>::value_type & siteComplex(const int site) const{ return SIMT<mf_Complex>::read(*src->site_ptr(site)); }
-  accelerator_inline const int nsites() const{ return src->nsites(); }
+  //accelerator_inline const typename SIMT<mf_Complex>::value_type & siteComplex(const size_t site) const{ return SIMT<mf_Complex>::read(*src->site_ptr(site)); }
+  accelerator_inline const size_t nsites() const{ return src->nsites(); }
 
   template< typename extComplexType, template<typename> typename extDimPol, typename extAllocPol>
   void importSource(const A2Asource<extComplexType,extDimPol<OneFlavorPolicy>,extAllocPol> &from){
@@ -87,27 +87,27 @@ public:
   FieldType & getSource(){ return *src; } //For testing
 
   //Periodic modulus operation
-  inline static int pmod(const int x, const int Lx){
+  inline static size_t pmod(const size_t x, const size_t Lx){
     return x <= Lx/2 ? x : Lx-x; //   0 ... L/2-1,  L/2, L/2-1, ... 1
   }
   //Periodic coordinate relative to boundary
-  inline static int pcoord(const int x, const int Lx){
+  inline static size_t pcoord(const size_t x, const size_t Lx){
     return (x + Lx/2) % Lx - Lx/2; //   0 ... L/2-1, -L/2, 1-L/2, ... -1   includes sign. Note convention for sign at L/2
   }
 
   //Radial coordinate
-  static Float pmodr(const int x[3], const int L[3]){
+  static Float pmodr(const size_t x[3], const size_t L[3]){
     Float ssq =0.;
     for(int i=0;i<3;i++){
-      int sr = pmod(x[i],L[i]);
+      size_t sr = pmod(x[i],L[i]);
       ssq += sr*sr;
     }
     return sqrt(ssq);
   }
   
   //Spherical coordinates that know about the periodicity of the lattice  
-  static void pmodspherical(Float &r, Float &theta, Float &phi, const int x[3], const int L[3]){
-    int xp[3];
+  static void pmodspherical(Float &r, Float &theta, Float &phi, const size_t x[3], const size_t L[3]){
+    size_t xp[3];
     Float ssq = 0.;    
     for(int i=0;i<3;i++){
       xp[i] = pcoord(x[i],L[i]);
@@ -135,15 +135,15 @@ public:
   
   void fft_source(){
     assert(this->src != NULL);
-    int glb_size[3]; for(int i=0;i<3;i++) glb_size[i] = GJP.Nodes(i)*GJP.NodeSites(i);
+    size_t glb_size[3]; for(int i=0;i<3;i++) glb_size[i] = GJP.Nodes(i)*GJP.NodeSites(i);
 
     //Generate a global 4d source
     CPSglobalComplexSpatial<cps::ComplexD,OneFlavorPolicy> glb; //always of this type
     glb.zero();
          
 #pragma omp_parallel for
-    for(int i=0;i<glb.nsites();i++){
-      int x[3]; glb.siteUnmap(i,x); 
+    for(size_t i=0;i<glb.nsites();i++){
+      size_t x[3]; glb.siteUnmap(i,x); 
       *glb.site_ptr(i) = static_cast<Child const*>(this)->value(x,glb_size);
     }
     //Perform the FFT and pull out this nodes subvolume
@@ -178,12 +178,12 @@ public:
     return setup(NullObject());
   }
     
-  accelerator_inline void siteFmat(FlavorMatrixGeneral<typename SIMT<ComplexType>::value_type> &out, const int site) const{
+  accelerator_inline void siteFmat(FlavorMatrixGeneral<typename SIMT<ComplexType>::value_type> &out, const size_t site) const{
     out(0,0) = out(1,1) = SIMT<ComplexType>::read(this->siteComplex(site));
     out(0,1) = out(1,0) = typename SIMT<ComplexType>::value_type(0);    
   }
 
-  inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
+  inline cps::ComplexD value(const size_t site[3], const size_t glb_size[3]) const{
     Float r = this->pmodr(site,glb_size);
     return ComplexD(r == 0. ? 1./(glb_size[0]*glb_size[1]*glb_size[2]) : 0.);
   }
@@ -218,7 +218,7 @@ public:
     return setup(radius, NullObject());
   }
     
-  inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const int site) const{
+  inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const size_t site) const{
     out(0,0) = out(1,1) = this->siteComplex(site);
     out(0,1) = out(1,0) = typename Policies::ComplexType(0);    
   }
@@ -234,7 +234,7 @@ public:
   typedef typename A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
 
-  inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
+  inline cps::ComplexD value(const size_t site[3], const size_t glb_size[3]) const{
     Float v = this->pmodr(site,glb_size)/this->radius;
     v = exp(-v)/(glb_size[0]*glb_size[1]*glb_size[2]);
     return ComplexD(v,0);
@@ -261,7 +261,7 @@ public:
   }
     
   
-  inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
+  inline cps::ComplexD value(const size_t site[3], const size_t glb_size[3]) const{
     assert(n>=0 && n <= 3 &&
 	   l>=0 && l <= n-1 &&
 	   abs(m) <= l);
@@ -347,9 +347,9 @@ public:
 //SrcParams is std::vector<Float> for the extents x,y,z . *These must be even numbers* (checked)
 template<typename FieldPolicies = StandardSourcePolicies>
 class A2AboxSource: public A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >{
-  int box_size[3];
+  size_t box_size[3];
 
-  void box_setup_fft(const int _box_size[3]){    
+  void box_setup_fft(const size_t _box_size[3]){    
     for(int i=0;i<3;i++){
       if(_box_size[i] % 2 == 1){
 	ERR.General("A2AboxSource","A2AboxSource","box size must be multiple of 2");
@@ -364,11 +364,11 @@ public:
   typedef typename A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
   
-  cps::ComplexD value(const int site[3], const int glb_size[3]) const{
+  cps::ComplexD value(const size_t site[3], const size_t glb_size[3]) const{
     bool inbox = true;
-    int V = glb_size[0]*glb_size[1]*glb_size[2];
+    size_t V = glb_size[0]*glb_size[1]*glb_size[2];
     for(int i=0;i<3;i++){ 
-      int bdist = this->pmod(site[i],glb_size[i]);
+      size_t bdist = this->pmod(site[i],glb_size[i]);
       
       if(bdist > box_size[i]){
 	inbox = false; break;
@@ -378,22 +378,22 @@ public:
       return cps::ComplexD(1./V);
   }
   
-  A2AboxSource(const int _box_size[3],const FieldParamType &field_params): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(field_params){
+  A2AboxSource(const size_t _box_size[3],const FieldParamType &field_params): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(field_params){
     this->box_setup_fft(_box_size);
   }
-  A2AboxSource(const int _box_size[3]): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(NullObject()){
+  A2AboxSource(const size_t _box_size[3]): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(NullObject()){
     this->box_setup_fft(_box_size);
   }//syntatic sugar to avoid creating a NullObject
-  A2AboxSource(const A2AboxSource &r):  A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(r){ memcpy(box_size,r.box_size,3*sizeof(int)); }
+  A2AboxSource(const A2AboxSource &r):  A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(r){ memcpy(box_size,r.box_size,3*sizeof(size_t)); }
   
   
-  void setup(const int _box_size[3], const FieldParamType &field_params = NullObject()){
+  void setup(const size_t _box_size[3], const FieldParamType &field_params = NullObject()){
     this->A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >::setup(field_params);
     this->box_setup_fft(_box_size);
   }
 
   
-  inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const int site) const{
+  inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const size_t site) const{
     out(0,0) = out(1,1) = this->siteComplex(site);
     out(0,1) = out(1,0) = typename Policies::ComplexType(0);    
   }
@@ -427,7 +427,7 @@ protected:
 
   void setup_projected_src_info(const int p[3]){
     sign = getProjSign(p);
-    int zero[3] = {0,0,0}; int L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
+    size_t zero[3] = {0,0,0}; size_t L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
     cps::ComplexD v = this->value(zero,L);
     SIMDsplat(*val000,v);    
   }
@@ -466,7 +466,7 @@ public:
     return sgn;
   }
 
-  accelerator_inline void siteFmat(FlavorMatrixGeneral<typename SIMT<ComplexType>::value_type> &out, const int site) const{
+  accelerator_inline void siteFmat(FlavorMatrixGeneral<typename SIMT<ComplexType>::value_type> &out, const size_t site) const{
     //Matrix is FFT of  (1 + [sign]*sigma_2) when |x-y| !=0 or 1 when |x-y| == 0
     //It is always 1 on the diagonals
     auto val_ln = SIMT<ComplexType>::read(this->siteComplex(site));

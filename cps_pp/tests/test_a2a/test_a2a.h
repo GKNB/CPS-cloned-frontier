@@ -1059,7 +1059,7 @@ void testCPSfieldDeviceCopy(){
   ComplexType* into = (ComplexType*)managed_alloc_check(sizeof(ComplexType));
   typedef SIMT<ComplexType> ACC;
 
-  ComplexType expect = *field.site_ptr(0);
+  ComplexType expect = *field.site_ptr(size_t(0));
 
   copyControl::shallow() = true;
   accelerator_for(x, 1, nsimd,

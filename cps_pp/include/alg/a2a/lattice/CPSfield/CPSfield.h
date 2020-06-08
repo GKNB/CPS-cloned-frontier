@@ -29,7 +29,7 @@ template< typename SiteType, int SiteSize, typename MappingPolicy, typename Allo
 class CPSfield: public MappingPolicy, public AllocPolicy{
   SiteType* f;
 protected:
-  int fsize; //number of SiteType in the array = SiteSize * fsites
+  size_t fsize; //number of SiteType in the array = SiteSize * fsites
   bool own; //is the memory owned by this object?
   
   void alloc(){
@@ -94,7 +94,7 @@ public:
     
     static_cast<MappingPolicy&>(*this) = r; //copy policy info
 
-    int old_fsize = fsize;
+    size_t old_fsize = fsize;
     fsize = r.fsize;
 
     if(fsize != old_fsize){
@@ -133,7 +133,7 @@ public:
   accelerator_inline const int siteSize() const{ return SiteSize; }
 
   //Number of SiteType in field
-  accelerator_inline const int size() const{ return fsize; }
+  accelerator_inline const size_t size() const{ return fsize; }
 
   //Accessors
   accelerator_inline SiteType* ptr(){ return f; }
@@ -141,34 +141,34 @@ public:
 
   //Accessors *do not check bounds*
   //int fsite is the linearized N-dimensional site/flavorcoordinate with the mapping specified by the policy class
-  accelerator_inline int fsite_offset(const int fsite) const{ return SiteSize*fsite; }
+  accelerator_inline size_t fsite_offset(const size_t fsite) const{ return SiteSize*fsite; }
   
-  accelerator_inline SiteType* fsite_ptr(const int fsite){  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
+  accelerator_inline SiteType* fsite_ptr(const size_t fsite){  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
     return f + SiteSize*fsite;
   }
-  accelerator_inline SiteType const* fsite_ptr(const int fsite) const{  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
+  accelerator_inline SiteType const* fsite_ptr(const size_t fsite) const{  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
     return f + SiteSize*fsite;
   }
 
   //int site is the linearized N-dimension Euclidean coordinate with mapping specified by the policy class
-  accelerator_inline int site_offset(const int site, const int flav = 0) const{ return SiteSize*this->siteFsiteConvert(site,flav); }
-  accelerator_inline int site_offset(const int x[], const int flav = 0) const{ return SiteSize*this->fsiteMap(x,flav); }
+  accelerator_inline size_t site_offset(const size_t site, const size_t flav = 0) const{ return SiteSize*this->siteFsiteConvert(site,flav); }
+  accelerator_inline size_t site_offset(const size_t x[], const size_t flav = 0) const{ return SiteSize*this->fsiteMap(x,flav); }
 
-  accelerator_inline SiteType* site_ptr(const int site, const int flav = 0){  //site is in the internal Euclidean mapping of the MappingPolicy
+  accelerator_inline SiteType* site_ptr(const size_t site, const size_t flav = 0){  //site is in the internal Euclidean mapping of the MappingPolicy
     return f + SiteSize*this->siteFsiteConvert(site,flav);
   }
-  accelerator_inline SiteType* site_ptr(const int x[], const int flav = 0){ 
+  accelerator_inline SiteType* site_ptr(const size_t x[], const size_t flav = 0){ 
     return f + SiteSize*this->fsiteMap(x,flav);
   }    
 
-  accelerator_inline SiteType const* site_ptr(const int site, const int flav = 0) const{  //site is in the internal Euclidean mapping of the MappingPolicy
+  accelerator_inline SiteType const* site_ptr(const size_t site, const size_t flav = 0) const{  //site is in the internal Euclidean mapping of the MappingPolicy
     return f + SiteSize*this->siteFsiteConvert(site,flav);
   }
-  accelerator_inline SiteType const* site_ptr(const int x[], const int flav = 0) const{ 
+  accelerator_inline SiteType const* site_ptr(const size_t x[], const size_t flav = 0) const{ 
     return f + SiteSize*this->fsiteMap(x,flav);
   }    
  
-  accelerator_inline int flav_offset() const{ return SiteSize*this->fsiteFlavorOffset(); } //pointer offset between flavors
+  accelerator_inline size_t flav_offset() const{ return SiteSize*this->fsiteFlavorOffset(); } //pointer offset between flavors
 
   //Set this field to the average of this and a second field, r
   void average(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r, const bool &parallel = true);
@@ -182,7 +182,7 @@ public:
   void exportField(CPSfield<extSiteType,SiteSize,extMapPol,extAllocPol> &r, IncludeSite<MappingPolicy::EuclideanDimension> const* fromsitemask = NULL) const;
 
   bool equals(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r) const{
-    for(int i=0;i<fsize;i++)
+    for(size_t i=0;i<fsize;i++)
       if(!cps::equals(f[i],r.f[i])) return false;
     return true;
   }
@@ -193,7 +193,7 @@ public:
   
   template<typename extField>
   bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance) const{
-    for(int i=0;i<fsize;i++){
+    for(size_t i=0;i<fsize;i++){
       if( fabs(f[i] - r.f[i]) > tolerance) return false;
     }
     return true;
@@ -206,14 +206,14 @@ public:
   
   template<typename extField>
   bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance, bool verbose = false) const{
-    for(int i=0;i<fsize;i++){
+    for(size_t i=0;i<fsize;i++){
       if( fabs(f[i].real() - r.f[i].real()) > tolerance || fabs(f[i].imag() - r.f[i].imag()) > tolerance ){
 	if(verbose && !UniqueID()){
-	  int rem = i;
-	  int s = rem % SiteSize; rem /= SiteSize;
-	  int x = rem % this->nsites(); rem /= this->nsites();
-	  int flav = rem;
-	  int coor[MappingPolicy::EuclideanDimension]; this->siteUnmap(x,coor);
+	  size_t rem = i;
+	  size_t s = rem % SiteSize; rem /= SiteSize;
+	  size_t x = rem % this->nsites(); rem /= this->nsites();
+	  size_t flav = rem;
+	  size_t coor[MappingPolicy::EuclideanDimension]; this->siteUnmap(x,coor);
 	  std::ostringstream os; for(int a=0;a<MappingPolicy::EuclideanDimension;a++) os << coor[a] << " ";
 	  std::string coor_str = os.str();
 	  
@@ -263,12 +263,12 @@ public:
 
   CPSfield & operator+=(const CPSfield &r){
 #pragma omp parallel for
-    for(int i=0;i<fsize;i++) f[i] += r.f[i];
+    for(size_t i=0;i<fsize;i++) f[i] += r.f[i];
     return *this;
   }
   CPSfield & operator-=(const CPSfield &r){
 #pragma omp parallel for
-    for(int i=0;i<fsize;i++) f[i] -= r.f[i];
+    for(size_t i=0;i<fsize;i++) f[i] -= r.f[i];
     return *this;
   }
 
