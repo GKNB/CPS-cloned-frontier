@@ -30,6 +30,7 @@ class CPSfield: public MappingPolicy, public AllocPolicy{
   SiteType* f;
 protected:
   int fsize; //number of SiteType in the array = SiteSize * fsites
+  bool own; //is the memory owned by this object?
   
   void alloc(){
     this->_alloc((void**)&f, fsize*sizeof(SiteType));
@@ -46,23 +47,30 @@ public:
   
   typedef typename MappingPolicy::ParamType InputParamType;
 
-  CPSfield(const InputParamType &params): MappingPolicy(params){
+  CPSfield(const InputParamType &params): MappingPolicy(params), own(true){
     fsize = this->nfsites() * SiteSize;
     alloc();
   }
   CPSfield(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r): fsize(r.fsize), MappingPolicy(r){
     if(copyControl::shallow() && AllocPolicy::UVMenabled == 1){
-      //std::cout << "CONSTRUCTOR SHALLOW COPY" << std::endl;
-      f = r.f;
+      //std::cout << "CPSFIELD CONSTRUCTOR SHALLOW COPY" << std::endl;
+      f = r.f; own = false;
     }else{
-      //std::cout << "CONSTRUCTOR DEEP COPY" << std::endl;
+      //std::cout << "CPSFIELD CONSTRUCTOR DEEP COPY" << std::endl;
       alloc();
       memcpy(f,r.f,sizeof(SiteType) * fsize);
+      own = true;
     }
   }
 
+  CPSfield(CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &&r): fsize(r.fsize), MappingPolicy(r), own(r.own), f(r.f){
+    r.f = NULL;
+    r.own = false;
+    r.fsize = 0;
+  }
+
   //Copy from external pointer. Make sure you set the params and policies correctly because it has no way of bounds checking
-  CPSfield(SiteType const* copyme, const InputParamType &params): MappingPolicy(params){
+  CPSfield(SiteType const* copyme, const InputParamType &params): MappingPolicy(params), own(true){
     fsize = this->nfsites() * SiteSize;
     alloc();
     memcpy(f,copyme,sizeof(SiteType) * fsize);
@@ -70,12 +78,10 @@ public:
 
   //Self destruct initialized (no more sfree!!)
   virtual ~CPSfield(){
-    if(copyControl::shallow() && AllocPolicy::UVMenabled == 1){
-      //std::cout << "DESTRUCTOR SHALLOW" << std::endl;
-    }else{
-      //std::cout << "DESTRUCTOR DEEP" << std::endl;
-      freemem();
-    }
+    if(own){
+      //std::cout << "CPSFIELD DESTRUCTOR DEEP FREE" <<std::endl;
+      freemem();    
+    }//else std::cout << "CPSFIELD DESTRUCTOR SHALLOW FREE" <<std::endl;
   }
   
   //Set the field to zero
@@ -84,18 +90,31 @@ public:
   }
 
   CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &operator=(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r){
+    if(!own){ own = true; fsize = r.fsize; alloc(); } //was a shallow copy, alloc new memory and take ownership
+    
     static_cast<MappingPolicy&>(*this) = r; //copy policy info
 
     int old_fsize = fsize;
     fsize = r.fsize;
 
     if(fsize != old_fsize){
-     freemem();
+      freemem();
       alloc();
     }
     memcpy(f,r.f,sizeof(SiteType) * fsize);
     return *this;
   }
+
+  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &operator=(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &&r){
+    if(own) freemem();
+    f = r.f;
+    own = r.own;
+    fsize = r.fsize;
+    r.f = NULL;
+    r.own = false;
+    return *this;
+  }
+
 
   static std::size_t byte_size(const InputParamType &params){
     CPSfield<SiteType,SiteSize,MappingPolicy,NullAllocPolicy> tmp(params); //doesn't allocate
@@ -111,45 +130,45 @@ public:
   void testRandom(const Float hi = 0.5, const Float lo = -0.5);
 
   //Number of SiteType per site
-  inline const int siteSize() const{ return SiteSize; }
+  accelerator_inline const int siteSize() const{ return SiteSize; }
 
   //Number of SiteType in field
-  inline const int size() const{ return fsize; }
+  accelerator_inline const int size() const{ return fsize; }
 
   //Accessors
-  inline SiteType* ptr(){ return f; }
-  inline SiteType const* ptr() const{ return f; }
+  accelerator_inline SiteType* ptr(){ return f; }
+  accelerator_inline SiteType const* ptr() const{ return f; }
 
   //Accessors *do not check bounds*
   //int fsite is the linearized N-dimensional site/flavorcoordinate with the mapping specified by the policy class
-  inline int fsite_offset(const int fsite) const{ return SiteSize*fsite; }
+  accelerator_inline int fsite_offset(const int fsite) const{ return SiteSize*fsite; }
   
-  inline SiteType* fsite_ptr(const int fsite){  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
+  accelerator_inline SiteType* fsite_ptr(const int fsite){  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
     return f + SiteSize*fsite;
   }
-  inline SiteType const* fsite_ptr(const int fsite) const{  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
+  accelerator_inline SiteType const* fsite_ptr(const int fsite) const{  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
     return f + SiteSize*fsite;
   }
 
   //int site is the linearized N-dimension Euclidean coordinate with mapping specified by the policy class
-  inline int site_offset(const int site, const int flav = 0) const{ return SiteSize*this->siteFsiteConvert(site,flav); }
-  inline int site_offset(const int x[], const int flav = 0) const{ return SiteSize*this->fsiteMap(x,flav); }
+  accelerator_inline int site_offset(const int site, const int flav = 0) const{ return SiteSize*this->siteFsiteConvert(site,flav); }
+  accelerator_inline int site_offset(const int x[], const int flav = 0) const{ return SiteSize*this->fsiteMap(x,flav); }
 
-  inline SiteType* site_ptr(const int site, const int flav = 0){  //site is in the internal Euclidean mapping of the MappingPolicy
+  accelerator_inline SiteType* site_ptr(const int site, const int flav = 0){  //site is in the internal Euclidean mapping of the MappingPolicy
     return f + SiteSize*this->siteFsiteConvert(site,flav);
   }
-  inline SiteType* site_ptr(const int x[], const int flav = 0){ 
+  accelerator_inline SiteType* site_ptr(const int x[], const int flav = 0){ 
     return f + SiteSize*this->fsiteMap(x,flav);
   }    
 
-  inline SiteType const* site_ptr(const int site, const int flav = 0) const{  //site is in the internal Euclidean mapping of the MappingPolicy
+  accelerator_inline SiteType const* site_ptr(const int site, const int flav = 0) const{  //site is in the internal Euclidean mapping of the MappingPolicy
     return f + SiteSize*this->siteFsiteConvert(site,flav);
   }
-  inline SiteType const* site_ptr(const int x[], const int flav = 0) const{ 
+  accelerator_inline SiteType const* site_ptr(const int x[], const int flav = 0) const{ 
     return f + SiteSize*this->fsiteMap(x,flav);
   }    
  
-  inline int flav_offset() const{ return SiteSize*this->fsiteFlavorOffset(); } //pointer offset between flavors
+  accelerator_inline int flav_offset() const{ return SiteSize*this->fsiteFlavorOffset(); } //pointer offset between flavors
 
   //Set this field to the average of this and a second field, r
   void average(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r, const bool &parallel = true);
@@ -271,6 +290,8 @@ public:
   void readParallelSeparateMetadata(const std::string &path);
 };
 
+
+//Some useful macros for creating derived types
 #define INHERIT_TYPEDEFS(...) \
   typedef typename __VA_ARGS__::FieldSiteType FieldSiteType; \
   typedef typename __VA_ARGS__::FieldMappingPolicy FieldMappingPolicy; \
@@ -295,6 +316,14 @@ public:
     return out; \
   }
 
+#define CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,DerivedType) \
+  DerivedType(): BaseType(NullObject()){} /*default constructor won't compile if policies need arguments*/ \
+  DerivedType(const InputParamType &params): BaseType(params){} \
+  DerivedType(const DerivedType &r): BaseType(r){} \
+  DerivedType(DerivedType &&r): BaseType(std::move(r)){} \
+  DerivedType & operator=(const DerivedType &r){ this->BaseType::operator=(r); return *this; } \
+  DerivedType & operator=(DerivedType &&r){ this->BaseType::operator=(std::move(r)); return *this; }
+  
 
 
 
@@ -304,24 +333,21 @@ protected:
   static void getMomentumUnits(double punits[3]);
 
 public:
-  INHERIT_TYPEDEFS(CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>);
-  
-  CPSfermion(): CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>(NullObject()){} //default constructor won't compile if policies need arguments
-  CPSfermion(const InputParamType &params): CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>(params){}
-  CPSfermion(const CPSfermion &r): CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>(r){}
+  typedef CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion);
 };
 
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion3D4Dcommon: public CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>{
 public:
-  INHERIT_TYPEDEFS(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>);
+  typedef CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion3D4Dcommon);
+  
   //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
   //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
   void applyPhase(const int p[], const bool parallel);
-
-  CPSfermion3D4Dcommon(): CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>(NullObject()){} //default constructor won't compile if policies need arguments
-  CPSfermion3D4Dcommon(const InputParamType &params): CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>(params){}
-  CPSfermion3D4Dcommon(const CPSfermion3D4Dcommon &r): CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>(r){}
 };
 
 template<typename FlavorPolicy>
@@ -347,10 +373,9 @@ class CPSfermion3D: public CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPo
   template< typename mf_Complex2, typename FlavorPolicy2>
   friend struct _ferm3d_gfix_impl;
 public:
-  INHERIT_TYPEDEFS(CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>);
-  
-  CPSfermion3D(): CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>(){}
-  CPSfermion3D(const CPSfermion3D &r): CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>(r){}
+  typedef CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion3D);
 
   //Apply gauge fixing matrices to the field
   //Because this is a 3d field we must also provide a time coordinate.
@@ -365,11 +390,9 @@ template< typename mf_Complex, typename MappingPolicy = FourDpolicy<DynamicFlavo
 class CPSfermion4D: public CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 4> check;
 public:
-  INHERIT_TYPEDEFS(CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>);
-  
-  CPSfermion4D(): CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>(){}
-  CPSfermion4D(const InputParamType &params): CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>(params){}
-  CPSfermion4D(const CPSfermion4D &r): CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>(r){}
+  typedef CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion4D);
 
   //Apply gauge fixing matrices to the field. 
   //NOTE: This does not work correctly for GPBC and FlavorPolicy==FixedFlavorPolicy<1> because we need to provide the flavor 
@@ -389,11 +412,10 @@ template< typename mf_Complex, typename MappingPolicy = FiveDpolicy<DynamicFlavo
 class CPSfermion5D: public CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 5> check;
 public:  
-  INHERIT_TYPEDEFS(CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>);
-  
-  CPSfermion5D(): CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>(NullObject()){}
-  CPSfermion5D(const CPSfermion5D &r): CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>(r){}
-  
+  typedef CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion5D);
+    
 #ifdef USE_BFM
   template<typename FloatExt>
   void importFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf);
@@ -412,11 +434,9 @@ template< typename mf_Complex, typename MappingPolicy = FourDpolicy<DynamicFlavo
 class CPScomplex4D: public CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 4> check;
 public:
-  INHERIT_TYPEDEFS(CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>);
-  
-  CPScomplex4D(): CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>(NullObject()){}
-  CPScomplex4D(const InputParamType &params): CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>(params){}
-  CPScomplex4D(const CPScomplex4D &r): CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>(r){}
+  typedef CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPScomplex4D);  
 
   //Make a random complex scalar field of type
   void setRandom(const RandomType &type);
@@ -432,11 +452,9 @@ template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, type
 class CPScomplexSpatial: public CPSfield<mf_Complex,1,SpatialPolicy<FlavorPolicy>,AllocPolicy>{
   typedef SpatialPolicy<FlavorPolicy> MappingPolicy;
 public:
-  INHERIT_TYPEDEFS(CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>);
-  
-  CPScomplexSpatial(): CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>(NullObject()){}
-  CPScomplexSpatial(const CPScomplexSpatial &r): CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>(r){}
-
+  typedef CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPScomplexSpatial);  
   DEFINE_ADDSUB_DERIVED(CPScomplexSpatial);
 };
 
@@ -445,10 +463,9 @@ template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, type
 class CPSglobalComplexSpatial: public CPSfield<mf_Complex,1,GlobalSpatialPolicy<FlavorPolicy>,AllocPolicy>{
   typedef GlobalSpatialPolicy<FlavorPolicy> MappingPolicy;
 public:
-  INHERIT_TYPEDEFS(CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>);
-  
-  CPSglobalComplexSpatial(): CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>(NullObject()){}
-  CPSglobalComplexSpatial(const CPSglobalComplexSpatial &r): CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>(r){}
+  typedef CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSglobalComplexSpatial);  
   
   //Perform the FFT
   void fft();
@@ -465,10 +482,9 @@ public:
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfieldGlobalInOneDir: public CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>{
 public:
-  INHERIT_TYPEDEFS(CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>);
-  
-  CPSfieldGlobalInOneDir(const int &dir): CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>(dir){}
-  CPSfieldGlobalInOneDir(const CPSfieldGlobalInOneDir &r): CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>(r){}
+  typedef CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfieldGlobalInOneDir);
 
   //Gather up the row. Involves internode communication
   template<typename extSiteType, typename extMapPol, typename extAllocPol>
@@ -487,21 +503,17 @@ public:
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion4DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir<FlavorPolicy>,AllocPolicy>{
 public:
-  INHERIT_TYPEDEFS(CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir<FlavorPolicy>,AllocPolicy>);
-  
-  CPSfermion4DglobalInOneDir(const int &dir): CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir<FlavorPolicy>,AllocPolicy>(dir){}
-  CPSfermion4DglobalInOneDir(const CPSfermion4DglobalInOneDir &r): CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir<FlavorPolicy>,AllocPolicy>(r){}
-
+  typedef CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir<FlavorPolicy>,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion4DglobalInOneDir);  
   DEFINE_ADDSUB_DERIVED(CPSfermion4DglobalInOneDir);
 };
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion3DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir<FlavorPolicy>,AllocPolicy>{
 public:
-  INHERIT_TYPEDEFS(CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir<FlavorPolicy>,AllocPolicy>);
-  
-  CPSfermion3DglobalInOneDir(const int &dir): CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir<FlavorPolicy>,AllocPolicy>(dir){}
-  CPSfermion3DglobalInOneDir(const CPSfermion3DglobalInOneDir &r): CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir<FlavorPolicy>,AllocPolicy>(r){}
-
+  typedef CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir<FlavorPolicy>,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion3DglobalInOneDir);
   DEFINE_ADDSUB_DERIVED(CPSfermion3DglobalInOneDir);
 };
 
@@ -510,11 +522,9 @@ public:
 template< typename mf_Complex, typename CBpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion5Dprec: public CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy>{
 public:
-  INHERIT_TYPEDEFS(CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy>);
-  
-  CPSfermion5Dprec(): CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy>(NullObject()){}
-  CPSfermion5Dprec(const CPSfermion5Dprec &r): CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy>(r){}
-
+  typedef CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion5Dprec);
   DEFINE_ADDSUB_DERIVED(CPSfermion5Dprec);
 };
 
@@ -522,21 +532,17 @@ public:
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion5Dcb4Deven: public CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>{
 public:
-  INHERIT_TYPEDEFS(CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>);
-
-  CPSfermion5Dcb4Deven(): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>(){}
-  CPSfermion5Dcb4Deven(const CPSfermion5Dcb4Deven<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>(r){}
-
+  typedef CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion5Dcb4Deven);
   DEFINE_ADDSUB_DERIVED(CPSfermion5Dcb4Deven);
 };
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion5Dcb4Dodd: public CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>{
 public:
-  INHERIT_TYPEDEFS(CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>);
-  
-  CPSfermion5Dcb4Dodd(): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>(){}
-  CPSfermion5Dcb4Dodd(const CPSfermion5Dcb4Dodd<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>(r){}
-
+  typedef CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy> BaseType;
+  INHERIT_TYPEDEFS(BaseType);
+  CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion5Dcb4Dodd);
   DEFINE_ADDSUB_DERIVED(CPSfermion5Dcb4Dodd);
 };
 
