@@ -1093,6 +1093,23 @@ void testCPSfieldDeviceCopy(){
   
   assert( Reduce(expect == *into) );  
 
+  //Test a ManagedVector<ManagedPtrWrapper>
+  ManagedVector<ManagedPtrWrapper<FermionFieldType> > vect(1);
+  vect[0] = field;
+
+  memset(into, 0, sizeof(ComplexType));
+
+  copyControl::shallow() = true;
+  accelerator_for(x, 1, nsimd,
+		  {
+		    auto v = ACC::read(* vect[0]->site_ptr(x));
+		    ACC::write(*into, v);
+		  });
+  copyControl::shallow() = false;
+
+  std::cout << "Got " << *into << " expect " << expect << std::endl;
+  
+  assert( Reduce(expect == *into) );  
 
   managed_free(into);
 }

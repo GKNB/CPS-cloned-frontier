@@ -65,44 +65,55 @@ inline void resize_3d(std::vector<std::vector<std::vector<T> > > &v, const size_
 
 
 //A vector class that uses managed memory (if available) such that the internal pointer is valid on host and device
-//The copy-constructor deep-copies the data
+//The copy-constructor deep-copies the data if copyControl::shallow() == false, otherwise it does a shallow copy
 template<typename T>
 class ManagedVector{
   T* v;
   size_t sz;
+  bool own;
 public:
   //Destructive resize
   void resize(const size_t n){
+    if(!own) ERR.General("ManagedVector","resize","Cannot resize a shallow copy");
+
     if(v) managed_free(v);
     if(n==0){ v = NULL; sz = n; return; }
     v = (T*)managed_alloc_check(n*sizeof(T));
     sz = n;
   }
-  ManagedVector(): v(NULL), sz(0){}
-  ManagedVector(const int n): v(NULL), sz(0){
+  ManagedVector(): v(NULL), sz(0), own(true){}
+  ManagedVector(const int n): v(NULL), sz(0), own(true){
     this->resize(n);
   }
   ManagedVector(const ManagedVector &r){
-    this->resize(r.sz);
-    for(int i=0;i<sz;i++) T* s = new (v + i) T(r.v[i]);
+    if(copyControl::shallow()){
+      v = r.v; sz = r.sz; own = false;
+    }else{
+      if(!own){ own = true; v = NULL; }
+
+      this->resize(r.sz);
+      for(int i=0;i<sz;i++) T* s = new (v + i) T(r.v[i]);
+    }
   }   
-  ManagedVector(ManagedVector &&r): v(r.v), sz(r.sz){
-    r.v = NULL;
+  ManagedVector(ManagedVector &&r): v(r.v), sz(r.sz), own(r.own){
+    r.v = NULL; r.own = false;
   }   
   ~ManagedVector(){
-    if(v) managed_free(v);
+    if(v && own) managed_free(v);
   }
   accelerator_inline size_t size() const{
     return sz;
   }
 
   ManagedVector & operator=(const ManagedVector &r){
+    if(!own){ own = true; v = NULL; } //relinquish shallow copy status    
     this->resize(r.sz);
     for(int i=0;i<sz;i++) T* s = new (v + i) T(r.v[i]);
     return *this;
   }
 
   ManagedVector & operator=(ManagedVector &&r){
+    if(!own){ own = true; v = NULL; } //relinquish shallow copy status    
     if(v) managed_free(v);
     v = r.v;
     sz = r.sz;
