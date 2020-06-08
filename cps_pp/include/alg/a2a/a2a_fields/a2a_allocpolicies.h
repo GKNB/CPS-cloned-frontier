@@ -18,9 +18,9 @@ template<typename mf_Policies>
 class A2AvectorV_autoAllocPolicies{
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
 protected:
-  void allocInitializeFields(std::vector<PtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
+  void allocInitializeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
     for(int i=0;i<v.size();i++){
-      v[i].set(new FermionFieldType(field_setup_params));
+      v[i].emplace(field_setup_params);
       v[i]->zero(); //initialize to zero
     }
   }
@@ -32,16 +32,16 @@ template<typename mf_Policies>
 class A2AvectorV_manualAllocPolicies{
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
   typename FermionFieldType::InputParamType field_setup_params;
-  std::vector<PtrWrapper<FermionFieldType> > *vptr;
+  ManagedVector<ManagedPtrWrapper<FermionFieldType> > *vptr;
 protected:
-  void allocInitializeFields(std::vector< PtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
+  void allocInitializeFields(ManagedVector< ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
     vptr = &v; field_setup_params = _field_setup_params;
-    for(int i=0;i<v.size();i++) v[i].set(NULL);
+    for(int i=0;i<v.size();i++) v[i].free();
   }
 public:
   void allocMode(const int i){
     if(! (*vptr)[i].assigned() ){
-      (*vptr)[i].set(new FermionFieldType(field_setup_params));
+      (*vptr)[i].emplace(field_setup_params);
       //if(!UniqueID()) printf("V allocMode %d %p\n",i,(*vptr)[i].operator->());
     }
     (*vptr)[i]->zero();
@@ -66,9 +66,9 @@ template<typename mf_Policies>
 class A2AvectorVfftw_autoAllocPolicies{
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
 protected:
-  void allocInitializeFields(std::vector<PtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
+  void allocInitializeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
     for(int i=0;i<v.size();i++){
-      v[i].set(new FermionFieldType(field_setup_params));
+      v[i].emplace(field_setup_params);
       v[i]->zero(); //initialize to zero
     }
   }
@@ -80,18 +80,18 @@ template<typename mf_Policies>
 class A2AvectorVfftw_manualAllocPolicies{
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
   typename FermionFieldType::InputParamType field_setup_params;
-  std::vector<PtrWrapper<FermionFieldType> > *vptr;
+  ManagedVector<ManagedPtrWrapper<FermionFieldType> > *vptr;
 protected:
-  void allocInitializeFields(std::vector<PtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
+  void allocInitializeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
     //if(!UniqueID()){ printf("A2AvectorVfftw_manualAllocPolicies::allocInitializeFields called\n"); fflush(stdout); }
     vptr = &v; field_setup_params = _field_setup_params;
-    for(int i=0;i<v.size();i++) v[i].set(NULL);
+    for(int i=0;i<v.size();i++) v[i].free();
   }
   
 public:
   void allocMode(const int i){
     if(! (*vptr)[i].assigned() ){
-      (*vptr)[i].set(new FermionFieldType(field_setup_params));
+      (*vptr)[i].emplace(field_setup_params);
       //if(!UniqueID()) printf("VFFT allocMode %d %p\n",i,(*vptr)[i].operator->());
     }
   }
@@ -135,11 +135,11 @@ class A2AvectorW_autoAllocPolicies{
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
   typedef typename mf_Policies::ComplexFieldType ComplexFieldType;
 protected:
-  void allocInitializeLowModeFields(std::vector<PtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
-    for(int i=0;i<v.size();i++) v[i].set(new FermionFieldType(field_setup_params));
+  void allocInitializeLowModeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
+    for(int i=0;i<v.size();i++) v[i].emplace(field_setup_params);
   }
-  void allocInitializeHighModeFields(std::vector<PtrWrapper<ComplexFieldType> > &v, const typename ComplexFieldType::InputParamType &field_setup_params){
-    for(int i=0;i<v.size();i++) v[i].set(new ComplexFieldType(field_setup_params));
+  void allocInitializeHighModeFields(ManagedVector<ManagedPtrWrapper<ComplexFieldType> > &v, const typename ComplexFieldType::InputParamType &field_setup_params){
+    for(int i=0;i<v.size();i++) v[i].emplace(field_setup_params);
   }  
 public:
   typedef AutomaticAllocStrategy FieldAllocStrategy;
@@ -153,23 +153,23 @@ class A2AvectorW_manualAllocPolicies{
   typename FermionFieldType::InputParamType lfield_setup_params;
   typename ComplexFieldType::InputParamType hfield_setup_params;
   
-  std::vector<PtrWrapper<FermionFieldType> > *lptr;
-  std::vector<PtrWrapper<ComplexFieldType> > *hptr;
+  ManagedVector<ManagedPtrWrapper<FermionFieldType> > *lptr;
+  ManagedVector<ManagedPtrWrapper<ComplexFieldType> > *hptr;
 protected:
-  void allocInitializeLowModeFields(std::vector<PtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
+  void allocInitializeLowModeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
     lptr = &v; lfield_setup_params = _field_setup_params;
-    for(int i=0;i<v.size();i++) v[i].set(NULL);
+    for(int i=0;i<v.size();i++) v[i].free();
   }
-  void allocInitializeHighModeFields(std::vector<PtrWrapper<ComplexFieldType> > &v, const typename ComplexFieldType::InputParamType &_field_setup_params){
+  void allocInitializeHighModeFields(ManagedVector<ManagedPtrWrapper<ComplexFieldType> > &v, const typename ComplexFieldType::InputParamType &_field_setup_params){
     hptr = &v; hfield_setup_params = _field_setup_params;
-    for(int i=0;i<v.size();i++) v[i].set(NULL);
+    for(int i=0;i<v.size();i++) v[i].free();
   }
 public:
   void allocLowMode(const int i){    
-    if(! (*lptr)[i].assigned() ) (*lptr)[i].set(new FermionFieldType(lfield_setup_params)); 
+    if(! (*lptr)[i].assigned() ) (*lptr)[i].emplace(lfield_setup_params); 
   }
   void allocHighMode(const int i){
-    if(! (*hptr)[i].assigned() ) (*hptr)[i].set(new ComplexFieldType(hfield_setup_params)); 
+    if(! (*hptr)[i].assigned() ) (*hptr)[i].emplace(hfield_setup_params); 
   }
   
   void freeLowMode(const int i){
@@ -199,11 +199,11 @@ template<typename mf_Policies>
 class A2AvectorWfftw_autoAllocPolicies{
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
 protected:
-  void allocInitializeLowModeFields(std::vector<PtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
-    for(int i=0;i<v.size();i++) v[i].set(new FermionFieldType(field_setup_params));
+  void allocInitializeLowModeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
+    for(int i=0;i<v.size();i++) v[i].emplace(field_setup_params);
   }
-  void allocInitializeHighModeFields(std::vector<PtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
-    for(int i=0;i<v.size();i++) v[i].set(new FermionFieldType(field_setup_params));
+  void allocInitializeHighModeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
+    for(int i=0;i<v.size();i++) v[i].emplace(field_setup_params);
   }  
   
 public:
@@ -216,24 +216,24 @@ class A2AvectorWfftw_manualAllocPolicies{
   
   typename FermionFieldType::InputParamType field_setup_params;
   
-  std::vector<PtrWrapper<FermionFieldType> > *lptr;
-  std::vector<PtrWrapper<FermionFieldType> > *hptr;
+  ManagedVector<ManagedPtrWrapper<FermionFieldType> > *lptr;
+  ManagedVector<ManagedPtrWrapper<FermionFieldType> > *hptr;
 protected:
-  void allocInitializeLowModeFields(std::vector<PtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
+  void allocInitializeLowModeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
     lptr = &v; field_setup_params = _field_setup_params;
-    for(int i=0;i<v.size();i++) v[i].set(NULL);
+    for(int i=0;i<v.size();i++) v[i].free();
   }
-  void allocInitializeHighModeFields(std::vector<PtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
+  void allocInitializeHighModeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
     hptr = &v; 
-    for(int i=0;i<v.size();i++) v[i].set(NULL);
+    for(int i=0;i<v.size();i++) v[i].free();
   }
   
 public:
   void allocLowMode(const int i){
-    if(! (*lptr)[i].assigned() ) (*lptr)[i].set(new FermionFieldType(field_setup_params)); 
+    if(! (*lptr)[i].assigned() ) (*lptr)[i].emplace(field_setup_params); 
   }
   void allocHighMode(const int i){
-    if(! (*hptr)[i].assigned() ) (*hptr)[i].set(new FermionFieldType(field_setup_params)); 
+    if(! (*hptr)[i].assigned() ) (*hptr)[i].emplace(field_setup_params); 
   }
   
   void freeLowMode(const int i){

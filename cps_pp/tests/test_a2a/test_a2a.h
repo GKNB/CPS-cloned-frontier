@@ -1111,6 +1111,34 @@ void testCPSfieldDeviceCopy(){
   
   assert( Reduce(expect == *into) );  
 
+  A2AArg a2a_arg;
+  a2a_arg.nl = 1;
+  a2a_arg.nhits = 1;
+  a2a_arg.rand_type = UONE;
+  a2a_arg.src_width = 1;
+
+  A2AvectorV<GridA2Apolicies> v(a2a_arg,simd_dims);
+  v.getMode(0) = field;
+  
+  memset(into, 0, sizeof(ComplexType));
+
+  copyControl::shallow() = true;
+  accelerator_for(x, 1, nsimd,
+		  {
+		    const ComplexType &vv = *v.getMode(0).site_ptr(x);
+		    auto v = ACC::read(vv);
+		    ACC::write(*into, v);
+		  });
+  copyControl::shallow() = false;
+
+  std::cout << "Got " << *into << " expect " << expect << std::endl;
+  
+  assert( Reduce(expect == *into) );  
+
+
+
+
+
   managed_free(into);
 }
 

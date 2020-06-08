@@ -80,6 +80,7 @@ public:
     if(n==0){ v = NULL; sz = n; return; }
     v = (T*)managed_alloc_check(n*sizeof(T));
     sz = n;
+    for(int i=0;i<sz;i++) T* s = new (v + i) T();
   }
   ManagedVector(): v(NULL), sz(0), own(true){}
   ManagedVector(const int n): v(NULL), sz(0), own(true){
@@ -88,9 +89,10 @@ public:
   ManagedVector(const ManagedVector &r){
     if(copyControl::shallow()){
       v = r.v; sz = r.sz; own = false;
+      std::cout << "ManagedVector shallow copy" << std::endl;
     }else{
       if(!own){ own = true; v = NULL; }
-
+      std::cout << "ManagedVector deep copy" << std::endl;
       this->resize(r.sz);
       for(int i=0;i<sz;i++) T* s = new (v + i) T(r.v[i]);
     }
@@ -104,6 +106,8 @@ public:
   accelerator_inline size_t size() const{
     return sz;
   }
+  //Same as resize(0)
+  inline void free(){ resize(0); }
 
   ManagedVector & operator=(const ManagedVector &r){
     if(!own){ own = true; v = NULL; } //relinquish shallow copy status    
