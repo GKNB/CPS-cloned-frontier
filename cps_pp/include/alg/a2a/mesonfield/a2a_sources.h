@@ -87,27 +87,27 @@ public:
   FieldType & getSource(){ return *src; } //For testing
 
   //Periodic modulus operation
-  inline static size_t pmod(const size_t x, const size_t Lx){
+  inline static int pmod(const int x, const int Lx){
     return x <= Lx/2 ? x : Lx-x; //   0 ... L/2-1,  L/2, L/2-1, ... 1
   }
   //Periodic coordinate relative to boundary
-  inline static size_t pcoord(const size_t x, const size_t Lx){
+  inline static int pcoord(const int x, const int Lx){
     return (x + Lx/2) % Lx - Lx/2; //   0 ... L/2-1, -L/2, 1-L/2, ... -1   includes sign. Note convention for sign at L/2
   }
 
   //Radial coordinate
-  static Float pmodr(const size_t x[3], const size_t L[3]){
+  static Float pmodr(const int x[3], const int L[3]){
     Float ssq =0.;
     for(int i=0;i<3;i++){
-      size_t sr = pmod(x[i],L[i]);
+      int sr = pmod(x[i],L[i]);
       ssq += sr*sr;
     }
     return sqrt(ssq);
   }
   
   //Spherical coordinates that know about the periodicity of the lattice  
-  static void pmodspherical(Float &r, Float &theta, Float &phi, const size_t x[3], const size_t L[3]){
-    size_t xp[3];
+  static void pmodspherical(Float &r, Float &theta, Float &phi, const int x[3], const int L[3]){
+    int xp[3];
     Float ssq = 0.;    
     for(int i=0;i<3;i++){
       xp[i] = pcoord(x[i],L[i]);
@@ -135,7 +135,7 @@ public:
   
   void fft_source(){
     assert(this->src != NULL);
-    size_t glb_size[3]; for(int i=0;i<3;i++) glb_size[i] = GJP.Nodes(i)*GJP.NodeSites(i);
+    int glb_size[3]; for(int i=0;i<3;i++) glb_size[i] = GJP.Nodes(i)*GJP.NodeSites(i);
 
     //Generate a global 4d source
     CPSglobalComplexSpatial<cps::ComplexD,OneFlavorPolicy> glb; //always of this type
@@ -143,7 +143,7 @@ public:
          
 #pragma omp_parallel for
     for(size_t i=0;i<glb.nsites();i++){
-      size_t x[3]; glb.siteUnmap(i,x); 
+      int x[3]; glb.siteUnmap(i,x); 
       *glb.site_ptr(i) = static_cast<Child const*>(this)->value(x,glb_size);
     }
     //Perform the FFT and pull out this nodes subvolume
@@ -183,9 +183,9 @@ public:
     out(0,1) = out(1,0) = typename SIMT<ComplexType>::value_type(0);    
   }
 
-  inline cps::ComplexD value(const size_t site[3], const size_t glb_size[3]) const{
+  inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
     Float r = this->pmodr(site,glb_size);
-    return ComplexD(r == 0. ? 1./(glb_size[0]*glb_size[1]*glb_size[2]) : 0.);
+    return ComplexD(r == 0. ? 1./(size_t(glb_size[0])*size_t(glb_size[1])*size_t(glb_size[2])) : 0.);
   }
 };
 
@@ -234,9 +234,9 @@ public:
   typedef typename A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
 
-  inline cps::ComplexD value(const size_t site[3], const size_t glb_size[3]) const{
+  inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
     Float v = this->pmodr(site,glb_size)/this->radius;
-    v = exp(-v)/(glb_size[0]*glb_size[1]*glb_size[2]);
+    v = exp(-v)/(size_t(glb_size[0])*size_t(glb_size[1])*size_t(glb_size[2]));
     return ComplexD(v,0);
   }
     
@@ -261,7 +261,7 @@ public:
   }
     
   
-  inline cps::ComplexD value(const size_t site[3], const size_t glb_size[3]) const{
+  inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
     assert(n>=0 && n <= 3 &&
 	   l>=0 && l <= n-1 &&
 	   abs(m) <= l);
@@ -347,9 +347,9 @@ public:
 //SrcParams is std::vector<Float> for the extents x,y,z . *These must be even numbers* (checked)
 template<typename FieldPolicies = StandardSourcePolicies>
 class A2AboxSource: public A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >{
-  size_t box_size[3];
+  int box_size[3];
 
-  void box_setup_fft(const size_t _box_size[3]){    
+  void box_setup_fft(const int _box_size[3]){    
     for(int i=0;i<3;i++){
       if(_box_size[i] % 2 == 1){
 	ERR.General("A2AboxSource","A2AboxSource","box size must be multiple of 2");
@@ -364,11 +364,11 @@ public:
   typedef typename A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
   
-  cps::ComplexD value(const size_t site[3], const size_t glb_size[3]) const{
+  cps::ComplexD value(const int site[3], const int glb_size[3]) const{
     bool inbox = true;
     size_t V = glb_size[0]*glb_size[1]*glb_size[2];
     for(int i=0;i<3;i++){ 
-      size_t bdist = this->pmod(site[i],glb_size[i]);
+      int bdist = this->pmod(site[i],glb_size[i]);
       
       if(bdist > box_size[i]){
 	inbox = false; break;
@@ -378,16 +378,16 @@ public:
       return cps::ComplexD(1./V);
   }
   
-  A2AboxSource(const size_t _box_size[3],const FieldParamType &field_params): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(field_params){
+  A2AboxSource(const int _box_size[3],const FieldParamType &field_params): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(field_params){
     this->box_setup_fft(_box_size);
   }
-  A2AboxSource(const size_t _box_size[3]): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(NullObject()){
+  A2AboxSource(const int _box_size[3]): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(NullObject()){
     this->box_setup_fft(_box_size);
   }//syntatic sugar to avoid creating a NullObject
-  A2AboxSource(const A2AboxSource &r):  A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(r){ memcpy(box_size,r.box_size,3*sizeof(size_t)); }
+  A2AboxSource(const A2AboxSource &r):  A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(r){ memcpy(box_size,r.box_size,3*sizeof(int)); }
   
   
-  void setup(const size_t _box_size[3], const FieldParamType &field_params = NullObject()){
+  void setup(const int _box_size[3], const FieldParamType &field_params = NullObject()){
     this->A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >::setup(field_params);
     this->box_setup_fft(_box_size);
   }
@@ -427,7 +427,7 @@ protected:
 
   void setup_projected_src_info(const int p[3]){
     sign = getProjSign(p);
-    size_t zero[3] = {0,0,0}; size_t L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
+    int zero[3] = {0,0,0}; int L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
     cps::ComplexD v = this->value(zero,L);
     SIMDsplat(*val000,v);    
   }

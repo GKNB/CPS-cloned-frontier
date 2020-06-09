@@ -74,6 +74,7 @@ class ManagedVector{
 public:
   //Destructive resize
   void resize(const size_t n){
+    if(n == sz) return;
     if(!own) ERR.General("ManagedVector","resize","Cannot resize a shallow copy");
 
     if(v) managed_free(v);
@@ -82,17 +83,32 @@ public:
     sz = n;
     for(int i=0;i<sz;i++) T* s = new (v + i) T();
   }
+  void resize(const size_t n, const T &init){
+    if(n == sz) return;
+    if(!own) ERR.General("ManagedVector","resize","Cannot resize a shallow copy");
+
+    if(v) managed_free(v);
+    if(n==0){ v = NULL; sz = n; return; }
+    v = (T*)managed_alloc_check(n*sizeof(T));
+    sz = n;
+    for(int i=0;i<sz;i++) T* s = new (v + i) T(init);
+  }
+
   ManagedVector(): v(NULL), sz(0), own(true){}
   ManagedVector(const int n): v(NULL), sz(0), own(true){
     this->resize(n);
   }
+  ManagedVector(const int n, const T &init): v(NULL), sz(0), own(true){
+    this->resize(n,init);
+  }
+
   ManagedVector(const ManagedVector &r){
     if(copyControl::shallow()){
       v = r.v; sz = r.sz; own = false;
       //std::cout << "ManagedVector shallow copy" << std::endl;
     }else{
       if(!own){ own = true; v = NULL; }
-      std::cout << "ManagedVector deep copy" << std::endl;
+      //std::cout << "ManagedVector deep copy" << std::endl;
       this->resize(r.sz);
       for(int i=0;i<sz;i++) T* s = new (v + i) T(r.v[i]);
     }

@@ -151,20 +151,20 @@ public:
   }
 
   //int site is the linearized N-dimension Euclidean coordinate with mapping specified by the policy class
-  accelerator_inline size_t site_offset(const size_t site, const size_t flav = 0) const{ return SiteSize*this->siteFsiteConvert(site,flav); }
-  accelerator_inline size_t site_offset(const size_t x[], const size_t flav = 0) const{ return SiteSize*this->fsiteMap(x,flav); }
+  accelerator_inline size_t site_offset(const size_t site, const int flav = 0) const{ return SiteSize*this->siteFsiteConvert(site,flav); }
+  accelerator_inline size_t site_offset(const int x[], const int flav = 0) const{ return SiteSize*this->fsiteMap(x,flav); }
 
-  accelerator_inline SiteType* site_ptr(const size_t site, const size_t flav = 0){  //site is in the internal Euclidean mapping of the MappingPolicy
+  accelerator_inline SiteType* site_ptr(const size_t site, const int flav = 0){  //site is in the internal Euclidean mapping of the MappingPolicy
     return f + SiteSize*this->siteFsiteConvert(site,flav);
   }
-  accelerator_inline SiteType* site_ptr(const size_t x[], const size_t flav = 0){ 
+  accelerator_inline SiteType* site_ptr(const int x[], const int flav = 0){ 
     return f + SiteSize*this->fsiteMap(x,flav);
   }    
 
-  accelerator_inline SiteType const* site_ptr(const size_t site, const size_t flav = 0) const{  //site is in the internal Euclidean mapping of the MappingPolicy
+  accelerator_inline SiteType const* site_ptr(const size_t site, const int flav = 0) const{  //site is in the internal Euclidean mapping of the MappingPolicy
     return f + SiteSize*this->siteFsiteConvert(site,flav);
   }
-  accelerator_inline SiteType const* site_ptr(const size_t x[], const size_t flav = 0) const{ 
+  accelerator_inline SiteType const* site_ptr(const int x[], const int flav = 0) const{ 
     return f + SiteSize*this->fsiteMap(x,flav);
   }    
  
@@ -212,8 +212,8 @@ public:
 	  size_t rem = i;
 	  size_t s = rem % SiteSize; rem /= SiteSize;
 	  size_t x = rem % this->nsites(); rem /= this->nsites();
-	  size_t flav = rem;
-	  size_t coor[MappingPolicy::EuclideanDimension]; this->siteUnmap(x,coor);
+	  int flav = rem;
+	  int coor[MappingPolicy::EuclideanDimension]; this->siteUnmap(x,coor);
 	  std::ostringstream os; for(int a=0;a<MappingPolicy::EuclideanDimension;a++) os << coor[a] << " ";
 	  std::string coor_str = os.str();
 	  

@@ -22,7 +22,7 @@ public:
   static void copy(CPSfield<TypeA,SiteSize,MapPolA,AllocPolA> &into,
 		   const CPSfield<TypeB,SiteSize,MapPolB,AllocPolB> &from, IncludeSite<MapPolB::EuclideanDimension> const* fromsitemask){
 #pragma omp parallel for
-    for(int fs=0;fs<into.nfsites();fs++){
+    for(size_t fs=0;fs<into.nfsites();fs++){
       int x[5], f; into.fsiteUnmap(fs,x,f); //doesn't matter if the linearization differs between the two
       if(fromsitemask == NULL || fromsitemask->query(x,f)){
 	TypeA* toptr = into.fsite_ptr(fs);
@@ -62,10 +62,10 @@ public:
     typedef typename GridSIMDTypeA::scalar_type GridTypeScalar;
 
     std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim));
-    for(int i=0;i<nsimd;i++) into.SIMDunmap(i,&packed_offsets[i][0]);
+    for(int i=0;i<nsimd;i++) into.SIMDunmap(i,packed_offsets[i].data());
     
 #pragma omp parallel for
-    for(int fs=0;fs<into.nfsites();fs++){
+    for(size_t fs=0;fs<into.nfsites();fs++){
       int x[ndim], f; into.fsiteUnmap(fs,x,f); //this is the root coordinate for lane 0
       GridSIMDTypeA * toptr = into.fsite_ptr(fs);
 
@@ -102,7 +102,7 @@ public:
     typedef typename GridSIMDTypeB::scalar_type GridTypeScalar;
     
 #pragma omp parallel for
-    for(int fs=0;fs<into.nfsites();fs++){
+    for(size_t fs=0;fs<into.nfsites();fs++){
       int x[ndim], f; into.fsiteUnmap(fs,x,f);
       TypeA* toptr = into.fsite_ptr(fs);
       
@@ -211,7 +211,7 @@ struct dimensionMap<4>{
 };
 
 //Local coordinate *in Grid's dimension ordering* (cf above)
-inline void getLocalLatticeCoord(std::vector<int> &lcoor, const int oidx, const int iidx, Grid::GridBase const* grid, const int checkerboard){
+inline void getLocalLatticeCoord(std::vector<int> &lcoor, const size_t oidx, const size_t iidx, Grid::GridBase const* grid, const int checkerboard){
   Grid::GridBase* gridc = const_cast<Grid::GridBase*>(grid); //the lookup functions are not const for some reason
   const int Nd = grid->Nd();
   Grid::Coordinate ocoor(Nd);
@@ -231,11 +231,12 @@ inline void getLocalLatticeCoord(std::vector<int> &lcoor, const int oidx, const 
       checker_dim = mu;
     }
   }
+
   if(checker_dim != -1 && gridc->CheckerBoard(lcoor) != checkerboard) lcoor[checker_dim] += 1;
 }
 //Local coordinate in canonical x,y,z,t,s ordering
 template<int Nd>
-inline void getLocalCanonicalLatticeCoord(std::vector<int> &lcoor, const int oidx, const int iidx, Grid::GridBase const* grid, const int checkerboard){
+inline void getLocalCanonicalLatticeCoord(std::vector<int> &lcoor, const size_t oidx, const size_t iidx, Grid::GridBase const* grid, const int checkerboard){
   assert(grid->Nd() == Nd);
   static dimensionMap<Nd> dim_map;
   std::vector<int> lcoor_grid(Nd);
@@ -263,7 +264,7 @@ public:
     dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
 
 #pragma omp parallel for
-    for(int site=0;site<into.nsites();site++){
+    for(size_t site=0;site<into.nsites();site++){
       std::vector<int> x(Nd);
       into.siteUnmap(site, &x[0]);
 
@@ -298,7 +299,7 @@ public:
     auto oview = into.View();
 
 #pragma omp parallel for
-    for(int out_oidx=0;out_oidx<into.Grid()->oSites();out_oidx++){
+    for(size_t out_oidx=0;out_oidx<into.Grid()->oSites();out_oidx++){
       std::vector<int> lcoor_cps(Nd);
 
       for(int lane=0;lane<Nsimd;lane++){
