@@ -13,7 +13,8 @@ int BlockedMesonFieldArgs::bpp(MF_COMPUTE_BPP);
 
 bool BlockedMesonFieldArgs::enable_profiling(false);  
 
-int BlockedvMvOffloadArgs::b(100);
+//Appears to do quite well on a Quadro GV100 with 8^4 local volume. Outer block size (b) should be reduced if you hit memory caps for your local volume
+int BlockedvMvOffloadArgs::b(800);
 int BlockedvMvOffloadArgs::bb(24);
 
 CPS_END_NAMESPACE
