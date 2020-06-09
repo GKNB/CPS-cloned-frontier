@@ -853,10 +853,10 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
 
     //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
     total_time_field_offload -= dclock();
-    typedef _mult_vMv_field_offload_v<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw, grid_vector_complex_mark> offload;
-    typename offload::PropagatorField pfield(simd_dims);
+    typedef typename mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw>::PropagatorField PropagatorField;
+    PropagatorField pfield(simd_dims);
     
-    offload::v5(pfield, Vgrid, mf_grid, Wgrid, false, true);
+    mult(pfield, Vgrid, mf_grid, Wgrid, false, true);
     total_time_field_offload += dclock();
 
     CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
@@ -929,10 +929,10 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
 #endif
 }
 
-// std::ostream & operator<<(std::ostream &os, const std::pair<int,int> &p){
-//   os << "(" << p.first << ", " << p.second << ")";
-//   return os;
-// }
+std::ostream & operator<<(std::ostream &os, const std::pair<int,int> &p){
+  os << "(" << p.first << ", " << p.second << ")";
+  return os;
+}
 
 template<typename T>
 void _expect_eq(const T &a, const T &b, const char* file, const int line){

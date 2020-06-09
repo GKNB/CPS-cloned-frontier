@@ -7,6 +7,6 @@
 #include "linalg/mesonfield_mult_vMv_split_grid.h"
 #include "linalg/mesonfield_mult_vMv_split_lite.h"
 #include "linalg/mesonfield_mult_vMv_split_lite_shrbuf.h"
-
+#include "linalg/mesonfield_mult_vMv_field.h"
 
 #endif

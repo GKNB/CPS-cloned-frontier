@@ -36,8 +36,6 @@ void cudaProfilerStart(){}
 void cudaProfilerStop(){}
 #endif
 
-#include <alg/a2a/mesonfield/linalg/mesonfield_mult_vMv_field_offload.h>
-
 CPS_START_NAMESPACE
 
 inline int toInt(const char* a){
@@ -4016,8 +4014,9 @@ void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int
   mf_grid.setup(Wgrid,Vgrid,0,0);     
   mf_grid.testRandom();
   
-  typedef _mult_vMv_field_offload_v<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw, grid_vector_complex_mark> offload;
-  typename offload::PropagatorField pfield(simd_dims);
+  typedef mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> offload;
+  typedef typename offload::PropagatorField PropagatorField;
+  PropagatorField pfield(simd_dims);
   
   Float total_time_field_offload = 0.;
   mult_vMv_field_offload_timers::get().reset();
@@ -4025,7 +4024,7 @@ void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int
   for(int i=0;i<ntests;i++){
     if(!UniqueID()){ printf("."); fflush(stdout); }
     total_time_field_offload -= dclock();    
-    offload::v5(pfield, Vgrid, mf_grid, Wgrid, false, true);
+    mult(pfield, Vgrid, mf_grid, Wgrid, false, true);
     total_time_field_offload += dclock();
   }
   if(!UniqueID()){ printf("\n"); fflush(stdout); }

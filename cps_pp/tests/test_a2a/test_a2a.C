@@ -1,7 +1,5 @@
 #include <alg/a2a/ktopipi_gparity.h>
 
-#include <alg/a2a/mesonfield/linalg/mesonfield_mult_vMv_field_offload.h>
-
 using namespace cps;
 
 #include "test_a2a.h"

@@ -5,16 +5,22 @@
 
 CPS_START_NAMESPACE
 
-std::ostream & operator<<(std::ostream &os, const std::pair<int,int> &p){
-  os << '(' << p.first << "," << p.second << ')';
-  return os;
-}
+// std::ostream & operator<<(std::ostream &os, const std::pair<int,int> &p){
+//   os << '(' << p.first << "," << p.second << ')';
+//   return os;
+// }
 
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,
 	 typename ComplexClass>
 class _mult_vMv_field_offload_v{};
+
+template<typename mf_Policies, 
+	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR>
+using mult_vMv_field = _mult_vMv_field_offload_v<mf_Policies, lA2AfieldL, lA2AfieldR, rA2AfieldL, rA2AfieldR, typename ComplexClassify<typename mf_Policies::ComplexType>::type >;
+
 
 #ifdef USE_GRID
 
@@ -172,6 +178,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 		 const MesonFieldType &M,
 		 const rA2AfieldType &r,
 		 bool conj_l, bool conj_r){
+    if(!UniqueID()) std::cout << "Starting field vMv multiplication" << std::endl;
+
     mult_vMv_field_offload_timers::timers &time = mult_vMv_field_offload_timers::get();
 
     ++time.calls;
@@ -299,12 +307,14 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     VectorComplexType* vbprime = (VectorComplexType*)managed_alloc_check(vbprime_bytes);
     VectorComplexType* Mprime = (VectorComplexType*)managed_alloc_check(Mprime_bytes);
     VectorComplexType* Mvbprime = (VectorComplexType*)managed_alloc_check(vaprime_bytes);
-
-    std::cout << "Outer block size " << blocksize << " inner blocksize " << inner_blocksize << std::endl;
-    std::cout << "vaprime " << double(vaprime_bytes)/1024./1024. << " MB" << std::endl;
-    std::cout << "vbprime " << double(vbprime_bytes)/1024./1024. << " MB" << std::endl;
-    std::cout << "Mprime " << double(Mprime_bytes)/1024./1024. << " MB" << std::endl;
-    std::cout << "Mvbprime " << double(vaprime_bytes)/1024./1024. << " MB" << std::endl;
+    
+    if(!UniqueID()){
+      std::cout << "Outer block size " << blocksize << " inner blocksize " << inner_blocksize << std::endl;
+      std::cout << "vaprime " << double(vaprime_bytes)/1024./1024. << " MB" << std::endl;
+      std::cout << "vbprime " << double(vbprime_bytes)/1024./1024. << " MB" << std::endl;
+      std::cout << "Mprime " << double(Mprime_bytes)/1024./1024. << " MB" << std::endl;
+      std::cout << "Mvbprime " << double(vaprime_bytes)/1024./1024. << " MB" << std::endl;
+    }
 
     //Do in blocks over i',j' to avoid taking too much space
     size_t niprime_blocks = (niprime + blocksize-1)/blocksize;
@@ -500,7 +510,13 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   }//end of func
     
 
-
+  static void implementation(PropagatorField &into,
+			     const lA2AfieldType &l,
+			     const MesonFieldType &M,
+			     const rA2AfieldType &r,
+			     bool conj_l, bool conj_r){
+    return optimized(into, l, M, r, conj_l, conj_r);
+  }
 
 };
 
