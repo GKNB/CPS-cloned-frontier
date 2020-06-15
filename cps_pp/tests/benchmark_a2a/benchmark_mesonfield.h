@@ -3937,47 +3937,100 @@ void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int
 
   int nf = GJP.Gparity() + 1;
 
-  //Count flops
-  //\sum_i\sum_j v(il)_{scl,fl}(x)  M(ir, jl) * v(jr)_{scr,fr}(x)
+  //Count flops (over all nodes)
+  //\sum_i\sum_j v(il)_{scl,fl}(x)  M(ir, jl) * v(jr)_{scr,fr}(x)  for all t, x3d
+
+  //Simple method
+  //for(int x4d=0;x4d<vol4d;x4d++)
+  // for(int scl=0;scl<12;scl++)
+  //  for(int fl=0;fl<nf;fl++)
+  //   for(int scr=0;scl<12;scl++)
+  //    for(int fr=0;fr<nf;fr++)
+  //     for(int i=0;i<ni;i++)
+  //      for(int j=0;j<nj;j++)
+  //        out(fl,scl; fr, scr)(x) += v(il[i])_{scl,fl}(x) * M(ir[i], jl[j]) * v(jr[j])_{scr,fr}(x)     
+  //
+  //vol4d * 12*nf * 12*nf * ni * nj * 14 flops
+  
+
+
+  //Split method
+  //for(int x4d=0;x4d<vol4d;x4d++)
+  // for(int scr=0;scr<12;scr++)
+  //  for(int fr=0;fr<nf;fr++)
+  //    for(int i=0;i<ni;i++)
+  //     for(int j=0;j<nj;j++)
+  //        Mr(ir[i])_{scr,fr}(x)   +=   M(ir[i], jl[j]) * v(jr[j])_{scr,fr}(x) 
+  //
+  //vol4d * 12 * nf *  ni * nj * 8 flops
+
+  //+
+
+  //for(int x4d=0;x4d<vol4d;x4d++)
+  // for(int scl=0;scl<12;scl++)
+  //  for(int fl=0;fl<nf;fl++)
+  //   for(int scr=0;scl<12;scl++)
+  //    for(int fr=0;fr<nf;fr++)
+  //     for(int i=0;i<ni;i++)
+  //        out(fl,scl; fr, scr)(x) += v(il[i])_{scl,fl}(x) * Mr(ir[i])_{scr,fr}(x)    
+  //vol4d * 12 * nf * 12 * nf *  ni * 8 flops   
+
+
+  //vol4d * 12 * nf * ni * ( nj * 8 + 12*nf*ni *8)
+
+
   ModeContractionIndices<typename offload::iLeftDilutionType, typename offload::iRightDilutionType> i_ind(Vgrid);
   ModeContractionIndices<typename offload::jLeftDilutionType, typename offload::jRightDilutionType> j_ind(Vgrid);
-  size_t t_off = GJP.TnodeSites() * GJP.TnodeCoor();
-  size_t Flops_per_3dsite = 0;
-  for(int t=0;t<GJP.TnodeSites();t++){
-    int t_glob = t + t_off;
-    
+  size_t Flops = 0;
+  for(int t_glob=0;t_glob<GJP.TnodeSites()*GJP.Tnodes();t_glob++){
     modeIndexSet ilp, irp, jlp, jrp;
     ilp.time = jrp.time = t_glob;
     irp.time = mf_grid.getRowTimeslice();
     jlp.time = mf_grid.getColTimeslice();
     
+    //ni is actually a function of scl, fl, but we can work out exactly which ir are used for any of the scl,fl
+    std::set<int> ir_used;
     for(int fl=0;fl<nf;fl++){
       ilp.flavor = irp.flavor = fl;
-      for(int sl=0;sl<4;sl++){
-	for(int cl=0;cl<3;cl++){
-	  size_t ni = i_ind.getIndexVector(ilp,irp).size();
-	  
-	  for(int fr=0;fr<nf;fr++){
-	    jlp.flavor = jrp.flavor = fr;
-	    for(int sr=0;sr<4;sr++){
-	      for(int cr=0;cr<3;cr++){				    
-		size_t nj = j_ind.getIndexVector(jlp,jrp).size();
+      for(int scl=0;scl<12;scl++){
+	ilp.spin_color = irp.spin_color = scl;
+	auto const &ivec = i_ind.getIndexVector(ilp,irp);
+	for(int i=0;i<ivec.size();i++)
+	  ir_used.insert(ivec[i].second);
+      }
+    }
+    for(int fr=0;fr<nf;fr++){
+      jlp.flavor = jrp.flavor = fr;
+      for(int scr=0;scr<12;scr++){
+	jlp.spin_color = jrp.spin_color = scr;
+	size_t nj = j_ind.getIndexVector(jlp,jrp).size();
+	
+	Flops += ir_used.size() * nj * 8;
+      }
+    }
 
-		Flops_per_3dsite +=  ni * nj * 14; //z = z + z*(z*z)   z*z=6flops
-	      }
-	    }
+    for(int fr=0;fr<nf;fr++){
+      for(int scr=0;scr<12;scr++){
+	
+	for(int fl=0;fl<nf;fl++){
+	  ilp.flavor = irp.flavor = fl;
+	  for(int scl=0;scl<12;scl++){
+	    ilp.spin_color = irp.spin_color = scl;
+	    size_t ni = i_ind.getIndexVector(ilp,irp).size();
+	    
+	    Flops += ni * 8;
 	  }
 	}
       }
     }
   }
-  size_t Flops = Flops_per_3dsite * GJP.VolNodeSites()/GJP.TnodeSites();
+  Flops *= GJP.TotalNodes()*GJP.VolNodeSites()/GJP.TnodeSites(); //the above is done for every 3d site
 
   double tavg = total_time_field_offload/ntests;
   double Mflops = double(Flops)/tavg/1024./1024.;
 
   if(!UniqueID()){
-    printf("vMv: Avg time offload %d iters: %g secs  perf %g Mflops\n",ntests,tavg,Mflops);
+    printf("vMv: Avg time offload %d iters: %g secs  perf %f Mflops\n",ntests,tavg,Mflops);
     printf("vMv offload timings:\n");
     mult_vMv_field_offload_timers::get().print();
   }
@@ -3986,6 +4039,69 @@ void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int
 
 
 
+
+template<typename GridA2Apolicies>
+void benchmarkVVgridOffload(const A2AArg &a2a_args, const int ntests, const int nthreads){
+  std::cout << "Starting vv benchmark\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+
+  A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
+  A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
+
+  Wgrid.testRandom();
+  Vgrid.testRandom();
+  
+  typedef mult_vv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw> offload;
+  typedef typename offload::PropagatorField PropagatorField;
+  PropagatorField pfield(simd_dims);
+      
+  Float total_time_field_offload = 0;
+
+  for(int iter=0;iter<ntests;iter++){
+    total_time_field_offload -= dclock();    
+    mult(pfield, Vgrid, Wgrid, false, true);
+    total_time_field_offload += dclock();
+  }
+
+
+  int nf = GJP.Gparity() + 1;
+
+  //Count flops (over all nodes)
+  //\sum_i v(il)_{scl,fl}(x) * v(ir)_{scr,fr}(x) for all t, x3d
+  ModeContractionIndices<typename offload::leftDilutionType, typename offload::rightDilutionType> i_ind(Vgrid);
+  size_t Flops = 0;
+  for(int t_glob=0;t_glob<GJP.TnodeSites()*GJP.Tnodes();t_glob++){
+    modeIndexSet ilp, irp, jlp, jrp;
+    ilp.time = irp.time = t_glob;
+    
+    for(ilp.flavor=0;ilp.flavor<nf;ilp.flavor++){
+      for(ilp.spin_color=0;ilp.spin_color<12;ilp.spin_color++){
+	for(irp.flavor=0;irp.flavor<nf;irp.flavor++){
+	  for(irp.spin_color=0;irp.spin_color<12;irp.spin_color++){
+	    size_t ni = i_ind.getIndexVector(ilp,irp).size();
+	    Flops +=  ni * 8; //z = z + (z*z)   z*z=6flops
+	  }
+	}
+      }
+    }
+  }
+  Flops *= GJP.TotalNodes()*GJP.VolNodeSites()/GJP.TnodeSites(); //the above is done for every global 3d site
+
+  double tavg = total_time_field_offload/ntests;
+  double Mflops = double(Flops)/tavg/1024./1024.;
+
+  printf("vv: Avg time field offload code %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
+
+  if(!UniqueID()){
+    printf("vv offload timings:\n");
+    mult_vv_field_offload_timers::get().print();
+  }
+
+}
 
 
 
