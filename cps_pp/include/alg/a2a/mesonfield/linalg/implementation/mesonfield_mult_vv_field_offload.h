@@ -164,7 +164,10 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     //v'(i')_{scl, fl}(x) = v(il[i'])_{scl, fl}(x)
     //v'(i')_{scr, fr}(x) = v(ir[i'])_{scr, fr}(x)
 
-    std::set<std::pair<int,int> > il_ir_pairs_s;
+    int lmodes = l.getNmodes();
+    int rmodes = r.getNmodes();
+    std::vector<std::vector<bool> > il_ir_used(lmodes, std::vector<bool>(rmodes,false));  
+
     {
       modeIndexSet ilp, irp;
       for(int tv=0;tv<Lt;tv++){
@@ -175,24 +178,34 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 	      for(irp.spin_color=0; irp.spin_color<12; irp.spin_color++){
 		
 		const ModeMapType &i_ind_pairs = i_ind.getIndexVector(ilp,irp);
-		for(int i=0;i<i_ind_pairs.size();i++) il_ir_pairs_s.insert(i_ind_pairs[i]);	    
+		for(int i=0;i<i_ind_pairs.size();i++)
+		  il_ir_used[ i_ind_pairs[i].first ][ i_ind_pairs[i].second ] = true;
 	      }
 	    }
 	  }
 	}
       }
     }
-    
-    ManagedVector< std::pair<int,int> > il_ir_pairs(il_ir_pairs_s.size());
-    std::map<std::pair<int,int>, int> il_ir_pairs_index_map;
-    int ii=0;
-    for(auto it=il_ir_pairs_s.begin(); it != il_ir_pairs_s.end(); it++){
-      il_ir_pairs[ii] = *it;
-      il_ir_pairs_index_map[*it] = ii;
-      ++ii;
-    }
-    int nil_ir_pairs = il_ir_pairs.size();
+    //Count
+    int nil_ir_pairs = 0;
+    for(int ll=0;ll<lmodes;ll++)
+      for(int rr=0;rr<rmodes;rr++)
+	if(il_ir_used[ll][rr])
+	  ++nil_ir_pairs;
 
+    //Map
+    ManagedVector< std::pair<int,int> > il_ir_pairs(nil_ir_pairs);
+    std::vector<std::vector<int> > il_ir_pairs_index_map(lmodes, std::vector<int>(rmodes)); 
+    int ii=0;
+    for(int ll=0;ll<lmodes;ll++){
+      for(int rr=0;rr<rmodes;rr++){
+	if(il_ir_used[ll][rr]){
+	  il_ir_pairs[ii] = std::pair<int,int>(ll,rr);
+	  il_ir_pairs_index_map[ll][rr] = ii;
+	  ++ii;
+	}
+      }
+    }
 
     //Construct the mask
     ManagedVector<uint8_t> alpha(nil_ir_pairs*12*nf*12*nf*Lt,0); //map as  i' + ni' * (scr + 12*(fr + nf*( scl + 12*(fl + nf*t)  ) ) )
@@ -209,7 +222,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 		const ModeMapType &i_ind_pairs = i_ind.getIndexVector(ilp,irp);
 		for(int i=0;i<i_ind_pairs.size();i++){
 		  const std::pair<int, int> &pair = i_ind_pairs[i];
-		  int pair_idx = il_ir_pairs_index_map[pair];
+		  int pair_idx = il_ir_pairs_index_map[pair.first][pair.second];
 		  size_t alpha_idx = pair_idx + nil_ir_pairs * (irp.spin_color + 12*(irp.flavor + nf*( ilp.spin_color + 12*(ilp.flavor + nf*tv)  ) ) );
 		  alpha[alpha_idx] = 1;
 		}

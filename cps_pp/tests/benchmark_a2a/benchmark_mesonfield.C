@@ -207,7 +207,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #endif
 
 #ifdef USE_GRID
-  if(1) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(0) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(1) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 #endif
 }
