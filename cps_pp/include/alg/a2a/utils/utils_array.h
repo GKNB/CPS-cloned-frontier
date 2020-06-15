@@ -143,6 +143,8 @@ public:
 
   accelerator_inline T & operator[](const size_t i){ return v[i]; }
   accelerator_inline const T & operator[](const size_t i) const{ return v[i]; }
+  accelerator_inline T* data(){ return v; }
+  accelerator_inline T const* data() const{ return v; }
 };
 
 

@@ -1143,6 +1143,142 @@ void testCPSfieldDeviceCopy(){
 }
 
 
+
+template<typename ScalarA2Apolicies, typename GridA2Apolicies>
+void testVVgridOrig(const A2AArg &a2a_args, const int ntests, const int nthreads, const double tol){
+  std::cout << "Starting vv test/timing\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
+  A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
+    
+  A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
+  A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
+
+  W.testRandom();
+  V.testRandom();
+  Wgrid.importFields(W);
+  Vgrid.importFields(V);
+  
+  typedef typename GridA2Apolicies::ComplexType grid_Complex;
+  typedef typename ScalarA2Apolicies::ComplexType mf_Complex;
+      
+  Float total_time = 0.;
+  Float total_time_orig = 0.;
+  Float total_time_field_offload = 0;
+  CPSspinColorFlavorMatrix<mf_Complex> orig_sum[nthreads];
+  CPSspinColorFlavorMatrix<grid_Complex> grid_sum[nthreads];
+
+  CPSspinColorFlavorMatrix<mf_Complex> orig_tmp[nthreads];
+  CPSspinColorFlavorMatrix<grid_Complex> grid_tmp[nthreads];
+
+  int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
+  int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
+      
+  for(int iter=0;iter<ntests;iter++){
+    for(int i=0;i<nthreads;i++){
+      orig_sum[i].zero(); grid_sum[i].zero();
+    }
+	
+    for(int top = 0; top < GJP.TnodeSites(); top++){
+      //std::cout << "top " << top << std::endl;
+      //std::cout << "Starting orig\n";
+      total_time_orig -= dclock();	  
+#pragma omp parallel for
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult(orig_tmp[me], V, W, xop, top, false, true);
+	orig_sum[me] += orig_tmp[me];
+      }
+      total_time_orig += dclock();
+      //std::cout << "Starting Grid\n";
+      total_time -= dclock();
+#pragma omp parallel for
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult(grid_tmp[me], Vgrid, Wgrid, xop, top, false, true);
+	grid_sum[me] += grid_tmp[me];
+      }
+      total_time += dclock();	  
+    }
+    for(int i=1;i<nthreads;i++){
+      orig_sum[0] += orig_sum[i];
+      grid_sum[0] += grid_sum[i];
+    }
+
+    //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
+    total_time_field_offload -= dclock();
+    typedef typename mult_vv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw>::PropagatorField PropagatorField;
+    PropagatorField pfield(simd_dims);
+    
+    mult(pfield, Vgrid, Wgrid, false, true);
+    total_time_field_offload += dclock();
+
+    CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
+    vmv_offload_sum4.zero();
+    for(size_t i=0;i<pfield.size();i++){
+      vmv_offload_sum4 += *pfield.fsite_ptr(i);
+    }
+	
+    bool fail = false;
+	
+    typename GridA2Apolicies::ScalarComplexType gd;
+    for(int sl=0;sl<4;sl++)
+      for(int cl=0;cl<3;cl++)
+	for(int fl=0;fl<2;fl++)
+	  for(int sr=0;sr<4;sr++)
+	    for(int cr=0;cr<3;cr++)
+	      for(int fr=0;fr<2;fr++){
+		gd = Reduce( grid_sum[0](sl,sr)(cl,cr)(fl,fr) );
+		const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
+
+		double rdiff = fabs(gd.real()-cp.real());
+		double idiff = fabs(gd.imag()-cp.imag());
+		if(rdiff > tol|| idiff > tol){
+		  printf("Fail: Iter %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+		  fail = true;
+		}
+	      }
+
+    if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");
+
+
+    for(int sl=0;sl<4;sl++)
+      for(int cl=0;cl<3;cl++)
+	for(int fl=0;fl<2;fl++)
+	  for(int sr=0;sr<4;sr++)
+	    for(int cr=0;cr<3;cr++)
+	      for(int fr=0;fr<2;fr++){
+		gd = Reduce( vmv_offload_sum4(sl,sr)(cl,cr)(fl,fr) );
+		const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
+
+		double rdiff = fabs(gd.real()-cp.real());
+		double idiff = fabs(gd.imag()-cp.imag());
+		if(rdiff > tol|| idiff > tol){
+		  printf("Fail: Iter %d Grid field offload (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+		  fail = true;
+		}
+	      }
+
+    if(fail) ERR.General("","","Standard vs Grid field offload implementation test failed\n");
+  }
+
+  printf("vv: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
+  printf("vv: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+  printf("vv: Avg time field offload code %d iters: %g secs\n",ntests,total_time_field_offload/ntests);
+
+  if(!UniqueID()){
+    printf("vv offload timings:\n");
+    mult_vv_field_offload_timers::get().print();
+  }
+
+}
+
+
 #endif //USE_GRID
 
 #endif
