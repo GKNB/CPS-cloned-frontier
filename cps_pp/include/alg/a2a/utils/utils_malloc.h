@@ -127,7 +127,7 @@ inline void* device_alloc_check(const size_t align, const size_t byte_size){
   auto err = cudaMalloc(&p,byte_size);
   if( err != cudaSuccess ) {
     p = (void*)NULL;
-    std::cerr << "device_alloc_check: cudaMallocManaged failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
+    std::cerr << "device_alloc_check: cudaMalloc failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
     printMem("malloc failed",UniqueID());
     assert(0);
   }
@@ -143,7 +143,7 @@ inline void* device_alloc_check(const size_t byte_size){
   auto err = cudaMalloc(&p,byte_size);
   if( err != cudaSuccess ) {
     p = (void*)NULL;
-    std::cerr << "device_alloc_check: cudaMallocManaged failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
+    std::cerr << "device_alloc_check: cudaMalloc failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
     printMem("malloc failed",UniqueID());
     assert(0);
   }
@@ -158,6 +158,56 @@ inline void device_free(void* p){
   auto err = cudaFree(p);
   if( err != cudaSuccess ) {
     std::cerr << "device_free: cudaFree failed with error " <<cudaGetErrorString(err)<< std::endl;
+    assert(0);
+  }  
+#else
+  free(p);
+#endif
+}
+
+
+
+
+
+
+//Allocate pinned memory on host if in use; otherwise do memalign
+inline void* pinned_alloc_check(const size_t align, const size_t byte_size){
+#ifdef GRID_NVCC
+  void *p;
+  auto err = cudaMallocHost(&p,byte_size);
+  if( err != cudaSuccess ) {
+    p = (void*)NULL;
+    std::cerr << "pinned_alloc_check: cudaHostMalloc failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
+    printMem("malloc failed",UniqueID());
+    assert(0);
+  }
+  return p;
+#else
+  return memalign_check(align, byte_size);
+#endif
+}
+
+inline void* pinned_alloc_check(const size_t byte_size){
+#ifdef GRID_NVCC
+  void *p;
+  auto err = cudaMallocHost(&p,byte_size);
+  if( err != cudaSuccess ) {
+    p = (void*)NULL;
+    std::cerr << "device_alloc_check: cudaHostMalloc failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
+    printMem("malloc failed",UniqueID());
+    assert(0);
+  }
+  return p;
+#else
+  return malloc_check(byte_size);
+#endif
+}
+
+inline void pinned_free(void* p){
+#ifdef GRID_NVCC
+  auto err = cudaFreeHost(p);
+  if( err != cudaSuccess ) {
+    std::cerr << "pinned_free: cudaFree failed with error " <<cudaGetErrorString(err)<< std::endl;
     assert(0);
   }  
 #else

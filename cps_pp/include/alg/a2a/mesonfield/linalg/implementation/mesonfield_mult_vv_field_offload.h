@@ -243,6 +243,10 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
     VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
     VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
+
+    VectorComplexType* vaprime_host = (VectorComplexType*)memalign_check(128,vprime_bytes);
+    VectorComplexType* vbprime_host = (VectorComplexType*)memalign_check(128,vprime_bytes);
+
     
     if(!UniqueID()){
       std::cout << "Outer block size " << blocksize << " inner blocksize " << inner_blocksize << std::endl;
@@ -267,14 +271,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
       //Create va' and vb'
       {	
-	for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
-	  cudaMemPrefetchAsync(l.getMode(il_ir_pairs[iprime].first).ptr(), l.getMode(il_ir_pairs[iprime].first).byte_size(), device, NULL);
-	  cudaMemPrefetchAsync(r.getMode(il_ir_pairs[iprime].second).ptr(), r.getMode(il_ir_pairs[iprime].second).byte_size(), device, NULL);
-	}
-	cudaMemPrefetchAsync(il_ir_pairs.data(), il_ir_pairs.byte_size(), device, NULL);
-
-	copyControl::shallow() = true;
-	accelerator_for(x4d, vol4d, nsimd,
+	thread_for(x4d, vol4d,
 			{
 			  size_t xop; int top;
 			  into.fourToThree(xop, top, x4d);
@@ -285,13 +282,13 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			      for(int sc=0;sc<12;sc++){
 
 				{
-				  VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index 
+				  VectorComplexType *into = vaprime_host +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index
 				  value_type val = ACC::read(l.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f));
 				  val = conj_l ? Grid::conjugate(val) : val;
 				  ACC::write(*into, val);
 				}
 				{
-				  VectorComplexType *into = vbprime + iprimeb + niprime_block*( sc + 12*(f + nf*x4d) );  //contiguous in summed index
+				  VectorComplexType *into = vbprime_host + iprimeb + niprime_block*( sc + 12*(f + nf*x4d) );  //contiguous in summed index
 				  value_type val = ACC::read(r.nativeElem(il_ir_pairs[iprime].second, x4d, sc, f));
 				  val = conj_r ? Grid::conjugate(val) : val;
 				  ACC::write(*into, val);
@@ -301,7 +298,44 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			    }
 			  }
 			});
-	copyControl::shallow() = false;
+
+
+	/* for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){ */
+	/*   cudaMemPrefetchAsync(l.getMode(il_ir_pairs[iprime].first).ptr(), l.getMode(il_ir_pairs[iprime].first).byte_size(), device, NULL); */
+	/*   cudaMemPrefetchAsync(r.getMode(il_ir_pairs[iprime].second).ptr(), r.getMode(il_ir_pairs[iprime].second).byte_size(), device, NULL); */
+	/* } */
+	/* cudaMemPrefetchAsync(il_ir_pairs.data(), il_ir_pairs.byte_size(), device, NULL); */
+
+	/* copyControl::shallow() = true; */
+	/* accelerator_for(x4d, vol4d, nsimd, */
+	/* 		{ */
+	/* 		  size_t xop; int top; */
+	/* 		  into.fourToThree(xop, top, x4d); */
+	/* 		  int t_glob = top + t_off; */
+	/* 		  for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){ */
+	/* 		    size_t iprimeb = iprime - iprimestart; */
+	/* 		    for(int f=0;f<nf;f++){ */
+	/* 		      for(int sc=0;sc<12;sc++){ */
+
+	/* 			{ */
+	/* 			  VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index  */
+	/* 			  value_type val = ACC::read(l.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f)); */
+	/* 			  val = conj_l ? Grid::conjugate(val) : val; */
+	/* 			  ACC::write(*into, val); */
+	/* 			} */
+	/* 			{ */
+	/* 			  VectorComplexType *into = vbprime + iprimeb + niprime_block*( sc + 12*(f + nf*x4d) );  //contiguous in summed index */
+	/* 			  value_type val = ACC::read(r.nativeElem(il_ir_pairs[iprime].second, x4d, sc, f)); */
+	/* 			  val = conj_r ? Grid::conjugate(val) : val; */
+	/* 			  ACC::write(*into, val); */
+	/* 			} */
+
+	/* 		      } */
+	/* 		    } */
+	/* 		  } */
+	/* 		}); */
+	/* copyControl::shallow() = false; */
+
       }
       time.init2 += dclock();
 
@@ -311,6 +345,9 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
       {
 	cudaMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
 	cudaMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
+	cudaMemcpy(vaprime, vaprime_host, vprime_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(vbprime, vbprime_host, vprime_bytes, cudaMemcpyHostToDevice);
+
 
 	copyControl::shallow() = true;
 	accelerator_for(x4d, vol4d, nsimd,
@@ -343,10 +380,13 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 					uint8_t const* alptr = alpha.data() + iprimestart + iprimeb_start + niprime * ( scr + 12*(fr + nf*( scl + 12*( fl + nf*t_glob) ) ) );
 
 					for(int iprimeb=iprimeb_start;iprimeb<iprimeb_lessthan; iprimeb++){
-					  value_type lval = ACC::read(*lptr++); 
-					  value_type rval = ACC::read(*rptr++); 
-					  uint8_t alval = *alptr++;
-					  sum = sum + lval * alval * rval;
+					  if(*alptr++ == 1){
+					    value_type lval = ACC::read(*lptr); 
+					    value_type rval = ACC::read(*rptr); 
+					    sum = sum + lval * rval;
+					  }
+					  ++lptr;
+					  ++rptr;
 					}
 					ACC::write(out, sum);
 				      }
@@ -365,6 +405,10 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
     device_free(vaprime);
     device_free(vbprime);
+
+    free(vaprime_host);
+    free(vbprime_host);
+
   }//end of func
 
   static void implementation(PropagatorField &into,
