@@ -122,6 +122,10 @@ public:
   accelerator_inline size_t size() const{
     return sz;
   }
+  accelerator_inline size_t byte_size() const{
+    return sz*sizeof(T);
+  }
+
   //Same as resize(0)
   inline void free(){ resize(0); }
 

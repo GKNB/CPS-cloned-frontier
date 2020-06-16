@@ -155,6 +155,9 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
     typedef SIMT<VectorComplexType> ACC;
     typedef typename ACC::value_type value_type;
+    
+    int device;
+    cudaGetDevice(&device);
 
     //Need to compute \sum_i v(il)_{scl,fl}(x) v(ir)_{scr,fr}(x)
     
@@ -238,8 +241,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     size_t field_size = 12 * nf * vol4d;
     size_t vprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
 
-    VectorComplexType* vaprime = (VectorComplexType*)managed_alloc_check(vprime_bytes);
-    VectorComplexType* vbprime = (VectorComplexType*)managed_alloc_check(vprime_bytes);
+    VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
+    VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
     
     if(!UniqueID()){
       std::cout << "Outer block size " << blocksize << " inner blocksize " << inner_blocksize << std::endl;
@@ -259,34 +262,17 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
       size_t iprimelessthan = std::min(iprimestart + blocksize, niprime);
       size_t niprime_block = iprimelessthan - iprimestart;
 
-      //std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
-      //std::cout << "Create va'" << std::endl;
+      std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
+      std::cout << "Create va'/vb'" << std::endl;
 
-      //Create va'
+      //Create va' and vb'
       {	
-	copyControl::shallow() = true;
-	accelerator_for(x4d, vol4d, nsimd,
-			{
-			  size_t xop; int top;
-			  into.fourToThree(xop, top, x4d);
-			  int t_glob = top + t_off;
-			  for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
-			    size_t iprimeb = iprime - iprimestart;
-			    for(int f=0;f<nf;f++){
-			      for(int sc=0;sc<12;sc++){
-				VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index 
-				value_type val = ACC::read(l.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f));
-				val = conj_l ? Grid::conjugate(val) : val;
-				ACC::write(*into, val);
-			      }
-			    }
-			  }
-			});
-	copyControl::shallow() = false;
-      }
+	for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
+	  cudaMemPrefetchAsync(l.getMode(il_ir_pairs[iprime].first).ptr(), l.getMode(il_ir_pairs[iprime].first).byte_size(), device, NULL);
+	  cudaMemPrefetchAsync(r.getMode(il_ir_pairs[iprime].second).ptr(), r.getMode(il_ir_pairs[iprime].second).byte_size(), device, NULL);
+	}
+	cudaMemPrefetchAsync(il_ir_pairs.data(), il_ir_pairs.byte_size(), device, NULL);
 
-      //Create vb'
-      {
 	copyControl::shallow() = true;
 	accelerator_for(x4d, vol4d, nsimd,
 			{
@@ -297,10 +283,20 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			    size_t iprimeb = iprime - iprimestart;
 			    for(int f=0;f<nf;f++){
 			      for(int sc=0;sc<12;sc++){
-				VectorComplexType *into = vbprime + iprimeb + niprime_block*( sc + 12*(f + nf*x4d) );  //contiguous in summed index
-				value_type val = ACC::read(r.nativeElem(il_ir_pairs[iprime].second, x4d, sc, f));
-				val = conj_r ? Grid::conjugate(val) : val;
-				ACC::write(*into, val);
+
+				{
+				  VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index 
+				  value_type val = ACC::read(l.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f));
+				  val = conj_l ? Grid::conjugate(val) : val;
+				  ACC::write(*into, val);
+				}
+				{
+				  VectorComplexType *into = vbprime + iprimeb + niprime_block*( sc + 12*(f + nf*x4d) );  //contiguous in summed index
+				  value_type val = ACC::read(r.nativeElem(il_ir_pairs[iprime].second, x4d, sc, f));
+				  val = conj_r ? Grid::conjugate(val) : val;
+				  ACC::write(*into, val);
+				}
+
 			      }
 			    }
 			  }
@@ -310,8 +306,12 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
       time.init2 += dclock();
 
 
+      std::cout << "Compute VV" << std::endl;
       time.vv -= dclock();
       {
+	cudaMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
+	cudaMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
+
 	copyControl::shallow() = true;
 	accelerator_for(x4d, vol4d, nsimd,
 			{
@@ -363,8 +363,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
       time.vv += dclock();
     }
 
-    managed_free(vaprime);
-    managed_free(vbprime);
+    device_free(vaprime);
+    device_free(vbprime);
   }//end of func
 
   static void implementation(PropagatorField &into,
