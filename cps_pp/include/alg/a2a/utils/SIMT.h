@@ -2,16 +2,17 @@
 #define A2A_SIMT_H_
 
 #include<config.h>
-
-#ifdef USE_GRID
-#include<Grid/Grid.h>
-#else
-#define accelerator_inline inline
-#endif
+#include "utils_gpu.h"
 
 CPS_START_NAMESPACE
 
 //In the SIMT model we cast to a SIMTtype that allows access to the individual SIMT lanes. If we are not using Grid SIMD this should be transparent
+//In the context of a device function being compiled for device execution, we use the fact that a preprocessor directive is defined only when compiling for a device
+//to modify the output type to the underlying scalar type and extract a scalar element from the vectorized data type
+
+
+//NOTE: Do not use these classes outside of a kernel as it will always return the vector type and not the underlying scalar type
+
 template<typename T> struct SIMT{
   typedef T vector_type;
   typedef T value_type;

@@ -218,6 +218,63 @@ inline void pinned_free(void* p){
 
 
 
+//Allocate mapped memory on host and device (if CUDA, otherwise do memalign)
+inline void mapped_alloc_check(void** hostptr, void **deviceptr,  const size_t align, const size_t byte_size){
+#ifdef GRID_NVCC
+  auto err1 = cudaHostAlloc(hostptr,byte_size,cudaHostAllocMapped);
+  auto err2 = cudaHostGetDevicePointer(deviceptr, *hostptr, 0);	
+
+  if( err1 != cudaSuccess || err2 != cudaSuccess ) {
+    *hostptr = (void*)NULL;
+    *deviceptr = (void*)NULL;
+    std::cerr << "mapped_alloc_check: cudaMallocHost failed for " << byte_size<<" bytes " <<cudaGetErrorString(err1)<< " " << cudaGetErrorString(err2) << std::endl;
+    printMem("malloc failed",UniqueID());
+    assert(0);
+  }
+#else
+  *hostptr = memalign_check(align, byte_size);
+  *deviceptr = *hostptr;
+#endif
+}
+
+inline void mapped_alloc_check(void** hostptr, void **deviceptr, const size_t byte_size){
+#ifdef GRID_NVCC
+  auto err1 = cudaHostAlloc(hostptr,byte_size,cudaHostAllocMapped);
+  auto err2 = cudaHostGetDevicePointer(deviceptr, *hostptr, 0);	
+
+  if( err1 != cudaSuccess || err2 != cudaSuccess ) {
+    *hostptr = (void*)NULL;
+    *deviceptr = (void*)NULL;
+    std::cerr << "mapped_alloc_check: cudaMallocHost failed for " << byte_size<<" bytes " <<cudaGetErrorString(err1)<< " " << cudaGetErrorString(err2) << std::endl;
+    printMem("malloc failed",UniqueID());
+    assert(0);
+  }
+#else
+  *hostptr = malloc_check(byte_size);
+  *deviceptr = *hostptr;
+#endif
+}
+
+
+
+inline void mapped_free(void* hostptr){
+#ifdef GRID_NVCC
+  auto err = cudaFreeHost(hostptr);
+  if( err != cudaSuccess ) {
+    std::cerr << "mapped_free: cudaFree failed with error " <<cudaGetErrorString(err)<< std::endl;
+    assert(0);
+  }  
+#else
+  free(hostptr);
+#endif
+}
+
+
+
+
+
+
+
 
 
 //Simple test  standard library allocator to find out when memory is allocated

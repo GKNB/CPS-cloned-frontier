@@ -3,6 +3,7 @@
 
 #include<set>
 #include "mesonfield_mult_vMv_field_offload.h"
+#include <alg/a2a/utils/utils_gpu.h>
 
 CPS_START_NAMESPACE
 
@@ -64,7 +65,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
   typedef typename rA2AfieldType::DilutionType rightDilutionType;
   
   typedef typename mf_Policies::ComplexType VectorComplexType;
-  typedef typename SIMT<VectorComplexType>::value_type ScalarComplexType;
+  typedef typename VectorComplexType::scalar_type ScalarComplexType;
 
   //A slow but simple implementation ignoring the index compression
   static void simple(PropagatorField &into,
@@ -152,9 +153,6 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     int t_off = GJP.TnodeSites() * GJP.TnodeCoor();
     size_t blocksize = BlockedvMvOffloadArgs::b;
     size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
-
-    typedef SIMT<VectorComplexType> ACC;
-    typedef typename ACC::value_type value_type;
     
     int device;
     cudaGetDevice(&device);
@@ -241,11 +239,18 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     size_t field_size = 12 * nf * vol4d;
     size_t vprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
 
+    /* VectorComplexType *vaprime_host, *vaprime; */
+    /* mapped_alloc_check( (void**)&vaprime_host, (void**)&vaprime, vprime_bytes); */
+    
+    /* VectorComplexType *vbprime_host, *vbprime; */
+    /* mapped_alloc_check( (void**)&vbprime_host, (void**)&vbprime, vprime_bytes); */
+    
+
+    VectorComplexType* vaprime_host = (VectorComplexType*)pinned_alloc_check(128,vprime_bytes);
+    VectorComplexType* vbprime_host = (VectorComplexType*)pinned_alloc_check(128,vprime_bytes);
+
     VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
     VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
-
-    VectorComplexType* vaprime_host = (VectorComplexType*)memalign_check(128,vprime_bytes);
-    VectorComplexType* vbprime_host = (VectorComplexType*)memalign_check(128,vprime_bytes);
 
     
     if(!UniqueID()){
@@ -273,6 +278,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
       {	
 	thread_for(x4d, vol4d,
 			{
+			  typedef SIMT<VectorComplexType> ACC; //this will use vector data as on host
 			  size_t xop; int top;
 			  into.fourToThree(xop, top, x4d);
 			  int t_glob = top + t_off;
@@ -283,13 +289,13 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
 				{
 				  VectorComplexType *into = vaprime_host +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index
-				  value_type val = ACC::read(l.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f));
+				  auto val = ACC::read(l.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f));
 				  val = conj_l ? Grid::conjugate(val) : val;
 				  ACC::write(*into, val);
 				}
 				{
 				  VectorComplexType *into = vbprime_host + iprimeb + niprime_block*( sc + 12*(f + nf*x4d) );  //contiguous in summed index
-				  value_type val = ACC::read(r.nativeElem(il_ir_pairs[iprime].second, x4d, sc, f));
+				  auto val = ACC::read(r.nativeElem(il_ir_pairs[iprime].second, x4d, sc, f));
 				  val = conj_r ? Grid::conjugate(val) : val;
 				  ACC::write(*into, val);
 				}
@@ -348,66 +354,106 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 	cudaMemcpy(vaprime, vaprime_host, vprime_bytes, cudaMemcpyHostToDevice);
 	cudaMemcpy(vbprime, vbprime_host, vprime_bytes, cudaMemcpyHostToDevice);
 
+	//Divide up into two matrices of size   3 * shmem_iblock_size   requiring  bytes =  2* 3*shmem_iblock_size *sizeof(ScalarComplexType)
+	int shmem_max = maxDeviceShmemPerBlock() / 4; //if we use all the available shared memory we get less blocks running at once. Tuneable
+	int shmem_max_per_thread = shmem_max / nsimd / gpu_threads;	
+	int shmem_iblock_size = shmem_max_per_thread/3/2/sizeof(ScalarComplexType);  // two  3 * shmem_iblock_size complex matrices (fixed fl,sl fr,sr)
+	std::cout << "Shared memory " << shmem_max/1024 << " kB with block sizes nsimd*gpu_threads="<< nsimd << "*"<<gpu_threads <<"=" << nsimd*gpu_threads 
+		  << " allows " << shmem_max_per_thread << " B/thread which allows for iblock size " << shmem_iblock_size << " for sizeof(ScalarComplexType)=" << sizeof(ScalarComplexType) << std::endl;
+	if(shmem_iblock_size == 0) assert(0);
 
 	copyControl::shallow() = true;
-	accelerator_for(x4d, vol4d, nsimd,
+	accelerator_for_shmem(x4d, 
+			      vol4d, 
+			      nsimd, 
+			      shmem_max,
 			{
+			  typedef SIMT<VectorComplexType> ACC; //this will use scalar data as on device
+			  //This should be generalized to other programming models
+			  extern __shared__ ScalarComplexType shared_all[];
+			  ScalarComplexType* shared_t = shared_all + (threadIdx.y + nsimd * threadIdx.x)*2*3*shmem_iblock_size;
+			  ScalarComplexType *matA = shared_t;
+			  ScalarComplexType *matB = shared_t + 3*shmem_iblock_size;
+
 			  size_t xop; int top;
 			  into.fourToThree(xop, top, x4d);
 			  int t_glob = top + t_off;
 
 			  VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
-			  size_t niprimeb_subblocks = (niprime_block + inner_blocksize - 1)/inner_blocksize;
+			  size_t niprimeb_subblocks = (niprime_block + shmem_iblock_size - 1)/shmem_iblock_size;
 			  for(int iprimeb_subblock=0; iprimeb_subblock < niprimeb_subblocks; iprimeb_subblock++){
-			    size_t iprimeb_start = iprimeb_subblock * inner_blocksize;
-			    size_t iprimeb_lessthan = min_value( iprimeb_start + inner_blocksize, niprime_block );
-
+			    size_t iprimeb_start = iprimeb_subblock * shmem_iblock_size;
+			    size_t iprimeb_lessthan = min_value( iprimeb_start + shmem_iblock_size, niprime_block );
+			    size_t iprimeb_subblock_size = iprimeb_lessthan - iprimeb_start;
+			    
 			    for(int fl=0;fl<nf;fl++){
 			      for(int sl=0;sl<4;sl++){
+
+				//Populate matA
 				for(int cl=0;cl<3;cl++){
-				  int scl = cl+3*sl;
-				  
-				  for(int fr=0;fr<nf;fr++){
-				    for(int sr=0;sr<4;sr++){
-				      for(int cr=0;cr<3;cr++){
-					int scr = cr+3*sr;
-					
-					VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
-					value_type sum = ACC::read(out);
-
-					VectorComplexType const* lptr = vaprime + iprimeb_start + niprime_block*(scl + 12*(fl + nf*x4d) );
-					VectorComplexType const* rptr = vbprime + iprimeb_start + niprime_block*(scr + 12*(fr + nf*x4d) );
-					uint8_t const* alptr = alpha.data() + iprimestart + iprimeb_start + niprime * ( scr + 12*(fr + nf*( scl + 12*( fl + nf*t_glob) ) ) );
-
-					for(int iprimeb=iprimeb_start;iprimeb<iprimeb_lessthan; iprimeb++){
-					  if(*alptr++ == 1){
-					    value_type lval = ACC::read(*lptr); 
-					    value_type rval = ACC::read(*rptr); 
-					    sum = sum + lval * rval;
-					  }
-					  ++lptr;
-					  ++rptr;
-					}
-					ACC::write(out, sum);
-				      }
-				    }
+				  int scl = cl + 3*sl;
+				  for(int isb=0; isb < iprimeb_subblock_size; isb++){
+				    size_t iprimeb = isb + iprimeb_start;
+				    VectorComplexType const* lptr = vaprime + iprimeb + niprime_block*(scl + 12*(fl + nf*x4d) );
+				    matA[isb + iprimeb_subblock_size*cl] = ACC::read(*lptr);				  
 				  }
 				}
-			      }
-			    }
-			  }
+				for(int fr=0;fr<nf;fr++){
+				  for(int sr=0;sr<4;sr++){
+
+				    //Populate matB
+				    for(int cr=0;cr<3;cr++){
+				      int scr = cr + 3*sr;
+				      for(int isb=0; isb < iprimeb_subblock_size; isb++){
+					size_t iprimeb = isb + iprimeb_start;
+					VectorComplexType const* rptr = vbprime + iprimeb + niprime_block*(scr + 12*(fr + nf*x4d) );
+					matB[isb + iprimeb_subblock_size*cr] = ACC::read(*rptr);
+				      }
+				    }
+
+				    //Multiply matA * matB
+				    for(int cl=0;cl<3;cl++){
+				      int scl = cl+3*sl;
+				      for(int cr=0;cr<3;cr++){
+					int scr = cr+3*sr;
+
+					VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
+					ScalarComplexType sum = ACC::read(out);
+					uint8_t const* alptr = alpha.data() + iprimestart + iprimeb_start + niprime * ( scr + 12*(fr + nf*( scl + 12*( fl + nf*t_glob) ) ) );
+
+					for(int isb=0; isb < iprimeb_subblock_size; isb++){
+					  if(*alptr++ == 1){
+					    ScalarComplexType lval = matA[isb + iprimeb_subblock_size*cl];
+					    ScalarComplexType rval = matB[isb + iprimeb_subblock_size*cr];
+					    sum = sum + lval * rval;
+					  }
+					}
+					ACC::write(out, sum);
+
+				      }//cr
+				    }//cl
+
+
+				  }//sr
+				}//fr			      
+			      }//sl
+			    }//fl
+			  }//iprimeb_subblock
 			});
 	copyControl::shallow() = false;
       }
 
       time.vv += dclock();
     }
-
+    
     device_free(vaprime);
     device_free(vbprime);
 
-    free(vaprime_host);
-    free(vbprime_host);
+    pinned_free(vaprime_host);
+    pinned_free(vbprime_host);
+    
+    //mapped_free(vaprime_host);
+    //mapped_free(vbprime_host);
 
   }//end of func
 
