@@ -1279,6 +1279,259 @@ void testVVgridOrig(const A2AArg &a2a_args, const int ntests, const int nthreads
 }
 
 
+
+template<typename GridA2Apolicies>
+void testCPSmatrixField(const double tol){
+  //Test type conversion
+  {
+      typedef CPSspinColorFlavorMatrix<typename GridA2Apolicies::ComplexType> VectorMatrixType;
+      typedef CPSspinColorFlavorMatrix<typename GridA2Apolicies::ScalarComplexType> ScalarMatrixType;
+      typedef typename VectorMatrixType::RebaseScalarType<typename GridA2Apolicies::ScalarComplexType>::type ScalarMatrixTypeTest;
+      static_assert( std::is_same<ScalarMatrixType, ScalarMatrixTypeTest>::value );
+      static_assert( VectorMatrixType::isDerivedFromCPSsquareMatrix != -1 );
+  }
+  {
+      typedef CPSspinMatrix<typename GridA2Apolicies::ComplexType> VectorMatrixType;
+      typedef CPSspinMatrix<typename GridA2Apolicies::ScalarComplexType> ScalarMatrixType;
+      typedef typename VectorMatrixType::RebaseScalarType<typename GridA2Apolicies::ScalarComplexType>::type ScalarMatrixTypeTest;
+      static_assert( std::is_same<ScalarMatrixType, ScalarMatrixTypeTest>::value );
+      static_assert( VectorMatrixType::isDerivedFromCPSsquareMatrix != -1 );
+  }
+
+  typedef typename GridA2Apolicies::ComplexType ComplexType;
+  typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
+  typedef CPSspinColorFlavorMatrix<ComplexType> VectorMatrixType;
+  typedef CPSmatrixField<VectorMatrixType> PropagatorField;
+
+  static const int nsimd = GridA2Apolicies::ComplexType::Nsimd();
+  typename PropagatorField::InputParamType simd_dims;
+  PropagatorField::SIMDdefaultLayout(simd_dims,nsimd,2);
+  
+  PropagatorField a(simd_dims), b(simd_dims);
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    for(int s1=0;s1<4;s1++){
+      for(int c1=0;c1<3;c1++){
+	for(int f1=0;f1<2;f1++){
+	  for(int s2=0;s2<4;s2++){
+	    for(int c2=0;c2<3;c2++){
+	      for(int f2=0;f2<2;f2++){
+		ComplexType &v = (*a.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
+		for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+		
+		//ScalarComplexType to[nsimd];
+		//for(int s=0;s<nsimd;s++) to[s] = ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) );
+		//Grid::vset(v,to);
+
+		ComplexType &u = (*b.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
+		for(int s=0;s<nsimd;s++) u.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+
+		//for(int s=0;s<nsimd;s++) to[s] = ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) );
+		//Grid::vset(u,to);
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  //Test operator*
+  PropagatorField c = a * b;
+
+  bool fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    auto bb=*b.site_ptr(x4d);
+    auto cc = aa*bb;
+    for(int s1=0;s1<4;s1++){
+    for(int c1=0;c1<3;c1++){
+    for(int f1=0;f1<2;f1++){
+    for(int s2=0;s2<4;s2++){
+    for(int c2=0;c2<3;c2++){
+    for(int f2=0;f2<2;f2++){
+      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+      auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: operator* (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
+    }
+    }
+    }
+    }
+    }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField operator* failed\n");
+
+  //Test Trace
+  typedef CPSmatrixField<ComplexType> ComplexField;
+ 
+  ComplexField d = Trace(a);
+
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    ComplexType aat = aa.Trace();
+    auto got = Reduce( *d.site_ptr(x4d) );
+    auto expect = Reduce( aat );
+      
+    double rdiff = fabs(got.real()-expect.real());
+    double idiff = fabs(got.imag()-expect.imag());
+    if(rdiff > tol|| idiff > tol){
+      printf("Fail: Trace (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+      fail = true;
+    } 
+  }
+  if(fail) ERR.General("","","CPSmatrixField Trace failed\n");
+
+  //Test SpinFlavorTrace
+  typedef CPSmatrixField<CPScolorMatrix<ComplexType> > ColorMatrixField;
+  ColorMatrixField ac = SpinFlavorTrace(a);
+  
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=a.site_ptr(x4d)->SpinFlavorTrace();
+    for(int c1=0;c1<3;c1++){
+    for(int c2=0;c2<3;c2++){
+      auto got = Reduce( (*ac.site_ptr(x4d))(c1,c2) );
+      auto expect = Reduce( aa(c1,c2) );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: SpinFlavorTrace (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
+    }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField SpinFlavorTrace failed\n");
+
+
+
+  //Test TransposeOnIndex
+  typedef CPSmatrixField< CPSsquareMatrix<CPSsquareMatrix<ComplexType,2> ,2>  > Matrix2Field;
+  Matrix2Field e(simd_dims);
+  for(size_t x4d=0; x4d< e.size(); x4d++){
+    for(int s1=0;s1<2;s1++){
+      for(int c1=0;c1<2;c1++){
+	for(int s2=0;s2<2;s2++){
+	  for(int c2=0;c2<2;c2++){
+	    ComplexType &v = (*e.site_ptr(x4d))(s1,s2)(c1,c2);
+	    for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+	  }
+	}
+      }
+    }
+  }
+
+  Matrix2Field f = TransposeOnIndex<1>(e);
+
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto ee=*e.site_ptr(x4d);
+    auto eet = ee.template TransposeOnIndex<1>();
+    for(int s1=0;s1<2;s1++){
+    for(int c1=0;c1<2;c1++){
+    for(int s2=0;s2<2;s2++){
+    for(int c2=0;c2<2;c2++){
+      auto got = Reduce( (*f.site_ptr(x4d))(s1,s2)(c1,c2) );
+      auto expect = Reduce( eet(s1,s2)(c1,c2) );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: TranposeOnIndex (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
+    }
+    }
+    }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField TransposeOnIndex failed\n");
+
+
+  
+  //Test TimesMinusI
+  PropagatorField tmIa(a);
+  timesMinusI(tmIa);
+
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    aa.timesMinusI();
+    for(int s1=0;s1<4;s1++){
+    for(int c1=0;c1<3;c1++){
+    for(int f1=0;f1<2;f1++){
+    for(int s2=0;s2<4;s2++){
+    for(int c2=0;c2<3;c2++){
+    for(int f2=0;f2<2;f2++){
+      auto got = Reduce( (*tmIa.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+      auto expect = Reduce( aa(s1,s2)(c1,c2)(f1,f2) );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: timesMinusI (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
+    }
+    }
+    }
+    }
+    }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField timesMinusI failed\n");
+
+
+
+
+  //Test pl
+  PropagatorField pla(a);
+  pl(pla, sigma2);
+
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    aa.pl(sigma2);
+    for(int s1=0;s1<4;s1++){
+    for(int c1=0;c1<3;c1++){
+    for(int f1=0;f1<2;f1++){
+    for(int s2=0;s2<4;s2++){
+    for(int c2=0;c2<3;c2++){
+    for(int f2=0;f2<2;f2++){
+      auto got = Reduce( (*pla.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+      auto expect = Reduce( aa(s1,s2)(c1,c2)(f1,f2) );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: pl (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
+    }
+    }
+    }
+    }
+    }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField pl failed\n");
+
+  
+
+  if(!UniqueID()){ printf("testCPSmatrixField tests passed\n"); fflush(stdout); }
+}
+
+
+
+
 #endif //USE_GRID
 
 #endif

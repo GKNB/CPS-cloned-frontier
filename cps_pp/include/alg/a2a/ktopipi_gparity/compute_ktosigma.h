@@ -117,8 +117,7 @@ private:
 	SCFmat pt2_M2 = part2;
 	multGammaRight(pt2_M2, 2, gcombidx,mu);
 
-	SCFmat ctrans_pt1_G5_M1(pt1_G5_M1);
-	ctrans_pt1_G5_M1.TransposeColor();
+	SCFmat ctrans_pt1_G5_M1 = pt1_G5_M1.TransposeColor();
 
 	CPScolorMatrix<ComplexType> tr_sf_pt1_G5_M1 = pt1_G5_M1.SpinFlavorTrace();
 	CPScolorMatrix<ComplexType> tr_sf_p2_M2 = pt2_M2.SpinFlavorTrace();
@@ -388,8 +387,7 @@ private:
 	SCFmat pt2H_M2 = part2_H;
 	multGammaRight(pt2H_M2, 2, gcombidx,mu);
 
-	SCFmat ctrans_pt2L_M2(pt2L_M2);
-	ctrans_pt2L_M2.TransposeColor();
+	SCFmat ctrans_pt2L_M2 = pt2L_M2.TransposeColor();
 
 	SCFmat pt1_G5_M2 = part1;
 	pt1_G5_M2.gr(-5);
@@ -687,8 +685,7 @@ private:
 	SCFmat pt2H_M2 = part2_H;
 	multGammaRight(pt2H_M2, 2, gcombidx,mu);
 
-	SCFmat ctrans_pt2L_M2 = pt2L_M2;
-	ctrans_pt2L_M2.TransposeColor();
+	SCFmat ctrans_pt2L_M2 = pt2L_M2.TransposeColor();
 	
 	SCFmat pt1_G5_M2 = part1;
 	pt1_G5_M2.gr(-5);

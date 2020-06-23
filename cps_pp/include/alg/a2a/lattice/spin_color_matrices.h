@@ -8,16 +8,16 @@
 CPS_START_NAMESPACE
 
 template<typename T>
-void CPSsetZero(T &what){
+accelerator_inline void CPSsetZero(T &what){
   what = 0.;
 }
 #ifdef USE_GRID
 template<>
-void CPSsetZero(Grid::vComplexD &what){
+accelerator_inline void CPSsetZero(Grid::vComplexD &what){
   zeroit(what);
 }
 template<>
-void CPSsetZero(Grid::vComplexF &what){
+accelerator_inline void CPSsetZero(Grid::vComplexF &what){
   zeroit(what);
 }
 #endif
@@ -65,29 +65,29 @@ struct _timespmI{};
 
 template<typename T>
 struct _timespmI<T, no_mark>{
-  static inline void timesMinusOne(T &out, const T &in){
+  accelerator_inline static void timesMinusOne(T &out, const T &in){
     out = -in;
   }  
-  static inline void timesI(T &out, const T &in){
+  accelerator_inline static void timesI(T &out, const T &in){
     out = cps::timesI(in);
   }
-  static inline void timesMinusI(T &out, const T &in){
+  accelerator_inline static void timesMinusI(T &out, const T &in){
     out = cps::timesMinusI(in);
   }
 };
 template<typename T>
 struct _timespmI<T,cps_square_matrix_mark>{
-  static inline void timesMinusOne(T &out, const T &in){
+  accelerator_inline static void timesMinusOne(T &out, const T &in){
     for(int i=0;i<T::Size;i++)
       for(int j=0;j<T::Size;j++)
 	_timespmI<typename T::value_type, typename _MatrixClassify<typename T::value_type>::type>::timesMinusOne(out(i,j), in(i,j));
   }    
-  static inline void timesI(T &out, const T &in){    
+  accelerator_inline static void timesI(T &out, const T &in){    
     for(int i=0;i<T::Size;i++)
       for(int j=0;j<T::Size;j++)
 	_timespmI<typename T::value_type, typename _MatrixClassify<typename T::value_type>::type>::timesI(out(i,j), in(i,j));
   }
-  static inline void timesMinusI(T &out, const T &in){    
+  accelerator_inline static void timesMinusI(T &out, const T &in){    
     for(int i=0;i<T::Size;i++)
       for(int j=0;j<T::Size;j++)
 	_timespmI<typename T::value_type, typename _MatrixClassify<typename T::value_type>::type>::timesMinusI(out(i,j), in(i,j));
@@ -99,23 +99,24 @@ struct _CPSsetZeroOne{};
 
 template<typename T>
 struct _CPSsetZeroOne<T,no_mark>{
-  inline static void setone(T &what){
+  accelerator_inline static void setone(T &what){
     what = 1.0;
   }
-  inline static void setzero(T &what){
+  accelerator_inline static void setzero(T &what){
     CPSsetZero(what);
   }
 };
 template<typename T>
 struct _CPSsetZeroOne<T, cps_square_matrix_mark>{
-  inline static void setone(T &what){
+  accelerator_inline static void setone(T &what){
     what.unit();
   }
-  inline static void setzero(T &what){
+  accelerator_inline static void setzero(T &what){
     what.zero();
   }
 };
 
+//Find the underlying scalar type
 template<typename T, typename TypeClass>
 struct _RecursiveTraceFindScalarType{};
 
@@ -128,16 +129,17 @@ struct _RecursiveTraceFindScalarType<T, no_mark>{
   typedef T scalar_type;
 };
  
+//Perform a trace of an arbitrary nested square matrix type
 template<typename scalar_type, typename T, typename TypeClass>
 struct _RecursiveTraceImpl{};
 
 template<typename scalar_type, typename T>
 struct _RecursiveTraceImpl<scalar_type, T, cps_square_matrix_mark>{
-  static inline void doit(scalar_type &into, const T &what){
+  accelerator_inline static void doit(scalar_type &into, const T &what){
     for(int i=0;i<T::Size;i++)
       _RecursiveTraceImpl<scalar_type, typename T::value_type, typename _MatrixClassify<typename T::value_type>::type>::doit(into,what(i,i));    
   }
-  static inline void trace_prod(scalar_type &into, const T &a, const T&b){
+  accelerator_inline static void trace_prod(scalar_type &into, const T &a, const T&b){
     for(int i=0;i<T::Size;i++)
       for(int j=0;j<T::Size;j++)
 	_RecursiveTraceImpl<scalar_type, typename T::value_type, typename _MatrixClassify<typename T::value_type>::type>::trace_prod(into, a(i,j), b(j,i));
@@ -146,14 +148,15 @@ struct _RecursiveTraceImpl<scalar_type, T, cps_square_matrix_mark>{
 };
 template<typename scalar_type>
 struct _RecursiveTraceImpl<scalar_type, scalar_type, no_mark>{
-  static inline void doit(scalar_type &into, const scalar_type &what){
+  accelerator_inline static void doit(scalar_type &into, const scalar_type &what){
     into = into + what;
   }
-  static inline void trace_prod(scalar_type &into, const scalar_type &a, const scalar_type &b){
+  accelerator_inline static void trace_prod(scalar_type &into, const scalar_type &a, const scalar_type &b){
     into = into + a*b;
   }
 };
 
+//Perform a trace over the nested matrix at level RemoveDepth
 template<typename T, int RemoveDepth>
 struct _PartialTraceFindReducedType{
   typedef typename T::template Rebase< typename _PartialTraceFindReducedType<typename T::value_type,RemoveDepth-1>::type >::type type;
@@ -165,7 +168,7 @@ struct _PartialTraceFindReducedType<T,0>{
 
 template<typename U,typename T, int RemoveDepth>
 struct _PartialTraceImpl{
-  static inline void doit(U &into, const T&from){
+  accelerator_inline static void doit(U &into, const T&from){
     for(int i=0;i<T::Size;i++)
       for(int j=0;j<T::Size;j++)
 	_PartialTraceImpl<typename U::value_type, typename T::value_type, RemoveDepth-1>::doit(into(i,j), from(i,j));
@@ -173,14 +176,14 @@ struct _PartialTraceImpl{
 };
 template<typename U, typename T>
 struct _PartialTraceImpl<U,T,0>{
-  static inline void doit(U &into, const T&from){
+  accelerator_inline static void doit(U &into, const T&from){
     for(int i=0;i<T::Size;i++)
       into += from(i,i);
   }
 };
 
 
-
+//Perform a trace over the nested matrix at level RemoveDepth1 and that at RemoveDepth2
 template<typename T, int RemoveDepth1, int RemoveDepth2> 
 struct _PartialDoubleTraceFindReducedType{
   typedef typename my_enable_if<RemoveDepth1 < RemoveDepth2,int>::type test;
@@ -195,7 +198,7 @@ struct _PartialDoubleTraceFindReducedType<T,0,RemoveDepth2>{
 
 template<typename U,typename T, int RemoveDepth1,int RemoveDepth2>
 struct _PartialDoubleTraceImpl{
-  static inline void doit(U &into, const T&from){
+  accelerator_inline static void doit(U &into, const T&from){
     for(int i=0;i<T::Size;i++)
       for(int j=0;j<T::Size;j++)
 	_PartialDoubleTraceImpl<typename U::value_type, typename T::value_type, RemoveDepth1-1,RemoveDepth2-1>::doit(into(i,j), from(i,j));
@@ -203,15 +206,16 @@ struct _PartialDoubleTraceImpl{
 };
 template<typename U, typename T, int RemoveDepth2>
 struct _PartialDoubleTraceImpl<U,T,0,RemoveDepth2>{
-  static inline void doit(U &into, const T&from){
+  accelerator_inline static void doit(U &into, const T&from){
     for(int i=0;i<T::Size;i++)
       _PartialTraceImpl<U,typename T::value_type, RemoveDepth2-1>::doit(into, from(i,i));
   }
 };
 
+//Transpose the matrix at depth TransposeDepth
 template<typename T, int TransposeDepth>
 struct _IndexTransposeImpl{
-  static inline void doit(T &into, const T&from){
+  accelerator_inline static void doit(T &into, const T&from){
     for(int i=0;i<T::Size;i++)
       for(int j=0;j<T::Size;j++)
 	_IndexTransposeImpl<typename T::value_type, TransposeDepth-1>::doit(into(i,j), from(i,j));
@@ -219,11 +223,25 @@ struct _IndexTransposeImpl{
 };
 template<typename T>
 struct _IndexTransposeImpl<T,0>{
-  static inline void doit(T &into, const T&from){
+  accelerator_inline static void doit(T &into, const T&from){
     for(int i=0;i<T::Size;i++)
       for(int j=0;j<T::Size;j++)
 	into(i,j) = from(j,i);
   }
+};
+
+//Get the type with a different underlying numerical type
+template<typename T, typename TypeClass, typename NewNumericalType>
+struct _rebaseScalarType{};
+
+template<typename T, typename NewNumericalType>
+struct _rebaseScalarType<T, cps_square_matrix_mark, NewNumericalType>{
+  typedef typename _rebaseScalarType<typename T::value_type,typename _MatrixClassify<typename T::value_type>::type, NewNumericalType>::type subType;
+  typedef typename T::Rebase<subType>::type type;
+};
+template<typename T, typename NewNumericalType>
+struct _rebaseScalarType<T, no_mark, NewNumericalType>{
+  typedef NewNumericalType type;
 };
 
 
@@ -234,7 +252,7 @@ class CPSsquareMatrix{
 protected:
   T v[N][N];
   template<typename U>  //, typename my_enable_if< my_is_base_of<U, CPSsquareMatrix<T,N> >::value, int>::type = 0
-  static inline void mult(U &into, const U &a, const U &b){
+  accelerator_inline static void mult(U &into, const U &a, const U &b){
     into.zero();
     for(int i=0;i<N;i++)
       for(int k=0;k<N;k++)
@@ -242,25 +260,34 @@ protected:
 	  into(i,k) = into(i,k) + a(i,j)*b(j,k);      
   }
 public:
-  enum { isDerivedFromCPSsquareMatrix };
+  enum { isDerivedFromCPSsquareMatrix=1 };
   enum { Size = N };
-  typedef T value_type;
-  typedef typename _RecursiveTraceFindScalarType<CPSsquareMatrix<T,N>,cps_square_matrix_mark>::scalar_type scalar_type;
+  typedef T value_type; //the type of the elements (can be another matrix)
+  typedef typename _RecursiveTraceFindScalarType<CPSsquareMatrix<T,N>,cps_square_matrix_mark>::scalar_type scalar_type; //the underlying numerical type
   
+  //Get the type were the value_type of this matrix to be replaced by matrix U
   template<typename U>
   struct Rebase{
     typedef CPSsquareMatrix<U,N> type;
   };
-  
-  T & operator()(const int i, const int j){ return v[i][j]; }
-  const T & operator()(const int i, const int j) const{ return v[i][j]; }
+  //Get the type were the underlying numerical type (scalar_type) to be replaced by type U
+  template<typename U>
+  struct RebaseScalarType{
+    typedef typename _rebaseScalarType<CPSsquareMatrix<T,N>,cps_square_matrix_mark,U>::type type;
+  };
 
-  inline void equalsTranspose(const CPSsquareMatrix<T,N> &r){
+  accelerator CPSsquareMatrix() = default;
+  accelerator CPSsquareMatrix(const CPSsquareMatrix &r) = default;
+  
+  accelerator_inline T & operator()(const int i, const int j){ return v[i][j]; }
+  accelerator_inline const T & operator()(const int i, const int j) const{ return v[i][j]; }
+
+  accelerator_inline void equalsTranspose(const CPSsquareMatrix<T,N> &r){
     for(int i=0;i<N;i++)
       for(int j=0;j<N;j++)
 	v[i][j] = r.v[j][i];
   }
-  inline CPSsquareMatrix<T,N> Transpose() const{
+  accelerator_inline CPSsquareMatrix<T,N> Transpose() const{
     CPSsquareMatrix<T,N> out; out.equalsTranspose(*this);
     return out;
   }				
@@ -272,14 +299,14 @@ public:
   //   return out;
   // }
   //Trace on all indices recursively
-  scalar_type Trace() const{
+  accelerator_inline scalar_type Trace() const{
     scalar_type ret; CPSsetZero(ret);
     _RecursiveTraceImpl<scalar_type, CPSsquareMatrix<T,N>, cps_square_matrix_mark>::doit(ret, *this);
     return ret;
   }
 
   template<int RemoveDepth>
-  typename _PartialTraceFindReducedType<CPSsquareMatrix<T,N>, RemoveDepth>::type TraceIndex() const{
+  accelerator_inline typename _PartialTraceFindReducedType<CPSsquareMatrix<T,N>, RemoveDepth>::type TraceIndex() const{
     typedef typename _PartialTraceFindReducedType<CPSsquareMatrix<T,N>, RemoveDepth>::type ReducedType;
     ReducedType into; _CPSsetZeroOne<ReducedType, typename _MatrixClassify<ReducedType>::type>::setzero(into);//  into.zero();
     _PartialTraceImpl<ReducedType, CPSsquareMatrix<T,N>, RemoveDepth>::doit(into, *this);
@@ -287,7 +314,7 @@ public:
   }
 
   template<int RemoveDepth1, int RemoveDepth2>
-  typename _PartialDoubleTraceFindReducedType<CPSsquareMatrix<T,N>,RemoveDepth1,RemoveDepth2>::type TraceTwoIndices() const{
+  accelerator_inline typename _PartialDoubleTraceFindReducedType<CPSsquareMatrix<T,N>,RemoveDepth1,RemoveDepth2>::type TraceTwoIndices() const{
     typedef typename _PartialDoubleTraceFindReducedType<CPSsquareMatrix<T,N>,RemoveDepth1,RemoveDepth2>::type ReducedType;
     ReducedType into; _CPSsetZeroOne<ReducedType, typename _MatrixClassify<ReducedType>::type>::setzero(into);//  into.zero();
     _PartialDoubleTraceImpl<ReducedType, CPSsquareMatrix<T,N>, RemoveDepth1,RemoveDepth2>::doit(into, *this);
@@ -295,59 +322,68 @@ public:
   }
 
   //Set this matrix equal to the transpose of r on its compound tensor index TransposeDepth. If it is not a compound matrix then TranposeDepth=0 does the same thing as equalsTranspose above
+  //i.e. in(i,j)(k,l)(m,n)  transpose on index depth 1:   out(i,j)(k,l)(m,n) = in(i,j)(l,k)(m,n)
   template<int TransposeDepth>
-  inline void equalsTransposeOnIndex(const CPSsquareMatrix<T,N> &r){
+  accelerator_inline void equalsTransposeOnIndex(const CPSsquareMatrix<T,N> &r){
     assert(&r != this);
     _IndexTransposeImpl<CPSsquareMatrix<T,N>, TransposeDepth>::doit(*this,r);
   }
   template<int TransposeDepth>
-  inline CPSsquareMatrix<T,N> & TransposeOnIndex(){
-    CPSsquareMatrix<T,N> cp(*this);
-    this->equalsTransposeOnIndex<TransposeDepth>(cp);
-    return *this;
+  accelerator_inline CPSsquareMatrix<T,N> TransposeOnIndex() const{
+    CPSsquareMatrix<T,N> out(*this);
+    out.equalsTransposeOnIndex<TransposeDepth>(*this);
+    return out;
   }
 
-  CPSsquareMatrix<T,N> & zero(){
+  accelerator_inline CPSsquareMatrix<T,N> & zero(){
     for(int i=0;i<N;i++)
       for(int j=0;j<N;j++)
 	_CPSsetZeroOne<T,  typename _MatrixClassify<T>::type>::setzero(v[i][j]);
     return *this;    
   }
-  CPSsquareMatrix<T,N>& unit(){
+  accelerator_inline CPSsquareMatrix<T,N>& unit(){
     zero();
     for(int i=0;i<N;i++)
       _CPSsetZeroOne<T,  typename _MatrixClassify<T>::type>::setone(v[i][i]);
     return *this;
   }
   //this = -this
-  CPSsquareMatrix<T,N> & timesMinusOne(){
+  accelerator_inline CPSsquareMatrix<T,N> & timesMinusOne(){
     _timespmI<CPSsquareMatrix<T,N>,cps_square_matrix_mark>::timesMinusOne(*this,*this);
     return *this;
   }
   //this = i*this
-  CPSsquareMatrix<T,N> & timesI(){
+  accelerator_inline CPSsquareMatrix<T,N> & timesI(){
     _timespmI<CPSsquareMatrix<T,N>,cps_square_matrix_mark>::timesI(*this,*this);
     return *this;
   }
   //this = -i*this
-  CPSsquareMatrix<T,N> & timesMinusI(){
+  accelerator_inline CPSsquareMatrix<T,N> & timesMinusI(){
     _timespmI<CPSsquareMatrix<T,N>,cps_square_matrix_mark>::timesMinusI(*this,*this);
     return *this;
   }
     
-  CPSsquareMatrix<T,N> & operator+=(const CPSsquareMatrix<T,N> &r){
+  accelerator_inline CPSsquareMatrix<T,N> & operator+=(const CPSsquareMatrix<T,N> &r){
     for(int i=0;i<N;i++)
       for(int j=0;j<N;j++)
 	v[i][j] = v[i][j] + r.v[i][j];
     return *this;
   }
-  CPSsquareMatrix<T,N> & operator*=(const T &r){
+  accelerator_inline CPSsquareMatrix<T,N> & operator*=(const T &r){
     for(int i=0;i<N;i++)
       for(int j=0;j<N;j++)
 	v[i][j] = v[i][j] * r;
     return *this;
   }
-  bool operator==(const CPSsquareMatrix<T,N> &r) const{
+  accelerator_inline CPSsquareMatrix<T,N> & operator-=(const CPSsquareMatrix<T,N> &r){
+    for(int i=0;i<N;i++)
+      for(int j=0;j<N;j++)
+	v[i][j] = v[i][j] - r.v[i][j];
+    return *this;
+  }
+
+
+  accelerator_inline bool operator==(const CPSsquareMatrix<T,N> &r) const{
     for(int i=0;i<N;i++)
       for(int j=0;j<N;j++)
 	if(v[i][j] != r.v[i][j]) return false;
@@ -366,7 +402,7 @@ public:
 };
 
 template<typename U> 
-typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type operator*(const U &a, const U &b){
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type operator*(const U &a, const U &b){
   U into;
   into.zero();
   for(int i=0;i<U::Size;i++)
@@ -376,16 +412,35 @@ typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type operator*(const U &a
   return into;
 }
 template<typename U> 
-typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type operator+(const U &a, const U &b){
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type operator*(const U &a, const typename U::scalar_type &b){
+  U into;
+  into.zero();
+  for(int i=0;i<U::Size;i++)
+    for(int j=0;j<U::Size;j++)
+      into(i,j) = a(i,j) * b;
+  return into;
+}
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type operator+(const U &a, const U &b){
   U into;
   for(int i=0;i<U::Size;i++)
     for(int j=0;j<U::Size;j++)
       into(i,j) = a(i,j) + b(i,j);
   return into;
 }
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type operator-(const U &a, const U &b){
+  U into;
+  for(int i=0;i<U::Size;i++)
+    for(int j=0;j<U::Size;j++)
+      into(i,j) = a(i,j) - b(i,j);
+  return into;
+}
+
+
 
 template<typename U>
-typename my_enable_if<isCPSsquareMatrix<U>::value, typename U::scalar_type>::type Trace(const U &a, const U &b){
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, typename U::scalar_type>::type Trace(const U &a, const U &b){
   typename U::scalar_type out;
   CPSsetZero(out);
   _RecursiveTraceImpl<typename U::scalar_type, U, cps_square_matrix_mark>::trace_prod(out, a,b);
@@ -393,7 +448,7 @@ typename my_enable_if<isCPSsquareMatrix<U>::value, typename U::scalar_type>::typ
 }
 
 template<typename T>
-T Transpose(const T& r){
+accelerator_inline T Transpose(const T& r){
   T out;
   out.equalsTranspose(r);
   return out;
@@ -414,18 +469,25 @@ public:
   typedef typename CPSsquareMatrix<T,2>::value_type value_type;
   typedef typename CPSsquareMatrix<T,2>::scalar_type scalar_type;
 
-  inline operator CPSsquareMatrix<T,2>(){ return static_cast<CPSsquareMatrix<T,2> &>(*this); }
+  accelerator_inline operator CPSsquareMatrix<T,2>(){ return static_cast<CPSsquareMatrix<T,2> &>(*this); }
 
-  CPSflavorMatrix(const CPSsquareMatrix<T,2> &r): CPSsquareMatrix<T,2>(r){}
-  CPSflavorMatrix(): CPSsquareMatrix<T,2>(){}  
+  accelerator CPSflavorMatrix(const CPSsquareMatrix<T,2> &r): CPSsquareMatrix<T,2>(r){}
+  accelerator CPSflavorMatrix(): CPSsquareMatrix<T,2>(){}  
+  accelerator CPSflavorMatrix(CPSsquareMatrix<T,2> &&r): CPSsquareMatrix<T,2>(std::move(r)){}
   
   template<typename U>
   struct Rebase{
     typedef CPSflavorMatrix<U> type;
   };
+  //Get the type were the underlying numerical type (scalar_type) to be replaced by type U
+  template<typename U>
+  struct RebaseScalarType{
+    typedef typename _rebaseScalarType<CPSflavorMatrix<T>,cps_square_matrix_mark,U>::type type;
+  };
+
   
   //multiply on left by a flavor matrix
-  CPSflavorMatrix<T> & pl(const FlavorMatrixType &type){
+  accelerator_inline CPSflavorMatrix<T> & pl(const FlavorMatrixType &type){
     T tmp1, tmp2;
     T (&v)[2][2] = this->v;
     
@@ -469,7 +531,8 @@ public:
       TIMESMINUSONE(v[1][1],v[1][1]);
       break;
     default:
-      ERR.General("FlavorMatrixGeneral","pl(const FlavorMatrixGeneralType &type)","Unknown FlavorMatrixGeneralType");
+      assert(0);
+      //ERR.General("FlavorMatrixGeneral","pl(const FlavorMatrixGeneralType &type)","Unknown FlavorMatrixGeneralType");
       break;
     }
     return *this;
@@ -477,7 +540,7 @@ public:
   }
 
   //multiply on right by a flavor matrix
-  CPSflavorMatrix<T> & pr(const FlavorMatrixType &type){
+  accelerator_inline CPSflavorMatrix<T> & pr(const FlavorMatrixType &type){
     T tmp1, tmp2;
     T (&v)[2][2] = this->v;
     
@@ -521,7 +584,8 @@ public:
       TIMESMINUSONE(v[1][1],v[1][1]);
       break;
     default:
-      ERR.General("FlavorMatrixGeneral","pr(const FlavorMatrixGeneralType &type)","Unknown FlavorMatrixGeneralType");
+      //ERR.General("FlavorMatrixGeneral","pr(const FlavorMatrixGeneralType &type)","Unknown FlavorMatrixGeneralType");
+      assert(0);
       break;
     }
     return *this;
@@ -545,19 +609,25 @@ public:
   typedef typename CPSsquareMatrix<T,4>::value_type value_type;
   typedef typename CPSsquareMatrix<T,4>::scalar_type scalar_type;
 
-  inline operator CPSsquareMatrix<T,4>(){ return static_cast<CPSsquareMatrix<T,4> &>(*this); }
+  accelerator_inline operator CPSsquareMatrix<T,4>(){ return static_cast<CPSsquareMatrix<T,4> &>(*this); }
 
-  CPSspinMatrix(const CPSsquareMatrix<T,4> &r): CPSsquareMatrix<T,4>(r){}
-  CPSspinMatrix(): CPSsquareMatrix<T,4>(){}  
-
+  accelerator CPSspinMatrix(const CPSsquareMatrix<T,4> &r): CPSsquareMatrix<T,4>(r){}
+  accelerator CPSspinMatrix(): CPSsquareMatrix<T,4>(){}  
+  accelerator CPSspinMatrix(CPSsquareMatrix<T,4> &&r): CPSsquareMatrix<T,4>(std::move(r)){}
   
   template<typename U>
   struct Rebase{
     typedef CPSspinMatrix<U> type;
   };
+  //Get the type were the underlying numerical type (scalar_type) to be replaced by type U
+  template<typename U>
+  struct RebaseScalarType{
+    typedef typename _rebaseScalarType<CPSspinMatrix<T>,cps_square_matrix_mark,U>::type type;
+  };
+
   
   //Left Multiplication by Dirac gamma's
-  CPSspinMatrix<T> & gl(int dir){
+  accelerator_inline CPSspinMatrix<T> & gl(int dir){
     int s2;
     CPSspinMatrix<T> cp(*this);
     const T (&src)[4][4] = cp.v;
@@ -614,7 +684,7 @@ public:
 
   //Right Multiplication by Dirac gamma's
 
-  CPSspinMatrix<T>& gr(int dir)
+  accelerator_inline CPSspinMatrix<T>& gr(int dir)
   {
     int s1;
     CPSspinMatrix<T> cp(*this);
@@ -670,7 +740,7 @@ public:
   }
 
   //multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*from
-  CPSspinMatrix<T>& glAx(const int dir){
+  accelerator_inline CPSspinMatrix<T>& glAx(const int dir){
     int s2;
     CPSspinMatrix<T> cp(*this);
     const T (&from_mat)[4][4] = cp.v;
@@ -717,7 +787,7 @@ public:
   }
 
   //multiply gamma(i)gamma(5) on the right: result = from*gamma(i)*gamma(5)
-  CPSspinMatrix<T>& grAx(int dir)
+  accelerator_inline CPSspinMatrix<T>& grAx(int dir)
   {
     int s1;
     CPSspinMatrix<T> cp(*this);
@@ -779,10 +849,17 @@ public:
   struct Rebase{
     typedef CPScolorMatrix<U> type;
   };
-  inline operator CPSsquareMatrix<T,3>(){ return static_cast<CPSsquareMatrix<T,3> &>(*this); }
+  //Get the type were the underlying numerical type (scalar_type) to be replaced by type U
+  template<typename U>
+  struct RebaseScalarType{
+    typedef typename _rebaseScalarType<CPScolorMatrix<T>,cps_square_matrix_mark,U>::type type;
+  };
 
-  CPScolorMatrix(const CPSsquareMatrix<T,3> &r): CPSsquareMatrix<T,3>(r){}
-  CPScolorMatrix(): CPSsquareMatrix<T,3>(){}  
+  accelerator_inline operator CPSsquareMatrix<T,3>(){ return static_cast<CPSsquareMatrix<T,3> &>(*this); }
+
+  accelerator CPScolorMatrix(const CPSsquareMatrix<T,3> &r): CPSsquareMatrix<T,3>(r){}
+  accelerator CPScolorMatrix(): CPSsquareMatrix<T,3>(){}  
+  accelerator CPScolorMatrix(CPSsquareMatrix<T,3> &&r): CPSsquareMatrix<T,3>(std::move(r)){}
 };
 
 template<typename ComplexType>
@@ -792,42 +869,49 @@ public:
   typedef typename SCFmat::value_type value_type;
   typedef typename SCFmat::scalar_type scalar_type;
 
-  CPSspinColorFlavorMatrix(): SCFmat(){}
-  CPSspinColorFlavorMatrix(const SCFmat &r): SCFmat(r){}
-  inline operator SCFmat(){ return static_cast<SCFmat&>(*this); }
+  accelerator CPSspinColorFlavorMatrix(): SCFmat(){}
+  accelerator CPSspinColorFlavorMatrix(const SCFmat &r): SCFmat(r){}
+  accelerator CPSspinColorFlavorMatrix(SCFmat &&r): SCFmat(std::move(r)){}
+
+  accelerator_inline operator SCFmat(){ return static_cast<SCFmat&>(*this); }
   
   template<typename U>
   struct Rebase{
     typedef CPSspinMatrix<U> type;
   };
+  //Get the type were the underlying numerical type (scalar_type) to be replaced by type U
+  template<typename U>
+  struct RebaseScalarType{
+    typedef CPSspinColorFlavorMatrix<U> type;
+  };
 
-  inline CPSspinColorFlavorMatrix<ComplexType>& unit(){
+
+  accelerator_inline CPSspinColorFlavorMatrix<ComplexType>& unit(){
     return static_cast<CPSspinColorFlavorMatrix<ComplexType>& >(this->CPSsquareMatrix<value_type,4>::unit());
   }
-  inline CPSspinColorFlavorMatrix<ComplexType>& zero(){
+  accelerator_inline CPSspinColorFlavorMatrix<ComplexType>& zero(){
     return static_cast<CPSspinColorFlavorMatrix<ComplexType>& >(this->CPSsquareMatrix<value_type,4>::zero());
   }
-  inline CPSspinColorFlavorMatrix<ComplexType>& timesMinusOne(){
+  accelerator_inline CPSspinColorFlavorMatrix<ComplexType>& timesMinusOne(){
     return static_cast<CPSspinColorFlavorMatrix<ComplexType>& >(this->CPSsquareMatrix<value_type,4>::timesMinusOne());
   }
 
-  inline CPScolorMatrix<ComplexType> SpinFlavorTrace() const{
+  accelerator_inline CPScolorMatrix<ComplexType> SpinFlavorTrace() const{
     return this->CPSsquareMatrix<value_type,4>::template TraceTwoIndices<0,2>();
   }
-  inline CPSspinMatrix<CPSflavorMatrix<ComplexType> > ColorTrace() const{
+  accelerator_inline CPSspinMatrix<CPSflavorMatrix<ComplexType> > ColorTrace() const{
     return this->CPSsquareMatrix<value_type,4>::template TraceIndex<1>();
   }
 
-  //NOTE: This method is an in-place operation!
-  inline CPSspinColorFlavorMatrix<ComplexType>& TransposeColor(){
-    return static_cast<CPSspinColorFlavorMatrix<ComplexType> &>(this->CPSsquareMatrix<value_type,4>::template TransposeOnIndex<1>());
+  accelerator_inline CPSspinColorFlavorMatrix<ComplexType> TransposeColor() const{
+    return CPSspinColorFlavorMatrix<ComplexType>(this->CPSsquareMatrix<value_type,4>::template TransposeOnIndex<1>());
   }
-  inline void equalsColorTranspose(const CPSspinColorFlavorMatrix<ComplexType> &r){
+  accelerator_inline void equalsColorTranspose(const CPSspinColorFlavorMatrix<ComplexType> &r){
     this->CPSsquareMatrix<value_type,4>::template equalsTransposeOnIndex<1>(r);
   }
   
   //multiply on left by a flavor matrix
-  inline SCFmat & pl(const FlavorMatrixType type){
+  accelerator_inline SCFmat & pl(const FlavorMatrixType type){
     for(int s1=0;s1<4;s1++)
       for(int s2=0;s2<4;s2++)
 	for(int c1=0;c1<3;c1++)
@@ -836,7 +920,7 @@ public:
     return *this;
   }
   //multiply on left by a flavor matrix
-  inline SCFmat & pr(const FlavorMatrixType type){
+  accelerator_inline SCFmat & pr(const FlavorMatrixType type){
     for(int s1=0;s1<4;s1++)
       for(int s2=0;s2<4;s2++)
 	for(int c1=0;c1<3;c1++)

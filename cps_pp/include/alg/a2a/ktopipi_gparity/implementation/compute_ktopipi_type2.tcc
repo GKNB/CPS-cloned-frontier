@@ -38,8 +38,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &re
 
 	CPScolorMatrix<ComplexType> tr_sf_G2_pt2 = G2_pt2.SpinFlavorTrace();
 		
-	SCFmat ctrans_G2_pt2(G2_pt2); //speedup by transposing part 1
-	ctrans_G2_pt2.TransposeColor();
+	SCFmat ctrans_G2_pt2 = G2_pt2.TransposeColor();//speedup by transposing part 1
 		
 #define C(IDX) result(t_K,t_dis,IDX-con_off,gcombidx,thread_id)	      
 	C(7) += G1_pt1.Trace() * G2_pt2.Trace();

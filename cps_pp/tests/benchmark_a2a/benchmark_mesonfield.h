@@ -337,7 +337,7 @@ void benchmarkColorTranspose(const int ntests, const double tol){
     randomMatrix(old_mat,new_mat);
 
     old_mat.transpose_color();
-    new_mat.TransposeOnIndex<1>();
+    new_mat = new_mat.TransposeOnIndex<1>();
       
     bool fail = false;
     for(int s1=0;s1<4;s1++)
@@ -377,7 +377,7 @@ void benchmarkColorTranspose(const int ntests, const double tol){
     for(int iter=0;iter<ntests;iter++){
       randomMatrix(new_mat);
       total_time_new -= dclock();
-      new_mat.TransposeOnIndex<1>();
+      new_mat = new_mat.TransposeOnIndex<1>();
       total_time_new += dclock();
     }
     printf("colorTranspose: Avg time new code %d iters: %g secs\n",ntests,total_time_new/ntests);
