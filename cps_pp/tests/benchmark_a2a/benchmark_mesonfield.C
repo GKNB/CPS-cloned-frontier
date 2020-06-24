@@ -129,6 +129,8 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) testFFTopt<GridA2ApoliciesType>();
 #endif
   
+  if(1) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
+
   if(0) testA2AFFTinv<ScalarA2ApoliciesType>(a2a_args,lattice);
   
   if(0) testVVdag<ScalarA2ApoliciesType>(lattice);
@@ -208,7 +210,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
 #ifdef USE_GRID
   if(0) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
-  if(1) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(0) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 #endif
 }
 

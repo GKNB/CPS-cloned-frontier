@@ -527,7 +527,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
 	int me = omp_get_thread_num();
 
 	//Generate the tables
-	int thr_tabwork, thr_taboff;
+	size_t thr_tabwork, thr_taboff;
 	thread_work(thr_tabwork, thr_taboff, nmodes_l, me, omp_get_num_threads());
 	for(int i=thr_taboff; i<thr_taboff+thr_tabwork;i++){ //i table
 	  modeIndexSet i_high_unmapped; if(i>=nl_l) mf_ref.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
@@ -551,7 +551,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
 	    for(int p0 = 0; p0 < size_3d; p0+=bp){
 	      int pup = std::min(p0+bp,size_3d);
       
-	      int thr_pwork, thr_poff;
+	      size_t thr_pwork, thr_poff;
 	      thread_work(thr_pwork, thr_poff, pup-p0, me, omp_get_num_threads());
 
 	      int thr_p0 = p0 + thr_poff;
@@ -573,7 +573,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
 
 	const int nthread = omp_get_num_threads();
 	const int ijwork = nmodes_l * nmodes_r;
-	int thr_ijwork, thr_ijoff;
+	size_t thr_ijwork, thr_ijoff;
 	thread_work(thr_ijwork, thr_ijoff, ijwork, me, nthread);
 	for(int ij=thr_ijoff; ij<thr_ijoff + thr_ijwork; ij++){  //ij = j + mf_t[t].nmodes_r * i
 	  int i=ij / nmodes_r;

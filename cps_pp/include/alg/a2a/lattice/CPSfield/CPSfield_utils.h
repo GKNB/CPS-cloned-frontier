@@ -291,10 +291,50 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
 //Optimized FFT in a single direction mu
 //node_map is the mapping of CPS UniqueID to MPI rank, and can be obtained with   "getMPIrankMap(node_map)"
 #ifdef USE_MPI
+
+
+//Timers for fft_opt_mu
+struct fft_opt_mu_timings{
+  struct timers{
+    size_t calls;
+    double setup;
+    double gather;
+    double comm_gather;
+    double fft;
+    double comm_scatter;
+    double scatter;
+
+    timers(): calls(0), setup(0), gather(0), comm_gather(0), fft(0), comm_scatter(0), scatter(0){}
+
+    void reset(){
+      setup = gather = comm_gather = fft = comm_scatter = scatter = 0;
+      calls = 0;
+    }
+    void average(){
+      setup/=calls;
+      gather/=calls;
+      comm_gather/=calls;
+      fft/=calls;
+      comm_scatter/=calls;
+      scatter/=calls;
+    }
+    void print(){
+      average();
+      printf("calls=%zu setup=%g gather=%g comm_gather=%g fft=%g comm_scatter=%g scatter=%g\n", calls, setup, gather, comm_gather, fft, comm_scatter, scatter);
+    }
+  };
+  static timers & get(){ static timers t; return t; }
+};
+
+
+
 template<typename CPSfieldType>
 void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, const std::vector<int> &node_map, const bool inverse_transform,
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
 	     ){
+  fft_opt_mu_timings::get().calls++;
+  fft_opt_mu_timings::get().setup -= dclock();
+  
   enum {SiteSize = CPSfieldType::FieldSiteSize, Dimension = CPSfieldType::FieldMappingPolicy::EuclideanDimension };
   typedef typename CPSfieldType::FieldSiteType ComplexType;
   typedef typename ComplexType::value_type FloatType;
@@ -312,7 +352,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   FloatType Lmu(mutotalsites);
   
   int orthdirs[n_orthdirs]; //map of orthogonal directions to mu
-  int total_work_munodes = 1; //sites orthogonal to FFT direction
+  size_t total_work_munodes = 1; //sites orthogonal to FFT direction
   int o=0;
   for(int i=0;i< Dimension;i++)
     if(i!=mu){
@@ -321,8 +361,8 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
     }
 
   //Divvy up work over othogonal directions
-  int munodes_work[munodes];
-  int munodes_off[munodes];
+  size_t munodes_work[munodes];
+  size_t munodes_off[munodes];
   for(int i=0;i<munodes;i++)
     thread_work(munodes_work[i],munodes_off[i], total_work_munodes, i, munodes); //use for node work instead :)
 
@@ -338,15 +378,20 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
     const int munode_lex = node_lex( munode_coor, 4 );
     munodes_mpiranks[i] = node_map[munode_lex];
   }
+  
+  fft_opt_mu_timings::get().setup += dclock();
+
+  fft_opt_mu_timings::get().gather -= dclock();
 
   //Gather send data
   ComplexType* send_bufs[munodes];
-  int send_buf_sizes[munodes];
+  size_t send_buf_sizes[munodes];
   for(int i=0;i<munodes;i++){
     send_buf_sizes[i] = munodes_work[i] * munodesites * nf * SiteSize;
     send_bufs[i] = (ComplexType*)malloc_check( send_buf_sizes[i] * sizeof(ComplexType) );
 
-    for(int w = 0; w < munodes_work[i]; w++){ //index of orthogonal site within workload for i'th node in mu direction
+#pragma omp parallel for
+    for(size_t w = 0; w < munodes_work[i]; w++){ //index of orthogonal site within workload for i'th node in mu direction
       const int orthsite = munodes_off[i] + w;
       int coor_base[Dimension] = {0};
 	  
@@ -368,30 +413,33 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
       }
     }
   }
+
+  fft_opt_mu_timings::get().gather += dclock();
+
+  fft_opt_mu_timings::get().comm_gather -= dclock();
+
   MPI_Request send_req[munodes];
   MPI_Request recv_req[munodes];
   MPI_Status status[munodes];
 
   //Prepare recv buf
-  const int bufsz = munodes_work[munodecoor] * mutotalsites * nf * SiteSize; //complete line in mu for each orthogonal coordinate
+  const size_t bufsz = munodes_work[munodecoor] * mutotalsites * nf * SiteSize; //complete line in mu for each orthogonal coordinate
   ComplexType* recv_buf = (ComplexType*)malloc_check(bufsz * sizeof(ComplexType) );
 
   //Setup send/receive    
   for(int i=0;i<munodes;i++){ //works fine to send to all nodes, even if this involves a send to self.
-    int sret = MPI_Isend(send_bufs[i], send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], 0, MPI_COMM_WORLD, &send_req[i]);
-    assert(sret == MPI_SUCCESS);
+    assert( MPI_Isend(send_bufs[i], send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], 0, MPI_COMM_WORLD, &send_req[i]) == MPI_SUCCESS );
+    assert( MPI_Irecv(recv_buf + i*munodes_work[munodecoor]*nf*SiteSize*munodesites, send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], MPI_ANY_TAG, MPI_COMM_WORLD, &recv_req[i]) == MPI_SUCCESS );
+  }      
+  assert( MPI_Waitall(munodes,recv_req,status) == MPI_SUCCESS );
+   
+  fft_opt_mu_timings::get().comm_gather += dclock();
+  
+  fft_opt_mu_timings::get().fft -= dclock();
 
-    int rret = MPI_Irecv(recv_buf + i*munodes_work[munodecoor]*nf*SiteSize*munodesites, send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], MPI_ANY_TAG, MPI_COMM_WORLD, &recv_req[i]);
-    assert(rret == MPI_SUCCESS);
-  }
-
-      
-  int wret = MPI_Waitall(munodes,recv_req,status);
-  assert(wret == MPI_SUCCESS);
-      
   //Do FFT
-  const int howmany = munodes_work[munodecoor] * nf * SiteSize;
-  const int howmany_per_thread_base = howmany / nthread;
+  const size_t howmany = munodes_work[munodecoor] * nf * SiteSize;
+  const size_t howmany_per_thread_base = howmany / nthread;
   //Divide work orthogonal to mu, 'howmany', over threads. Note, this may not divide howmany equally. The difference is made up by adding 1 unit of work to threads in ascending order until total work matches. Thus we need 2 plans: 1 for the base amount and one for the base+1
 
   //if(!UniqueID()) printf("FFT work per site %d, divided over %d threads with %d work each. Remaining work %d allocated to ascending threads\n", howmany, nthread, howmany_per_thread_base, howmany - howmany_per_thread_base*nthread);
@@ -430,7 +478,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   {
     assert(nthread == omp_get_num_threads()); //plans will be messed up if not true
     const int me = omp_get_thread_num();
-    int thr_work, thr_off;
+    size_t thr_work, thr_off;
     thread_work(thr_work, thr_off, howmany, me, nthread);
 
     const FFTplanContainer<FloatType>* thr_plan_ptr;
@@ -442,30 +490,34 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
     FFTWwrapper<FloatType>::execute_dft(thr_plan_ptr->getPlan(), fftw_mem + thr_off, fftw_mem + thr_off); 
   }
 
-  wret = MPI_Waitall(munodes,send_req,status);
-  assert(wret == MPI_SUCCESS);
+  assert(MPI_Waitall(munodes,send_req,status) == MPI_SUCCESS);
       
+  fft_opt_mu_timings::get().fft += dclock();
+
+  fft_opt_mu_timings::get().comm_scatter -= dclock();
+
   //Send back out. Reuse the old send buffers as receive buffers and vice versa
   for(int i=0;i<munodes;i++){ //works fine to send to all nodes, even if this involves a send to self
-    int sret = MPI_Isend(recv_buf + i*munodes_work[munodecoor]*nf*SiteSize*munodesites, send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], 0, MPI_COMM_WORLD, &send_req[i]);
-    assert(sret == MPI_SUCCESS);
-
-    int rret = MPI_Irecv(send_bufs[i], send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], MPI_ANY_TAG, MPI_COMM_WORLD, &recv_req[i]);
-    assert(rret == MPI_SUCCESS);
+    assert( MPI_Isend(recv_buf + i*munodes_work[munodecoor]*nf*SiteSize*munodesites, send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], 0, MPI_COMM_WORLD, &send_req[i]) == MPI_SUCCESS );
+    assert( MPI_Irecv(send_bufs[i], send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], MPI_ANY_TAG, MPI_COMM_WORLD, &recv_req[i]) == MPI_SUCCESS );
   }
+  
+  assert( MPI_Waitall(munodes,recv_req,status) == MPI_SUCCESS );
 
-  wret = MPI_Waitall(munodes,recv_req,status);
-  assert(wret == MPI_SUCCESS);
+  fft_opt_mu_timings::get().comm_scatter += dclock();
+
+
+  fft_opt_mu_timings::get().scatter -= dclock();
 
   //Poke into output
   for(int i=0;i<munodes;i++){
 #pragma omp parallel for
-    for(int w = 0; w < munodes_work[i]; w++){ //index of orthogonal site within workload for i'th node in mu direction
-      const int orthsite = munodes_off[i] + w;
+    for(size_t w = 0; w < munodes_work[i]; w++){ //index of orthogonal site within workload for i'th node in mu direction
+      const size_t orthsite = munodes_off[i] + w;
       int coor_base[Dimension] = {0};
 	  
       //Unmap orthsite into a base coordinate
-      int rem = orthsite;
+      size_t rem = orthsite;
       for(int a=0;a<n_orthdirs;a++){
 	int dir_a = orthdirs[a];
 	coor_base[dir_a] = rem % GJP.NodeSites(dir_a); rem /= GJP.NodeSites(dir_a);
@@ -483,11 +535,16 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
     }
   }
 
-  wret = MPI_Waitall(munodes,send_req,status);
-  assert(wret == MPI_SUCCESS);
+  assert( MPI_Waitall(munodes,send_req,status) == MPI_SUCCESS);
       
+  fft_opt_mu_timings::get().scatter += dclock();
+
+  fft_opt_mu_timings::get().setup -= dclock();
+
   free(recv_buf);
   for(int i=0;i<munodes;i++) free(send_bufs[i]);
+
+  fft_opt_mu_timings::get().setup += dclock();
 }
 #endif
 

@@ -88,11 +88,12 @@ inline void getNodeWork(const int work, int &node_work, int &node_off, bool &do_
 }
 
 //Divide work over threads
-inline void thread_work(int &my_work, int &my_offset, const int total_work, const int me, const int team){
+//team is the number of threads in the team, me is the current thread index
+inline void thread_work(size_t &my_work, size_t &my_offset, const size_t total_work, const int me, const int team){
   my_work = total_work/team;
   my_offset = me * my_work;
   
-  int rem = total_work - my_work * team;
+  size_t rem = total_work - my_work * team;
   if(me < rem){
     ++my_work; //first rem threads mop up the remaining work
     my_offset += me; //each thread before me has gained one extra unit of work

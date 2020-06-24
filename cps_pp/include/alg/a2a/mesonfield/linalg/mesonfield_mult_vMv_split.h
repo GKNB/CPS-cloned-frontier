@@ -103,14 +103,14 @@ template<typename mf_Policies,
 class multiply_M_r_singlescf_op: public SCFoperation<typename gsl_wrapper<typename mf_Policies::ScalarComplexType::value_type>::matrix_complex>{
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
   typedef gsl_wrapper<typename ScalarComplexType::value_type> gw;
-  const int* work; //one for each thread
-  const int* off; //one for each thread
+  const size_t* work; //one for each thread
+  const size_t* off; //one for each thread
   std::vector<  std::vector<std::vector<ScalarComplexType> > > &Mr;
   std::vector< std::vector<std::vector<ScalarComplexType> > > &rreord;
   
   mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,complex_double_or_float_mark> const* split_obj;
 public:
-  multiply_M_r_singlescf_op(const int* _work, const int* _off, std::vector<  std::vector<std::vector<ScalarComplexType> > > &_Mr, std::vector< std::vector<std::vector<ScalarComplexType> > > &_rreord,mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,complex_double_or_float_mark> const* _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
+  multiply_M_r_singlescf_op(const size_t* _work, const size_t* _off, std::vector<  std::vector<std::vector<ScalarComplexType> > > &_Mr, std::vector< std::vector<std::vector<ScalarComplexType> > > &_rreord,mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,complex_double_or_float_mark> const* _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
   
   void operator()(const typename gw::matrix_complex& M_packed, const int scf, const int rows, const int cols){
 #pragma omp parallel
@@ -602,7 +602,7 @@ public:
     std::vector<  std::vector<std::vector<ScalarComplexType> > > Mr(sites_3d); //[3d site][scf][M row]
 
     //Run everything in parallel environment to avoid thread creation overheads
-    int work[omp_get_max_threads()], off[omp_get_max_threads()];
+    size_t work[omp_get_max_threads()], off[omp_get_max_threads()];
 
 #pragma omp parallel
     {

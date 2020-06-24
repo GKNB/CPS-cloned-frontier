@@ -186,14 +186,14 @@ class multiply_M_r_singlescf_op_grid: public mult_vMv_split_grid_types<mf_Polici
   typedef std::vector<std::vector<AlignedSIMDcomplexVector> >& MrPassType;
   typedef const std::vector<std::vector<AlignedSIMDcomplexVector> >& rreordPassType;
 
-  const int* work;
-  const int* off;
+  const size_t* work;
+  const size_t* off;
   std::vector<int> const* i_packed_unmap_all;
   ThreeDArrayType &Mr; //output
   const ThreeDArrayType &rreord;
   
 public:
-  multiply_M_r_singlescf_op_grid(const int* _work, const int* _off, 
+  multiply_M_r_singlescf_op_grid(const size_t* _work, const size_t* _off, 
 				 ThreeDArrayType &_Mr, 
 				 ThreeDArrayType &_rreord,
 				 std::vector<int> const* i_packed_unmap_all): 
@@ -244,14 +244,14 @@ template<typename mf_Policies,
 class multiply_M_r_singlescf_op_grid_blocked: public mult_vMv_split_grid_types<mf_Policies>::SCFoperationType{
   INHERIT_BASE_TYPES;
  
-  const int* work;
-  const int* off;
+  const size_t* work;
+  const size_t* off;
   std::vector<int> const* i_packed_unmap_all;
   ThreeDArrayType &Mr; //output
   const ThreeDArrayType &rreord;
   
 public:
-  multiply_M_r_singlescf_op_grid_blocked(const int* _work, const int* _off, 
+  multiply_M_r_singlescf_op_grid_blocked(const size_t* _work, const size_t* _off, 
 					 ThreeDArrayType &_Mr, 
 					 const ThreeDArrayType &_rreord,
 					 std::vector<int> const* i_packed_unmap_all): 
@@ -631,7 +631,7 @@ public:
     std::vector<  std::vector<AlignedSIMDcomplexVector> > Mr(sites_3d); //[3d site][scf][M row]
 
     //Run everything in parallel environment to avoid thread creation overheads
-    int work[omp_get_max_threads()], off[omp_get_max_threads()];
+    size_t work[omp_get_max_threads()], off[omp_get_max_threads()];
 
 #pragma omp parallel
     {

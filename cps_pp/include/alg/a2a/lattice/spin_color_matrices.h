@@ -874,6 +874,9 @@ public:
   accelerator CPSspinColorFlavorMatrix(SCFmat &&r): SCFmat(std::move(r)){}
 
   accelerator_inline operator SCFmat(){ return static_cast<SCFmat&>(*this); }
+
+  accelerator_inline CPSspinColorFlavorMatrix & operator=(const SCFmat &r){ this->CPSsquareMatrix<value_type,4>::operator=(r); return *this; }
+  accelerator_inline CPSspinColorFlavorMatrix & operator=(SCFmat &&r){ this->CPSsquareMatrix<value_type,4>::operator=(std::move(r)); return *this; }
   
   template<typename U>
   struct Rebase{
