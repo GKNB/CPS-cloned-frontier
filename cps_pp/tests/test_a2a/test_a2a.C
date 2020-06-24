@@ -376,8 +376,8 @@ int main(int argc,char *argv[])
 								   lattice, simd_dims_3d, tol);
 
 #ifdef USE_GRID
-  if(0) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
-  if(0) testVVgridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(1) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(1) testVVgridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
   if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
 #endif
 

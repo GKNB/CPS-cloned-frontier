@@ -1286,14 +1286,14 @@ void testCPSmatrixField(const double tol){
   {
       typedef CPSspinColorFlavorMatrix<typename GridA2Apolicies::ComplexType> VectorMatrixType;
       typedef CPSspinColorFlavorMatrix<typename GridA2Apolicies::ScalarComplexType> ScalarMatrixType;
-      typedef typename VectorMatrixType::RebaseScalarType<typename GridA2Apolicies::ScalarComplexType>::type ScalarMatrixTypeTest;
+      typedef typename VectorMatrixType::template RebaseScalarType<typename GridA2Apolicies::ScalarComplexType>::type ScalarMatrixTypeTest;
       static_assert( std::is_same<ScalarMatrixType, ScalarMatrixTypeTest>::value );
       static_assert( VectorMatrixType::isDerivedFromCPSsquareMatrix != -1 );
   }
   {
       typedef CPSspinMatrix<typename GridA2Apolicies::ComplexType> VectorMatrixType;
       typedef CPSspinMatrix<typename GridA2Apolicies::ScalarComplexType> ScalarMatrixType;
-      typedef typename VectorMatrixType::RebaseScalarType<typename GridA2Apolicies::ScalarComplexType>::type ScalarMatrixTypeTest;
+      typedef typename VectorMatrixType::template RebaseScalarType<typename GridA2Apolicies::ScalarComplexType>::type ScalarMatrixTypeTest;
       static_assert( std::is_same<ScalarMatrixType, ScalarMatrixTypeTest>::value );
       static_assert( VectorMatrixType::isDerivedFromCPSsquareMatrix != -1 );
   }

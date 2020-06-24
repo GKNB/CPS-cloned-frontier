@@ -153,9 +153,11 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     int t_off = GJP.TnodeSites() * GJP.TnodeCoor();
     size_t blocksize = BlockedvMvOffloadArgs::b;
     size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
-    
+
+#ifdef GRID_NVCC    
     int device;
     cudaGetDevice(&device);
+#endif
 
     //Need to compute \sum_i v(il)_{scl,fl}(x) v(ir)_{scr,fr}(x)
     
@@ -248,10 +250,14 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
     VectorComplexType* vaprime_host = (VectorComplexType*)pinned_alloc_check(128,vprime_bytes);
     VectorComplexType* vbprime_host = (VectorComplexType*)pinned_alloc_check(128,vprime_bytes);
-
+#ifdef GRID_NVCC
     VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
     VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
-
+#else
+    //Host and device memory space distinction irrelevant
+    VectorComplexType* &vaprime = vaprime_host;
+    VectorComplexType* &vbprime = vbprime_host;
+#endif
     
     if(!UniqueID()){
       std::cout << "Outer block size " << blocksize << " inner blocksize " << inner_blocksize << std::endl;
@@ -349,6 +355,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
       std::cout << "Compute VV" << std::endl;
       time.vv -= dclock();
       {
+#ifdef GRID_NVCC
 	cudaMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
 	cudaMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
 	cudaMemcpy(vaprime, vaprime_host, vprime_bytes, cudaMemcpyHostToDevice);
@@ -361,6 +368,10 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 	std::cout << "Shared memory " << shmem_max/1024 << " kB with block sizes nsimd*gpu_threads="<< nsimd << "*"<<gpu_threads <<"=" << nsimd*gpu_threads 
 		  << " allows " << shmem_max_per_thread << " B/thread which allows for iblock size " << shmem_iblock_size << " for sizeof(ScalarComplexType)=" << sizeof(ScalarComplexType) << std::endl;
 	if(shmem_iblock_size == 0) assert(0);
+#else
+	//On non-GPU device just allocate a small, fixed iblock size and use thread stack
+	int shmem_iblock_size = 4;
+#endif //GRID_NVCC
 
 	copyControl::shallow() = true;
 	accelerator_for_shmem(x4d, 
@@ -369,11 +380,16 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			      shmem_max,
 			{
 			  typedef SIMT<VectorComplexType> ACC; //this will use scalar data as on device
-			  //This should be generalized to other programming models
+			  typedef typename ACC::value_type SIMTcomplexType; //=ScalarComplexType on GPU
+#ifdef GRID_NVCC
 			  extern __shared__ ScalarComplexType shared_all[];
 			  ScalarComplexType* shared_t = shared_all + (threadIdx.y + nsimd * threadIdx.x)*2*3*shmem_iblock_size;
-			  ScalarComplexType *matA = shared_t;
-			  ScalarComplexType *matB = shared_t + 3*shmem_iblock_size;
+#else
+			  SIMTcomplexType shared_t[2*3*shmem_iblock_size]; //thread stack
+#endif
+
+			  SIMTcomplexType *matA = shared_t;
+			  SIMTcomplexType *matB = shared_t + 3*shmem_iblock_size;
 
 			  size_t xop; int top;
 			  into.fourToThree(xop, top, x4d);
@@ -418,13 +434,13 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 					int scr = cr+3*sr;
 
 					VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
-					ScalarComplexType sum = ACC::read(out);
+					SIMTcomplexType sum = ACC::read(out);
 					uint8_t const* alptr = alpha.data() + iprimestart + iprimeb_start + niprime * ( scr + 12*(fr + nf*( scl + 12*( fl + nf*t_glob) ) ) );
 
 					for(int isb=0; isb < iprimeb_subblock_size; isb++){
 					  if(*alptr++ == 1){
-					    ScalarComplexType lval = matA[isb + iprimeb_subblock_size*cl];
-					    ScalarComplexType rval = matB[isb + iprimeb_subblock_size*cr];
+					    SIMTcomplexType lval = matA[isb + iprimeb_subblock_size*cl];
+					    SIMTcomplexType rval = matB[isb + iprimeb_subblock_size*cr];
 					    sum = sum + lval * rval;
 					  }
 					}
@@ -445,9 +461,11 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
       time.vv += dclock();
     }
-    
+#ifdef GRID_NVCC
+    //If not using device, the host and device pointers are the same
     device_free(vaprime);
     device_free(vbprime);
+#endif
 
     pinned_free(vaprime_host);
     pinned_free(vbprime_host);

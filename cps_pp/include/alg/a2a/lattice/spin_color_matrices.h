@@ -23,15 +23,15 @@ accelerator_inline void CPSsetZero(Grid::vComplexF &what){
 #endif
 
 template<typename T>
-void CPSprintT(std::ostream &into, const T &what){
+inline void CPSprintT(std::ostream &into, const T &what){
   into << what;
 }
 template<>
-void CPSprintT(std::ostream &into, const std::complex<double> &what){
+inline void CPSprintT(std::ostream &into, const std::complex<double> &what){
   into << "(" << what.real() << "," << what.imag() << ")";
 }
 template<>
-void CPSprintT(std::ostream &into, const std::complex<float> &what){
+inline void CPSprintT(std::ostream &into, const std::complex<float> &what){
   into << "(" << what.real() << "," << what.imag() << ")";
 }
 
@@ -237,7 +237,7 @@ struct _rebaseScalarType{};
 template<typename T, typename NewNumericalType>
 struct _rebaseScalarType<T, cps_square_matrix_mark, NewNumericalType>{
   typedef typename _rebaseScalarType<typename T::value_type,typename _MatrixClassify<typename T::value_type>::type, NewNumericalType>::type subType;
-  typedef typename T::Rebase<subType>::type type;
+  typedef typename T::template Rebase<subType>::type type;
 };
 template<typename T, typename NewNumericalType>
 struct _rebaseScalarType<T, no_mark, NewNumericalType>{
