@@ -376,9 +376,9 @@ int main(int argc,char *argv[])
 								   lattice, simd_dims_3d, tol);
 
 #ifdef USE_GRID
-  if(1) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
-  if(1) testVVgridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
-  if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
+  if(0) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(0) testVVgridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
 #endif
 
   if(0) testModeMappingTranspose(a2a_arg);
@@ -386,6 +386,12 @@ int main(int argc,char *argv[])
 #ifdef USE_GRID
   if(0) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
 #endif
+
+  if(1) testFFTopt<A2Apolicies_std>();
+#ifdef USE_GRID
+  if(1) testFFTopt<A2Apolicies_grid>();
+#endif
+
 
   std::cout << "Done" << std::endl;
 

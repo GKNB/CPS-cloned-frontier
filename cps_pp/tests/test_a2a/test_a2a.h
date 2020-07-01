@@ -1534,4 +1534,46 @@ void testCPSmatrixField(const double tol){
 
 #endif //USE_GRID
 
+
+
+template<typename A2Apolicies>
+void testFFTopt(){
+  typedef typename A2Apolicies::FermionFieldType::FieldSiteType mf_Complex;
+  typedef typename A2Apolicies::FermionFieldType::FieldMappingPolicy MappingPolicy;
+  typedef typename A2Apolicies::FermionFieldType::FieldAllocPolicy AllocPolicy;
+
+  typedef typename MappingPolicy::template Rebase<OneFlavorPolicy>::type OneFlavorMap;
+  
+  typedef CPSfield<mf_Complex,12,OneFlavorMap, AllocPolicy> FieldType;
+  typedef typename FieldType::InputParamType FieldInputParamType;
+  FieldInputParamType fp; setupFieldParams<FieldType>(fp);
+
+  bool do_dirs[4] = {1,1,0,0};
+  
+  FieldType in(fp);
+  in.testRandom();
+
+  FieldType out1(fp);
+  if(!UniqueID()) printf("FFT orig\n");
+  fft(out1,in,do_dirs);
+
+  FieldType out2(fp);
+  if(!UniqueID()) printf("FFT opt\n");
+  fft_opt(out2,in,do_dirs);
+
+  assert( out1.equals(out2, 1e-8, true ) );
+  printf("Passed FFT test\n");
+
+  //Test inverse
+  FieldType inv(fp);
+  if(!UniqueID()) printf("FFT opt inverse\n");
+  fft_opt(inv,out2,do_dirs,true);
+
+  assert( inv.equals(in, 1e-8, true ) );
+  printf("Passed FFT inverse test\n");  
+}
+
+
+
+
 #endif

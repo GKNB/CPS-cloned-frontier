@@ -3,6 +3,11 @@
 
 #include "CPSfield.h"
 
+#ifdef GRID_NVCC
+//Make sure you link -lcufft
+#include <cufft.h>
+#endif
+
 CPS_START_NAMESPACE
 #include "implementation/CPSfield_utils_impl.tcc"
 #include "implementation/CPSfield_utils_cyclicpermute.tcc"
@@ -251,9 +256,11 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
 	     ){
 #ifndef USE_MPI
+  //if(!UniqueID()) printf("fft_opt reverting to fft because USE_MPI not enabled\n");
   fft(into,from,do_dirs,inverse_transform);
 #else
-  
+  //if(!UniqueID()) printf("Using fft_opt\n");
+
   enum { Dimension = CPSfieldType::FieldMappingPolicy::EuclideanDimension };
   int ndirs_fft = 0; for(int i=0;i<Dimension;i++) if(do_dirs[i]) ++ndirs_fft;
   if(! ndirs_fft ) return;
@@ -342,7 +349,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   const int nf = from.nflavors();
   const int foff = from.flav_offset();
   const int nthread = omp_get_max_threads();
-  
+
   //Eg for fft in X-direction, divide up Y,Z,T work over nodes in X-direction doing linear FFTs.
   const int munodesites = GJP.NodeSites(mu);
   const int munodes = GJP.Nodes(mu);
@@ -439,6 +446,60 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 
   //Do FFT
   const size_t howmany = munodes_work[munodecoor] * nf * SiteSize;
+
+#ifdef GRID_NVCC
+  //if(!UniqueID()) printf("Performing FFT using CUFFT\n");
+  
+  //------------------------------------------------------------------------
+  //Perform FFT using CUFFT
+  //------------------------------------------------------------------------
+  static int plan_howmany[Dimension];
+  static bool plan_init = false;
+  static cufftHandle handle[Dimension];
+  
+  if(!plan_init || plan_howmany[mu] != howmany){
+    if(!plan_init) for(int i=0;i<Dimension;i++) plan_howmany[i] = -1;
+
+    //ComplexType* to = send_bufs[i] + SiteSize * (w + munodes_work[i]*( f + nf*xmu ) );  //with musite changing slowest
+
+    // cufftPlanMany(cufftHandle *plan, int rank, int *n, int *inembed,
+    // 		  int istride, int idist, int *onembed, int ostride,
+    // 		  int odist, cufftType type, int batch);
+
+    int rank=1;
+    int n[1] = {mutotalsites}; //size of each dimension
+    //The only non-gibberish explanation of the imbed parameter I've yet seen can be found on page 9 of http://acarus.uson.mx/docs/cuda-5.5/CUFFT_Library.pdf
+    int inembed[1] = {howmany}; //Pointer of size rank that indicates the storage dimen-sions of the input data in memory (up to istride).
+    int istride = howmany; //distance between elements. We have ordered data such that the elements are the slowest index
+    int idist = 1; //distance between first element of two consecutive batches
+    int* onembed = inembed;
+    int ostride=istride;
+    int odist=idist;
+    cufftType type = CUFFT_Z2Z; //double complex
+    int batch = howmany; //how many FFTs are we doing?
+
+    assert( cufftCreate(&handle[mu])== CUFFT_SUCCESS );
+    assert( cufftPlanMany(&handle[mu], rank, n, inembed, istride, idist, onembed, ostride, odist, type, batch) == CUFFT_SUCCESS );    
+  }
+
+  static_assert(sizeof(cufftDoubleComplex) == sizeof(ComplexType));
+  
+  cufftDoubleComplex* device_in = (cufftDoubleComplex*)device_alloc_check(bufsz * sizeof(cufftDoubleComplex));
+  assert(cudaMemcpy(device_in, recv_buf, bufsz * sizeof(cufftDoubleComplex), cudaMemcpyHostToDevice) == cudaSuccess);
+  
+  int fft_phase = inverse_transform ? CUFFT_INVERSE : CUFFT_FORWARD;
+  assert( cufftExecZ2Z(handle[mu], device_in,  device_in, fft_phase) == CUFFT_SUCCESS );
+  
+  assert(cudaMemcpy(recv_buf, device_in,  bufsz * sizeof(cufftDoubleComplex), cudaMemcpyDeviceToHost) == cudaSuccess);
+  
+  device_free(device_in);
+
+#else //GRID_NVCC
+  //if(!UniqueID()) printf("Performing FFT using FFTW (threaded)\n");
+  //------------------------------------------------------------------------
+  //Perform FFT using FFTW (threaded)
+  //------------------------------------------------------------------------
+
   const size_t howmany_per_thread_base = howmany / nthread;
   //Divide work orthogonal to mu, 'howmany', over threads. Note, this may not divide howmany equally. The difference is made up by adding 1 unit of work to threads in ascending order until total work matches. Thus we need 2 plans: 1 for the base amount and one for the base+1
 
@@ -490,6 +551,8 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
     FFTWwrapper<FloatType>::execute_dft(thr_plan_ptr->getPlan(), fftw_mem + thr_off, fftw_mem + thr_off); 
   }
 
+
+#endif //GRID_NVCC
   assert(MPI_Waitall(munodes,send_req,status) == MPI_SUCCESS);
       
   fft_opt_mu_timings::get().fft += dclock();
@@ -556,9 +619,10 @@ template<typename CPSfieldType>
 void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, const bool inverse_transform = false,
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, grid_vector_complex_mark>::value, const int>::type = 0
 	     ){ //we can avoid the copies below but with some effort - do at some point
-# ifdef USE_MPI
+# ifndef USE_MPI
   fft(into,from,do_dirs,inverse_transform);
 # else
+  //if(!UniqueID()) printf("fft_opt converting Grid SIMD field to scalar field\n");
   typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
   typedef typename CPSfieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarDimPol;
   typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol, StandardAllocPolicy> ScalarFieldType;

@@ -123,12 +123,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #ifdef USE_GRID
   if(0) testMfFFTreln<GridA2ApoliciesType>(a2a_args,lattice);
 #endif
-  
-  if(0) testFFTopt<ScalarA2ApoliciesType>();
-#ifdef USE_GRID
-  if(0) testFFTopt<GridA2ApoliciesType>();
-#endif
-  
+    
   if(1) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
 
   if(0) testA2AFFTinv<ScalarA2ApoliciesType>(a2a_args,lattice);
