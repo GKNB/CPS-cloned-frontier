@@ -1524,7 +1524,36 @@ void testCPSmatrixField(const double tol){
   }
   if(fail) ERR.General("","","CPSmatrixField pl failed\n");
 
-  
+
+  //Test local reduction
+  if(!UniqueID()){ printf("Testing local reduction\n"); fflush(stdout); }
+  VectorMatrixType sum_expect = localNodeSumSimple(a);
+  VectorMatrixType sum_got = localNodeSum(a);
+
+  fail = false;
+  for(int s1=0;s1<4;s1++){
+  for(int c1=0;c1<3;c1++){
+  for(int f1=0;f1<2;f1++){
+  for(int s2=0;s2<4;s2++){
+  for(int c2=0;c2<3;c2++){
+  for(int f2=0;f2<2;f2++){
+    auto got = Reduce(sum_got(s1,s2)(c1,c2)(f1,f2) );
+    auto expect = Reduce( sum_expect(s1,s2)(c1,c2)(f1,f2) );
+      
+    double rdiff = fabs(got.real()-expect.real());
+    double idiff = fabs(got.imag()-expect.imag());
+    if(rdiff > tol|| idiff > tol){
+      printf("Fail: local node reduce (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+      fail = true;
+    }
+  }
+  }
+  }
+  }
+  }  
+  }
+  if(fail) ERR.General("","","CPSmatrixField local node reduction failed\n");
+
 
   if(!UniqueID()){ printf("testCPSmatrixField tests passed\n"); fflush(stdout); }
 }
