@@ -353,8 +353,8 @@ public:
 
   
   //Perform the spatial reduction and add the result into the output container
-  template<typename ResultsContainerType, typename complexFieldType>
-  static void add(const int Cidx, ResultsContainerType &result, const int t_K, const int gcombidx,  const int Coff, const complexFieldType &field){
+  template<typename ComplexType, typename AllocPolicy>
+  static void add(const int Cidx, KtoPiPiGparityResultsContainer<ComplexType,AllocPolicy> &result, const int t_K, const int gcombidx,  const int Coff, const CPSmatrixField<ComplexType> &field){
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     auto sum3d = localNodeSpatialSum(field);
     assert(sum3d.size() == GJP.TnodeSites());
@@ -365,6 +365,20 @@ public:
       C = C + sum3d[t_loc];
     }
   }
+
+  template<typename ComplexType, typename AllocPolicy>
+  static void add(KtoPiPiGparityMixDiagResultsContainer<ComplexType,AllocPolicy> &result, const int t_K, const int fidx,  const CPSmatrixField<ComplexType> &field){
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    auto sum3d = localNodeSpatialSum(field);
+    assert(sum3d.size() == GJP.TnodeSites());
+    for(int t_loc=0;t_loc<GJP.TnodeSites();t_loc++){
+      int t_glob = t_loc + GJP.TnodeSites()*GJP.TnodeCoor();
+      int t_dis = modLt(t_glob - t_K, Lt);
+      auto &C = result(t_K,t_dis,fidx,0);
+      C = C + sum3d[t_loc];
+    }
+  }
+
 };
 
 CPS_END_NAMESPACE

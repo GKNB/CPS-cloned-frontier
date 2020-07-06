@@ -379,7 +379,8 @@ int main(int argc,char *argv[])
   if(0) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
   if(0) testVVgridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
   if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
-  if(1) testKtoPiPiType4Field<A2Apolicies_grid>(tol);
+  if(1) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
+  if(1) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 #endif
 
   if(0) testModeMappingTranspose(a2a_arg);

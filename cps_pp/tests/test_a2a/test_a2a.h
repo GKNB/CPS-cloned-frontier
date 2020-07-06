@@ -1662,7 +1662,7 @@ public:
 };
 
 template<typename GridA2Apolicies>
-void testKtoPiPiType4Field(const double tol){
+void testKtoPiPiType4FieldContraction(const double tol){
   typedef typename GridA2Apolicies::ComplexType ComplexType;
   typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
   typedef CPSspinColorFlavorMatrix<ComplexType> VectorMatrixType;
@@ -1757,4 +1757,94 @@ void testKtoPiPiType4Field(const double tol){
     
 
 }
+
+
+
+
+template<typename GridA2Apolicies>
+void testKtoPiPiType4FieldFull(const A2AArg &a2a_args, const double tol){
+  std::cout << "Starting type4 full test\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AvectorW<GridA2Apolicies> Wgrid(a2a_args, simd_dims), Whgrid(a2a_args, simd_dims);
+  A2AvectorV<GridA2Apolicies> Vgrid(a2a_args, simd_dims), Vhgrid(a2a_args, simd_dims);
+
+  Wgrid.testRandom();
+  Vgrid.testRandom();
+
+  Whgrid.testRandom();
+  Vhgrid.testRandom();
+
+  int Lt = GJP.TnodeSites()*GJP.Tnodes();
+  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW;
+  std::vector<mf_WW> mf_kaon(Lt);
+  for(int t=0;t<Lt;t++){
+    int t_glob = t + GJP.TnodeSites()*GJP.TnodeCoor();
+    mf_kaon[t].setup(Wgrid,Whgrid,t_glob,t_glob);
+    mf_kaon[t].testRandom();
+  }
+  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
+  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+
+  ResultsContainerType expect_r;
+  ResultsContainerType got_r;
+  MixDiagResultsContainerType expect_mix_r;
+  MixDiagResultsContainerType got_mix_r;
+
+  int tstep = 2;
+  ComputeKtoPiPiGparity<GridA2Apolicies>::type4(expect_r, expect_mix_r, tstep, mf_kaon, Vgrid, Vhgrid, Wgrid, Whgrid);
+  ComputeKtoPiPiGparity<GridA2Apolicies>::type4_field(got_r, got_mix_r, tstep, mf_kaon, Vgrid, Vhgrid, Wgrid, Whgrid);  
+
+  static const int n_contract = 10; //ten type4 diagrams
+  static const int con_off = 23; //index of first contraction in set
+  
+  bool fail = false;
+  for(int t_K=0;t_K<Lt;t_K++){
+    for(int tdis=0;tdis<Lt;tdis++){
+      for(int cidx=0; cidx<n_contract; cidx++){
+	for(int gcombidx=0;gcombidx<8;gcombidx++){
+	  std::cout << "tK " << t_K << " tdis " << tdis << " C" << cidx+con_off << " gcombidx " << gcombidx << std::endl;
+	  ComplexD expect = convertComplexD(expect_r(t_K,tdis,cidx,gcombidx));
+	  ComplexD got = convertComplexD(got_r(t_K,tdis,cidx,gcombidx));
+	  
+	  double rdiff = fabs(got.real()-expect.real());
+	  double idiff = fabs(got.imag()-expect.imag());
+	  if(rdiff > tol|| idiff > tol){
+	    printf("Fail: KtoPiPi type4 contract full (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	    fail = true;
+	  }else
+	    printf("Pass: KtoPiPi type4 contract full (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	}
+      }
+    }
+  }
+  if(fail) ERR.General("","","KtoPiPi type4 contract full failed\n");
+    
+  for(int t_K=0;t_K<Lt;t_K++){
+    for(int tdis=0;tdis<Lt;tdis++){
+      for(int cidx=0; cidx<2; cidx++){
+	std::cout << "tK " << t_K << " tdis " << tdis << " mix4(" << cidx << ")" << std::endl;
+	ComplexD expect = convertComplexD(expect_mix_r(t_K,tdis,cidx));
+	ComplexD got = convertComplexD(got_mix_r(t_K,tdis,cidx));
+	  
+	double rdiff = fabs(got.real()-expect.real());
+	double idiff = fabs(got.imag()-expect.imag());
+	if(rdiff > tol|| idiff > tol){
+	    printf("Fail: KtoPiPi mix4 contract full (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	    fail = true;
+	}else
+	  printf("Pass: KtoPiPi mix4 contract full (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+      }
+    }
+  }
+
+  if(fail) ERR.General("","","KtoPiPi mix4 contract full failed\n");
+}
+
+
+
 #endif

@@ -596,7 +596,11 @@ public:
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
 
-
+  static void type4_field(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
+		     const int &tstep,
+		     const std::vector<mf_WW > &mf_kaon,
+		     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+		     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
 
 
 };

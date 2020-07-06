@@ -206,6 +206,27 @@ CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixFiel
   return out;
 }
 
+template<typename VectorMatrixType>			
+CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixField<VectorMatrixType> &a, const VectorMatrixType &b){
+  CPSmatrixField<typename VectorMatrixType::scalar_type> out(a.getDimPolParams());
+  static const int nsimd = VectorMatrixType::scalar_type::Nsimd();
+  copyControl::shallow() = true;
+  accelerator_for(x4d, a.size(), nsimd,
+		  {
+		    typedef SIMT<VectorMatrixType> ACCi;
+		    typedef SIMT<typename VectorMatrixType::scalar_type> ACCo;
+		    auto aa = ACCi::read(*a.site_ptr(x4d));
+		    auto bb = ACCi::read(b);
+		    auto cc = Trace(aa,bb);
+		    ACCo::write(*out.site_ptr(x4d), cc );
+		  }
+		  );
+  copyControl::shallow()= false;
+  return out;
+}
+
+
+
 //Sum the matrix field over sides on this node
 template<typename VectorMatrixType>			
 VectorMatrixType localNodeSumSimple(const CPSmatrixField<VectorMatrixType> &a){
