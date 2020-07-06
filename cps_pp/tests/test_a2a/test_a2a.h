@@ -1526,33 +1526,74 @@ void testCPSmatrixField(const double tol){
 
 
   //Test local reduction
-  if(!UniqueID()){ printf("Testing local reduction\n"); fflush(stdout); }
-  VectorMatrixType sum_expect = localNodeSumSimple(a);
-  VectorMatrixType sum_got = localNodeSum(a);
+  {
+    if(!UniqueID()){ printf("Testing local reduction\n"); fflush(stdout); }
+    VectorMatrixType sum_expect = localNodeSumSimple(a);
+    VectorMatrixType sum_got = localNodeSum(a);
 
-  fail = false;
-  for(int s1=0;s1<4;s1++){
-  for(int c1=0;c1<3;c1++){
-  for(int f1=0;f1<2;f1++){
-  for(int s2=0;s2<4;s2++){
-  for(int c2=0;c2<3;c2++){
-  for(int f2=0;f2<2;f2++){
-    auto got = Reduce(sum_got(s1,s2)(c1,c2)(f1,f2) );
-    auto expect = Reduce( sum_expect(s1,s2)(c1,c2)(f1,f2) );
+    fail = false;
+    for(int s1=0;s1<4;s1++){
+      for(int c1=0;c1<3;c1++){
+	for(int f1=0;f1<2;f1++){
+	  for(int s2=0;s2<4;s2++){
+	    for(int c2=0;c2<3;c2++){
+	      for(int f2=0;f2<2;f2++){
+		auto got = Reduce(sum_got(s1,s2)(c1,c2)(f1,f2) );
+		auto expect = Reduce( sum_expect(s1,s2)(c1,c2)(f1,f2) );
       
-    double rdiff = fabs(got.real()-expect.real());
-    double idiff = fabs(got.imag()-expect.imag());
-    if(rdiff > tol|| idiff > tol){
-      printf("Fail: local node reduce (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-      fail = true;
+		double rdiff = fabs(got.real()-expect.real());
+		double idiff = fabs(got.imag()-expect.imag());
+		if(rdiff > tol|| idiff > tol){
+		  printf("Fail: local node reduce (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+		  fail = true;
+		}
+	      }
+	    }
+	  }
+	}
+      }  
     }
+    if(fail) ERR.General("","","CPSmatrixField local node reduction failed\n");
   }
+
+
+
+  //Test 3d local reduction
+  {
+    if(!UniqueID()){ printf("Testing local 3d reduction\n"); fflush(stdout); }
+    ManagedVector<VectorMatrixType> sum_expect = localNodeSpatialSumSimple(a);
+    ManagedVector<VectorMatrixType> sum_got = localNodeSpatialSum(a);
+
+    assert(sum_expect.size() == GJP.TnodeSites());
+    assert(sum_got.size() == GJP.TnodeSites());
+
+    fail = false;
+    for(int t=0;t<GJP.TnodeSites();t++){
+      for(int s1=0;s1<4;s1++){
+	for(int c1=0;c1<3;c1++){
+	  for(int f1=0;f1<2;f1++){
+	    for(int s2=0;s2<4;s2++){
+	      for(int c2=0;c2<3;c2++){
+		for(int f2=0;f2<2;f2++){
+		  auto got = Reduce(sum_got[t](s1,s2)(c1,c2)(f1,f2) );
+		  auto expect = Reduce( sum_expect[t](s1,s2)(c1,c2)(f1,f2) );
+      
+		  double rdiff = fabs(got.real()-expect.real());
+		  double idiff = fabs(got.imag()-expect.imag());
+		  if(rdiff > tol|| idiff > tol){
+		    printf("Fail: local node 3d reduce (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+		    fail = true;
+		  }
+		}
+	      }
+	    }
+	  }
+	}  
+      }
+    }
+    if(fail) ERR.General("","","CPSmatrixField local node 3d reduction failed\n");
   }
-  }
-  }
-  }  
-  }
-  if(fail) ERR.General("","","CPSmatrixField local node reduction failed\n");
+
 
 
   if(!UniqueID()){ printf("testCPSmatrixField tests passed\n"); fflush(stdout); }
@@ -1603,6 +1644,117 @@ void testFFTopt(){
 }
 
 
+template<typename mf_Policies>
+class ComputeKtoPiPiGparityTest: public ComputeKtoPiPiGparity<mf_Policies>{
+public:
+  typedef typename ComputeKtoPiPiGparity<mf_Policies>::ResultsContainerType ResultsContainerType;
+  typedef typename ComputeKtoPiPiGparity<mf_Policies>::SCFmat SCFmat;
+  typedef typename ComputeKtoPiPiGparity<mf_Policies>::SCFmatrixField SCFmatrixField;
 
+  static void type4_contract_test(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
+				  const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H){
+    ComputeKtoPiPiGparity<mf_Policies>::type4_contract(result, t_K, t_dis, thread_id, part1, part2_L, part2_H);
+  }
+  static void type4_contract_test(ResultsContainerType &result, const int t_K, 
+				  const SCFmatrixField &part1, const SCFmatrixField &part2_L, const SCFmatrixField &part2_H){
+    ComputeKtoPiPiGparity<mf_Policies>::type4_contract(result, t_K, part1, part2_L, part2_H);
+  }
+};
 
+template<typename GridA2Apolicies>
+void testKtoPiPiType4Field(const double tol){
+  typedef typename GridA2Apolicies::ComplexType ComplexType;
+  typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
+  typedef CPSspinColorFlavorMatrix<ComplexType> VectorMatrixType;
+  typedef CPSmatrixField<VectorMatrixType> PropagatorField;
+
+  static const int nsimd = GridA2Apolicies::ComplexType::Nsimd();
+  typename PropagatorField::InputParamType simd_dims;
+  PropagatorField::SIMDdefaultLayout(simd_dims,nsimd,2);
+  
+  PropagatorField part1(simd_dims), part2_L(simd_dims), part2_H(simd_dims);
+  for(size_t x4d=0; x4d< part1.size(); x4d++){
+    for(int s1=0;s1<4;s1++){
+      for(int c1=0;c1<3;c1++){
+	for(int f1=0;f1<2;f1++){
+	  for(int s2=0;s2<4;s2++){
+	    for(int c2=0;c2<3;c2++){
+	      for(int f2=0;f2<2;f2++){
+		{
+		  ComplexType &v = (*part1.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
+		  for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+		}		
+
+		{
+		  ComplexType &v = (*part2_L.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
+		  for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+		}		
+
+		{
+		  ComplexType &v = (*part2_H.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
+		  for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+		}		
+
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
+
+  static const int n_contract = 10; //ten type4 diagrams
+  static const int con_off = 23; //index of first contraction in set
+  int nthread = omp_get_max_threads();
+
+  ResultsContainerType expect_r(n_contract, nthread);
+  ResultsContainerType got_r(n_contract);
+
+  int t_K = 1;
+
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  for(int t_loc=0;t_loc<GJP.TnodeSites();t_loc++){
+    int t_glob = t_loc + GJP.TnodeSites()*GJP.TnodeCoor();
+    int t_dis =  ComputeKtoPiPiGparityBase::modLt(t_glob - t_K, Lt);
+    
+    size_t vol3d = part1.size()/GJP.TnodeSites();
+#pragma omp parallel for
+    for(size_t x3d=0;x3d<vol3d;x3d++){
+      int me = omp_get_thread_num();
+      ComputeKtoPiPiGparityTest<GridA2Apolicies>::type4_contract_test(expect_r, t_K, t_dis, me,
+								      *part1.site_ptr(part1.threeToFour(x3d,t_loc)),
+								      *part2_L.site_ptr(part1.threeToFour(x3d,t_loc)),
+								      *part2_H.site_ptr(part1.threeToFour(x3d,t_loc)));
+    }
+  }
+
+  ComputeKtoPiPiGparityTest<GridA2Apolicies>::type4_contract_test(got_r, t_K, part1, part2_L, part2_H);
+
+  got_r.nodeSum();
+  expect_r.threadSum();
+  expect_r.nodeSum();
+  
+  bool fail = false;
+  for(int tdis=0;tdis<Lt;tdis++){
+    for(int cidx=0; cidx<n_contract; cidx++){
+      for(int gcombidx=0;gcombidx<8;gcombidx++){
+	std::cout << "tdis " << tdis << " C" << cidx+con_off << " gcombidx " << gcombidx << std::endl;
+	ComplexD expect = convertComplexD(expect_r(t_K,tdis,cidx,gcombidx));
+	ComplexD got = convertComplexD(got_r(t_K,tdis,cidx,gcombidx));
+
+	double rdiff = fabs(got.real()-expect.real());
+	double idiff = fabs(got.imag()-expect.imag());
+	if(rdiff > tol|| idiff > tol){
+	  printf("Fail: KtoPiPi type4 contract (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	  fail = true;
+	}
+      }
+    }
+  }
+  if(fail) ERR.General("","","KtoPiPi type4 contract failed\n");
+    
+
+}
 #endif

@@ -25,9 +25,6 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(ResultsContainerType &re
 
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
-      const SCFmat &G1 = Gamma1<ComplexType>(gcombidx,mu);
-      const SCFmat &G2 = Gamma2<ComplexType>(gcombidx,mu);
-
       for(int pt1_pion=0; pt1_pion<2; pt1_pion++){  //which pion comes first in part 1?
 	SCFmat G1_pt1 = part1[pt1_pion]; //= G1*part1[pt1_pion];
 	multGammaLeft(G1_pt1,1,gcombidx,mu);

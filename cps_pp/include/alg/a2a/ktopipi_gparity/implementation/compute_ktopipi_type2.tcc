@@ -24,9 +24,6 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &re
   static const int con_off = 7; //index of first contraction in set
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
-      const SCFmat &G1 = Gamma1<ComplexType>(gcombidx,mu);
-      const SCFmat &G2 = Gamma2<ComplexType>(gcombidx,mu);
-
       SCFmat G1_pt1 = part1; //= G1*part1;
       multGammaLeft(G1_pt1,1,gcombidx,mu);
 

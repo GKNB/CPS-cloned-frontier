@@ -463,17 +463,43 @@ accelerator_inline T Transpose(const T& r){
 #define TIMESMINUSI(a,b) { _timespmI<T, typename _MatrixClassify<T>::type>::timesMinusI(b,a); }
 #define SETZERO(a){ _CPSsetZeroOne<T, typename _MatrixClassify<T>::type>::setzero(a); }
 
+
+//For derived classes we want methods to return references or instances of the derived type for inherited functions
+//Must have "base_type" defined
+//DERIVED = the full derived class name, eg CPSflavorMatrix<T>
+//DERIVED_CON = the derived class constructor name, eg CPSflavorMatrix
+#define INHERIT_METHODS_AND_TYPES(DERIVED, DERIVED_CON)		\
+  typedef typename base_type::value_type value_type;	\
+  typedef typename base_type::scalar_type scalar_type;			\
+  accelerator_inline operator base_type(){ return static_cast<base_type &>(*this); } \
+									\
+  accelerator DERIVED_CON(const base_type &r): base_type(r){} \
+  accelerator DERIVED_CON(): base_type(){}			\
+  accelerator DERIVED_CON(base_type &&r): base_type(std::move(r)){}	\
+									\
+  accelerator_inline DERIVED Transpose() const{ return this->base_type::Transpose(); } \
+  template<int TransposeDepth>						\
+  accelerator_inline DERIVED TransposeOnIndex() const{ return this->base_type::template TransposeOnIndex<TransposeDepth>(); } \
+									\
+  accelerator_inline DERIVED & zero(){ return static_cast<DERIVED &>(this->base_type::zero()); } \  
+  accelerator_inline DERIVED & unit(){ return static_cast<DERIVED &>(this->base_type::unit()); } \  
+  accelerator_inline DERIVED & timesMinusOne(){ return static_cast<DERIVED &>(this->base_type::timesMinusOne()); } \  
+  accelerator_inline DERIVED & timesI(){ return static_cast<DERIVED &>(this->base_type::timesI()); } \  
+  accelerator_inline DERIVED & timesMinusI(){ return static_cast<DERIVED &>(this->base_type::timesMinusI()); } \  
+									\
+  accelerator_inline DERIVED & operator=(const base_type &r){ return static_cast<DERIVED &>(this->base_type::operator=(r)); } \
+  accelerator_inline DERIVED & operator=(base_type &&r){ return static_cast<DERIVED &>(this->base_type::operator=(std::move(r))); } \
+  accelerator_inline DERIVED & operator+=(const DERIVED &r){ return static_cast<DERIVED &>(this->base_type::operator+=(r)); } \
+  accelerator_inline DERIVED & operator*=(const scalar_type &r){ return static_cast<DERIVED &>(this->base_type::operator*=(r)); } \
+  accelerator_inline DERIVED & operator-=(const DERIVED &r){ return static_cast<DERIVED &>(this->base_type::operator-=(r)); } 
+
+
+
 template<typename T>
 class CPSflavorMatrix: public CPSsquareMatrix<T,2>{
 public:
-  typedef typename CPSsquareMatrix<T,2>::value_type value_type;
-  typedef typename CPSsquareMatrix<T,2>::scalar_type scalar_type;
-
-  accelerator_inline operator CPSsquareMatrix<T,2>(){ return static_cast<CPSsquareMatrix<T,2> &>(*this); }
-
-  accelerator CPSflavorMatrix(const CPSsquareMatrix<T,2> &r): CPSsquareMatrix<T,2>(r){}
-  accelerator CPSflavorMatrix(): CPSsquareMatrix<T,2>(){}  
-  accelerator CPSflavorMatrix(CPSsquareMatrix<T,2> &&r): CPSsquareMatrix<T,2>(std::move(r)){}
+  typedef CPSsquareMatrix<T,2> base_type;
+  INHERIT_METHODS_AND_TYPES(CPSflavorMatrix<T>, CPSflavorMatrix);
   
   template<typename U>
   struct Rebase{
@@ -606,14 +632,8 @@ public:
 template<typename T>
 class CPSspinMatrix: public CPSsquareMatrix<T,4>{
 public:
-  typedef typename CPSsquareMatrix<T,4>::value_type value_type;
-  typedef typename CPSsquareMatrix<T,4>::scalar_type scalar_type;
-
-  accelerator_inline operator CPSsquareMatrix<T,4>(){ return static_cast<CPSsquareMatrix<T,4> &>(*this); }
-
-  accelerator CPSspinMatrix(const CPSsquareMatrix<T,4> &r): CPSsquareMatrix<T,4>(r){}
-  accelerator CPSspinMatrix(): CPSsquareMatrix<T,4>(){}  
-  accelerator CPSspinMatrix(CPSsquareMatrix<T,4> &&r): CPSsquareMatrix<T,4>(std::move(r)){}
+  typedef CPSsquareMatrix<T,4> base_type;
+  INHERIT_METHODS_AND_TYPES(CPSspinMatrix<T>, CPSspinMatrix);
   
   template<typename U>
   struct Rebase{
@@ -842,8 +862,8 @@ public:
 template<typename T>
 class CPScolorMatrix: public CPSsquareMatrix<T,3>{
 public:
-  typedef typename CPSsquareMatrix<T,3>::value_type value_type;
-  typedef typename CPSsquareMatrix<T,3>::scalar_type scalar_type;
+  typedef CPSsquareMatrix<T,3> base_type;
+  INHERIT_METHODS_AND_TYPES(CPScolorMatrix<T>, CPScolorMatrix);
 
   template<typename U>
   struct Rebase{
@@ -854,29 +874,14 @@ public:
   struct RebaseScalarType{
     typedef typename _rebaseScalarType<CPScolorMatrix<T>,cps_square_matrix_mark,U>::type type;
   };
-
-  accelerator_inline operator CPSsquareMatrix<T,3>(){ return static_cast<CPSsquareMatrix<T,3> &>(*this); }
-
-  accelerator CPScolorMatrix(const CPSsquareMatrix<T,3> &r): CPSsquareMatrix<T,3>(r){}
-  accelerator CPScolorMatrix(): CPSsquareMatrix<T,3>(){}  
-  accelerator CPScolorMatrix(CPSsquareMatrix<T,3> &&r): CPSsquareMatrix<T,3>(std::move(r)){}
 };
 
 template<typename ComplexType>
 class CPSspinColorFlavorMatrix: public CPSspinMatrix<CPScolorMatrix<CPSflavorMatrix<ComplexType> > >{
 public:
   typedef CPSspinMatrix<CPScolorMatrix<CPSflavorMatrix<ComplexType> > > SCFmat;
-  typedef typename SCFmat::value_type value_type;
-  typedef typename SCFmat::scalar_type scalar_type;
-
-  accelerator CPSspinColorFlavorMatrix(): SCFmat(){}
-  accelerator CPSspinColorFlavorMatrix(const SCFmat &r): SCFmat(r){}
-  accelerator CPSspinColorFlavorMatrix(SCFmat &&r): SCFmat(std::move(r)){}
-
-  accelerator_inline operator SCFmat(){ return static_cast<SCFmat&>(*this); }
-
-  accelerator_inline CPSspinColorFlavorMatrix & operator=(const SCFmat &r){ this->CPSsquareMatrix<value_type,4>::operator=(r); return *this; }
-  accelerator_inline CPSspinColorFlavorMatrix & operator=(SCFmat &&r){ this->CPSsquareMatrix<value_type,4>::operator=(std::move(r)); return *this; }
+  typedef CPSspinMatrix<CPScolorMatrix<CPSflavorMatrix<ComplexType> > > base_type;
+  INHERIT_METHODS_AND_TYPES(CPSspinColorFlavorMatrix<ComplexType>, CPSspinColorFlavorMatrix);
   
   template<typename U>
   struct Rebase{
@@ -887,17 +892,6 @@ public:
   struct RebaseScalarType{
     typedef CPSspinColorFlavorMatrix<U> type;
   };
-
-
-  accelerator_inline CPSspinColorFlavorMatrix<ComplexType>& unit(){
-    return static_cast<CPSspinColorFlavorMatrix<ComplexType>& >(this->CPSsquareMatrix<value_type,4>::unit());
-  }
-  accelerator_inline CPSspinColorFlavorMatrix<ComplexType>& zero(){
-    return static_cast<CPSspinColorFlavorMatrix<ComplexType>& >(this->CPSsquareMatrix<value_type,4>::zero());
-  }
-  accelerator_inline CPSspinColorFlavorMatrix<ComplexType>& timesMinusOne(){
-    return static_cast<CPSspinColorFlavorMatrix<ComplexType>& >(this->CPSsquareMatrix<value_type,4>::timesMinusOne());
-  }
 
   accelerator_inline CPScolorMatrix<ComplexType> SpinFlavorTrace() const{
     return this->CPSsquareMatrix<value_type,4>::template TraceTwoIndices<0,2>();
@@ -914,7 +908,7 @@ public:
   }
   
   //multiply on left by a flavor matrix
-  accelerator_inline SCFmat & pl(const FlavorMatrixType type){
+  accelerator_inline CPSspinColorFlavorMatrix<ComplexType> & pl(const FlavorMatrixType type){
     for(int s1=0;s1<4;s1++)
       for(int s2=0;s2<4;s2++)
 	for(int c1=0;c1<3;c1++)
@@ -923,7 +917,7 @@ public:
     return *this;
   }
   //multiply on left by a flavor matrix
-  accelerator_inline SCFmat & pr(const FlavorMatrixType type){
+  accelerator_inline CPSspinColorFlavorMatrix<ComplexType> & pr(const FlavorMatrixType type){
     for(int s1=0;s1<4;s1++)
       for(int s2=0;s2<4;s2++)
 	for(int c1=0;c1<3;c1++)

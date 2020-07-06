@@ -12,6 +12,9 @@ CPS_START_NAMESPACE
 
 #define DAIQIAN_COMPATIBILITY_MODE  //do not divide by 2, to match Daiqian's files
 
+
+//If spatial subsampling (xyzStep>1) is in use, we must randomize which sites. Daiqian used a machine-size dependent spatial sampling that was reproduced for comparison with his code
+//Note xyzStep>1 is not supported for SIMD fields and so was not used for the 2020 analysis
 #ifndef USE_C11_RNG //no point reproducing Daiqian's code if we don't have the same RNG!
 #define DAIQIAN_EVIL_RANDOM_SITE_OFFSET //use Daiqian's machine-size dependent random spatial sampling (cf below)
 #endif
@@ -172,6 +175,8 @@ public:
   typedef typename mf_Policies::ComplexType ComplexType;
   typedef CPSspinColorFlavorMatrix<ComplexType> SCFmat;
   typedef typename getInnerVectorType<SCFmat,typename ComplexClassify<ComplexType>::type>::type SCFmatVector;
+  typedef CPSmatrixField<SCFmat> SCFmatrixField;
+
   typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> ResultsContainerType;
   typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> MixDiagResultsContainerType;
 
@@ -270,6 +275,8 @@ private:
   //Run inside threaded environment
   static void type1_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat part1[2], const SCFmat part2[2]);
 
+  //If spatial subsampling (xyzStep>1) is in use, we must randomize which sites. Daiqian used a machine-size dependent spatial sampling that was reproduced for comparison with his code
+  //Note xyzStep>1 is not supported for SIMD fields and so was not used for the 2020 analysis. Thus this function should be considered as deprecated
   static void generateRandomOffsets(std::vector<OneFlavorIntegerField*> &random_fields, const std::vector<int> &tsep_k_pi, const int tstep, const int xyzStep);
 
   static void type1_compute_mfproducts(std::vector<std::vector< mf_WW > > &con_pi1_K,
@@ -561,7 +568,7 @@ public:
 
   //------------------------------------------------------------------------------------------------
   //TYPE 4 and MIX 4
-private:
+protected:
 
   static void type4_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
 			     const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H);
@@ -576,6 +583,11 @@ private:
   static void type4_precompute_part1(std::vector<SCFmatVector > &mult_vMv_contracted_part1,
 				     std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
 				     const int top_loc, const int tstep, const int Lt);
+  
+  static void type4_contract(ResultsContainerType &result, const int t_K,
+			     const SCFmatrixField &part1, const SCFmatrixField &part2_L, const SCFmatrixField &part2_H);
+
+
 public:
 
   static void type4(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
@@ -593,6 +605,7 @@ public:
 #include "implementation/compute_ktopipi_type2.tcc"
 #include "implementation/compute_ktopipi_type3.tcc"
 #include "implementation/compute_ktopipi_type4.tcc"
+#include "implementation/compute_ktopipi_type4_field.tcc"
 
 
 CPS_END_NAMESPACE

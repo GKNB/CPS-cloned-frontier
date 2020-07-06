@@ -47,8 +47,8 @@ public:
   }
   int getNcontract() const{ return ncontract; }
 
-  KtoPiPiGparityResultsContainer(): baseClass(){}
-  KtoPiPiGparityResultsContainer(const int _ncontract, const int _nthread): baseClass(){
+  KtoPiPiGparityResultsContainer(): baseClass(){  }
+  KtoPiPiGparityResultsContainer(const int _ncontract, const int _nthread = 1): baseClass(){
     resize(_ncontract,_nthread);
   }
 
@@ -113,7 +113,9 @@ public:
     this->baseClass::resize(thread_size, _nthread);
   }
 
-  KtoPiPiGparityMixDiagResultsContainer(): baseClass(){}
+  KtoPiPiGparityMixDiagResultsContainer(): baseClass(){
+    resize(1);
+  }
   KtoPiPiGparityMixDiagResultsContainer(const int _nthread): baseClass(){
     resize(_nthread);
   }
@@ -188,12 +190,13 @@ inline static void write(const std::string &filename, const KtoPiPiGparityResult
 
 class ComputeKtoPiPiGparityBase{
 public:
-
+  //Compute i modulo Lt, where i can be negative
   inline static int modLt(int i, const int &Lt){
     while(i<0) i += Lt;
     return i % Lt;
   }
 
+  //Get the matrix "\Gamma" which is one of the following:
   //Gidx are indices with the following mapping
   //0 M_{0,V} = F_0 \gamma_\mu
   //1 M_{0,A} = F_0 \gamma_\mu\gamma^5
@@ -217,6 +220,7 @@ public:
     }
     return _Gamma[gidx][mu];
   }
+
 
   //In practise we need only 8 combinations of gidx:
   // 0V,0A  -> 0,1
@@ -290,6 +294,75 @@ public:
     default:
       ERR.General("ComputeKtoPiPiGparityBase","multGammaRight","Invalid idx\n");
       break;
+    }
+  }
+
+
+  template<typename ComplexType>
+  static void multGammaLeft(CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &M, const int whichGamma, const int i, const int mu){
+    assert(whichGamma == 1 || whichGamma==2);
+    static int g1[8] = {0,1,0,1,2,3,2,3};
+    static int g2[8] = {1,0,3,2,1,0,3,2};
+
+    int gg = whichGamma == 1 ? g1[i] : g2[i];
+    switch(gg){
+    case 0:
+      pl( gl(M,mu), F0 );
+      break;
+    case 1:
+      pl( glAx(M, mu), F0 );
+      break;
+    case 2:
+      timesMinusOne( pl( gl(M,mu), F1 ) );
+      break;
+    case 3:
+      timesMinusOne( pl( glAx(M,mu), F1 ) );
+      break;
+    default:
+      ERR.General("ComputeKtoPiPiGparityBase","multGammaLeft","Invalid idx\n");
+      break;
+    }
+  }
+
+  template<typename MatrixType>
+  static void multGammaRight(MatrixType &M, const int whichGamma, const int i, const int mu){
+    assert(whichGamma == 1 || whichGamma==2);
+    static int g1[8] = {0,1,0,1,2,3,2,3};
+    static int g2[8] = {1,0,3,2,1,0,3,2};
+
+    int gg = whichGamma == 1 ? g1[i] : g2[i];
+    switch(gg){
+    case 0:
+      pr( gr(M,mu), F0 );
+      break;
+    case 1:
+      pr( grAx(M,mu), F0 );
+      break;
+    case 2:
+      timesMinusOne( pr( gr(M,mu), F1 ) );
+      break;
+    case 3:
+      timesMinusOne( pr( grAx(M,mu), F1) );
+      break;
+    default:
+      ERR.General("ComputeKtoPiPiGparityBase","multGammaRight","Invalid idx\n");
+      break;
+    }
+  }
+
+
+  
+  //Perform the spatial reduction and add the result into the output container
+  template<typename ResultsContainerType, typename complexFieldType>
+  static void add(const int Cidx, ResultsContainerType &result, const int t_K, const int gcombidx,  const int Coff, const complexFieldType &field){
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    auto sum3d = localNodeSpatialSum(field);
+    assert(sum3d.size() == GJP.TnodeSites());
+    for(int t_loc=0;t_loc<GJP.TnodeSites();t_loc++){
+      int t_glob = t_loc + GJP.TnodeSites()*GJP.TnodeCoor();
+      int t_dis = modLt(t_glob - t_K, Lt);
+      auto &C = result(t_K,t_dis,Cidx-Coff,gcombidx,0);
+      C = C + sum3d[t_loc];
     }
   }
 };
