@@ -1783,8 +1783,7 @@ void testKtoPiPiType4FieldFull(const A2AArg &a2a_args, const double tol){
   typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW;
   std::vector<mf_WW> mf_kaon(Lt);
   for(int t=0;t<Lt;t++){
-    int t_glob = t + GJP.TnodeSites()*GJP.TnodeCoor();
-    mf_kaon[t].setup(Wgrid,Whgrid,t_glob,t_glob);
+    mf_kaon[t].setup(Wgrid,Whgrid,t,t);
     mf_kaon[t].testRandom();
   }
   typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
@@ -1871,8 +1870,7 @@ void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
   typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW;
   std::vector<mf_WW> mf_kaon(Lt);
   for(int t=0;t<Lt;t++){
-    int t_glob = t + GJP.TnodeSites()*GJP.TnodeCoor();
-    mf_kaon[t].setup(Wgrid,Whgrid,t_glob,t_glob);
+    mf_kaon[t].setup(Wgrid,Whgrid,t,t);
     mf_kaon[t].testRandom();
   }
   typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
@@ -1889,8 +1887,7 @@ void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
   MesonFieldMomentumContainer<GridA2Apolicies> mf_pion;
   std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_tmp(Lt);
   for(int t=0;t<Lt;t++){
-    int t_glob = t + GJP.TnodeSites()*GJP.TnodeCoor();    
-    mf_pion_tmp[t].setup(Wgrid,Vgrid,t_glob,t_glob);
+    mf_pion_tmp[t].setup(Wgrid,Vgrid,t,t);
     mf_pion_tmp[t].testRandom();
   }
   mf_pion.copyAdd(p_pi1, mf_pion_tmp);
