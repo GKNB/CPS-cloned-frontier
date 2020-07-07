@@ -482,6 +482,10 @@ private:
   static void type3_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
 			     const SCFmat part1[2], const SCFmat &part2_L, const SCFmat &part2_H);
 
+  //Field implementation
+  static void type3_contract(ResultsContainerType &result, const int t_K, 
+			     const std::vector<SCFmatrixField> &part1, const SCFmatrixField &part2_L, const SCFmatrixField &part2_H);
+
   static void type3_compute_mfproducts(std::vector<std::vector<mf_WW > > &con_pi1_pi2_k,
 				       std::vector<std::vector<mf_WW > > &con_pi2_pi1_k,							     
 				       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
@@ -580,6 +584,11 @@ public:
 		 wL, wH);
   }
 
+  static void type3_field(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
+			  const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
+			  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+			  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+			  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
 
 
 
@@ -628,6 +637,7 @@ public:
 #include "implementation/compute_ktopipi_type4.tcc"
 #include "implementation/compute_ktopipi_type1_field.tcc"
 #include "implementation/compute_ktopipi_type2_field.tcc"
+#include "implementation/compute_ktopipi_type3_field.tcc"
 #include "implementation/compute_ktopipi_type4_field.tcc"
 
 

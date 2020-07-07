@@ -382,7 +382,8 @@ int main(int argc,char *argv[])
   if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
   if(0) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 #endif
 
   if(0) testModeMappingTranspose(a2a_arg);

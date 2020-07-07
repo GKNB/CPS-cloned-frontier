@@ -138,7 +138,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field(ResultsContainerType result
       if( !(t_dis < tsep_k_pi[tkpi_idx] && t_dis > 0) ){      
 
 	for(int t_K=0;t_K<Lt;t_K++)
-	  for(int conidx=0;conidx<6;conidx++)
+	  for(int conidx=0;conidx<n_contract;conidx++)
 	    for(int gcombidx=0;gcombidx<8;gcombidx++)
 	      result[tkpi_idx](t_K,t_dis,conidx,gcombidx) = 0;
       }
