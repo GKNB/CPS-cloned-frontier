@@ -38,7 +38,7 @@ public:
     return ncontract * 8 * Lt * Lt * nthread * sizeof(ComplexType);
   }
 
-  void resize(const int _ncontract, const int _nthread){
+  void resize(const int _ncontract, const int _nthread=1){
     Lt = GJP.Tnodes()*GJP.TnodeSites();
     ncontract = _ncontract;
 
@@ -107,7 +107,7 @@ public:
     return 2 * Lt * Lt * nthread * sizeof(ComplexType);
   }
 
-  void resize(const int _nthread){
+  void resize(const int _nthread=1){
     Lt = GJP.Tnodes()*GJP.TnodeSites();
     int thread_size = 2 * Lt * Lt;
     this->baseClass::resize(thread_size, _nthread);

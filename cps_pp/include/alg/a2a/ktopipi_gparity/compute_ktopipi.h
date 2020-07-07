@@ -118,6 +118,7 @@ template<typename mf_Policies>
 class ComputeKtoPiPiGparity: public ComputeKtoPiPiGparityBase{  
 private:
   //Determine what node timeslices are actually needed. Returns true if at least one on-node top is needed
+  //Criteria are: 4-quark operator timeslice >=1 timeslice from the kaon source, and >=1 timeslice away from the inner pion sink
   inline static bool getUsedTimeslices(std::vector<bool> &node_top_used, const std::vector<int> &tsep_k_pi, const int t_pi1){
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     node_top_used.resize(GJP.TnodeSites());
@@ -138,6 +139,7 @@ private:
     return ret;
   }
   //Determine what node timeslices are actually needed and at the same time append the set of values of t_K that will be needed to t_K_all unless they are already present
+  //Criteria are: 4-quark operator timeslice >=1 timeslice from the kaon source, and >=1 timeslice away from the inner pion sink
   inline static void getUsedTimeslices(std::vector<bool> &node_top_used, std::vector<int> &t_K_all, const std::vector<int> &tsep_k_pi, const int t_pi1){
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     node_top_used.resize(GJP.TnodeSites());
@@ -275,6 +277,9 @@ private:
   //Run inside threaded environment
   static void type1_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat part1[2], const SCFmat part2[2]);
 
+  //Field version
+  static void type1_contract(ResultsContainerType &result, const int t_K, const std::vector<SCFmatrixField> &part1, const std::vector<SCFmatrixField> &part2);
+
   //If spatial subsampling (xyzStep>1) is in use, we must randomize which sites. Daiqian used a machine-size dependent spatial sampling that was reproduced for comparison with his code
   //Note xyzStep>1 is not supported for SIMD fields and so was not used for the 2020 analysis. Thus this function should be considered as deprecated
   static void generateRandomOffsets(std::vector<OneFlavorIntegerField*> &random_fields, const std::vector<int> &tsep_k_pi, const int tstep, const int xyzStep);
@@ -345,7 +350,12 @@ public:
 		 vL,vH,
 		 wL,wH);
   }
-
+  //This version overlaps computation for multiple K->pi separations. Result should be an array of KtoPiPiGparityResultsContainer the same size as the vector 'tsep_k_pi'
+  static void type1_field(ResultsContainerType result[],
+		     const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const ThreeMomentum &p_pi_1, 
+		     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+		     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
 
 
   //-------------------------------------------------------------------
@@ -609,6 +619,7 @@ public:
 #include "implementation/compute_ktopipi_type2.tcc"
 #include "implementation/compute_ktopipi_type3.tcc"
 #include "implementation/compute_ktopipi_type4.tcc"
+#include "implementation/compute_ktopipi_type1_field.tcc"
 #include "implementation/compute_ktopipi_type4_field.tcc"
 
 
