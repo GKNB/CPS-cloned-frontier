@@ -134,10 +134,11 @@ void computeVWhighSingleMADWF(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, 
   Grid::LatticeGaugeFieldD *Umu = latg.getUmu();
   
   //Mobius parameters
-  const double mob_b = latg.get_mob_b();
-  const double mob_c = mob_b - 1.;   //b-c = 1
+  const double b_outer = latg.get_mob_b();
+  const double c_outer = b_outer - 1.;   //b-c = 1
+  const int Ls_outer = GJP.Snodes()*GJP.SnodeSites();
   const double M5 = GJP.DwfHeight();
-  if(!UniqueID()) printf("computeVWhighSingleMADWF outer Dirac op b=%g c=%g b+c=%g Ls=%d\n",mob_b,mob_c,mob_b+mob_c,GJP.SnodeSites()*GJP.Snodes());
+  if(!UniqueID()) printf("computeVWhighSingleMADWF outer Dirac op b=%g c=%g b+c=%g Ls=%d\n",b_outer,c_outer,b_outer+c_outer,GJP.SnodeSites()*GJP.Snodes());
 
   const int gparity = GJP.Gparity();
 
@@ -145,23 +146,22 @@ void computeVWhighSingleMADWF(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, 
   typename GridDiracOuter::ImplParams params;
   latg.SetParams(params);
 
-  GridDiracOuter DopOuter(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
+  GridDiracOuter DopOuter(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b_outer,c_outer, params);
   Grid::SchurDiagMooeeOperator<GridDiracOuter, GridFermionField> linopOuter(DopOuter);
 
   //Setup Dirac operator for inner solver
-  Grid::GridCartesian * FGrid_inner = Grid::SpaceTimeGrid::makeFiveDimGrid(cg_controls.MADWF_Ls_inner,UGrid);
-  Grid::GridRedBlackCartesian * FrbGrid_inner = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(cg_controls.MADWF_Ls_inner,UGrid);
+  int Ls_inner = cg_controls.madwf_params.Ls_inner;
+  Grid::GridCartesian * FGrid_inner = Grid::SpaceTimeGrid::makeFiveDimGrid(Ls_inner,UGrid);
+  Grid::GridRedBlackCartesian * FrbGrid_inner = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls_inner,UGrid);
 
-  std::vector<Grid::ComplexD> gamma_inner = computeZmobiusGammaWithCache(cg_controls.MADWF_b_plus_c_inner, 
-								   cg_controls.MADWF_Ls_inner, 
-								   mob_b+mob_c, GJP.SnodeSites()*GJP.Snodes(),
-								   cg_controls.MADWF_ZMobius_lambda_max, cg_controls.MADWF_use_ZMobius);
-  double bmc = 1.0;//Shamir kernel
-  double bpc = cg_controls.MADWF_b_plus_c_inner;
-  double b_inner = 0.5*(bpc + bmc);
-  double c_inner = 0.5*(bpc - bmc);
+  std::vector<Grid::ComplexD> gamma_inner = getZMobiusGamma(b_outer+c_outer, Ls_outer, cg_controls.madwf_params);
 
-  if(!UniqueID()) printf("computeVWhighSingleMADWF double-precision inner Dirac op b=%g c=%g b+c=%g Ls=%d\n",b_inner,c_inner, bpc,cg_controls.MADWF_Ls_inner);
+  double bmc_inner = 1.0;//Shamir kernel
+  double bpc_inner = cg_controls.madwf_params.b_plus_c_inner;
+  double b_inner = 0.5*(bpc_inner + bmc_inner);
+  double c_inner = 0.5*(bpc_inner - bmc_inner);
+
+  if(!UniqueID()) printf("computeVWhighSingleMADWF double-precision inner Dirac op b=%g c=%g b+c=%g Ls=%d\n",b_inner,c_inner, bpc_inner, Ls_inner);
 
   GridDiracInner DopInner(*Umu, *FGrid_inner, *FrbGrid_inner, *UGrid, *UrbGrid, mass, M5, gamma_inner, b_inner, c_inner, params);
 
@@ -209,7 +209,7 @@ void computeVWhighSingleMADWF(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, 
 
     //Step 4) Subtract low-mode part in *4D* space
     GridFermionField lowmode_contrib(UGrid);
-    computeMADWF_lowmode_contrib_4D(lowmode_contrib, grid_src, nl, evecs, DopInner, cg_controls.MADWF_precond);
+    computeMADWF_lowmode_contrib_4D(lowmode_contrib, grid_src, nl, evecs, DopInner, cg_controls.madwf_params.precond);
     std::cout << "4D lowmode contribution " << norm2(lowmode_contrib) << std::endl;
     
     grid_sol = grid_sol - lowmode_contrib;

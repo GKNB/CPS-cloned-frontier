@@ -5,6 +5,124 @@
 
 #include <alg/ktopipi_jobparams.h>
 CPS_START_NAMESPACE
+	 bool ZMobiusParams::Encode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
+		 if ( !Vml(&vmls,instance) ) return false;
+		 vmls.Destroy(); return true;
+	 }
+
+	 bool ZMobiusParams::Decode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_DECODE)) return false;
+		 if ( !Vml(&vmls,instance)) return false;
+		 vmls.Destroy(); return true;
+	 }
+	 bool ZMobiusParams::Vml(VML *vmls,char *instance){
+		 if(!vml_ZMobiusParams(vmls,instance,this)) return false;
+	 return true;
+	}
+
+
+bool_t
+vml_ZMobiusParams (VML *vmls, char *name,ZMobiusParams *objp)
+{
+	 vml_class_begin(vmls,"ZMobiusParams",name);
+	 if (!vml_A2A_ZMobiusGammaSource (vmls, "gamma_src", &objp->gamma_src))
+		 return FALSE;
+	 if (!vml_double (vmls, "compute_lambda_max", &objp->compute_lambda_max))
+		 return FALSE;
+	 if (!vml_array (vmls, "gamma_real", (char **)&objp->gamma_real.gamma_real_val, (u_int *) &objp->gamma_real.gamma_real_len, ~0,
+		sizeof (double), (vmlproc_t) vml_double))
+		 return FALSE;
+	 if (!vml_array (vmls, "gamma_imag", (char **)&objp->gamma_imag.gamma_imag_val, (u_int *) &objp->gamma_imag.gamma_imag_len, ~0,
+		sizeof (double), (vmlproc_t) vml_double))
+		 return FALSE;
+	 vml_class_end(vmls,"ZMobiusParams",name);
+	return TRUE;
+}
+void rpc_print<ZMobiusParams>::doit(ZMobiusParams const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<A2A_ZMobiusGammaSource>::doit(what.gamma_src,spaces+" gamma_src = ");
+	rpc_print<double>::doit(what.compute_lambda_max,spaces+" compute_lambda_max = ");
+	rpc_print<double *>::doit(what.gamma_real.gamma_real_val,what.gamma_real.gamma_real_len,spaces+" gamma_real = ");
+	rpc_print<double *>::doit(what.gamma_imag.gamma_imag_val,what.gamma_imag.gamma_imag_len,spaces+" gamma_imag = ");
+	std::cout << spaces << "}\n";
+}
+void ZMobiusParams::print(const std::string &prefix){
+	rpc_print<ZMobiusParams>::doit(*this,prefix);
+}
+void rpc_deepcopy<ZMobiusParams>::doit(ZMobiusParams &into, ZMobiusParams const &from){
+	  rpc_deepcopy<A2A_ZMobiusGammaSource>::doit(into.gamma_src,from.gamma_src);
+	  rpc_deepcopy<double>::doit(into.compute_lambda_max,from.compute_lambda_max);
+	  into.gamma_real.gamma_real_len = from.gamma_real.gamma_real_len;
+	  rpc_deepcopy<double *>::doit(into.gamma_real.gamma_real_val,from.gamma_real.gamma_real_val,from.gamma_real.gamma_real_len);
+	  into.gamma_imag.gamma_imag_len = from.gamma_imag.gamma_imag_len;
+	  rpc_deepcopy<double *>::doit(into.gamma_imag.gamma_imag_val,from.gamma_imag.gamma_imag_val,from.gamma_imag.gamma_imag_len);
+}
+void ZMobiusParams::deep_copy(ZMobiusParams const &rhs){
+	rpc_deepcopy<ZMobiusParams>::doit(*this,rhs);
+}
+	 bool MADWFparams::Encode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
+		 if ( !Vml(&vmls,instance) ) return false;
+		 vmls.Destroy(); return true;
+	 }
+
+	 bool MADWFparams::Decode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_DECODE)) return false;
+		 if ( !Vml(&vmls,instance)) return false;
+		 vmls.Destroy(); return true;
+	 }
+	 bool MADWFparams::Vml(VML *vmls,char *instance){
+		 if(!vml_MADWFparams(vmls,instance,this)) return false;
+	 return true;
+	}
+
+
+bool_t
+vml_MADWFparams (VML *vmls, char *name,MADWFparams *objp)
+{
+	 vml_class_begin(vmls,"MADWFparams",name);
+	 if (!vml_int (vmls, "Ls_inner", &objp->Ls_inner))
+		 return FALSE;
+	 if (!vml_double (vmls, "b_plus_c_inner", &objp->b_plus_c_inner))
+		 return FALSE;
+	 if (!vml_A2Apreconditioning (vmls, "precond", &objp->precond))
+		 return FALSE;
+	 if (!vml_bool (vmls, "use_ZMobius", &objp->use_ZMobius))
+		 return FALSE;
+	 if (!vml_ZMobiusParams (vmls, "ZMobius_params", &objp->ZMobius_params))
+		 return FALSE;
+	 vml_class_end(vmls,"MADWFparams",name);
+	return TRUE;
+}
+void rpc_print<MADWFparams>::doit(MADWFparams const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<int>::doit(what.Ls_inner,spaces+" Ls_inner = ");
+	rpc_print<double>::doit(what.b_plus_c_inner,spaces+" b_plus_c_inner = ");
+	rpc_print<A2Apreconditioning>::doit(what.precond,spaces+" precond = ");
+	rpc_print<bool_t>::doit(what.use_ZMobius,spaces+" use_ZMobius = ");
+	rpc_print<ZMobiusParams>::doit(what.ZMobius_params,spaces+" ZMobius_params = ");
+	std::cout << spaces << "}\n";
+}
+void MADWFparams::print(const std::string &prefix){
+	rpc_print<MADWFparams>::doit(*this,prefix);
+}
+void rpc_deepcopy<MADWFparams>::doit(MADWFparams &into, MADWFparams const &from){
+	  rpc_deepcopy<int>::doit(into.Ls_inner,from.Ls_inner);
+	  rpc_deepcopy<double>::doit(into.b_plus_c_inner,from.b_plus_c_inner);
+	  rpc_deepcopy<A2Apreconditioning>::doit(into.precond,from.precond);
+	  rpc_deepcopy<bool_t>::doit(into.use_ZMobius,from.use_ZMobius);
+	  rpc_deepcopy<ZMobiusParams>::doit(into.ZMobius_params,from.ZMobius_params);
+}
+void MADWFparams::deep_copy(MADWFparams const &rhs){
+	rpc_deepcopy<MADWFparams>::doit(*this,rhs);
+}
 	 bool CGcontrols::Encode(char *filename,char *instance){
 		 VML vmls;
 		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
@@ -45,15 +163,7 @@ vml_CGcontrols (VML *vmls, char *name,CGcontrols *objp)
 	 if (!vml_array (vmls, "split_grid_geometry", (char **)&objp->split_grid_geometry.split_grid_geometry_val, (u_int *) &objp->split_grid_geometry.split_grid_geometry_len, ~0,
 		sizeof (int), (vmlproc_t) vml_int))
 		 return FALSE;
-	 if (!vml_int (vmls, "MADWF_Ls_inner", &objp->MADWF_Ls_inner))
-		 return FALSE;
-	 if (!vml_double (vmls, "MADWF_b_plus_c_inner", &objp->MADWF_b_plus_c_inner))
-		 return FALSE;
-	 if (!vml_bool (vmls, "MADWF_use_ZMobius", &objp->MADWF_use_ZMobius))
-		 return FALSE;
-	 if (!vml_double (vmls, "MADWF_ZMobius_lambda_max", &objp->MADWF_ZMobius_lambda_max))
-		 return FALSE;
-	 if (!vml_A2Apreconditioning (vmls, "MADWF_precond", &objp->MADWF_precond))
+	 if (!vml_MADWFparams (vmls, "madwf_params", &objp->madwf_params))
 		 return FALSE;
 	 vml_class_end(vmls,"CGcontrols",name);
 	return TRUE;
@@ -69,11 +179,7 @@ void rpc_print<CGcontrols>::doit(CGcontrols const &what, const std::string &pref
 	rpc_print<double>::doit(what.reliable_update_transition_tol,spaces+" reliable_update_transition_tol = ");
 	rpc_print<int>::doit(what.multiCG_block_size,spaces+" multiCG_block_size = ");
 	rpc_print<int *>::doit(what.split_grid_geometry.split_grid_geometry_val,what.split_grid_geometry.split_grid_geometry_len,spaces+" split_grid_geometry = ");
-	rpc_print<int>::doit(what.MADWF_Ls_inner,spaces+" MADWF_Ls_inner = ");
-	rpc_print<double>::doit(what.MADWF_b_plus_c_inner,spaces+" MADWF_b_plus_c_inner = ");
-	rpc_print<bool_t>::doit(what.MADWF_use_ZMobius,spaces+" MADWF_use_ZMobius = ");
-	rpc_print<double>::doit(what.MADWF_ZMobius_lambda_max,spaces+" MADWF_ZMobius_lambda_max = ");
-	rpc_print<A2Apreconditioning>::doit(what.MADWF_precond,spaces+" MADWF_precond = ");
+	rpc_print<MADWFparams>::doit(what.madwf_params,spaces+" madwf_params = ");
 	std::cout << spaces << "}\n";
 }
 void CGcontrols::print(const std::string &prefix){
@@ -89,11 +195,7 @@ void rpc_deepcopy<CGcontrols>::doit(CGcontrols &into, CGcontrols const &from){
 	  rpc_deepcopy<int>::doit(into.multiCG_block_size,from.multiCG_block_size);
 	  into.split_grid_geometry.split_grid_geometry_len = from.split_grid_geometry.split_grid_geometry_len;
 	  rpc_deepcopy<int *>::doit(into.split_grid_geometry.split_grid_geometry_val,from.split_grid_geometry.split_grid_geometry_val,from.split_grid_geometry.split_grid_geometry_len);
-	  rpc_deepcopy<int>::doit(into.MADWF_Ls_inner,from.MADWF_Ls_inner);
-	  rpc_deepcopy<double>::doit(into.MADWF_b_plus_c_inner,from.MADWF_b_plus_c_inner);
-	  rpc_deepcopy<bool_t>::doit(into.MADWF_use_ZMobius,from.MADWF_use_ZMobius);
-	  rpc_deepcopy<double>::doit(into.MADWF_ZMobius_lambda_max,from.MADWF_ZMobius_lambda_max);
-	  rpc_deepcopy<A2Apreconditioning>::doit(into.MADWF_precond,from.MADWF_precond);
+	  rpc_deepcopy<MADWFparams>::doit(into.madwf_params,from.madwf_params);
 }
 void CGcontrols::deep_copy(CGcontrols const &rhs){
 	rpc_deepcopy<CGcontrols>::doit(*this,rhs);

@@ -909,3 +909,8 @@ enum A2ACGalgorithm {
  AlgorithmMixedPrecisionReliableUpdateSplitCG,
  AlgorithmMixedPrecisionMADWF
 };
+
+enum A2A_ZMobiusGammaSource{	
+     A2A_ZMobiusGammaSourceInput,
+     A2A_ZMobiusGammaSourceCompute
+};

@@ -223,25 +223,22 @@ public:
   void setupCG(const CGcontrols &cg_controls){
     if(cg_controls.CGalgorithm == AlgorithmMixedPrecisionMADWF){
       if(!UniqueID()) printf("EvecInterfaceGridSinglePrec::setupCG setting up inner Dirac operator\n");
-      std::vector<Grid::ComplexD> gamma_inner = computeZmobiusGammaWithCache(cg_controls.MADWF_b_plus_c_inner, 
-									     cg_controls.MADWF_Ls_inner, 
-									     mob_b+mob_c, GJP.SnodeSites()*GJP.Snodes(),
-									     cg_controls.MADWF_ZMobius_lambda_max, cg_controls.MADWF_use_ZMobius);
+      std::vector<Grid::ComplexD> gamma_inner = getZMobiusGamma(mob_b+mob_c, GJP.Snodes()*GJP.SnodeSites(), cg_controls.madwf_params);
 
-      Grid::GridCartesian * FGrid_Zmob_f = Grid::SpaceTimeGrid::makeFiveDimGrid(cg_controls.MADWF_Ls_inner,UGrid_f);
+      Grid::GridCartesian * FGrid_Zmob_f = Grid::SpaceTimeGrid::makeFiveDimGrid(cg_controls.madwf_params.Ls_inner,UGrid_f);
 
       //If we have eigenvectors, the single prec rb grid should be imported from those
       if(evec.size() > 0) FrbGrid_Zmob_f = dynamic_cast<Grid::GridRedBlackCartesian*>(evec[0].Grid());
       else{
-	FrbGrid_Zmob_f = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(cg_controls.MADWF_Ls_inner,UGrid_f);
+	FrbGrid_Zmob_f = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(cg_controls.madwf_params.Ls_inner,UGrid_f);
 	delete_FrbGrid_Zmob_f = true;
       }
 
       double bmc = 1.0;//Shamir kernel
-      double bpc = cg_controls.MADWF_b_plus_c_inner;
+      double bpc = cg_controls.madwf_params.b_plus_c_inner;
       double b_inner = 0.5*(bpc + bmc);
       double c_inner = 0.5*(bpc - bmc);
-      if(!UniqueID()) printf("EvecInterfaceGridSinglePrec::setupCG Creating single-prec ZMobius inner Dirac operator with b=%g c=%g b+c=%g Ls=%d\n",b_inner,c_inner, bpc,cg_controls.MADWF_Ls_inner);
+      if(!UniqueID()) printf("EvecInterfaceGridSinglePrec::setupCG Creating single-prec ZMobius inner Dirac operator with b=%g c=%g b+c=%g Ls=%d\n",b_inner,c_inner, bpc,cg_controls.madwf_params.Ls_inner);
       DZmob_f = new GridDiracFZMobiusInner(*Umu_f, *FGrid_Zmob_f, *FrbGrid_Zmob_f, *UGrid_f, *UrbGrid_f, mass, M5, gamma_inner, b_inner, c_inner, params);
     }
   }
@@ -315,7 +312,7 @@ public:
 
       //*NOTE* : this assumes the eigenvectors are for the inner Mobius operator and preconditioned using the SchurRedBlackDiagTwoSolve preconditioner
       deflateGuess<GridFermionFieldF> guesser(evec,eval);
-      Grid_MADWF_mixedprec_invert<GridPolicies, deflateGuess<GridFermionFieldF> >(solution, source, cg_controls, Umu, linop._Mat, *DZmob_f, guesser, cg_controls.MADWF_precond);
+      Grid_MADWF_mixedprec_invert<GridPolicies, deflateGuess<GridFermionFieldF> >(solution, source, cg_controls, Umu, linop._Mat, *DZmob_f, guesser, cg_controls.madwf_params.precond);
 
     }else if(cg_controls.CGalgorithm == AlgorithmCG){
       this->EvecInterface<GridPolicies>::CGNE_MdagM(linop, solution, source, cg_controls); //converts evecs to double precision on-the-fly

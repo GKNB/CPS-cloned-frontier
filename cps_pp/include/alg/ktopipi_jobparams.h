@@ -16,6 +16,67 @@ CPS_START_NAMESPACE
 
 #include <util/vml/vml_templates.h>
 class VML;
+class ZMobiusParams {
+public:
+	 bool Encode(char *filename,char *instance);
+	 bool Decode(char *filename,char *instance);
+	 bool Vml(VML *vmls,char *instance);
+	A2A_ZMobiusGammaSource gamma_src;
+	double compute_lambda_max;
+	struct {
+		u_int gamma_real_len;
+		double *gamma_real_val;
+	} gamma_real;
+	struct {
+		u_int gamma_imag_len;
+		double *gamma_imag_val;
+	} gamma_imag;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ZMobiusParams &rhs);
+};
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ZMobiusParams>{
+	static void doit(ZMobiusParams const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ZMobiusParams>{
+	static void doit(ZMobiusParams &into, ZMobiusParams const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+class VML;
+class MADWFparams {
+public:
+	 bool Encode(char *filename,char *instance);
+	 bool Decode(char *filename,char *instance);
+	 bool Vml(VML *vmls,char *instance);
+	int Ls_inner;
+	double b_plus_c_inner;
+	A2Apreconditioning precond;
+	bool_t use_ZMobius;
+	ZMobiusParams ZMobius_params;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const MADWFparams &rhs);
+};
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<MADWFparams>{
+	static void doit(MADWFparams const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<MADWFparams>{
+	static void doit(MADWFparams &into, MADWFparams const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+class VML;
 class CGcontrols {
 public:
 	 bool Encode(char *filename,char *instance);
@@ -32,11 +93,7 @@ public:
 		u_int split_grid_geometry_len;
 		int *split_grid_geometry_val;
 	} split_grid_geometry;
-	int MADWF_Ls_inner;
-	double MADWF_b_plus_c_inner;
-	bool_t MADWF_use_ZMobius;
-	double MADWF_ZMobius_lambda_max;
-	A2Apreconditioning MADWF_precond;
+	MADWFparams madwf_params;
 	   void print(const std::string &prefix ="");
 	   void deep_copy(const CGcontrols &rhs);
 };
@@ -96,10 +153,14 @@ extern "C" {
 #endif
 
 #if defined(__STDC__) || defined(__cplusplus)
+extern  bool_t vml_ZMobiusParams (VML *, char *instance, ZMobiusParams*);
+extern  bool_t vml_MADWFparams (VML *, char *instance, MADWFparams*);
 extern  bool_t vml_CGcontrols (VML *, char *instance, CGcontrols*);
 extern  bool_t vml_JobParams (VML *, char *instance, JobParams*);
 
 #else /* K&R C */
+extern  bool_t vml_ZMobiusParams (VML *, char *instance, ZMobiusParams*);
+extern  bool_t vml_MADWFparams (VML *, char *instance, MADWFparams*);
 extern  bool_t vml_CGcontrols (VML *, char *instance, CGcontrols*);
 extern  bool_t vml_JobParams (VML *, char *instance, JobParams*);
 

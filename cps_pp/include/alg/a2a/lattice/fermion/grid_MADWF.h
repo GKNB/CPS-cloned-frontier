@@ -36,6 +36,7 @@ struct ZmobParams{
   }
 };
 
+//Compute the (Z)Mobius gamma vector with caching. Here complex_coeffs == true implies ZMobius, false implies regular Mobius
 std::vector<Grid::ComplexD> computeZmobiusGammaWithCache(double b_plus_c_inner, int Ls_inner, double b_plus_c_outer, int Ls_outer, double lambda_max, bool complex_coeffs){
   ZmobParams pstruct(b_plus_c_inner, Ls_inner, b_plus_c_outer, Ls_outer, lambda_max, complex_coeffs);
   static std::map<ZmobParams, std::vector<Grid::ComplexD> > cache;
@@ -63,7 +64,35 @@ std::vector<Grid::ComplexD> computeZmobiusGammaWithCache(double b_plus_c_inner, 
     return it->second;
   }
 }
-    
+
+//Get the (Z)Mobius parameters using the parameters in cg_controls, either through direct computation or from the struct directly
+std::vector<Grid::ComplexD> getZMobiusGamma(const double b_plus_c_outer, const int Ls_outer,
+					    const MADWFparams &madwf_p){
+  const ZMobiusParams &zmp = madwf_p.ZMobius_params;
+
+  std::vector<Grid::ComplexD> gamma_inner;
+
+  //Get the parameters from the input struct
+  if(zmp.gamma_src == A2A_ZMobiusGammaSourceInput){
+    assert(zmp.gamma_real.gamma_real_len == madwf_p.Ls_inner);
+    assert(zmp.gamma_imag.gamma_imag_len == madwf_p.Ls_inner);
+
+    gamma_inner.resize(madwf_p.Ls_inner);
+    for(int s=0;s<madwf_p.Ls_inner;s++)
+      gamma_inner[s] = Grid::ComplexD( zmp.gamma_real.gamma_real_val[s], zmp.gamma_imag.gamma_imag_val[s] );
+  }else{
+    //Compute the parameters directly
+    gamma_inner = computeZmobiusGammaWithCache(madwf_p.b_plus_c_inner, 
+					       madwf_p.Ls_inner, 
+					       b_plus_c_outer, Ls_outer,
+					       zmp.compute_lambda_max, madwf_p.use_ZMobius);
+  }
+  return gamma_inner;
+}
+
+  
+
+
 
 template<typename FermionFieldType>
 struct CGincreaseTol : public Grid::MADWFinnerIterCallbackBase{
@@ -96,6 +125,7 @@ inline void Grid_MADWF_mixedprec_invert(typename GridPolicies::GridFermionField 
 					typename GridPolicies::GridDirac &DOuter, typename GridPolicies::GridDiracFZMobiusInner &DZMobInner,
 					GuessTypeF &Guess_inner, A2Apreconditioning precond,
 					bool revert_to_mixedCG = true){
+  const MADWFparams &madwf_p = cg_controls.madwf_params;
   using namespace Grid;
 
   typedef typename GridPolicies::GridFermionField GridFermionField;
@@ -110,9 +140,9 @@ inline void Grid_MADWF_mixedprec_invert(typename GridPolicies::GridFermionField 
 
   //If the inner Dirac operator is identical to the outer Dirac operator (up to precision), use the regular (mixed-precision) restarted CG [useful for testing]
   bool inner_Dop_same = 
-    cg_controls.MADWF_b_plus_c_inner == DOuter._b + DOuter._c &&
-    cg_controls.MADWF_Ls_inner == GJP.Snodes()*GJP.SnodeSites() &&
-    !cg_controls.MADWF_use_ZMobius;
+    madwf_p.b_plus_c_inner == DOuter._b + DOuter._c &&
+    madwf_p.Ls_inner == GJP.Snodes()*GJP.SnodeSites() &&
+    !madwf_p.use_ZMobius;
   
   bool use_MADWF = !inner_Dop_same || (inner_Dop_same && !revert_to_mixedCG);
 
@@ -129,9 +159,9 @@ inline void Grid_MADWF_mixedprec_invert(typename GridPolicies::GridFermionField 
   
   GridFermionField sol5(DOuter.FermionGrid());
   if(use_MADWF){
-    std::cout << "Doing " << (cg_controls.MADWF_use_ZMobius ? "Z" : "") << "MADWF solve with "
+    std::cout << "Doing " << (madwf_p.use_ZMobius ? "Z" : "") << "MADWF solve with "
 	      << " Ls_outer=" << GJP.Snodes()*GJP.SnodeSites() << " (b+c)_outer=" << DOuter._b + DOuter._c
-	      << " Ls_inner=" << cg_controls.MADWF_Ls_inner << " (b+c)_inner=" << cg_controls.MADWF_b_plus_c_inner << std::endl;
+	      << " Ls_inner=" << madwf_p.Ls_inner << " (b+c)_inner=" << madwf_p.b_plus_c_inner << std::endl;
     
     if(precond == SchurDiagTwo){
       typedef SchurRedBlackDiagTwoSolve<GridFermionFieldF> SchurSolverTypeF;

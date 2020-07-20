@@ -1,3 +1,26 @@
+class ZMobiusParams{
+      A2A_ZMobiusGammaSource gamma_src;  //If A2A_ZMobiusGammaSourceInput use the array provided in this VML, else if A2A_ZMobiusGammaSourceCompute compute it directly
+      double compute_lambda_max; //In generating ZMobius approx we need the upper bound of the eigenvalues of the Wilson kernel. 1.42 seems to be a standard number!    
+      double gamma_real<>; //real parts of gamma if using A2A_ZMobiusGammaSourceInput
+      double gamma_imag<>; //imaginary parts of gamma if using A2A_ZMobiusGammaSourceInput
+
+  rpccommand GENERATE_PRINT_METHOD;
+  rpccommand GENERATE_DEEPCOPY_METHOD;
+
+};
+
+class MADWFparams{
+  int Ls_inner; //Inner Ls for MADWF
+  double b_plus_c_inner; //Inner b+c for MADWF
+  A2Apreconditioning precond; //SchurDiagTwo typically converges faster for MADWF (make sure your eigenvectors are also computed using this preconditioning!) 
+
+  bool use_ZMobius; //Use ZMobius instead of Mobius (complex coefficients, allows smaller inner Ls)
+  ZMobiusParams ZMobius_params;
+
+  rpccommand GENERATE_PRINT_METHOD;
+  rpccommand GENERATE_DEEPCOPY_METHOD;
+};
+
 class CGcontrols{
   A2ACGalgorithm CGalgorithm;
   double CG_tolerance;
@@ -10,11 +33,7 @@ class CGcontrols{
   int multiCG_block_size; //if using multi-RHS or split-CG, how many solves are we performing at once?
   int split_grid_geometry<>; //if using a split-Grid technique, how do you want to divide up the lattice?
   
-  int MADWF_Ls_inner; //Inner Ls for MADWF
-  double MADWF_b_plus_c_inner; //Inner b+c for MADWF
-  bool MADWF_use_ZMobius; //Use ZMobius instead of Mobius (complex coefficients, allows smaller inner Ls)
-  double MADWF_ZMobius_lambda_max; //In generating ZMobius approx we need the upper bound of the eigenvalues of the Wilson kernel. 1.42 seems to be a standard number!
-  A2Apreconditioning MADWF_precond; //SchurDiagTwo typically converges faster for MADWF (make sure your eigenvectors are also computed using this preconditioning!) 
+  MADWFparams madwf_params; //if CGalgorithm ==  AlgorithmMixedPrecisionMADWF, get the MADWF parameters from here
 
   rpccommand GENERATE_PRINT_METHOD;
   rpccommand GENERATE_DEEPCOPY_METHOD;

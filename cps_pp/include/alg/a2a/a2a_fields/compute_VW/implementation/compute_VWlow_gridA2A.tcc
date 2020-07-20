@@ -134,13 +134,14 @@ void computeVWlowMADWF(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice
   FgridFclass &latg = dynamic_cast<FgridFclass&>(lat);
 
   //Grids and gauge field
+  int Ls = cg_controls.madwf_params.Ls_inner;
   Grid::GridCartesian *UGrid = latg.getUGrid();
   Grid::GridRedBlackCartesian *UrbGrid = latg.getUrbGrid();
   Grid::LatticeGaugeFieldD *Umu = latg.getUmu();
-  Grid::GridCartesian * FGrid = Grid::SpaceTimeGrid::makeFiveDimGrid(cg_controls.MADWF_Ls_inner,UGrid);
+  Grid::GridCartesian * FGrid = Grid::SpaceTimeGrid::makeFiveDimGrid(Ls,UGrid);
   Grid::GridRedBlackCartesian * FrbGrid;
   if(evecs.evecPrecision() == 1){ //Make a double precision rb Grid
-    FrbGrid = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(cg_controls.MADWF_Ls_inner,UGrid);
+    FrbGrid = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,UGrid);
   }else{ //have to use the native GridCartesian instance
     FrbGrid = (Grid::GridRedBlackCartesian*)evecs.getEvecGrid();
   }
@@ -157,20 +158,17 @@ void computeVWlowMADWF(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice
   int Ls_outer = GJP.SnodeSites()*GJP.Snodes();
 
   //Setup (Z)Mobius inner Dirac operator
-  int Ls = cg_controls.MADWF_Ls_inner;
-  std::vector<Grid::ComplexD> gamma_inner = computeZmobiusGammaWithCache(cg_controls.MADWF_b_plus_c_inner, 
-								   Ls, 
-								   mob_b_outer + mob_c_outer, Ls_outer,
-								   cg_controls.MADWF_ZMobius_lambda_max, cg_controls.MADWF_use_ZMobius);
+  std::vector<Grid::ComplexD> gamma_inner = getZMobiusGamma(mob_b_outer+mob_c_outer, Ls_outer, cg_controls.madwf_params);
+
   double bmc = 1.0;//Shamir kernel
-  double bpc = cg_controls.MADWF_b_plus_c_inner;
+  double bpc = cg_controls.madwf_params.b_plus_c_inner;
   double mob_b = 0.5*(bpc + bmc);
   double mob_c = 0.5*(bpc - bmc);
   const double M5 = GJP.DwfHeight();
-  if(!UniqueID()) printf("computeVWlowMADWF double-precision (Z)Mobius Dirac op b=%g c=%g b+c=%g Ls=%d\n",mob_b,mob_c, bpc,cg_controls.MADWF_Ls_inner);
+  if(!UniqueID()) printf("computeVWlowMADWF double-precision (Z)Mobius Dirac op b=%g c=%g b+c=%g Ls=%d\n",mob_b,mob_c, bpc, Ls);
 
   GridDirac DZmob(*Umu, *FGrid, *FrbGrid, *UGrid, *UrbGrid, mass, M5, gamma_inner, mob_b, mob_c, params);
-  A2Apreconditioning precond = cg_controls.MADWF_precond;
+  A2Apreconditioning precond = cg_controls.madwf_params.precond;
   Grid::SchurOperatorBase<GridFermionField> *linop;
   if(precond == SchurOriginal) linop = new Grid::SchurDiagMooeeOperator<GridDirac,GridFermionField>(DZmob);
   else                         linop = new Grid::SchurDiagTwoOperator<GridDirac,GridFermionField>(DZmob);

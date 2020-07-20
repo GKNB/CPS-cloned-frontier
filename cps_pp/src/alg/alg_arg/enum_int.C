@@ -1186,4 +1186,17 @@ struct vml_enum_map A2ACGalgorithm_map[] = {
 	{"A2ACGalgorithm","AlgorithmMixedPrecisionMADWF",AlgorithmMixedPrecisionMADWF},
 	{NULL,NULL,0}
 };
+
+bool_t
+vml_A2A_ZMobiusGammaSource (VML *vmls, char *name,A2A_ZMobiusGammaSource *objp)
+{
+	if (!vml_enum (vmls,name,(enum_t *)objp,A2A_ZMobiusGammaSource_map))
+		return FALSE;
+	return TRUE;
+}
+struct vml_enum_map A2A_ZMobiusGammaSource_map[] = {
+	{"A2A_ZMobiusGammaSource","A2A_ZMobiusGammaSourceInput",A2A_ZMobiusGammaSourceInput},
+	{"A2A_ZMobiusGammaSource","A2A_ZMobiusGammaSourceCompute",A2A_ZMobiusGammaSourceCompute},
+	{NULL,NULL,0}
+};
 CPS_END_NAMESPACE
