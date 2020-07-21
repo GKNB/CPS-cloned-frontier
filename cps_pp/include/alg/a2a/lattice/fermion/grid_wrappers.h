@@ -19,26 +19,27 @@ struct GridLanczosWrapper{
   GridLanczosWrapper(): singleprec_evecs(false){
   }
   
-  void compute(const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lat){
+  void compute(const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lat, A2Apreconditioning precon_type = SchurOriginal){
     mass = lanc_arg.mass;
     resid = lanc_arg.stop_rsd;
-    
+    assert(lanc_arg.precon);
+
 # ifdef A2A_LANCZOS_SINGLE
-    gridSinglePrecLanczos<GridPolicies>(eval,evec_f,lanc_arg,lat, lat.getUGridF(), lat.getUrbGridF(), lat.getFGridF(), lat.getFrbGridF());
+    gridSinglePrecLanczos<GridPolicies>(eval,evec_f,lanc_arg,lat, lat.getUGridF(), lat.getUrbGridF(), lat.getFGridF(), lat.getFrbGridF(), precon_type);
     singleprec_evecs = true;
 
     evec_f.resize(lanc_arg.N_true_get, lat.getFrbGridF()); //in case the Lanczos implementation does not explicitly remove the extra evecs used for the restart
     eval.resize(lanc_arg.N_true_get);
     
 # else    
-    gridLanczos<GridPolicies>(eval,evec,lanc_arg,lat);
+    gridLanczos<GridPolicies>(eval,evec,lanc_arg,lat, precon_type);
     singleprec_evecs = false;
 
     evec.resize(lanc_arg.N_true_get, lat.getFrbGrid());
     eval.resize(lanc_arg.N_true_get);
    
 #  ifndef MEMTEST_MODE
-    test_eigenvectors(evec,eval,lanc_arg.mass,lat);
+    test_eigenvectors(evec,eval,lanc_arg.mass,lat,precon_type);
 #  endif
 
 # endif    
@@ -46,7 +47,7 @@ struct GridLanczosWrapper{
 
   //Test double prec eigenvectors (TODO: generalize to test single prec)
   static void test_eigenvectors(const std::vector<typename GridPolicies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, 
-				const double mass, typename GridPolicies::FgridGFclass &lattice){
+				const double mass, typename GridPolicies::FgridGFclass &lattice, A2Apreconditioning precon_type = SchurOriginal){
     if(!UniqueID()) printf("Starting eigenvector residual test\n");
     typedef typename GridPolicies::GridFermionField GridFermionField;
     typedef typename GridPolicies::FgridFclass FgridFclass;
@@ -65,15 +66,18 @@ struct GridLanczosWrapper{
     lattice.SetParams(params);
 
     GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
-    Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> HermOp(Ddwf);
+    Grid::SchurOperatorBase<GridFermionField>  *HermOp;
+    if(precon_type == SchurOriginal) HermOp = new Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField>(Ddwf);
+    else if(precon_type == SchurDiagTwo) HermOp = new Grid::SchurDiagTwoOperator<GridDirac, GridFermionField>(Ddwf);
+    else assert(0);
   
     GridFermionField tmp1(FrbGrid);
     GridFermionField tmp2(FrbGrid);
     GridFermionField tmp3(FrbGrid);
   
     for(int i=0;i<evec.size();i++){
-      HermOp.Mpc(evec[i], tmp1);
-      HermOp.MpcDag(tmp1, tmp2); //tmp2 = M^dag M v
+      HermOp->Mpc(evec[i], tmp1);
+      HermOp->MpcDag(tmp1, tmp2); //tmp2 = M^dag M v
 
       tmp3 = eval[i] * evec[i]; //tmp3 = lambda v
 
@@ -81,7 +85,7 @@ struct GridLanczosWrapper{
     
       if(!UniqueID()) printf("Idx %d Eval %g Resid %g #Evecs %d #Evals %d\n",i,eval[i],nrm,evec.size(),eval.size());
     }
-
+    delete HermOp;
   }
 
   //Randomize double precision eigenvectors

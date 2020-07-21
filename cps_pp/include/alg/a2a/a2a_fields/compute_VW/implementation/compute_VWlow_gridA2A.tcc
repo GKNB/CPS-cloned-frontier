@@ -1,6 +1,7 @@
 //Implementation of VW low where the Dirac operator is the same as that used for the gauge fields (and FGrid)
 template< typename Policies>
 void computeVWlowStandard(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls){
+  assert(cg_controls.CGalgorithm != AlgorithmMixedPrecisionMADWF);
   if(!UniqueID()) printf("Computing VWlow using Grid\n");
   typedef typename Policies::GridFermionField GridFermionField;
   typedef typename Policies::FgridFclass FgridFclass;

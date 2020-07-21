@@ -144,7 +144,7 @@ public:
   inline double norm2() const{
     double out = 0.;
     for(int i=0;i<size();i++) out += norm(ptr()[i]);
-    QMP_sum_array(&out, 1);
+    cps::globalSum(&out, 1);
     return out;
   }
   
@@ -290,7 +290,7 @@ public:
   static void read(std::istream *file_ptr, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs);
 
   void nodeSum(){ //don't call unless you know what you're doing
-    QMP_sum_array( (typename ScalarComplexType::value_type*)this->data(),2*fsize);
+    globalSum( (typename ScalarComplexType::value_type*)this->data(),2*fsize);
   }
 };
 

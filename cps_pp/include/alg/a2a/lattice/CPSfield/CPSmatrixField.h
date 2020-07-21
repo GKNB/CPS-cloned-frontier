@@ -311,6 +311,33 @@ VectorMatrixType localNodeSum(const CPSmatrixField<VectorMatrixType> &a){
   return out;
 }
 
+template<typename MatrixType, typename ComplexClass>
+struct _global_sum_reduce_impl{};
+
+template<typename BaseMatrixType>
+struct _global_sum_reduce_impl<BaseMatrixType, complex_double_or_float_mark>{
+  static BaseMatrixType doit(const BaseMatrixType &in){
+    BaseMatrixType out(in);
+    globalSum( out.scalarTypePtr(), out.nScalarType() );
+    return out;
+  }
+};
+
+template<typename VectorMatrixType>
+struct _global_sum_reduce_impl<VectorMatrixType, grid_vector_complex_mark>{
+  static auto doit(const VectorMatrixType &in)->decltype(Reduce(in)){
+    auto in_r = Reduce(in);
+    return _global_sum_reduce_impl<decltype(in_r), complex_double_or_float_mark>::doit(in_r);
+  }
+};
+
+//Simultaneous global and SIMD reduction (if applicable)
+template<typename VectorMatrixType>			
+inline decltype(_global_sum_reduce_impl<VectorMatrixType, typename ComplexClassify<typename VectorMatrixType::scalar_type>::type>::doit( *((VectorMatrixType const*)NULL) ) )
+globalSumReduce(const CPSmatrixField<VectorMatrixType> &a){
+  VectorMatrixType lsum = localNodeSum(a);
+  return _global_sum_reduce_impl<VectorMatrixType, typename ComplexClassify<typename VectorMatrixType::scalar_type>::type>::doit(lsum);
+}
 
 
 //Perform the local-node 3d slice sum

@@ -128,7 +128,26 @@ template<typename T>
 struct _RecursiveTraceFindScalarType<T, no_mark>{
   typedef T scalar_type;
 };
+
+
+//Count the number of fundamental scalars in the nested matrix
+template<typename T, typename TypeClass>
+struct _RecursiveCountScalarType{};
+
+template<typename T>
+struct _RecursiveCountScalarType<T, cps_square_matrix_mark>{
+  static constexpr size_t count(){
+    return T::Size*T::Size*_RecursiveCountScalarType<typename T::value_type,typename _MatrixClassify<typename T::value_type>::type >::count();
+  }
+};
+template<typename T>
+struct _RecursiveCountScalarType<T, no_mark>{
+  static constexpr size_t count(){
+    return 1;
+  }
+};
  
+
 //Perform a trace of an arbitrary nested square matrix type
 template<typename scalar_type, typename T, typename TypeClass>
 struct _RecursiveTraceImpl{};
@@ -275,6 +294,15 @@ public:
   struct RebaseScalarType{
     typedef typename _rebaseScalarType<CPSsquareMatrix<T,N>,cps_square_matrix_mark,U>::type type;
   };
+
+  //The number of fundamental "scalar_type" data in memory
+  static constexpr size_t nScalarType(){
+    return _RecursiveCountScalarType<CPSsquareMatrix<T,N>, cps_square_matrix_mark>::count();
+  }
+  //Return a pointer to this object as an array of scalar_type of size nScalarType()
+  scalar_type const* scalarTypePtr() const{ return (scalar_type const*)this; }
+  scalar_type * scalarTypePtr(){ return (scalar_type*)this; }
+
 
   accelerator CPSsquareMatrix() = default;
   accelerator CPSsquareMatrix(const CPSsquareMatrix &r) = default;
@@ -453,6 +481,21 @@ accelerator_inline T Transpose(const T& r){
   out.equalsTranspose(r);
   return out;
 }
+
+//Perform SIMD reductions
+#ifdef USE_GRID
+template<typename VectorMatrixType, typename my_enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+inline typename VectorMatrixType::template RebaseScalarType<typename VectorMatrixType::scalar_type::scalar_type>::type
+Reduce(const VectorMatrixType &v){
+  typedef typename VectorMatrixType::template RebaseScalarType<typename VectorMatrixType::scalar_type::scalar_type>::type OutType;
+  OutType out;
+  typename OutType::scalar_type *out_p = out.scalarTypePtr();
+  typename VectorMatrixType::scalar_type const* in_p = v.scalarTypePtr();
+  static const size_t NN = v.nScalarType();
+  for(size_t i=0;i<NN;i++) out_p[i] = Reduce(in_p[i]);
+  return out;
+}
+#endif
 
 
 

@@ -124,7 +124,10 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   
 //Construct Grids and Dirac operator
 template<typename GridPolicies>
-void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename GridPolicies::GridFermionField> &evec, const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lattice){
+void gridLanczos(std::vector<Grid::RealD> &eval, 
+		 std::vector<typename GridPolicies::GridFermionField> &evec, 
+		 const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lattice,
+		 A2Apreconditioning precon_type = SchurOriginal){
   typedef typename GridPolicies::GridFermionField GridFermionField;
   typedef typename GridPolicies::FgridFclass FgridFclass;
   typedef typename GridPolicies::GridDirac GridDirac;
@@ -145,7 +148,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename GridPolici
 
   GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,lanc_arg.mass,M5,mob_b,mob_c, params);
 
-  gridLanczos(eval, evec, lanc_arg, Ddwf, *Umu, UGrid, UrbGrid, FGrid, FrbGrid);
+  gridLanczos(eval, evec, lanc_arg, Ddwf, *Umu, UGrid, UrbGrid, FGrid, FrbGrid, precon_type);
 
   //Ddwf.Report();
 }
@@ -153,7 +156,8 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename GridPolici
 template<typename GridPolicies>
 void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename GridPolicies::GridFermionFieldF> &evec, const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lattice,
 			   Grid::GridCartesian *UGrid_f, Grid::GridRedBlackCartesian *UrbGrid_f,
-			   Grid::GridCartesian *FGrid_f, Grid::GridRedBlackCartesian *FrbGrid_f
+			   Grid::GridCartesian *FGrid_f, Grid::GridRedBlackCartesian *FrbGrid_f,
+			   A2Apreconditioning precon_type = SchurOriginal
 			   ){
   typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
   typedef typename GridPolicies::FgridFclass FgridFclass;
@@ -180,7 +184,7 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
 
   GridDiracF Ddwf(Umu_f,*FGrid_f,*FrbGrid_f,*UGrid_f,*UrbGrid_f,lanc_arg.mass,M5,mob_b,mob_c, params);
 
-  gridLanczos(eval, evec, lanc_arg, Ddwf, Umu_f, UGrid_f, UrbGrid_f, FGrid_f, FrbGrid_f);
+  gridLanczos(eval, evec, lanc_arg, Ddwf, Umu_f, UGrid_f, UrbGrid_f, FGrid_f, FrbGrid_f, precon_type);
 
   //Ddwf.Report();
 }

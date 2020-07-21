@@ -310,7 +310,7 @@ public:
 	ERR.General("EvecInterfaceGridSinglePrec","CGNE_MdagM", 
 		    "Mobius inner operator has not been initialized. Make sure you called either setupCG or used the constructor that passes in cg_controls");
 
-      //*NOTE* : this assumes the eigenvectors are for the inner Mobius operator and preconditioned using the SchurRedBlackDiagTwoSolve preconditioner
+      //*NOTE* : this assumes the eigenvectors are for the inner Mobius operator. Preconditioning for evecs used much match that of Dirac operator used
       deflateGuess<GridFermionFieldF> guesser(evec,eval);
       Grid_MADWF_mixedprec_invert<GridPolicies, deflateGuess<GridFermionFieldF> >(solution, source, cg_controls, Umu, linop._Mat, *DZmob_f, guesser, cg_controls.madwf_params.precond);
 

@@ -296,7 +296,7 @@ int main(int argc,char *argv[])
   if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
   #endif
 
-  if(0) testSpinFlavorMatrices();
+  if(1) testCPSsquareMatrix();
   if(0) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
 
   if(0) testMFmult<A2Apolicies_std>(a2a_arg,tol);
@@ -378,12 +378,12 @@ int main(int argc,char *argv[])
 #ifdef USE_GRID
   if(0) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
   if(0) testVVgridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
-  if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
+  if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
   if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
   if(0) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 #endif
 
   if(0) testModeMappingTranspose(a2a_arg);

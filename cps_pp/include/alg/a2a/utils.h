@@ -10,6 +10,7 @@
 #include "utils/utils_complex.h"
 #include "utils/utils_matrix.h"
 #include "utils/utils_parallel.h"
+#include "utils/utils_parallel_globalsum.h"
 #include "utils/utils_performance.h"
 #include "utils/reuse_block_allocator.h"
 #include "utils/fftw_wrapper.h"

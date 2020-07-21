@@ -1,86 +1,120 @@
 #ifndef _TEST_A2A_H_
 #define _TEST_A2A_H_
 
-void testSpinFlavorMatrices(){
+void testCPSsquareMatrix(){
   std::cout << "Testing CPSsquareMatrix types" << std::endl; 
-  CPSflavorMatrix<cps::Complex> f1, f2, f3;
-  f1.unit(); f2.unit();
-  f1.pr(sigma1);
-  f2.pr(sigma2);
 
-  f3 = f1 * f2;
-  std::cout << "sigma1=" << f1 << std::endl;
-  std::cout << "sigma2=" << f2 << std::endl;
-  std::cout << "sigma1*sigma2 = " << f3 << std::endl;
-  CPSflavorMatrix<cps::Complex> f3_expect; 
-  f3_expect.unit(); f3_expect.pr(sigma3); f3_expect.timesI();
-  assert( f3_expect == f3 );
+  {
+    CPSflavorMatrix<cps::Complex> f1, f2, f3;
+    f1.unit(); f2.unit();
+    f1.pr(sigma1);
+    f2.pr(sigma2);
 
-
-
-  CPSspinMatrix<CPSflavorMatrix<cps::Complex> > sf1;
-  sf1.unit();
-  sf1.gr(-5);
-  std::cout << "gamma5(spin,flavor) =\n" << sf1 << std::endl;
-
-  typedef typename CPSspinMatrix<CPSflavorMatrix<cps::Complex> >::scalar_type scalar_type;
-  static_assert( _equal<scalar_type, cps::Complex>::value, "scalar_type deduction");
-  scalar_type tr = sf1.Trace();
-
-  std::cout << "Trace: ";
-  CPSprintT(std::cout, tr);
-  std::cout << std::endl;
-
-  assert( tr == scalar_type(0.) );
+    f3 = f1 * f2;
+    std::cout << "sigma1=" << f1 << std::endl;
+    std::cout << "sigma2=" << f2 << std::endl;
+    std::cout << "sigma1*sigma2 = " << f3 << std::endl;
+    CPSflavorMatrix<cps::Complex> f3_expect; 
+    f3_expect.unit(); f3_expect.pr(sigma3); f3_expect.timesI();
+    assert( f3_expect == f3 );
 
 
-  cps::Complex dbl_trace = sf1.TraceIndex<0>().TraceIndex<0>();
-  std::cout << "Trace(flavor)Trace(spin): ";
-  CPSprintT(std::cout, dbl_trace);
-  std::cout << std::endl;
+
+    CPSspinMatrix<CPSflavorMatrix<cps::Complex> > sf1;
+    sf1.unit();
+    sf1.gr(-5);
+    std::cout << "gamma5(spin,flavor) =\n" << sf1 << std::endl;
+
+    typedef typename CPSspinMatrix<CPSflavorMatrix<cps::Complex> >::scalar_type scalar_type;
+    static_assert( _equal<scalar_type, cps::Complex>::value, "scalar_type deduction");
+    scalar_type tr = sf1.Trace();
+
+    std::cout << "Trace: ";
+    CPSprintT(std::cout, tr);
+    std::cout << std::endl;
+
+    assert( tr == scalar_type(0.) );
+
+
+    cps::Complex dbl_trace = sf1.TraceIndex<0>().TraceIndex<0>();
+    std::cout << "Trace(flavor)Trace(spin): ";
+    CPSprintT(std::cout, dbl_trace);
+    std::cout << std::endl;
     
-  assert( tr == cps::Complex(0.) );
+    assert( tr == cps::Complex(0.) );
 
     
-  std::cout << "Trace product g5*g5=I_8x8: ";
-  scalar_type tr_prod = Trace(sf1,sf1);
-  CPSprintT(std::cout, tr_prod);
-  std::cout << std::endl;
+    std::cout << "Trace product g5*g5=I_8x8: ";
+    scalar_type tr_prod = Trace(sf1,sf1);
+    CPSprintT(std::cout, tr_prod);
+    std::cout << std::endl;
 
-  assert( tr_prod == scalar_type(8.) );
+    assert( tr_prod == scalar_type(8.) );
 
-  typedef CPSspinMatrix<CPSflavorMatrix<cps::Complex> > SFmat;
-  typedef CPSflavorMatrix<cps::Complex> Fmat;
-  typedef CPSspinMatrix<cps::Complex> Smat;
+    typedef CPSspinMatrix<CPSflavorMatrix<cps::Complex> > SFmat;
+    typedef CPSflavorMatrix<cps::Complex> Fmat;
+    typedef CPSspinMatrix<cps::Complex> Smat;
     
-  static_assert( _equal< typename _PartialTraceFindReducedType<SFmat,0>::type, Fmat>::value, "Trace reduce 1");
-  static_assert( _equal< typename _PartialTraceFindReducedType<SFmat,1>::type, Smat>::value, "Trace reduce 2");
+    static_assert( _equal< typename _PartialTraceFindReducedType<SFmat,0>::type, Fmat>::value, "Trace reduce 1");
+    static_assert( _equal< typename _PartialTraceFindReducedType<SFmat,1>::type, Smat>::value, "Trace reduce 2");
 
-  SFmat sf2;
-  sf2.unit();
-  Fmat tridx = sf2.TraceIndex<0>();
+    SFmat sf2;
+    sf2.unit();
+    Fmat tridx = sf2.TraceIndex<0>();
 
-  std::cout << "Spin trace of spin-flavor unit matrix:\n" << tridx << std::endl;
+    std::cout << "Spin trace of spin-flavor unit matrix:\n" << tridx << std::endl;
     
-  assert( tridx(0,0) == cps::Complex(4.0) & tridx(1,1) == cps::Complex(4.0) &&
-	  tridx(0,1) == cps::Complex(0.0) & tridx(1,0) == cps::Complex(0.0) );
+    assert( tridx(0,0) == cps::Complex(4.0) & tridx(1,1) == cps::Complex(4.0) &&
+	    tridx(0,1) == cps::Complex(0.0) & tridx(1,0) == cps::Complex(0.0) );
 
 
-  sf2.unit();
-  for(int i=0;i<4;i++)
-    for(int j=0;j<4;j++)
-      sf2(i,j).pr(sigma3);
-  sf2.gr(-5);
+    sf2.unit();
+    for(int i=0;i<4;i++)
+      for(int j=0;j<4;j++)
+	sf2(i,j).pr(sigma3);
+    sf2.gr(-5);
     
-  std::cout << "Spin-flavor matrix g5*sigma3\n" << sf2 << std::endl;
+    std::cout << "Spin-flavor matrix g5*sigma3\n" << sf2 << std::endl;
 
 
-  typedef CPSspinMatrix<CPSflavorMatrix<Grid::vComplexD> > vSFmat;
-  vSFmat vsf;
-  vsf.unit();
-  std::cout << "Vectorized sf unit matrix\n" << vsf << std::endl;
+    typedef CPSspinMatrix<CPSflavorMatrix<Grid::vComplexD> > vSFmat;
+    vSFmat vsf;
+    vsf.unit();
+    std::cout << "Vectorized sf unit matrix\n" << vsf << std::endl;
 
-  static_assert( _equal<typename _PartialTraceFindReducedType<Fmat,0>::type, cps::Complex>::value, "Foutertracetest");
+    static_assert( _equal<typename _PartialTraceFindReducedType<Fmat,0>::type, cps::Complex>::value, "Foutertracetest");
+  }
+
+  //Test scalar size deduction
+  {
+    typedef CPSsquareMatrix<double, 5> M1_t;
+    M1_t M1;
+    size_t NN_M1 = M1.nScalarType();
+    assert(NN_M1 = 25);
+
+    typedef CPSsquareMatrix<CPSsquareMatrix<double,2>, 3> M2_t;
+    M2_t M2;
+    size_t NN_M2 = M2.nScalarType();
+    assert(NN_M2 = 9*4);
+  }
+#ifdef USE_GRID
+  //Test Grid reduction of matrix
+  {
+    typedef CPSsquareMatrix<Grid::vComplexD,2> m_t;
+    m_t m;
+    m.unit();
+    constexpr size_t nsimd = Grid::vComplexD::Nsimd();
+    typedef CPSsquareMatrix<Grid::ComplexD,2> ms_t;
+    ms_t m_r = Reduce(m);
+    ms_t ms;
+    ms.unit();
+    ms *= nsimd;
+    
+    assert( ms == m_r );
+  }
+#endif
+
+  std::cout << "Passed CPSsquareMatrix tests" << std::endl;
 }
 
 
@@ -1023,10 +1057,10 @@ void testComputeLowModeMADWF(const A2AArg &a2a_args, const LancArg &lanc_arg,
   CGcontrols cg_con_orig;
 
   CGcontrols cg_con_test;
-  cg_con_test.MADWF_Ls_inner = Ls;
-  cg_con_test.MADWF_b_plus_c_inner = mob_b + mob_c;
-  cg_con_test.MADWF_use_ZMobius = false;
-  cg_con_test.MADWF_precond = SchurOriginal;
+  cg_con_test.madwf_params.Ls_inner = Ls;
+  cg_con_test.madwf_params.b_plus_c_inner = mob_b + mob_c;
+  cg_con_test.madwf_params.use_ZMobius = false;
+  cg_con_test.madwf_params.precond = SchurOriginal;
   
   computeVWlowStandard(V_orig, W_orig, lattice, eveci_rand, evecs_rand.mass, cg_con_orig);
   computeVWlowMADWF(V_test, W_test, lattice, eveci_rand, evecs_rand.mass, cg_con_test);
@@ -1594,6 +1628,47 @@ void testCPSmatrixField(const double tol){
     if(fail) ERR.General("","","CPSmatrixField local node 3d reduction failed\n");
   }
 
+  //Test global sum-reduce
+  {
+    if(!UniqueID()){ printf("Testing global 4d sum/SIMD reduce\n"); fflush(stdout); }
+    PropagatorField unit_4d(simd_dims);
+    for(size_t x4d=0; x4d< unit_4d.size(); x4d++)
+      unit_4d.site_ptr(x4d)->unit();
+    
+    typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
+    typedef CPSspinColorFlavorMatrix<ScalarComplexType> ScalarMatrixType;
+    ScalarMatrixType sum_got = globalSumReduce(unit_4d);
+    ScalarMatrixType sum_expect;
+    sum_expect.unit();
+    sum_expect = sum_expect * GJP.VolNodeSites() * GJP.TotalNodes();
+
+    fail = false;
+
+    for(int s1=0;s1<4;s1++){
+      for(int c1=0;c1<3;c1++){
+	for(int f1=0;f1<2;f1++){
+	  for(int s2=0;s2<4;s2++){
+	    for(int c2=0;c2<3;c2++){
+	      for(int f2=0;f2<2;f2++){
+		auto got = sum_got(s1,s2)(c1,c2)(f1,f2);
+		auto expect = sum_expect(s1,s2)(c1,c2)(f1,f2);
+      
+		double rdiff = fabs(got.real()-expect.real());
+		double idiff = fabs(got.imag()-expect.imag());
+		if(rdiff > tol|| idiff > tol){
+		  printf("Fail: global 4d reduce (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+		  fail = true;
+		}
+	      }
+	    }
+	  }
+	}
+      }  
+    }
+
+    if(fail) ERR.General("","","CPSmatrixField global 4d reduction failed\n");
+  }
+  
 
 
   if(!UniqueID()){ printf("testCPSmatrixField tests passed\n"); fflush(stdout); }
@@ -2121,7 +2196,6 @@ void testKtoPiPiType3FieldFull(const A2AArg &a2a_args, const double tol){
 
   if(fail) ERR.General("","","KtoPiPi mix3 contract full failed\n");
 }
-
 
 
 #endif

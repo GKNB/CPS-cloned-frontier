@@ -33,7 +33,9 @@ struct BFMGridLanczosWrapper{
   
   void compute(const LancArg &lanc_arg){
     LanczosLattice* lanczos_lat = createLattice<LanczosLattice,isGridtype>::doit(jp);
-    wrapper.compute(lanc_arg, *lanczos_lat);
+    A2Apreconditioning precond = SchurOriginal;
+    if(lanc_arg.precon && jp.cg_controls.CGalgorithm == AlgorithmMixedPrecisionMADWF) precond = jp.cg_controls.madwf_params.precond; //SchurDiagTwo often used for ZMADWF    
+    wrapper.compute(lanc_arg, *lanczos_lat, precond);
     delete lanczos_lat;
   }
   void randomizeEvecs(const LancArg &lanc_arg){
@@ -47,6 +49,9 @@ struct BFMGridLanczosWrapper{
   typedef GwilsonFdwf LanczosLattice;
 
   void compute(const LancArg &lanc_arg){
+    if(lanc_arg.precon && jp.CGalgorithm == AlgorithmMixedPrecisionMADWF && jp.madwf_params.precond != SchurOriginal) 
+      ERR.General("BFMGridLanczosWrapper", "compute", "Non-standard preconditioning not supported");
+
     LanczosLattice* lanczos_lat = createLattice<LanczosLattice,isBFMtype>::doit(solvers.bfm_solvers);
     wrapper.compute(lanc_arg, solvers.bfm_solvers);
     delete lanczos_lat;

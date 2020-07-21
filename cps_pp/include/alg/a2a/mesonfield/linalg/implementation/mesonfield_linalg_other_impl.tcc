@@ -194,6 +194,6 @@ void trace(std::vector<typename mf_Policies::ScalarComplexType> &into, const std
       into[t] = trace(m[t]);
     }
   }
-  QMP_sum_array( (typename mf_Policies::ScalarComplexType::value_type*)&into[0],2*nmf); //give all nodes a copy
+  globalSum( (typename mf_Policies::ScalarComplexType::value_type*)&into[0],2*nmf); //give all nodes a copy
 #endif
 }

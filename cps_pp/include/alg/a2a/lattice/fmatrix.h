@@ -109,7 +109,7 @@ public:
   inline const int nCols() const{ return cols; }
 
   void nodeSum(){
-    QMP_sum_array( (typename mf_Complex::value_type*)tt,2*fsize);
+    globalSum( (typename mf_Complex::value_type*)tt,2*fsize);
   }
 
   ~fMatrix(){
@@ -192,7 +192,7 @@ public:
   inline const int &size() const{ return fsize; }
 
   void nodeSum(){
-    QMP_sum_array( (typename mf_Complex::value_type*)tt,2*fsize);
+    globalSum( (typename mf_Complex::value_type*)tt,2*fsize);
   }
 
   ~fVector(){
@@ -276,8 +276,7 @@ public:
     tmp.con = NULL;
   }
   void nodeSum(){
-    globalSumComplex(this->con,size);
-    //QMP_sum_array( (typename mf_Complex::value_type*)con,2*size);
+    globalSum(this->con,size);
   }
 };
 
@@ -341,7 +340,7 @@ public:
   }
   void nodeSum(){
     for(int t=0;t<con.size();t++)
-      globalSumComplex(this->con[t],thread_size);
+      globalSum(this->con[t],thread_size);
   }
 };
 
