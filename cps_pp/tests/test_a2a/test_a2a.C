@@ -296,7 +296,7 @@ int main(int argc,char *argv[])
   if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
   #endif
 
-  if(1) testCPSsquareMatrix();
+  if(0) testCPSsquareMatrix();
   if(0) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
 
   if(0) testMFmult<A2Apolicies_std>(a2a_arg,tol);
@@ -397,6 +397,9 @@ int main(int argc,char *argv[])
   if(0) testFFTopt<A2Apolicies_grid>();
 #endif
 
+#ifdef USE_GRID
+  if(0) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
+#endif
 
   std::cout << "Done" << std::endl;
 

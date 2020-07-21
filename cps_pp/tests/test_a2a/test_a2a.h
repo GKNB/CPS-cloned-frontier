@@ -1668,6 +1668,31 @@ void testCPSmatrixField(const double tol){
 
     if(fail) ERR.General("","","CPSmatrixField global 4d reduction failed\n");
   }
+
+  //Test global sum-reduce with SIMD scalar data
+  {
+    if(!UniqueID()){ printf("Testing global 4d sum/SIMD reduce with SIMD scalar data\n"); fflush(stdout); }
+    typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
+    ComplexField one_4d(simd_dims);
+    for(size_t x4d=0; x4d< one_4d.size(); x4d++)
+      vsplat( *one_4d.site_ptr(x4d), ScalarComplexType(1.0, 0.0) );
+    
+    ScalarComplexType got = globalSumReduce(one_4d);
+    ScalarComplexType expect(1.0, 0.0);
+    expect = expect * double(GJP.VolNodeSites() * GJP.TotalNodes());
+
+    fail = false;
+    
+    double rdiff = fabs(got.real()-expect.real());
+    double idiff = fabs(got.imag()-expect.imag());
+    if(rdiff > tol|| idiff > tol){
+      printf("Fail: global 4d reduce (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+      fail = true;
+    }
+
+    if(fail) ERR.General("","","CPSmatrixField global 4d reduction failed\n");
+  }
+
   
 
 
@@ -2196,6 +2221,79 @@ void testKtoPiPiType3FieldFull(const A2AArg &a2a_args, const double tol){
 
   if(fail) ERR.General("","","KtoPiPi mix3 contract full failed\n");
 }
+
+
+
+#ifdef USE_GRID
+
+//Test that the "MADWF" codepath is the same for the two different supported preconditionings
+//Requires multiple hits
+template<typename GridA2Apolicies>
+void testMADWFprecon(const A2AArg &a2a_args, const LancArg &lanc_arg,
+			     typename GridA2Apolicies::FgridGFclass &lattice, const typename SIMDpolicyBase<4>::ParamType &simd_dims, 
+			     const double tol){
+  if(!UniqueID()){ printf("Computing SchurOriginal evecs"); fflush(stdout); }
+  GridLanczosWrapper<GridA2Apolicies> evecs_orig;
+  evecs_orig.compute(lanc_arg, lattice, SchurOriginal);
+  EvecInterfaceGrid<GridA2Apolicies> eveci_orig(evecs_orig.evec, evecs_orig.eval);
+    
+  if(!UniqueID()){ printf("Computing SchurDiagTwo evecs"); fflush(stdout); }
+  GridLanczosWrapper<GridA2Apolicies> evecs_diagtwo;
+  evecs_diagtwo.compute(lanc_arg, lattice, SchurOriginal);   //SchurDiagTwo);
+  EvecInterfaceGrid<GridA2Apolicies> eveci_diagtwo(evecs_diagtwo.evec, evecs_diagtwo.eval);
+
+  int Ls = GJP.Snodes() * GJP.SnodeSites();
+  double mob_b = lattice.get_mob_b();
+  double mob_c = mob_b - 1.;
+  
+  CGcontrols cg_con_orig;
+  cg_con_orig.madwf_params.Ls_inner = Ls;
+  cg_con_orig.madwf_params.b_plus_c_inner = mob_b + mob_c;
+  cg_con_orig.madwf_params.use_ZMobius = false;
+  cg_con_orig.madwf_params.precond = SchurOriginal;
+
+  CGcontrols cg_con_diagtwo(cg_con_orig);
+  //cg_con_diagtwo.madwf_params.precond = SchurDiagTwo;
+
+  Grid::ComplexD sum_tr_orig(0), sum_tr_diagtwo(0);
+
+  int hits = 10;
+  for(int h=0;h<10;h++){
+    A2AvectorV<GridA2Apolicies> V_orig(a2a_args,simd_dims);
+    A2AvectorW<GridA2Apolicies> W_orig(a2a_args,simd_dims);
+    computeVWlowMADWF(V_orig, W_orig, lattice, eveci_orig, evecs_orig.mass, cg_con_orig);
+
+    A2AvectorV<GridA2Apolicies> V_diagtwo(a2a_args,simd_dims);
+    A2AvectorW<GridA2Apolicies> W_diagtwo(a2a_args,simd_dims);
+    computeVWlowMADWF(V_diagtwo, W_diagtwo, lattice, eveci_diagtwo, evecs_diagtwo.mass, cg_con_diagtwo);
+
+    typedef typename mult_vv_field<GridA2Apolicies, A2AvectorV, A2AvectorW>::PropagatorField PropagatorField;
+    PropagatorField prop_orig(simd_dims), prop_diagtwo(simd_dims);
+    mult(prop_orig, V_orig, W_orig, false, true);
+    mult(prop_diagtwo, V_diagtwo, W_diagtwo, false, true);
+    
+    Grid::ComplexD tr_orig = globalSumReduce(Trace(prop_orig));
+    Grid::ComplexD tr_diagtwo = globalSumReduce(Trace(prop_diagtwo));
+    
+    sum_tr_orig = sum_tr_orig + tr_orig;
+    sum_tr_diagtwo = sum_tr_diagtwo + tr_diagtwo;
+    
+    Grid::ComplexD avg_tr_orig = sum_tr_orig/double(h+1);
+    Grid::ComplexD avg_tr_diagtwo = sum_tr_diagtwo/double(h+1);
+    Grid::ComplexD reldiff = 2. * (avg_tr_orig - avg_tr_diagtwo)/(avg_tr_orig + avg_tr_diagtwo);
+
+    if(!UniqueID()){ printf("Hits %d Orig (%g,%g) DiagTwo (%g,%g) Rel.Diff (%g,%g)\n", h+1,
+			    avg_tr_orig.real(), avg_tr_orig.imag(),
+			    avg_tr_diagtwo.real(), avg_tr_diagtwo.imag(),
+			    reldiff.real(), reldiff.imag()); fflush(stdout); }
+  }
+
+
+}
+
+#endif //USE_GRID
+
+
 
 
 #endif

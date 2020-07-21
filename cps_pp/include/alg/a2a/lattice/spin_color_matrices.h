@@ -55,7 +55,7 @@ public:
 struct cps_square_matrix_mark;
 
 template<typename T>
-struct _MatrixClassify{
+struct ClassifyMatrixOrNotMatrix{
   typedef typename TestElem< isCPSsquareMatrix<T>::value, cps_square_matrix_mark,LastElem >::type type;
 };
 
@@ -80,17 +80,17 @@ struct _timespmI<T,cps_square_matrix_mark>{
   accelerator_inline static void timesMinusOne(T &out, const T &in){
     for(int i=0;i<T::Size;i++)
       for(int j=0;j<T::Size;j++)
-	_timespmI<typename T::value_type, typename _MatrixClassify<typename T::value_type>::type>::timesMinusOne(out(i,j), in(i,j));
+	_timespmI<typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::timesMinusOne(out(i,j), in(i,j));
   }    
   accelerator_inline static void timesI(T &out, const T &in){    
     for(int i=0;i<T::Size;i++)
       for(int j=0;j<T::Size;j++)
-	_timespmI<typename T::value_type, typename _MatrixClassify<typename T::value_type>::type>::timesI(out(i,j), in(i,j));
+	_timespmI<typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::timesI(out(i,j), in(i,j));
   }
   accelerator_inline static void timesMinusI(T &out, const T &in){    
     for(int i=0;i<T::Size;i++)
       for(int j=0;j<T::Size;j++)
-	_timespmI<typename T::value_type, typename _MatrixClassify<typename T::value_type>::type>::timesMinusI(out(i,j), in(i,j));
+	_timespmI<typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::timesMinusI(out(i,j), in(i,j));
   }
 };
 
@@ -122,7 +122,7 @@ struct _RecursiveTraceFindScalarType{};
 
 template<typename T>
 struct _RecursiveTraceFindScalarType<T, cps_square_matrix_mark>{
-  typedef typename _RecursiveTraceFindScalarType<typename T::value_type,typename _MatrixClassify<typename T::value_type>::type>::scalar_type scalar_type;
+  typedef typename _RecursiveTraceFindScalarType<typename T::value_type,typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::scalar_type scalar_type;
 };
 template<typename T>
 struct _RecursiveTraceFindScalarType<T, no_mark>{
@@ -137,7 +137,7 @@ struct _RecursiveCountScalarType{};
 template<typename T>
 struct _RecursiveCountScalarType<T, cps_square_matrix_mark>{
   static constexpr size_t count(){
-    return T::Size*T::Size*_RecursiveCountScalarType<typename T::value_type,typename _MatrixClassify<typename T::value_type>::type >::count();
+    return T::Size*T::Size*_RecursiveCountScalarType<typename T::value_type,typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type >::count();
   }
 };
 template<typename T>
@@ -156,12 +156,12 @@ template<typename scalar_type, typename T>
 struct _RecursiveTraceImpl<scalar_type, T, cps_square_matrix_mark>{
   accelerator_inline static void doit(scalar_type &into, const T &what){
     for(int i=0;i<T::Size;i++)
-      _RecursiveTraceImpl<scalar_type, typename T::value_type, typename _MatrixClassify<typename T::value_type>::type>::doit(into,what(i,i));    
+      _RecursiveTraceImpl<scalar_type, typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::doit(into,what(i,i));    
   }
   accelerator_inline static void trace_prod(scalar_type &into, const T &a, const T&b){
     for(int i=0;i<T::Size;i++)
       for(int j=0;j<T::Size;j++)
-	_RecursiveTraceImpl<scalar_type, typename T::value_type, typename _MatrixClassify<typename T::value_type>::type>::trace_prod(into, a(i,j), b(j,i));
+	_RecursiveTraceImpl<scalar_type, typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::trace_prod(into, a(i,j), b(j,i));
   }
   
 };
@@ -255,7 +255,7 @@ struct _rebaseScalarType{};
 
 template<typename T, typename NewNumericalType>
 struct _rebaseScalarType<T, cps_square_matrix_mark, NewNumericalType>{
-  typedef typename _rebaseScalarType<typename T::value_type,typename _MatrixClassify<typename T::value_type>::type, NewNumericalType>::type subType;
+  typedef typename _rebaseScalarType<typename T::value_type,typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type, NewNumericalType>::type subType;
   typedef typename T::template Rebase<subType>::type type;
 };
 template<typename T, typename NewNumericalType>
@@ -336,7 +336,7 @@ public:
   template<int RemoveDepth>
   accelerator_inline typename _PartialTraceFindReducedType<CPSsquareMatrix<T,N>, RemoveDepth>::type TraceIndex() const{
     typedef typename _PartialTraceFindReducedType<CPSsquareMatrix<T,N>, RemoveDepth>::type ReducedType;
-    ReducedType into; _CPSsetZeroOne<ReducedType, typename _MatrixClassify<ReducedType>::type>::setzero(into);//  into.zero();
+    ReducedType into; _CPSsetZeroOne<ReducedType, typename ClassifyMatrixOrNotMatrix<ReducedType>::type>::setzero(into);//  into.zero();
     _PartialTraceImpl<ReducedType, CPSsquareMatrix<T,N>, RemoveDepth>::doit(into, *this);
     return into;
   }
@@ -344,7 +344,7 @@ public:
   template<int RemoveDepth1, int RemoveDepth2>
   accelerator_inline typename _PartialDoubleTraceFindReducedType<CPSsquareMatrix<T,N>,RemoveDepth1,RemoveDepth2>::type TraceTwoIndices() const{
     typedef typename _PartialDoubleTraceFindReducedType<CPSsquareMatrix<T,N>,RemoveDepth1,RemoveDepth2>::type ReducedType;
-    ReducedType into; _CPSsetZeroOne<ReducedType, typename _MatrixClassify<ReducedType>::type>::setzero(into);//  into.zero();
+    ReducedType into; _CPSsetZeroOne<ReducedType, typename ClassifyMatrixOrNotMatrix<ReducedType>::type>::setzero(into);//  into.zero();
     _PartialDoubleTraceImpl<ReducedType, CPSsquareMatrix<T,N>, RemoveDepth1,RemoveDepth2>::doit(into, *this);
     return into;
   }
@@ -366,13 +366,13 @@ public:
   accelerator_inline CPSsquareMatrix<T,N> & zero(){
     for(int i=0;i<N;i++)
       for(int j=0;j<N;j++)
-	_CPSsetZeroOne<T,  typename _MatrixClassify<T>::type>::setzero(v[i][j]);
+	_CPSsetZeroOne<T,  typename ClassifyMatrixOrNotMatrix<T>::type>::setzero(v[i][j]);
     return *this;    
   }
   accelerator_inline CPSsquareMatrix<T,N>& unit(){
     zero();
     for(int i=0;i<N;i++)
-      _CPSsetZeroOne<T,  typename _MatrixClassify<T>::type>::setone(v[i][i]);
+      _CPSsetZeroOne<T,  typename ClassifyMatrixOrNotMatrix<T>::type>::setone(v[i][i]);
     return *this;
   }
   //this = -this
@@ -497,14 +497,18 @@ Reduce(const VectorMatrixType &v){
 }
 #endif
 
-
+//Sum matrix over all nodes
+template<typename MatrixType, typename my_enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+void globalSum(MatrixType *m){
+  globalSum( m->scalarTypePtr(), m->nScalarType() );
+}
 
 //Old annoying CPS conventions with output on RHS (Fortran user or something??)
 #define TIMESPLUSONE(a,b) { b=a; }
-#define TIMESMINUSONE(a,b) { _timespmI<T, typename _MatrixClassify<T>::type>::timesMinusOne(b,a); }
-#define TIMESPLUSI(a,b) { _timespmI<T, typename _MatrixClassify<T>::type>::timesI(b,a); }
-#define TIMESMINUSI(a,b) { _timespmI<T, typename _MatrixClassify<T>::type>::timesMinusI(b,a); }
-#define SETZERO(a){ _CPSsetZeroOne<T, typename _MatrixClassify<T>::type>::setzero(a); }
+#define TIMESMINUSONE(a,b) { _timespmI<T, typename ClassifyMatrixOrNotMatrix<T>::type>::timesMinusOne(b,a); }
+#define TIMESPLUSI(a,b) { _timespmI<T, typename ClassifyMatrixOrNotMatrix<T>::type>::timesI(b,a); }
+#define TIMESMINUSI(a,b) { _timespmI<T, typename ClassifyMatrixOrNotMatrix<T>::type>::timesMinusI(b,a); }
+#define SETZERO(a){ _CPSsetZeroOne<T, typename ClassifyMatrixOrNotMatrix<T>::type>::setzero(a); }
 
 
 //For derived classes we want methods to return references or instances of the derived type for inherited functions

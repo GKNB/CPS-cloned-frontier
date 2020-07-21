@@ -5,7 +5,7 @@
 #include <alg/a2a/lattice/spin_color_matrices.h>
 #include <alg/a2a/lattice/spin_color_matrices_SIMT.h>
 
-//CPSfields of matrices and associated functionality
+//CPSfields of SIMD-vectorized matrices and associated functionality
 
 CPS_START_NAMESPACE 
 
@@ -16,13 +16,13 @@ using CPSmatrixField = CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPol
 //These structs allow the same interface for operators that are applicable for matrix and complex types
 define_test_has_enum(isDerivedFromCPSsquareMatrix);
 
-struct vector_matrix_mark{};
+struct vector_matrix_mark{}; //Matrix of SIMD data
 template<typename T>
 struct MatrixTypeClassify{
   typedef typename TestElem< is_grid_vector_complex<T>::value, grid_vector_complex_mark,
-			     TestElem< has_enum_isDerivedFromCPSsquareMatrix<T>::value, vector_matrix_mark, 
+			     TestElem< has_enum_isDerivedFromCPSsquareMatrix<T>::value && is_grid_vector_complex<typename T::scalar_type>::value, vector_matrix_mark, 
 				       LastElem
-				       > 
+				       >
 			     >::type type;
 };
 
@@ -38,7 +38,6 @@ template<typename T>
 struct getScalarType<T, vector_matrix_mark>{
   typedef typename T::scalar_type type;
 };
-
 
 
 
@@ -238,11 +237,11 @@ VectorMatrixType localNodeSumSimple(const CPSmatrixField<VectorMatrixType> &a){
 
 template<typename VectorMatrixType>			
 VectorMatrixType localNodeSum(const CPSmatrixField<VectorMatrixType> &a){
-  VectorMatrixType out; out.zero();
-  
+  VectorMatrixType out; memset(&out, 0, sizeof(VectorMatrixType));
+
   //Want to introduce some paralellism into this thing
   //Parallelize over fundamental complex type
-  typedef typename getScalarType<VectorMatrixType, typename MatrixTypeClassify<VectorMatrixType>::type  >::type ScalarType; 
+  typedef typename getScalarType<VectorMatrixType, typename MatrixTypeClassify<VectorMatrixType>::type>::type ScalarType; 
 
   static const size_t nscalar = sizeof(VectorMatrixType)/sizeof(ScalarType);
   size_t field_size = a.size();
@@ -311,32 +310,15 @@ VectorMatrixType localNodeSum(const CPSmatrixField<VectorMatrixType> &a){
   return out;
 }
 
-template<typename MatrixType, typename ComplexClass>
-struct _global_sum_reduce_impl{};
-
-template<typename BaseMatrixType>
-struct _global_sum_reduce_impl<BaseMatrixType, complex_double_or_float_mark>{
-  static BaseMatrixType doit(const BaseMatrixType &in){
-    BaseMatrixType out(in);
-    globalSum( out.scalarTypePtr(), out.nScalarType() );
-    return out;
-  }
-};
-
-template<typename VectorMatrixType>
-struct _global_sum_reduce_impl<VectorMatrixType, grid_vector_complex_mark>{
-  static auto doit(const VectorMatrixType &in)->decltype(Reduce(in)){
-    auto in_r = Reduce(in);
-    return _global_sum_reduce_impl<decltype(in_r), complex_double_or_float_mark>::doit(in_r);
-  }
-};
-
 //Simultaneous global and SIMD reduction (if applicable)
 template<typename VectorMatrixType>			
-inline decltype(_global_sum_reduce_impl<VectorMatrixType, typename ComplexClassify<typename VectorMatrixType::scalar_type>::type>::doit( *((VectorMatrixType const*)NULL) ) )
-globalSumReduce(const CPSmatrixField<VectorMatrixType> &a){
+inline auto globalSumReduce(const CPSmatrixField<VectorMatrixType> &a)
+  ->decltype(Reduce(localNodeSum(a)))
+{
   VectorMatrixType lsum = localNodeSum(a);
-  return _global_sum_reduce_impl<VectorMatrixType, typename ComplexClassify<typename VectorMatrixType::scalar_type>::type>::doit(lsum);
+  auto slsum = Reduce(lsum);
+  globalSum(&slsum);
+  return slsum;
 }
 
 

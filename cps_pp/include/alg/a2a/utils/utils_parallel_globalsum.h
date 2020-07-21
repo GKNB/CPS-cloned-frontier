@@ -13,7 +13,7 @@
 
 CPS_START_NAMESPACE
 
-inline void globalSum(double *result, size_t len){
+inline void globalSum(double *result, size_t len = 1){
 #ifdef USE_QMP
   QMP_sum_double_array(result, len);
 #elif defined(USE_MPI)
@@ -23,7 +23,7 @@ inline void globalSum(double *result, size_t len){
 #endif
 }
 
-inline void globalSum(float *result, size_t len){
+inline void globalSum(float *result, size_t len = 1){
 #ifdef USE_QMP
   QMP_sum_float_array(result, len);
 #elif defined(USE_MPI)
@@ -33,10 +33,10 @@ inline void globalSum(float *result, size_t len){
 #endif
 }
 
-inline void globalSum(std::complex<double> *result, size_t len){
+inline void globalSum(std::complex<double> *result, size_t len = 1){
   globalSum( (double*)result, 2*len );
 }
-inline void globalSum(std::complex<float> *result, size_t len){
+inline void globalSum(std::complex<float> *result, size_t len = 1){
   globalSum( (float*)result, 2*len );
 }
 
@@ -45,10 +45,10 @@ inline void globalSum(std::complex<float> *result, size_t len){
 #ifdef USE_GRID
 
 #ifdef GRID_NVCC
-void globalSum(thrust::complex<double>* v, const size_t n){
+void globalSum(thrust::complex<double>* v, const size_t n = 1){
   globalSum( (double*)v,2*n);
 }
-void globalSum(thrust::complex<float>* v, const size_t n){
+void globalSum(thrust::complex<float>* v, const size_t n = 1){
   globalSum( (float*)v,2*n);
 }
 
@@ -66,10 +66,10 @@ struct _globalSumComplexGrid{
   }
 };
 
-inline void globalSum(Grid::vComplexD* v, const int n){
+inline void globalSum(Grid::vComplexD* v, const size_t n = 1){
   _globalSumComplexGrid<Grid::vComplexD>::doit(v,n);
 }
-inline void globalSum(Grid::vComplexF* v, const int n){
+inline void globalSum(Grid::vComplexF* v, const size_t n = 1){
   _globalSumComplexGrid<Grid::vComplexF>::doit(v,n);
 }
 
