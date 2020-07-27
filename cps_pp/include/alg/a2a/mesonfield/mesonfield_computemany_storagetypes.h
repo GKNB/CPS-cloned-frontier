@@ -6,13 +6,39 @@
 
 CPS_START_NAMESPACE
 
-struct computeParams{
-  int qidx_w;
-  int qidx_v;
-  ThreeMomentum p_w;
-  ThreeMomentum p_v;
+/*The ComputeMesonFields class loops over some number of computations, performs the appropriate FFTs of the V and W vectors including gauge fixing
+  and momentum twist, then calls the meson field computation
 
-  bool do_src_shift;
+  These 'storage' classes are policy classes that define how the ComputeMesonFields class acts
+  They must all have the following interface:
+{
+  int nCompute();                       //Number of meson fields to be computed; looped over
+
+  typedef xxx  mfComputeInputFormat;    //A class that will act as storage
+  mfComputeInputFormat getMf(int c);    //return the storage instance for computation index c. 
+                                        //Note it is copied by value, so the mfComputeInputFormat should be a reference, or (one or more) pointer
+					//This should be a type supported by A2AmesonField::compute
+
+  				       
+  typedef xxx  InnerProductType;        //An 'inner product' class type  
+  const InnerProductType & getInnerProduct()  //Return the inner product instance
+ 
+
+  void getComputeParameters(int &qidx_w, int &qidx_v, ThreeMomentum &p_w, ThreeMomentum &p_v, const int cidx) const; //get the parameters of computation index cidx
+
+  void postContractAction(const int cidx); //a callback function that optionally performs some action after compute #cidx has been performed
+}
+*/
+
+struct computeParams{
+  int qidx_w; //quark flavor index in the array of W fields provided
+  int qidx_v; //quark flavor index in the array of V fields provided
+  ThreeMomentum p_w; //momentum to be assigned to the W field (note (W^dagger V) meson fields have total momentum   p_v - p_w 
+  ThreeMomentum p_v; //momentum to be assigned to the V field
+
+  //Rather than repeating the FFT of the 3d 'source' field for different momenta, we can instead translate the source in momentum space
+  //These fields enable this feature
+  bool do_src_shift; //enable barrel shift of source 
   int src_shift[3]; //barrel shift the source FFT by this vector
   
   computeParams(const int _qidx_w, const int _qidx_v, const ThreeMomentum &_p_w, const ThreeMomentum &_p_v): qidx_w(_qidx_w),  qidx_v(_qidx_v), p_w(_p_w), p_v(_p_v), do_src_shift(false){}
@@ -23,18 +49,20 @@ struct computeParams{
   }
 };
 
+//Base class for shared functionality
 class MesonFieldStorageBase{
 protected:
   std::vector<computeParams> clist;
 public:
+
+  //Any allowed G-parity quark momentum can be written as   4*\vec a + \vec k   where k=(+1,+1,+1) or (-1,-1,-1)  [replace with zeroes when not Gparity directions]
+  //Return the vectors a and k. For non GPBC directions set a[d]=p[d] and k[d]=0
   static void getGPmomParams(int a[3], int k[3], const int p[3]){
     if(!GJP.Gparity()){
       for(int i=0;i<3;i++){ a[i]=p[i]; k[i]=0; }
       return;
     } 
     
-    //Any allowed G-parity quark momentum can be written as   4*\vec a + \vec k   where k=(+1,+1,+1) or (-1,-1,-1)  [replace with zeroes when not Gparity directions]
-    //Return the vectors a and k. For non GPBC directions set a[d]=p[d] and k[d]=0
     if(      (p[0]-1) % 4 == 0){
       for(int d=0;d<3;d++){
 	if(GJP.Bc(d) == BND_CND_GPARITY){
@@ -73,6 +101,7 @@ public:
     for(int i=0;i<clist.size();i++) if(clist[i].qidx_v == qidx) ++count;
     return count;
   }
+  //Number of meson fields to be computed
   inline int nCompute() const{ return clist.size(); }
 
   inline void getComputeParameters(int &qidx_w, int &qidx_v, ThreeMomentum &p_w, ThreeMomentum &p_v, const int cidx) const{

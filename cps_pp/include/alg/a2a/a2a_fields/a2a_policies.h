@@ -129,6 +129,7 @@ struct NAME{								\
  typedef FermionFieldType ScalarFermionFieldType; /*SIMD vectorized and scalar (non-vectorized) fields are the same*/ \
  typedef ComplexFieldType ScalarComplexFieldType;			\
  typedef StandardSourcePolicies SourcePolicies;				\
+ typedef CPSfield<typename SourcePolicies::ComplexType,1,typename SourcePolicies::MappingPolicy, typename SourcePolicies::AllocPolicy> SourceFieldType; \
 									\
  ALLOCATOR_MACRO(NAME);							\
  enum { GPARITY=IS_GPARITY_POLICY };					\
@@ -165,6 +166,7 @@ struct NAME{					\
  typedef CPScomplex4D<ScalarComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> ScalarComplexFieldType;	\
 									\
  typedef GridSIMDSourcePolicies SourcePolicies;				\
+ typedef CPSfield<typename SourcePolicies::ComplexType,1,typename SourcePolicies::MappingPolicy, typename SourcePolicies::AllocPolicy> SourceFieldType; \
 									\
  ALLOCATOR_MACRO(NAME);							\
  enum { GPARITY=IS_GPARITY_POLICY };					\

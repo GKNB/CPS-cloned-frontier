@@ -37,6 +37,7 @@ public:
 
   inline std::pair<ThreeMomentum,ThreeMomentum> getMomAB(const int i, const int alt_idx = 0) const{ return std::pair<ThreeMomentum,ThreeMomentum>( momA[i][alt_idx], momB[i][alt_idx] ); }
 
+  //Add a pair of quark momenta {pA,pB} for a meson of momentum ptot = pA + pB
   void addP(const std::pair<ThreeMomentum,ThreeMomentum> &pAB){
     ThreeMomentum ptot = pAB.first + pAB.second;
     if(combine_same_total_mom)
@@ -51,6 +52,9 @@ public:
     momA.push_back(std::vector<ThreeMomentum>(1, pAB.first));
     momB.push_back(std::vector<ThreeMomentum>(1, pAB.second));
   }
+  //Add a pair of quark momenta {pA,pB} for a meson of momentum ptot = pA + pB
+  //and a pair of quark momenta {-pA,-pB} for a meson of momentum ptot = -(pA + pB)
+  //Typically meson fields of equal and opposite total momentum are both required to construct a two-point function hence this convenience function
   inline void addPandMinusP(const std::pair<ThreeMomentum,ThreeMomentum> &pAB){
     addP(pAB);
     addP(std::pair<ThreeMomentum,ThreeMomentum>(-pAB.first,-pAB.second));
@@ -127,8 +131,12 @@ public:
 class RequiredMomentum: public MomentumAssignments{
   const int maxMom;
 public:
+  //'mp' is assigned to the maxMom member, which is used only by the (optional) addUpToMaxCOMP function
   RequiredMomentum(const int mp=0): maxMom(mp), MomentumAssignments(){ }
 
+  //A meson field has the form (W^dagger V), so the total momentum is the sum of the V momentum and the negative of the W momentum
+  //Obtain total momentum using getTotalMomentum or getVmom + getWdagMom
+  
   //Get the twist momentum for the W field. Use alt_idx to access the other momentum assignments that will be all be averaged with the improve rotational symmetry
   inline ThreeMomentum getWmom(const int i, const int alt_idx = 0) const{ return ThreeMomentum::negative(this->getMomA(i,alt_idx)); } //negative because p(W) = -p(W^dag)
   inline ThreeMomentum getWdagMom(const int i, const int alt_idx = 0) const{ return this->getMomA(i,alt_idx); }
@@ -140,6 +148,8 @@ public:
   //Total momentum of the meson
   inline ThreeMomentum getMesonMomentum(const int i) const{ return this->getTotalMomentum(i); }
 
+  //For periodic BCs only, add all meson momenta with total momentum less than p^2 <= maxMom*maxMom (in units of 2pi/L)
+  //All momentum assigned only to one of the two quarks
   void addUpToMaxCOMP(){
     int m=maxMom;
     for(int i=-m; i<=m; i++){

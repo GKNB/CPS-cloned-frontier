@@ -177,20 +177,43 @@ public:
     alloc_mem(r.fsize,r.tt);
   }
   
-  mf_Complex *ptr(){ return tt;}
+  fVector(fVector<mf_Complex> &&r): fsize(r.fsize), tt(r.tt){ r.tt=NULL; }
 
-  void resize(const int _elems){ alloc_mem(_elems); }
+  inline fVector & operator=(const fVector<mf_Complex> &r){
+    alloc_mem(r.fsize, r.tt); return *this;
+  }
+  inline fVector & operator=(fVector<mf_Complex> &&r){
+    fsize = r.fsize; tt = r.tt; r.tt = NULL; return *this;
+  }
 
-  void zero(){ for(int i=0;i<fsize;i++) tt[i] = mf_Complex(0,0); }
+  inline mf_Complex *ptr(){ return tt;}
 
-  fVector & operator*=(const mf_Complex &r){ for(int i=0;i<fsize;i++) tt[i] *= r;  return *this; }
-  fVector & operator*=(const typename mf_Complex::value_type &r){ for(int i=0;i<fsize*2;i++) ((typename mf_Complex::value_type*)tt)[i] *= r;  return *this; }
+  inline void resize(const int _elems){ alloc_mem(_elems); }
 
-  inline const mf_Complex & operator()(const int &i) const{ return tt[i]; }
-  inline mf_Complex & operator()(const int &i){ return tt[i]; }
+  inline void zero(){ for(int i=0;i<fsize;i++) tt[i] = mf_Complex(0,0); }
 
-  inline const int &size() const{ return fsize; }
+  //Complex multiply and divide by constant
+  inline fVector & operator*=(const mf_Complex &r){ for(int i=0;i<fsize;i++) tt[i] *= r;  return *this; }
+  inline fVector & operator/=(const mf_Complex &r){ for(int i=0;i<fsize;i++) tt[i] /= r;  return *this; }
 
+  //Floating point multiply and divide by constant
+  inline fVector & operator*=(const typename mf_Complex::value_type &r){ for(int i=0;i<fsize*2;i++) ((typename mf_Complex::value_type*)tt)[i] *= r;  return *this; }
+  inline fVector & operator/=(const typename mf_Complex::value_type &r){ for(int i=0;i<fsize*2;i++) ((typename mf_Complex::value_type*)tt)[i] /= r;  return *this; }
+
+  //Add and subtract fVectors
+  inline fVector & operator+=(const fVector &r){ for(int i=0;i<fsize;i++) tt[i] += r.tt[i]; return *this; }
+  inline fVector & operator-=(const fVector &r){ for(int i=0;i<fsize;i++) tt[i] -= r.tt[i]; return *this;  }
+
+  inline fVector operator+(const fVector &r) const{ fVector out(*this); out += r; return out; }
+  inline fVector operator-(const fVector &r) const{ fVector out(*this); out -= r; return out; }
+
+  //Element access
+  inline const mf_Complex & operator()(const int i) const{ return tt[i]; }
+  inline mf_Complex & operator()(const int i){ return tt[i]; }
+
+  inline int size() const{ return fsize; }
+
+  //Global sum of all elements
   void nodeSum(){
     globalSum( (typename mf_Complex::value_type*)tt,2*fsize);
   }
@@ -213,10 +236,22 @@ public:
 
 };
 
+//Average over the rows of the matrix
+template<typename mf_Complex>
+fVector<mf_Complex> rowAverage(const fMatrix<mf_Complex> &m){
+  fVector<mf_Complex> out(m.nCols());
+  double nr= m.nRows();
+  for(int j=0;j<m.nCols();j++)
+    out(j) = m(0,j)/nr;
 
+  for(int i=1;i<m.nRows();i++)
+    for(int j=0;j<m.nCols();j++)
+      out(j) = out(j) + m(i,j)/nr;
 
+  return out;
+}
 
-//Array of complex with optional threading
+//Array of complex with optional threading and a policy class controlling allocation to allow this to contain, for example, data types that require aligned memory (SIMD data)
 template<typename mf_Complex, typename AllocPolicy = StandardAllocPolicy>
 class basicComplexArray: public AllocPolicy{
 protected:

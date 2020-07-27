@@ -1,12 +1,14 @@
 //Convenience functions for computing multiple meson fields with an array of sources and/or quark momenta
-
 #ifndef _MESONFIELD_COMPUTE_MANY_H
 #define _MESONFIELD_COMPUTE_MANY_H
 
 #include "mesonfield_computemany_storagetypes.h"
 CPS_START_NAMESPACE
 
-
+//This class offers a generic interface for computing many meson fields
+//It loops over some number of computations, performs the appropriate FFTs of the V and W vectors including gauge fixing
+//and momentum twist, then calls the meson field computation
+//It optionally optimizes the ordering of the FFTs to speed up the calculation
 template<typename mf_Policies, typename StorageType>
 class ComputeMesonFields{  
  public:

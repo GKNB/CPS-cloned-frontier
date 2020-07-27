@@ -378,7 +378,7 @@ int main(int argc,char *argv[])
 #ifdef USE_GRID
   if(0) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
   if(0) testVVgridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
-  if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
+  if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
   if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
   if(0) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
@@ -398,7 +398,7 @@ int main(int argc,char *argv[])
 #endif
 
 #ifdef USE_GRID
-  if(0) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
+  if(1) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
 #endif
 
   std::cout << "Done" << std::endl;

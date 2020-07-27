@@ -86,6 +86,7 @@ public:
   ThreeMomentum operator*(const int r) const{ ThreeMomentum out(*this); out *= r; return out; }
   
   //Convert the momenta into lattice units
+  //For G-parity these are the allowed momenta of the *quarks* (pi/2L momentum discretization)
   void latticeUnits(Float p_latt[3]) const{
     for(int i=0;i<3;i++){
       double L = GJP.NodeSites(i)*GJP.Nodes(i);
