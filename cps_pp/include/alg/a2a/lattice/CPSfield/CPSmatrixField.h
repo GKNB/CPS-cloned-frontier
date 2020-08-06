@@ -208,19 +208,34 @@ CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixFiel
 template<typename VectorMatrixType>			
 CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixField<VectorMatrixType> &a, const VectorMatrixType &b){
   CPSmatrixField<typename VectorMatrixType::scalar_type> out(a.getDimPolParams());
+  
+  //On GPUs the compiler fails if b is passed by value into the kernel due to "formal parameter space overflow"
+  //As we can't assume b is allocated in UVM memory we need to either create a UVM copy or explicitly copy b to the GPU
+#ifdef GRID_NVCC
+  VectorMatrixType* bptr = (VectorMatrixType*)device_alloc_check(sizeof(VectorMatrixType));
+  copy_host_to_device(bptr, &b, sizeof(VectorMatrixType));
+#else
+  VectorMatrixType const* bptr = &b; //need to access by pointer internally to prevent copy-by-value into GPU kernel
+#endif  
+
   static const int nsimd = VectorMatrixType::scalar_type::Nsimd();
   copyControl::shallow() = true;
   accelerator_for(x4d, a.size(), nsimd,
-		  {
-		    typedef SIMT<VectorMatrixType> ACCi;
-		    typedef SIMT<typename VectorMatrixType::scalar_type> ACCo;
-		    auto aa = ACCi::read(*a.site_ptr(x4d));
-		    auto bb = ACCi::read(b);
+  		  {
+  		    typedef SIMT<VectorMatrixType> ACCi;
+  		    typedef SIMT<typename VectorMatrixType::scalar_type> ACCo;
+  		    auto aa = ACCi::read(*a.site_ptr(x4d));
+  		    auto bb = ACCi::read(*bptr);		    
 		    auto cc = Trace(aa,bb);
-		    ACCo::write(*out.site_ptr(x4d), cc );
-		  }
-		  );
+  		    ACCo::write(*out.site_ptr(x4d), cc );
+  		  }
+  		  );
   copyControl::shallow()= false;
+
+#ifdef GRID_NVCC
+  device_free(bptr);
+#endif
+
   return out;
 }
 

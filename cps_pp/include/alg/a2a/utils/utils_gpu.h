@@ -53,6 +53,26 @@ inline int maxDeviceShmemPerBlock(int device = -1){
 #endif
 }
 
+//Wrappers for device copy; default to memcpy on non-GPU machine
+inline void copy_host_to_device(void* to, void const* from, size_t bytes){
+#ifdef GRID_NVCC
+  cudaMemcpy(to, from, bytes, cudaMemcpyHostToDevice);
+#else
+  memcpy(to, from, bytes);
+#endif
+}
+inline void copy_device_to_host(void* to, void const* from, size_t bytes){
+#ifdef GRID_NVCC
+  cudaMemcpy(to, from, bytes, cudaMemcpyDeviceToHost);
+#else
+  memcpy(to, from, bytes);
+#endif
+}
+
+
+
+
+
 CPS_END_NAMESPACE
 
 #endif
