@@ -233,13 +233,12 @@ void computeVWlowMADWF(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice
     setCheckerboard(tmp_full, tmp);
     setCheckerboard(tmp_full, tmp2);
 
-    //Left-multiply by D-^dag.  D- = (1-c*DW)
-    DZmob.DW(tmp_full, tmp_full2, 1);
-    axpy(tmp_full, -mob_c, tmp_full2, tmp_full); 
+    //Left-multiply by D-^dag
+    DZmob.DminusDag(tmp_full, tmp_full2);
 
     //Get 4D part, poke onto a then copy into wl
     //Recall that D^{-1} = <v w^\dagger> = <q \bar q>.  w (and w^\dagger) therefore transforms like a conjugate spinor. For spinors \bar\psi(x) =  \bar\psi(x,0) P_R +  \bar\psi(x,Ls-1) P_L,  i.e. s_u=0 and s_l=Ls-1 for CPS gamma5
-    DomainWallFiveToFour(tmp_full_4d, tmp_full, 0, Ls-1);
+    DomainWallFiveToFour(tmp_full_4d, tmp_full2, 0, Ls-1);
     W.getWl(i).importGridField(tmp_full_4d);
   }
 #endif
