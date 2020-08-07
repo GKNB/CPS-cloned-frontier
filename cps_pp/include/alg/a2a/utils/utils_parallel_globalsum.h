@@ -45,10 +45,10 @@ inline void globalSum(std::complex<float> *result, size_t len = 1){
 #ifdef USE_GRID
 
 #ifdef GRID_NVCC
-void globalSum(thrust::complex<double>* v, const size_t n = 1){
+inline void globalSum(thrust::complex<double>* v, const size_t n = 1){
   globalSum( (double*)v,2*n);
 }
-void globalSum(thrust::complex<float>* v, const size_t n = 1){
+inline void globalSum(thrust::complex<float>* v, const size_t n = 1){
   globalSum( (float*)v,2*n);
 }
 

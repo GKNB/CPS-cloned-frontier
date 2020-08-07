@@ -74,8 +74,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &re
 
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type4_field(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
-						     const int &tstep,
+void ComputeKtoPiPiGparity<mf_Policies>::type4_field_SIMD(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
+						     const int tstep,
 						     const std::vector<mf_WW > &mf_kaon,
 						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 						     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
@@ -137,6 +137,49 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_field(ResultsContainerType &resul
   Type4timings::timer().report();  
 }
 
+
+//Field version only applicable to SIMD data. For non SIMD data we should fall back to CPU version
+template<typename mf_Policies, typename complexClass>
+struct _type4_field_wrap{};
+
+template<typename mf_Policies>
+struct _type4_field_wrap<mf_Policies, grid_vector_complex_mark>{
+  typedef typename ComputeKtoPiPiGparity<mf_Policies>::ResultsContainerType ResultsContainerType;  
+  typedef typename ComputeKtoPiPiGparity<mf_Policies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
+  typedef typename ComputeKtoPiPiGparity<mf_Policies>::mf_WW mf_WW;  
+  static void calc(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
+						     const int tstep,
+						     const std::vector<mf_WW > &mf_kaon,
+						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+		 const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+    ComputeKtoPiPiGparity<mf_Policies>::type4_field_SIMD(result, mix4, tstep, mf_kaon, vL, vH, wL, wH);
+  }
+};
+
+template<typename mf_Policies>
+struct _type4_field_wrap<mf_Policies, complex_double_or_float_mark>{
+  typedef typename ComputeKtoPiPiGparity<mf_Policies>::ResultsContainerType ResultsContainerType;  
+  typedef typename ComputeKtoPiPiGparity<mf_Policies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
+  typedef typename ComputeKtoPiPiGparity<mf_Policies>::mf_WW mf_WW;  
+  static void calc(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
+						     const int tstep,
+						     const std::vector<mf_WW > &mf_kaon,
+						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+		 const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+    if(!UniqueID()) printf("Type4 field implementation falling back to OMP implementation due to non-SIMD data\n");
+    ComputeKtoPiPiGparity<mf_Policies>::type4_omp(result, mix4, tstep, mf_kaon, vL, vH, wL, wH);
+  }
+};
+
+
+template<typename mf_Policies>
+void ComputeKtoPiPiGparity<mf_Policies>::type4_field(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
+						     const int tstep,
+						     const std::vector<mf_WW > &mf_kaon,
+						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+						     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+  _type4_field_wrap<mf_Policies, typename ComplexClassify<ComplexType>::type>::calc(result, mix4, tstep, mf_kaon, vL, vH, wL, wH);
+}  
 
 
 #endif

@@ -1895,8 +1895,8 @@ void testKtoPiPiType4FieldFull(const A2AArg &a2a_args, const double tol){
   MixDiagResultsContainerType got_mix_r;
 
   int tstep = 2;
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type4(expect_r, expect_mix_r, tstep, mf_kaon, Vgrid, Vhgrid, Wgrid, Whgrid);
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type4_field(got_r, got_mix_r, tstep, mf_kaon, Vgrid, Vhgrid, Wgrid, Whgrid);  
+  ComputeKtoPiPiGparity<GridA2Apolicies>::type4_omp(expect_r, expect_mix_r, tstep, mf_kaon, Vgrid, Vhgrid, Wgrid, Whgrid);
+  ComputeKtoPiPiGparity<GridA2Apolicies>::type4_field_SIMD(got_r, got_mix_r, tstep, mf_kaon, Vgrid, Vhgrid, Wgrid, Whgrid);  
 
   static const int n_contract = 10; //ten type4 diagrams
   static const int con_off = 23; //index of first contraction in set
@@ -1996,8 +1996,8 @@ void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
   }
   mf_pion.copyAdd(p_pi2, mf_pion_tmp);
 
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type1(expect_r.data(), tsep_k_pi, tsep_pion, tstep, 1,  p_pi1, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type1_field(got_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
+  ComputeKtoPiPiGparity<GridA2Apolicies>::type1_omp(expect_r.data(), tsep_k_pi, tsep_pion, tstep, 1,  p_pi1, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
+  ComputeKtoPiPiGparity<GridA2Apolicies>::type1_field_SIMD(got_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
 
   static const int n_contract = 6; //ten type4 diagrams
   static const int con_off = 1; //index of first contraction in set
@@ -2080,8 +2080,8 @@ void testKtoPiPiType2FieldFull(const A2AArg &a2a_args, const double tol){
 
   std::vector<ThreeMomentum> p_pi1_all(1, p_pi1);
 
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type2(expect_r.data(), tsep_k_pi, tsep_pion, tstep,  p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type2_field(got_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
+  ComputeKtoPiPiGparity<GridA2Apolicies>::type2_omp_v2(expect_r.data(), tsep_k_pi, tsep_pion, tstep,  p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
+  ComputeKtoPiPiGparity<GridA2Apolicies>::type2_field_SIMD(got_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
 
   static const int n_contract = 6; //ten type4 diagrams
   static const int con_off = 7; //index of first contraction in set
@@ -2169,8 +2169,8 @@ void testKtoPiPiType3FieldFull(const A2AArg &a2a_args, const double tol){
 
   std::vector<ThreeMomentum> p_pi1_all(1, p_pi1);
 
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type3(expect_r.data(), expect_mix_r.data(), tsep_k_pi, tsep_pion, tstep,  p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type3_field(got_r.data(), got_mix_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
+  ComputeKtoPiPiGparity<GridA2Apolicies>::type3_omp_v2(expect_r.data(), expect_mix_r.data(), tsep_k_pi, tsep_pion, tstep,  p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
+  ComputeKtoPiPiGparity<GridA2Apolicies>::type3_field_SIMD(got_r.data(), got_mix_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
 
   static const int n_contract = 10; //ten type4 diagrams
   static const int con_off = 13; //index of first contraction in set

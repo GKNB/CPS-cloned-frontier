@@ -97,8 +97,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_precompute_part1(std::vector<SCFm
 
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type4(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
-					    const int &tstep,
+void ComputeKtoPiPiGparity<mf_Policies>::type4_omp(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
+					    const int tstep,
 					    const std::vector<mf_WW > &mf_kaon,
 					    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 					    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){

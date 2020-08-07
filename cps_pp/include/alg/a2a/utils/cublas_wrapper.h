@@ -231,7 +231,7 @@ public:
 
 
 
-void mult_offload_cuBLASxt(cuDoubleComplex* C,
+inline void mult_offload_cuBLASxt(cuDoubleComplex* C,
 			   cuDoubleComplex const* A,
 			   cuDoubleComplex const* B,
 			   const size_t m, const size_t n, const size_t k){
@@ -262,7 +262,7 @@ void mult_offload_cuBLASxt(cuDoubleComplex* C,
 
 
 
-gpuMatrix mult_offload_cuBLASxt(const gpuMatrix &A, const gpuMatrix &B){
+inline gpuMatrix mult_offload_cuBLASxt(const gpuMatrix &A, const gpuMatrix &B){
   size_t m =A.rows(), n=B.cols(), k=A.cols();
   gpuMatrix C_2(m,n);
   mult_offload_cuBLASxt(C_2.ptr(), A.ptr(), B.ptr(),
@@ -270,7 +270,7 @@ gpuMatrix mult_offload_cuBLASxt(const gpuMatrix &A, const gpuMatrix &B){
   return C_2;
 }
 
-gpuMatrix mult_offload_cuBLASxt(const gpuDeviceMatrix &A, const gpuDeviceMatrix &B){
+inline gpuMatrix mult_offload_cuBLASxt(const gpuDeviceMatrix &A, const gpuDeviceMatrix &B){
   size_t m =A.rows(), n=B.cols(), k=A.cols();
   gpuMatrix C_2(m,n);
   mult_offload_cuBLASxt(C_2.ptr(), A.ptr(), B.ptr(),
@@ -278,7 +278,7 @@ gpuMatrix mult_offload_cuBLASxt(const gpuDeviceMatrix &A, const gpuDeviceMatrix 
   return C_2;
 }
 
-gpuHostPinnedMatrix mult_offload_cuBLASxt(const gpuHostPinnedMatrix &A, const gpuHostPinnedMatrix &B){
+inline gpuHostPinnedMatrix mult_offload_cuBLASxt(const gpuHostPinnedMatrix &A, const gpuHostPinnedMatrix &B){
   size_t m =A.rows(), n=B.cols(), k=A.cols();
   gpuHostPinnedMatrix C_2(m,n);
   mult_offload_cuBLASxt(C_2.ptr(), A.ptr(), B.ptr(),

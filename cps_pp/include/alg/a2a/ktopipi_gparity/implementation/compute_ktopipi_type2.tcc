@@ -220,8 +220,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vecto
 //This version averages over multiple pion momentum configurations. Use to project onto A1 representation at run-time. Saves a lot of time!
 //This version also overlaps computation for multiple K->pi separations. Result should be an array of ResultsContainerType the same size as the vector 'tsep_k_pi'
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_v1(ResultsContainerType result[],
-		  const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
+void ComputeKtoPiPiGparity<mf_Policies>::type2_omp_v1(ResultsContainerType result[],
+		  const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
 		  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
@@ -445,8 +445,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(mf_WV &con_pi1
 
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_v2(ResultsContainerType result[],
-		  const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
+void ComputeKtoPiPiGparity<mf_Policies>::type2_omp_v2(ResultsContainerType result[],
+		  const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
 		  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
