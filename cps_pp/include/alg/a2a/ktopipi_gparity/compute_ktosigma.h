@@ -225,6 +225,9 @@ private:
   //Run inside threaded environment
   void type3_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H);
 
+  //Field implementation
+  void type3_contract(ResultsContainerType &result, const int tK_glb, const SCFmatrixField &part1, const SCFmatrixField &part2_L, const SCFmatrixField &part2_H);
+
 public:
  
   inline void idx_tpair_map(std::vector<std::pair<int,int> > &map, std::vector<std::vector<int> > &inv_map, const std::set<std::pair<int,int> > &tset){
@@ -242,6 +245,9 @@ public:
   }
   //CPU implementation with openmp loop over site
   void type3_omp(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S);
+
+  //Field implementation both threaded and offloadable to GPU. WILL COMPILE ONLY FOR SIMD COMPLEX DATA
+  void type3_field_SIMD(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S);
 
   void type3(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){
     type3_omp(result, mix3, mf_S);
