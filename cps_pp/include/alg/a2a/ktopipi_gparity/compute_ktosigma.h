@@ -11,6 +11,8 @@ public:
   typedef typename mf_Policies::ComplexType ComplexType; //can be SIMD vectorized
   typedef CPSspinColorFlavorMatrix<ComplexType> SCFmat; //supports SIMD vectorization
   typedef typename getInnerVectorType<SCFmat,typename ComplexClassify<ComplexType>::type>::type SCFmatVector;
+  typedef CPSmatrixField<SCFmat> SCFmatrixField;
+  
   typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> ResultsContainerType;
   typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> MixDiagResultsContainerType;
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> SigmaMesonFieldType;
@@ -101,6 +103,10 @@ private:
   //Run inside threaded environment
   void type12_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2);
 
+  //Field implementation
+  void type12_contract(ResultsContainerType &result, const int tK_glb, const SCFmatrixField &part1, const SCFmatrixField &part2);
+
+
 public:
 
   inline void idx_t_map(std::vector<int> &map, std::vector<int> &inv_map, const std::set<int> &tset){
@@ -119,8 +125,18 @@ public:
   //CPU implementation with openmp loop over site
   void type12_omp(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S);
 
+  //Field implementation both threaded and offloadable to GPU. WILL COMPILE ONLY FOR SIMD COMPLEX DATA
+  void type12_field_SIMD(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S);
+
+  //Above version only applicable to SIMD data. For non SIMD data this version falls back to CPU version
+  void type12_field(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S);
+
   void type12(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){
+#ifdef GRID_NVCC
+    type12_field(result, mf_S);
+#else
     type12_omp(result, mf_S);
+#endif
   }
 
 private:
@@ -328,6 +344,7 @@ public:
 };
 
 #include "implementation/compute_ktosigma.tcc"
+#include "implementation/compute_ktosigma_field.tcc"
 
 CPS_END_NAMESPACE
 

@@ -2223,6 +2223,78 @@ void testKtoPiPiType3FieldFull(const A2AArg &a2a_args, const double tol){
 }
 
 
+template<typename GridA2Apolicies>
+void testKtoSigmaType12FieldFull(const A2AArg &a2a_args, const double tol){
+  std::cout << "Starting K->sigma type1/2 full test\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AvectorW<GridA2Apolicies> Wgrid(a2a_args, simd_dims), Whgrid(a2a_args, simd_dims);
+  A2AvectorV<GridA2Apolicies> Vgrid(a2a_args, simd_dims), Vhgrid(a2a_args, simd_dims);
+
+  Wgrid.testRandom();
+  Vgrid.testRandom();
+
+  Whgrid.testRandom();
+  Vhgrid.testRandom();
+
+  int Lt = GJP.TnodeSites()*GJP.Tnodes();
+  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW;
+  std::vector<mf_WW> mf_kaon(Lt);
+  for(int t=0;t<Lt;t++){
+    mf_kaon[t].setup(Wgrid,Whgrid,t,t);
+    mf_kaon[t].testRandom();
+  }
+  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
+  
+  std::vector<int> tsep_k_sigma = {3,4};
+  std::vector<ResultsContainerType> expect_r(2);
+  std::vector<ResultsContainerType> got_r(2);
+
+  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_sigma(Lt);
+  for(int t=0;t<Lt;t++){
+    mf_sigma[t].setup(Wgrid,Vgrid,t,t);
+    mf_sigma[t].testRandom();
+  }
+
+  ComputeKtoSigma<GridA2Apolicies> compute(Vgrid, Wgrid, Vhgrid, Whgrid, mf_kaon, tsep_k_sigma);
+
+  compute.type12_omp(expect_r, mf_sigma);
+  compute.type12_field_SIMD(got_r, mf_sigma);
+
+  static const int n_contract = 5;  
+  
+  bool fail = false;
+  for(int tsep_k_sigma_idx=0; tsep_k_sigma_idx<2; tsep_k_sigma_idx++){
+    for(int t_K=0;t_K<Lt;t_K++){
+      for(int tdis=0;tdis<Lt;tdis++){
+	for(int cidx=0; cidx<n_contract; cidx++){
+	  for(int gcombidx=0;gcombidx<8;gcombidx++){
+	    std::cout << "tsep_k_sigma=" << tsep_k_sigma[tsep_k_sigma_idx] << " tK " << t_K << " tdis " << tdis << " C" << cidx << " gcombidx " << gcombidx << std::endl;
+	    ComplexD expect = convertComplexD(expect_r[tsep_k_sigma_idx](t_K,tdis,cidx,gcombidx));
+	    ComplexD got = convertComplexD(got_r[tsep_k_sigma_idx](t_K,tdis,cidx,gcombidx));
+	    
+	    double rdiff = fabs(got.real()-expect.real());
+	    double idiff = fabs(got.imag()-expect.imag());
+	    if(rdiff > tol|| idiff > tol){
+	      printf("Fail: KtoSigma type1/2 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	      fail = true;
+	    }else
+	      printf("Pass: KtoSigma type1/2 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	  }
+	}
+      }
+    }
+  }
+  if(fail) ERR.General("","","KtoSigma type1/2 contract full failed\n");
+
+}
+
+
+
 
 #ifdef USE_GRID
 
