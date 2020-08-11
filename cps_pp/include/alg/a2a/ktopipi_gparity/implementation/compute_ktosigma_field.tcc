@@ -408,3 +408,244 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
 
   print_time("ComputeKtoSigma","type3 total",dclock()-total_time); 
 }
+
+
+//Field version only applicable to SIMD data. For non SIMD data we should fall back to CPU version
+template<typename mf_Policies, typename complexClass>
+struct _ktosigma_type3_field_wrap{};
+
+template<typename mf_Policies>
+struct _ktosigma_type3_field_wrap<mf_Policies, grid_vector_complex_mark>{
+  typedef typename ComputeKtoSigma<mf_Policies>::ResultsContainerType ResultsContainerType;  
+  typedef typename ComputeKtoSigma<mf_Policies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
+  typedef typename ComputeKtoSigma<mf_Policies>::SigmaMesonFieldType SigmaMesonFieldType;
+
+  static void calc(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3,
+		   std::vector<SigmaMesonFieldType> &mf_S, ComputeKtoSigma<mf_Policies> &compute){  
+    compute.type3_field_SIMD(result, mix3, mf_S);
+  }
+};
+
+template<typename mf_Policies>
+struct _ktosigma_type3_field_wrap<mf_Policies, complex_double_or_float_mark>{
+  typedef typename ComputeKtoSigma<mf_Policies>::ResultsContainerType ResultsContainerType;  
+  typedef typename ComputeKtoSigma<mf_Policies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
+  typedef typename ComputeKtoSigma<mf_Policies>::SigmaMesonFieldType SigmaMesonFieldType;
+
+  static void calc(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3,
+		   std::vector<SigmaMesonFieldType> &mf_S, ComputeKtoSigma<mf_Policies> &compute){  
+    if(!UniqueID()) printf("K->sigma type3 field implementation falling back to OMP implementation due to non-SIMD data\n");
+    compute.type3_omp(result, mix3, mf_S);
+  }
+};
+
+
+template<typename mf_Policies>
+void ComputeKtoSigma<mf_Policies>::type3_field(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){  
+  _ktosigma_type3_field_wrap<mf_Policies, typename ComplexClassify<ComplexType>::type>::calc(result, mix3, mf_S, *this);
+}
+
+
+///////////////////////////////////////////////   TYPE 4   ///////////////////////////////////////////////////////////////////////
+
+
+template<typename mf_Policies>
+void ComputeKtoSigma<mf_Policies>::type4_contract(ResultsContainerType &result, const int tK_glb, const SCFmatrixField &part1, const SCFmatrixField &part2_L, const SCFmatrixField &part2_H){
+#ifndef MEMTEST_MODE
+
+  //D4   = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 V_O W^dag_O M2 ) Tr( [V_S W^dag_S] )
+  //D5   = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr( V_O W^dag_O M2 ) Tr( [V_S W^dag_S] )
+  //D9   = Tr( (M1 V_O W^dag_O)_ab (M2 V_O [W^dag_K WH_K] VH^dag_O G5 )_ab ) Tr( [V_S W^dag_S] )
+  //D12  = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 )_ab Tr( V_O W^dag_O M2 )_ab Tr( [V_S W^dag_S] )
+  //D13  = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr( M2 VH_O WH^dag_O ) Tr( [V_S W^dag_S] )
+  //D15  = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M2 VH_O WH^dag_O M1  ) Tr( [V_S W^dag_S] )
+  //D17  = Tr( Tr_c(V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr_c( V_O W^dag_O M2) ) Tr( [V_S W^dag_S] )
+  //D20  = Tr_c(  Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr( VH_O WH^dag_O M2 ) ) Tr( [V_S W^dag_S] ) 
+  //D22  = Tr( Tr_c( VH_O WH^dag_O M1 ) Tr_c( V_O [W^dag_K WH_K] VH^dag_O G5 M2 ) ) Tr( [V_S W^dag_S] ) 
+    
+  //D4   = Tr( [pt1] G5 M1 [pt2_L] M2 ) 
+  //D5   = Tr( [pt1] G5 M1 ) Tr( [pt2_L] M2 )
+  //D9   = Tr( (M1 [pt2_L])_ab (M2 [pt1] G5 )_ab )
+  //D12  = Tr( [pt1] G5 M1 )_ab Tr( [pt2_L] M2 )_ab
+  //D13  = Tr( [pt1] G5 M1 ) Tr( M2 [pt2_H] )
+  //D15  = Tr( [pt1] G5 M2 [pt2_H] M1  )
+  //D17  = Tr( Tr_c([pt1] G5 M1 ) Tr_c( [pt2_L] M2) )
+  //D20  = Tr_c(  Tr( [pt1] G5 M1 ) Tr( [pt2_H] M2 ) ) 
+  //D22  = Tr( Tr_c( [pt2_H] M1 ) Tr_c( [pt1] G5 M2 ) )
+
+
+  for(int mu=0;mu<4;mu++){ //sum over mu here
+    for(int gcombidx=0;gcombidx<8;gcombidx++){
+      auto pt1_G5_M1 = part1;
+      gr(pt1_G5_M1, -5);
+      multGammaRight(pt1_G5_M1, 1, gcombidx,mu);
+
+      auto pt2L_M2 = part2_L;
+      multGammaRight(pt2L_M2, 2, gcombidx,mu);
+
+      auto pt2H_M2 = part2_H;
+      multGammaRight(pt2H_M2, 2, gcombidx,mu);
+
+      auto ctrans_pt2L_M2 = TransposeColor(pt2L_M2);
+	
+      auto pt1_G5_M2 = part1;
+      gr(pt1_G5_M2,-5);
+      multGammaRight(pt1_G5_M2, 2, gcombidx,mu);
+
+      auto pt2H_M1 = part2_H;
+      multGammaRight(pt2H_M1, 1, gcombidx,mu);
+
+      int c = 0;
+
+      add(c++, result, tK_glb, gcombidx, 0,
+	  Trace( pt1_G5_M1, pt2L_M2 )
+	  ); //D4
+      add(c++, result, tK_glb, gcombidx, 0,
+	  Trace(pt1_G5_M1) * Trace(pt2L_M2)
+	  ); //D5
+      add(c++, result, tK_glb, gcombidx, 0,
+	  Trace( pt1_G5_M1, ctrans_pt2L_M2 )
+	  ); //D9
+      add(c++, result, tK_glb, gcombidx, 0,
+	  Trace( SpinFlavorTrace(pt1_G5_M1), Transpose( SpinFlavorTrace(pt2L_M2) ) )
+	  ); //D12
+      add(c++, result, tK_glb, gcombidx, 0,
+	  Trace(pt1_G5_M1) * Trace(pt2H_M2)
+	  ); //D13
+      add(c++, result, tK_glb, gcombidx, 0,
+	  Trace( pt1_G5_M2, pt2H_M1 )
+	  ); //D15
+      add(c++, result, tK_glb, gcombidx, 0,
+	  Trace( ColorTrace(pt1_G5_M1), ColorTrace(pt2L_M2) )
+	  ); //D17
+      add(c++, result, tK_glb, gcombidx, 0,
+	  Trace( SpinFlavorTrace(pt1_G5_M1), SpinFlavorTrace(pt2H_M2) )
+	  ); //D20
+      add(c++, result, tK_glb, gcombidx, 0,
+	  Trace( ColorTrace(pt1_G5_M2), ColorTrace(pt2H_M1) )
+	  ); //D22
+    }
+  }
+#endif
+}
+
+
+
+template<typename mf_Policies>
+void ComputeKtoSigma<mf_Policies>::type4_field_SIMD(ResultsContainerType &result, MixDiagResultsContainerType &mix4){
+  if(!UniqueID()) printf("Starting type 4 K->sigma contractions (field implementation)\n");
+  double total_time = dclock();
+       
+  double time;
+
+  auto field_params = vL.getMode(0).getDimPolParams();  
+
+  result.resize(9, 1);
+  mix4.resize(1);
+
+  //Compute which tS and tK we need
+  //K<----tdis------>Q<------tsep_k_sigma-tdis------- sigma
+  //Q is constrained to lie on this node and the largest tdis = tsep_k_sigma (such that the sigma is on top of the Q)
+  //No point computing with kaon outside this range
+  std::set<int> tK_use;
+  for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
+    const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
+    for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
+      int tK_glb = modLt(top_glb - tdis, Lt);
+      tK_use.insert(tK_glb);
+    }
+  }   
+
+  //Map an index to  tK
+  int ntK = tK_use.size();
+  std::vector<int> tK_subset_map, tK_subset_inv_map;
+  idx_t_map(tK_subset_map, tK_subset_inv_map, tK_use);
+
+  SCFmat mix4_Gamma[2];
+  mix4_Gamma[0].unit().pr(F0).gr(-5);
+  mix4_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
+
+  double vmv_setup_time = 0;
+  double pt1_time = 0;
+  double pt2_time = 0;
+  double contract_time = 0;
+
+  //Compute part2 =  (vL wL) and (vH, wH)
+  pt2_time -= dclock();
+  SCFmatrixField pt2_L(field_params), pt2_H(field_params);
+  mult(pt2_L, vL, wL, false, true);
+  mult(pt2_H, vH, wH, false, true);
+  pt2_time += dclock();
+
+  for(int tK_idx=0; tK_idx< tK_subset_map.size(); tK_idx++){
+    int tK_glb = tK_subset_map[tK_idx];
+
+    //Compute part1 = (vL mf_K vH) evaluated with vL, vH at Q
+    pt1_time -= dclock();
+    SCFmatrixField pt1(field_params);	
+    mult(pt1, vL, mf_ls_WW[tK_glb], vH, false, true);
+    pt1_time += dclock();
+
+
+    contract_time -= dclock();
+    type4_contract(result, tK_glb, pt1, pt2_L, pt2_H);
+	  
+    //Compute mix4 diagram
+    //These are identical to the type4 diagrams but without the quark loop, and with the vertex replaced with a pseudoscalar vertex
+    SCFmatrixField pt1_G5 = pt1; 
+    gr(pt1_G5,-5);
+    for(int mix4_gidx=0; mix4_gidx<2; mix4_gidx++){
+#ifndef MEMTEST_MODE
+      add(mix4, tK_glb, mix4_gidx, 
+	Trace( pt1_G5 , mix4_Gamma[mix4_gidx] )
+      );
+#endif
+    }
+    contract_time += dclock();
+  }//tK_idx
+
+  print_time("ComputeKtoSigma","type4 vMv setup",vmv_setup_time);     
+  print_time("ComputeKtoSigma","type4 pt1 compute",pt1_time);     
+  print_time("ComputeKtoSigma","type4 pt2 compute",pt2_time);     
+  print_time("ComputeKtoSigma","type4 contract",contract_time);  
+
+  time = dclock();
+  result.nodeSum();
+  mix4.nodeSum();
+
+  print_time("ComputeKtoSigma","type4 accum",dclock()-time);  
+  print_time("ComputeKtoSigma","type4 total",dclock()-total_time);  
+}
+
+//Field version only applicable to SIMD data. For non SIMD data we should fall back to CPU version
+template<typename mf_Policies, typename complexClass>
+struct _ktosigma_type4_field_wrap{};
+
+template<typename mf_Policies>
+struct _ktosigma_type4_field_wrap<mf_Policies, grid_vector_complex_mark>{
+  typedef typename ComputeKtoSigma<mf_Policies>::ResultsContainerType ResultsContainerType;  
+  typedef typename ComputeKtoSigma<mf_Policies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
+
+  static void calc(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
+		   ComputeKtoSigma<mf_Policies> &compute){  
+    compute.type4_field_SIMD(result, mix4);
+  }
+};
+
+template<typename mf_Policies>
+struct _ktosigma_type4_field_wrap<mf_Policies, complex_double_or_float_mark>{
+  typedef typename ComputeKtoSigma<mf_Policies>::ResultsContainerType ResultsContainerType;  
+  typedef typename ComputeKtoSigma<mf_Policies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
+
+  static void calc(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
+		   ComputeKtoSigma<mf_Policies> &compute){  
+    if(!UniqueID()) printf("K->sigma type4 field implementation falling back to OMP implementation due to non-SIMD data\n");
+    compute.type4_omp(result, mix4);
+  }
+};
+
+
+template<typename mf_Policies>
+void ComputeKtoSigma<mf_Policies>::type4_field(ResultsContainerType &result, MixDiagResultsContainerType &mix4){  
+  _ktosigma_type4_field_wrap<mf_Policies, typename ComplexClassify<ComplexType>::type>::calc(result, mix4, *this);
+}

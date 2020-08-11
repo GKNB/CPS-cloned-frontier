@@ -249,8 +249,15 @@ public:
   //Field implementation both threaded and offloadable to GPU. WILL COMPILE ONLY FOR SIMD COMPLEX DATA
   void type3_field_SIMD(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S);
 
+  //Above version only applicable to SIMD data. For non SIMD data this version falls back to CPU version
+  void type3_field(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S);
+
   void type3(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){
+#ifdef GRID_NVCC
+    type3_field(result, mix3, mf_S);
+#else
     type3_omp(result, mix3, mf_S);
+#endif
   }
 
 private:
@@ -320,13 +327,26 @@ private:
 
   void type4_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H);
 
+  //Field implementation
+  void type4_contract(ResultsContainerType &result, const int tK_glb, const SCFmatrixField &part1, const SCFmatrixField &part2_L, const SCFmatrixField &part2_H);
 
 public:
 
+  //CPU implementation with openmp loop over site
   void type4_omp(ResultsContainerType &result, MixDiagResultsContainerType &mix4);
 
+  //Field implementation both threaded and offloadable to GPU. WILL COMPILE ONLY FOR SIMD COMPLEX DATA
+  void type4_field_SIMD(ResultsContainerType &result, MixDiagResultsContainerType &mix4);
+
+  //Above version only applicable to SIMD data. For non SIMD data this version falls back to CPU version
+  void type4_field(ResultsContainerType &result, MixDiagResultsContainerType &mix4);
+
   void type4(ResultsContainerType &result, MixDiagResultsContainerType &mix4){
+#ifdef GRID_NVCC
+    type4_field(result, mix4);
+#else
     type4_omp(result, mix4);
+#endif
   }
 
 

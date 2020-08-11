@@ -2393,6 +2393,95 @@ void testKtoSigmaType3FieldFull(const A2AArg &a2a_args, const double tol){
 
 
 
+template<typename GridA2Apolicies>
+void testKtoSigmaType4FieldFull(const A2AArg &a2a_args, const double tol){
+  std::cout << "Starting K->sigma type4 full test\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AvectorW<GridA2Apolicies> Wgrid(a2a_args, simd_dims), Whgrid(a2a_args, simd_dims);
+  A2AvectorV<GridA2Apolicies> Vgrid(a2a_args, simd_dims), Vhgrid(a2a_args, simd_dims);
+
+  Wgrid.testRandom();
+  Vgrid.testRandom();
+
+  Whgrid.testRandom();
+  Vhgrid.testRandom();
+
+  int Lt = GJP.TnodeSites()*GJP.Tnodes();
+  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW;
+  std::vector<mf_WW> mf_kaon(Lt);
+  for(int t=0;t<Lt;t++){
+    mf_kaon[t].setup(Wgrid,Whgrid,t,t);
+    mf_kaon[t].testRandom();
+  }
+  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
+  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+  
+  std::vector<int> tsep_k_sigma = {3,4};
+  ResultsContainerType expect_r;
+  ResultsContainerType got_r;
+  MixDiagResultsContainerType expect_mix_r;
+  MixDiagResultsContainerType got_mix_r;
+
+  ComputeKtoSigma<GridA2Apolicies> compute(Vgrid, Wgrid, Vhgrid, Whgrid, mf_kaon, tsep_k_sigma);
+
+  compute.type4_omp(expect_r, expect_mix_r);
+  compute.type4_field_SIMD(got_r, got_mix_r);
+
+  static const int n_contract = 9;  
+  
+  bool fail = false;
+  for(int t_K=0;t_K<Lt;t_K++){
+    for(int tdis=0;tdis<Lt;tdis++){
+      for(int cidx=0; cidx<n_contract; cidx++){
+	for(int gcombidx=0;gcombidx<8;gcombidx++){
+	  std::cout << "tK " << t_K << " tdis " << tdis << " C" << cidx << " gcombidx " << gcombidx << std::endl;
+	  ComplexD expect = convertComplexD(expect_r(t_K,tdis,cidx,gcombidx));
+	  ComplexD got = convertComplexD(got_r(t_K,tdis,cidx,gcombidx));
+	    
+	  double rdiff = fabs(got.real()-expect.real());
+	  double idiff = fabs(got.imag()-expect.imag());
+	  if(rdiff > tol|| idiff > tol){
+	    printf("Fail: KtoSigma type4 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	    fail = true;
+	  }else
+	    printf("Pass: KtoSigma type4 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	}
+      }
+    }
+  }
+  
+  if(fail) ERR.General("","","KtoSigma type4 contract full failed\n");
+
+  
+  for(int t_K=0;t_K<Lt;t_K++){
+    for(int tdis=0;tdis<Lt;tdis++){
+      for(int cidx=0; cidx<2; cidx++){
+	std::cout << "tK " << t_K << " tdis " << tdis << " mix3(" << cidx << ")" << std::endl;
+	ComplexD expect = convertComplexD(expect_mix_r(t_K,tdis,cidx));
+	ComplexD got = convertComplexD(got_mix_r(t_K,tdis,cidx));
+	  
+	double rdiff = fabs(got.real()-expect.real());
+	double idiff = fabs(got.imag()-expect.imag());
+	if(rdiff > tol|| idiff > tol){
+	  printf("Fail: KtoSigma mix4 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	  fail = true;
+	}else
+	  printf("Pass: KtoSigma mix4 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+      }
+    }
+  }
+
+  if(fail) ERR.General("","","KtoSigma mix4 contract full failed\n");
+}
+
+
+
+
 #ifdef USE_GRID
 
 //Test that the "MADWF" codepath is the same for the two different supported preconditionings
