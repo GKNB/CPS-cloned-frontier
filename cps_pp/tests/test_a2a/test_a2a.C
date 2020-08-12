@@ -293,13 +293,13 @@ int main(int argc,char *argv[])
   std::cout << "Starting tests" << std::endl;
 
   #ifdef USE_GRID
-  if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
+  if(1) testCPSfieldDeviceCopy<A2Apolicies_grid>();
   #endif
 
-  if(0) testCPSsquareMatrix();
-  if(0) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
+  if(1) testCPSsquareMatrix();
+  if(1) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
 
-  if(0) testMFmult<A2Apolicies_std>(a2a_arg,tol);
+  if(1) testMFmult<A2Apolicies_std>(a2a_arg,tol);
 
   FixGaugeArg fix_gauge_arg;  
   fix_gauge_arg.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
@@ -376,18 +376,18 @@ int main(int argc,char *argv[])
 								   lattice, simd_dims_3d, tol);
 
 #ifdef USE_GRID
-  if(0) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
-  if(0) testVVgridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
-  if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
+  if(1) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(1) testVVgridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
 
-  if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
-  if(0) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
+  if(1) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-  if(0) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 #endif
 

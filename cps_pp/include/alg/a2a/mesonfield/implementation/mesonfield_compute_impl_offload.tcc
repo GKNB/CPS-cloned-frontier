@@ -1,7 +1,8 @@
 #ifndef _MESONFIELD_COMPUTE_IMPL_OFFLOAD
 #define _MESONFIELD_COMPUTE_IMPL_OFFLOAD
 
-#ifdef GRID_NVCC
+//Implementation of offloaded reduction kernel only CUDA currently
+#ifdef GRID_CUDA
 
 CPS_END_NAMESPACE
 #include <cuda_profiler_api.h>
@@ -56,7 +57,7 @@ void blockReduce(typename ComplexType::scalar_type* into, ComplexType const* fro
   }
 }
 
-#endif
+#endif //GRID_CUDA
 
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
@@ -98,8 +99,8 @@ struct SingleSrcVectorPoliciesSIMDoffload{
 			    const size_t bi_true, const size_t bj_true, //true size of this block
 			    const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 			    const int t, const size_t size_3d){
-
-#ifdef GRID_NVCC
+//CUDA only currently
+#ifdef GRID_CUDA
     double talloc_free = 0;
     double tkernel = 0;
     double tpoke = 0;
@@ -198,7 +199,9 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 		     const size_t bi_true, const size_t bj_true, //true size of this block
 		     const int bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 		     const int t, const size_t size_3d) const{
-#ifdef GRID_NVCC
+
+    //CUDA only currently
+#ifdef GRID_CUDA
     double talloc_free = 0;
     double tkernel = 0;
     double tpoke = 0;
@@ -417,6 +420,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    
 	    kernel_time -= dclock();
 	    copyControl::shallow() = true; //enable shallow copy of inner product object
+	    using namespace Grid;
 	    {
 	      accelerator_for(item, nwork, Nsimd, 
 			      {

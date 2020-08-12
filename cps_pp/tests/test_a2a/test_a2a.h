@@ -168,10 +168,15 @@ void checkCPSfieldGridImpex5Dcb(typename A2Apolicies_grid::FgridGFclass &lattice
 
     typedef typename Grid::GridTypeMapper<typename GridFermionField::vector_object>::scalar_object sobj;
     sobj v1, v2;
-    Grid::peekLocalSite(v1,fivedin,test_site);
 
-    Grid::peekLocalSite(v2,fivedcb,test_site);
-      
+    auto fivedin_view = fivedin.View(Grid::CpuRead);
+    Grid::peekLocalSite(v1,fivedin_view,test_site);
+    fivedin_view.ViewClose();
+
+    auto fivedcb_view = fivedcb.View(Grid::CpuRead);
+    Grid::peekLocalSite(v2,fivedcb_view,test_site);
+    fivedcb_view.ViewClose();      
+
     std::cout << "v1:\n" << v1 << std::endl;
     std::cout << "v2:\n" << v2 << std::endl;
       
@@ -1095,6 +1100,8 @@ void testCPSfieldDeviceCopy(){
 
   ComplexType expect = *field.site_ptr(size_t(0));
 
+  using Grid::acceleratorThreads;
+  using Grid::LambdaApply;
   copyControl::shallow() = true;
   accelerator_for(x, 1, nsimd,
 		  {

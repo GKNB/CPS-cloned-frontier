@@ -25,7 +25,7 @@ struct normdefs<std::complex<T> >{
 };
 #ifdef USE_GRID
 
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
 template<typename T>
 struct normdefs<Grid::complex<T> >{
   inline static double real_reduce(const Grid::complex<T> in){ return in.real(); }

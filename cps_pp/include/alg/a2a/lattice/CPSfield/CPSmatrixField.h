@@ -50,6 +50,7 @@ struct getScalarType<T, vector_matrix_mark>{
  static const int nsimd = getScalarType<VectorMatrixType, typename MatrixTypeClassify<VectorMatrixType>::type  >::type::Nsimd(); \
  CPSmatrixField<VectorMatrixType> out(a.getDimPolParams());		\
  copyControl::shallow() = true;						\
+ using namespace Grid;							\
  accelerator_for(x4d, a.size(), nsimd,					\
  {									\
    typedef SIMT<VectorMatrixType> ACC;					\
@@ -77,21 +78,22 @@ _MATRIX_FIELD_BINOP(-);
 	typename std::decay<decltype( ((VectorMatrixType*)NULL)-> OP () )>::type \
 	  >								\
  OP(const CPSmatrixField<VectorMatrixType> &a){				\
- static const int nsimd = VectorMatrixType::scalar_type::Nsimd();	\
- typedef typename std::decay<decltype( ((VectorMatrixType*)NULL)-> OP () )>::type outMatrixType; \
- CPSmatrixField<outMatrixType> out(a.getDimPolParams());		\
- copyControl::shallow() = true;						\
- accelerator_for(x4d, a.size(), nsimd,					\
- {									\
-   typedef SIMT<VectorMatrixType> ACCr;					\
-   typedef SIMT<outMatrixType> ACCo;					\
-   auto aa = ACCr::read(*a.site_ptr(x4d));				\
-   ACCo::write(*out.site_ptr(x4d), aa . OP () );				\
- }									\
- );               							\
- copyControl::shallow()= false;						\
- return out;								\
-}
+    using namespace Grid;						\
+    static const int nsimd = VectorMatrixType::scalar_type::Nsimd();	\
+    typedef typename std::decay<decltype( ((VectorMatrixType*)NULL)-> OP () )>::type outMatrixType; \
+    CPSmatrixField<outMatrixType> out(a.getDimPolParams());		\
+    copyControl::shallow() = true;					\
+    accelerator_for(x4d, a.size(), nsimd,				\
+		    {							\
+		      typedef SIMT<VectorMatrixType> ACCr;		\
+		      typedef SIMT<outMatrixType> ACCo;			\
+		      auto aa = ACCr::read(*a.site_ptr(x4d));		\
+		      ACCo::write(*out.site_ptr(x4d), aa . OP () );	\
+		    }							\
+		    );							\
+    copyControl::shallow()= false;					\
+    return out;								\
+  }
 
 _MATRIX_FIELD_UNOP_METHOD( Trace );
 _MATRIX_FIELD_UNOP_METHOD( Transpose );
@@ -110,21 +112,22 @@ _MATRIX_FIELD_UNOP_METHOD( SpinFlavorTrace );
 	typename std::decay<decltype( ((VectorMatrixType*)NULL)-> template OP<TEMPL_NAME> () )>::type \
 	  >								\
  OP(const CPSmatrixField<VectorMatrixType> &a){				\
- static const int nsimd = VectorMatrixType::scalar_type::Nsimd();	\
- typedef typename std::decay<decltype( ((VectorMatrixType*)NULL)-> template OP<TEMPL_NAME> () )>::type outMatrixType; \
- CPSmatrixField<outMatrixType> out(a.getDimPolParams());		\
- copyControl::shallow() = true;						\
- accelerator_for(x4d, a.size(), nsimd,					\
- {									\
-   typedef SIMT<VectorMatrixType> ACCr;					\
-   typedef SIMT<outMatrixType> ACCo;					\
-   auto aa = ACCr::read(*a.site_ptr(x4d));				\
-   ACCo::write(*out.site_ptr(x4d), aa . template OP<TEMPL_NAME>() );		\
- }									\
- );               							\
- copyControl::shallow()= false;						\
- return out;								\
-}
+    using namespace Grid;					\
+    static const int nsimd = VectorMatrixType::scalar_type::Nsimd();	\
+    typedef typename std::decay<decltype( ((VectorMatrixType*)NULL)-> template OP<TEMPL_NAME> () )>::type outMatrixType; \
+    CPSmatrixField<outMatrixType> out(a.getDimPolParams());		\
+    copyControl::shallow() = true;					\
+    accelerator_for(x4d, a.size(), nsimd,				\
+		    {							\
+		      typedef SIMT<VectorMatrixType> ACCr;		\
+		      typedef SIMT<outMatrixType> ACCo;			\
+		      auto aa = ACCr::read(*a.site_ptr(x4d));		\
+		      ACCo::write(*out.site_ptr(x4d), aa . template OP<TEMPL_NAME>() );	\
+		    }							\
+		    );							\
+    copyControl::shallow()= false;					\
+    return out;								\
+  }
 
 
 _MATRIX_FIELD_UNOP_METHOD_TEMPL1( TransposeOnIndex, int, TransposeDepth );
@@ -136,6 +139,7 @@ _MATRIX_FIELD_UNOP_METHOD_TEMPL1( TransposeOnIndex, int, TransposeDepth );
 #define _MATRIX_FIELD_SELFOP_METHOD(OP)		\
   template<typename VectorMatrixType>			\
   CPSmatrixField<VectorMatrixType> & OP(CPSmatrixField<VectorMatrixType> &a){		\
+ using namespace Grid;							\
  static const int nsimd = VectorMatrixType::scalar_type::Nsimd();	\
  copyControl::shallow() = true;						\
  accelerator_for(x4d, a.size(), nsimd,					\
@@ -161,6 +165,7 @@ _MATRIX_FIELD_SELFOP_METHOD( timesMinusI );
 #define _MATRIX_FIELD_SELFOP_METHOD_ARG1(OP, ARG_TYPE, ARG_NAME)	\
   template<typename VectorMatrixType>			\
   CPSmatrixField<VectorMatrixType> & OP(CPSmatrixField<VectorMatrixType> &a, ARG_TYPE ARG_NAME){		\
+ using namespace Grid;							\
  static const int nsimd = VectorMatrixType::scalar_type::Nsimd();	\
  copyControl::shallow() = true;						\
  accelerator_for(x4d, a.size(), nsimd,					\
@@ -188,6 +193,7 @@ _MATRIX_FIELD_SELFOP_METHOD_ARG1(grAx, const int, dir);
 
 template<typename VectorMatrixType>			
 CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixField<VectorMatrixType> &a, const CPSmatrixField<VectorMatrixType> &b){
+  using namespace Grid;
   CPSmatrixField<typename VectorMatrixType::scalar_type> out(a.getDimPolParams());
   static const int nsimd = VectorMatrixType::scalar_type::Nsimd();
   copyControl::shallow() = true;
@@ -207,11 +213,12 @@ CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixFiel
 
 template<typename VectorMatrixType>			
 CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixField<VectorMatrixType> &a, const VectorMatrixType &b){
+  using namespace Grid;
   CPSmatrixField<typename VectorMatrixType::scalar_type> out(a.getDimPolParams());
   
   //On GPUs the compiler fails if b is passed by value into the kernel due to "formal parameter space overflow"
   //As we can't assume b is allocated in UVM memory we need to either create a UVM copy or explicitly copy b to the GPU
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
   VectorMatrixType* bptr = (VectorMatrixType*)device_alloc_check(sizeof(VectorMatrixType));
   copy_host_to_device(bptr, &b, sizeof(VectorMatrixType));
 #else
@@ -232,7 +239,7 @@ CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixFiel
   		  );
   copyControl::shallow()= false;
 
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
   device_free(bptr);
 #endif
 
@@ -252,6 +259,7 @@ VectorMatrixType localNodeSumSimple(const CPSmatrixField<VectorMatrixType> &a){
 
 template<typename VectorMatrixType>			
 VectorMatrixType localNodeSum(const CPSmatrixField<VectorMatrixType> &a){
+  using namespace Grid;
   VectorMatrixType out; memset(&out, 0, sizeof(VectorMatrixType));
 
   //Want to introduce some paralellism into this thing
@@ -365,6 +373,7 @@ ManagedVector<VectorMatrixType>  localNodeSpatialSumSimple(const CPSmatrixField<
 //Output is an array of size GJP.TnodeSites()  (i.e. the local time coordinate)
 template<typename VectorMatrixType>			
 ManagedVector<VectorMatrixType> localNodeSpatialSum(const CPSmatrixField<VectorMatrixType> &a){
+  using namespace Grid;
   int Lt_loc = GJP.TnodeSites();
   ManagedVector<VectorMatrixType> out(Lt_loc); 
   memset(out.data(), 0, Lt_loc*sizeof(VectorMatrixType));

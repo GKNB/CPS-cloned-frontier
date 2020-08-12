@@ -112,7 +112,7 @@ inline void printMem(const std::string &reason = "", int node = 0, FILE* stream 
   HeapProfilerDump(reason.c_str());
 #endif
 
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
   size_t gpu_free, gpu_tot;
   cudaError_t err = cudaMemGetInfo(&gpu_free, &gpu_tot);
   if( err != cudaSuccess ) {

@@ -88,7 +88,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     int nf = GJP.Gparity() ? 2:1;
 
     typedef SIMT<VectorComplexType> ACC;
-
+    using namespace Grid;
     accelerator_for(x4d, vol4d, nsimd, 
 		    {
 		      VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
@@ -154,7 +154,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     size_t blocksize = BlockedvMvOffloadArgs::b;
     size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
 
-#ifdef GRID_NVCC    
+#ifdef GRID_CUDA
     int device;
     cudaGetDevice(&device);
 #endif
@@ -250,7 +250,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
     VectorComplexType* vaprime_host = (VectorComplexType*)pinned_alloc_check(128,vprime_bytes);
     VectorComplexType* vbprime_host = (VectorComplexType*)pinned_alloc_check(128,vprime_bytes);
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
     VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
     VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
 #else
@@ -355,24 +355,30 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
       std::cout << "Compute VV" << std::endl;
       time.vv -= dclock();
       {
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
+	copy_host_to_device(vaprime, vaprime_host, vprime_bytes);
+	copy_host_to_device(vbprime, vbprime_host, vprime_bytes);
+	
+#  ifdef GRID_CUDA
 	cudaMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
 	cudaMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
-	cudaMemcpy(vaprime, vaprime_host, vprime_bytes, cudaMemcpyHostToDevice);
-	cudaMemcpy(vbprime, vbprime_host, vprime_bytes, cudaMemcpyHostToDevice);
 
 	//Divide up into two matrices of size   3 * shmem_iblock_size   requiring  bytes =  2* 3*shmem_iblock_size *sizeof(ScalarComplexType)
 	int shmem_max = maxDeviceShmemPerBlock() / 4; //if we use all the available shared memory we get less blocks running at once. Tuneable
-	int shmem_max_per_thread = shmem_max / nsimd / gpu_threads;	
+	int gpu_threads = Grid::acceleratorThreads();
+	int shmem_max_per_thread = shmem_max / nsimd / gpu_threads;
 	int shmem_iblock_size = shmem_max_per_thread/3/2/sizeof(ScalarComplexType);  // two  3 * shmem_iblock_size complex matrices (fixed fl,sl fr,sr)
 	std::cout << "Shared memory " << shmem_max/1024 << " kB with block sizes nsimd*gpu_threads="<< nsimd << "*"<<gpu_threads <<"=" << nsimd*gpu_threads 
 		  << " allows " << shmem_max_per_thread << " B/thread which allows for iblock size " << shmem_iblock_size << " for sizeof(ScalarComplexType)=" << sizeof(ScalarComplexType) << std::endl;
 	if(shmem_iblock_size == 0) assert(0);
-#else
+#  endif //GRID_CUDA
+
+#else //GPU_VEC
 	//On non-GPU device just allocate a small, fixed iblock size and use thread stack
 	int shmem_iblock_size = 4;
-#endif //GRID_NVCC
+#endif //GPU_VEC
 
+	using namespace Grid;
 	copyControl::shallow() = true;
 	accelerator_for_shmem(x4d, 
 			      vol4d, 
@@ -381,9 +387,9 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			{
 			  typedef SIMT<VectorComplexType> ACC; //this will use scalar data as on device
 			  typedef typename ACC::value_type SIMTcomplexType; //=ScalarComplexType on GPU
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
 			  extern __shared__ ScalarComplexType shared_all[];
-			  ScalarComplexType* shared_t = shared_all + (threadIdx.y + nsimd * threadIdx.x)*2*3*shmem_iblock_size;
+			  ScalarComplexType* shared_t = shared_all + (threadIdx.z + nsimd * threadIdx.x)*2*3*shmem_iblock_size;
 #else
 			  SIMTcomplexType shared_t[2*3*shmem_iblock_size]; //thread stack
 #endif
@@ -461,7 +467,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
       time.vv += dclock();
     }
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
     //If not using device, the host and device pointers are the same
     device_free(vaprime);
     device_free(vbprime);

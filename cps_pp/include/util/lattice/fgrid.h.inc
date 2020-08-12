@@ -64,6 +64,9 @@ private:
       ERR.General (cname, fname,
 		   "numbers of grid(%d) and GJP(%d) does not match\n",
 		   grid->lSites (), vol);
+
+    auto grid_f_view = grid_f.View(cps2grid ? Grid::CpuWrite : Grid::CpuRead);
+
 #pragma omp parallel for
     for (int site = 0; site < vol; site++) {
 //        VRB.Result(cname,fname,"thread=%d of %d\n",omp_get_thread_num(),omp_get_num_threads());
@@ -97,11 +100,11 @@ private:
 		else
 		  siteGrid (GP) (s) (i) = elem;
 	      }
-	  pokeLocalSite (siteGrid, grid_f, grid_coor);
+	  pokeLocalSite (siteGrid, grid_f_view, grid_coor);
 	} else {
 	  Grid::Lexicographic::CoorFromIndex (grid_coor, site,
 					      grid->_ldimensions);
-	  peekLocalSite (siteGrid, grid_f, grid_coor);
+	  peekLocalSite (siteGrid, grid_f_view, grid_coor);
 	  for (int gp = 0; gp < n_gp; gp++)
 	    for (int s = 0; s < Ns; s++)
 	      for (int i = 0; i < Nc; i++) {
@@ -128,6 +131,7 @@ private:
 	      }
 	}
     }
+    grid_f_view.ViewClose();
   }
 
 public:

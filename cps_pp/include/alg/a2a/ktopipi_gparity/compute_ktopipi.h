@@ -349,7 +349,7 @@ public:
 		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
     if(!UniqueID()) printf("Using type1 field implementation\n");
     type1_field(result, tsep_k_pi, tsep_pion, tstep, p_pi_1, mf_kaon, mf_pions, vL, vH, wL, wH); //falls back to CPU implementation for non-SIMD data
 #else
@@ -461,7 +461,7 @@ public:
 			   const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 			   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 			   const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
     if(!UniqueID()) printf("Using type2 field implementation\n");
     type2_field(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
 #else
@@ -599,7 +599,7 @@ public:
 		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
     if(!UniqueID()) printf("Using type3 field implementation\n");
     type3_field(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
 #else
@@ -705,7 +705,7 @@ public:
 		    const std::vector<mf_WW > &mf_kaon,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
     if(!UniqueID()) printf("Using type4 field implementation\n");
     type4_field(result, mix4, tstep, mf_kaon, vL, vH, wL, wH);
 #else

@@ -127,6 +127,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
     typedef SIMT<VectorComplexType> ACC;
 
+    using namespace Grid;
     accelerator_for(x4d, vol4d, nsimd, 
 		    {
 		      VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
@@ -335,6 +336,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       //Create va'
       {	
 	copyControl::shallow() = true;
+	using namespace Grid;
 	accelerator_for(x4d, vol4d, nsimd,
 			{
 			  size_t xop; int top;
@@ -370,6 +372,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	//Create vb'
 	{
 	  copyControl::shallow() = true;
+	  using namespace Grid;
 	  accelerator_for(x4d, vol4d, nsimd,
 			  {
 			    size_t xop; int top;
@@ -416,6 +419,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	
 	copyControl::shallow() = true;
 	{
+	  using namespace Grid;
 	  accelerator_for(x4d, vol4d, nsimd,
 			  {
 			    size_t niprimeb_subblocks = (niprime_block + inner_blocksize - 1)/inner_blocksize;
@@ -457,6 +461,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	time.v_Mr -= dclock();
 	{
 	  copyControl::shallow() = true;
+	  using namespace Grid;
 	  accelerator_for(x4d, vol4d, nsimd,
 			  {
 			    VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);

@@ -99,7 +99,7 @@ inline void freeGridSharedMem(){
 
 #ifdef GRID_SHMEM_FREE_OLD //For older versions before MPI/MPI3 union (late Dec 2017)
   munmap(Grid::CartesianCommunicator::ShmCommBuf, Grid::CartesianCommunicator::MAX_MPI_SHM_BYTES);
-#elif !defined(GRID_NVCC)
+#elif !defined(GPU_VEC)
   //Current version does not appear to properly dealloc the memory under the GPU compile
   Grid::GlobalSharedMemory::SharedMemoryFree();
 #endif

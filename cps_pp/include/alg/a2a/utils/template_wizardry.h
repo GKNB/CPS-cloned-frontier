@@ -66,7 +66,7 @@ struct is_complex_double_or_float<std::complex<float> >{ enum {value = 1}; };
 
 #ifdef USE_GRID
 
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
 template<>
 struct is_complex_double_or_float<thrust::complex<double> >{ enum {value = 1}; };
 

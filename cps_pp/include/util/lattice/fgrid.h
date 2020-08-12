@@ -243,6 +243,14 @@ public:
     Grid::Coordinate grid_coor;
     Grid::LorentzColourMatrixD siteGrid;
     Grid::LorentzColourMatrixF siteGrid_f;
+
+    typedef decltype(grid_lat->View(Grid::CpuWrite)) GridLatDview;
+    typedef decltype(grid_lat_f->View(Grid::CpuWrite)) GridLatFview;
+
+    Grid::ViewMode view_mode = cps2grid ? Grid::CpuWrite : Grid::CpuRead;
+    GridLatDview *grid_latd_view = new GridLatDview(grid_lat->View(view_mode));
+    GridLatFview *grid_latf_view = grid_lat_f && cps2grid ? new GridLatFview(grid_lat_f->View(view_mode)) : NULL;
+
     for (int site = 0; site < vol; site++)
       for (int mu = 0; mu < 4; mu++) {
 	if (cps2grid) {
@@ -256,13 +264,13 @@ public:
 	    }
 	  Grid::Lexicographic::CoorFromIndex (grid_coor, site,
 					      grid->_ldimensions);
-	  pokeLocalSite (siteGrid, *grid_lat, grid_coor);
+	  pokeLocalSite (siteGrid, *grid_latd_view, grid_coor);
 	  if (grid_lat_f)
-	    pokeLocalSite (siteGrid_f, *grid_lat_f, grid_coor);
+	    pokeLocalSite (siteGrid_f, *grid_latf_view, grid_coor);
 	} else {
 	  Grid::Lexicographic::CoorFromIndex (grid_coor, site,
 					      grid->_ldimensions);
-	  peekLocalSite (siteGrid, *grid_lat, grid_coor);
+	  peekLocalSite (siteGrid, *grid_latd_view, grid_coor);
 	  for (int i = 0; i < Nc; i++)
 	    for (int j = 0; j < Nc; j++) {
 	      std::complex < double >elem;
@@ -274,6 +282,10 @@ public:
 	    }
 	}
       }
+    
+    grid_latd_view->ViewClose(); delete grid_latd_view;
+    if(grid_latf_view){ grid_latf_view->ViewClose(); delete grid_latf_view; }
+
     Float *f_tmp = (Float *) gauge;
     VRB.Debug (cname, fname, "mom=(%g %g)(%g %g)(%g %g)\n",
 	       *f_tmp, *(f_tmp + 1), *(f_tmp + 2),

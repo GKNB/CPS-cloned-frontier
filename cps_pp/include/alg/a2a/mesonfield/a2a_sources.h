@@ -16,7 +16,7 @@ public:
 protected:
   FieldType *src;
 public:
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
   //Make sure pointers to objects of this type created by new are in managed memory
   static inline void* operator new(const size_t sz){
     return managed_alloc_check(sz);
@@ -31,7 +31,7 @@ public:
   }
   inline void setup(const typename FieldType::InputParamType &params){
     //Make sure the src pointer remains valid on the device
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
     void* p = managed_alloc_check(sizeof(FieldType));
     src = new (p) FieldType(params);
 #else
@@ -47,7 +47,7 @@ public:
       return;
     }
     
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
     if(cp.src != NULL){
       void* p = managed_alloc_check(sizeof(FieldType));
       src = new (p) FieldType(*cp.src);
@@ -62,7 +62,7 @@ public:
   ~A2Asource(){
     if(copyControl::shallow()) return;
     
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
     if(src != NULL){
       src->~FieldType();
       managed_free(src);
@@ -569,7 +569,7 @@ public:
   template<int i>
   accelerator_inline const typename getTypeFromList<SourceListStruct,i>::type & getSource() const{ return getConstElemFromListStruct<SourceListStruct,i>::get(sources); }    
 
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
   //Allocate source in managed memory 
   static inline void* operator new(const size_t sz){
     return managed_alloc_check(sz);

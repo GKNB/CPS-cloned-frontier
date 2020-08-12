@@ -61,7 +61,7 @@ public:
   }
 };
 
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
 template<typename T>
 class RandomComplex<thrust::complex<T> > : public RandomComplexBase<T>{
 public:
@@ -120,7 +120,8 @@ struct _cconj<std::complex<T>,complex_double_or_float_mark>{
 
 #ifdef USE_GRID
 
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
+//Grid's complex uses thrust
 template<typename T>
 struct _cconj<Grid::complex<T>,complex_double_or_float_mark>{
   static inline Grid::complex<T> doit(const Grid::complex<T> &in){ return Grid::conjugate(in); }

@@ -11,8 +11,8 @@ CPS_START_NAMESPACE
 
 //SIMT implementations for CPSsquareMatrix and derivatives
 
-#ifdef GRID_NVCC
-#ifdef __CUDA_ARCH__
+#ifdef GPU_VEC
+#ifdef GRID_SIMT
 //The above is necessary such that the functions revert to normal for host code
 
 template<typename VectorMatrixType, typename std::enable_if<VectorMatrixType::isDerivedFromCPSsquareMatrix,int>::type = 0>
@@ -23,7 +23,7 @@ struct SIMT_VectorMatrix{
   typedef typename VectorMatrixType::RebaseScalarType<scalar_complex_type>::type value_type; //non-simd Matrix type
   static const int N = sizeof(vector_type)/sizeof(vector_complex_type);
 
-  static accelerator_inline value_type read(const vector_type & __restrict__ vec,int lane=Grid::SIMTlane(vector_complex_type::Nsimd()) ){
+  static accelerator_inline value_type read(const vector_type & __restrict__ vec,int lane=Grid::acceleratorSIMTlane(vector_complex_type::Nsimd()) ){
     value_type out;
     vector_complex_type const* inp = (vector_complex_type const*)&vec;
     scalar_complex_type *outp = (scalar_complex_type*)&out;
@@ -32,7 +32,7 @@ struct SIMT_VectorMatrix{
     return out;
   }
 
-  static accelerator_inline void write(vector_type & __restrict__ vec,const value_type & __restrict__ extracted,int lane=Grid::SIMTlane(vector_complex_type::Nsimd()) ){
+  static accelerator_inline void write(vector_type & __restrict__ vec,const value_type & __restrict__ extracted,int lane=Grid::acceleratorSIMTlane(vector_complex_type::Nsimd()) ){
     vector_complex_type* outp = (vector_complex_type*)&vec;
     scalar_complex_type const* inp = (scalar_complex_type const*)&extracted;
     for(int i=0;i<N;i++)

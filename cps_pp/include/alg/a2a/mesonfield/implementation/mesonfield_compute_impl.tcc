@@ -1,7 +1,7 @@
 //Compute meson fields from V and W vectors. Include host implementation always and offload (GPU) version if offloading. Choose latter for default function if offloading with Grid vector policies
 #include "mesonfield_compute_impl_cpu.tcc" //host implementation
 
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
 #include "mesonfield_compute_impl_offload.tcc" //offload implementation
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
@@ -23,7 +23,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector< std::v
   cg.compute(mf_st,l,M,r,do_setup);
 }
 
-#else
+#else //!GPU_VEC
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 template<typename InnerProduct, typename Allocator>
@@ -44,4 +44,4 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector< std::v
   cg.compute(mf_st,l,M,r,do_setup);
 }
 
-#endif
+#endif //!GPU_VEC

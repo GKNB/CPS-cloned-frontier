@@ -75,44 +75,24 @@ inline void* malloc_check(const size_t sz){
 
 //Note, CUDA does not allow alignment; apparently it is always "sufficient"
 inline void* managed_alloc_check(const size_t align, const size_t byte_size){
-#ifdef GRID_NVCC
-  void *p;
-  auto err = cudaMallocManaged(&p,byte_size);
-  if( err != cudaSuccess ) {
-    p = (void*)NULL;
-    std::cerr << "managed_alloc_check: cudaMallocManaged failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
-    printMem("malloc failed",UniqueID());
-    assert(0);
-  }
-  return p;
+#ifdef GPU_VEC
+  return Grid::acceleratorAllocShared(byte_size);
 #else
   return memalign_check(align, byte_size);
 #endif
 }
 
 inline void* managed_alloc_check(const size_t byte_size){
-#ifdef GRID_NVCC
-  void *p;
-  auto err = cudaMallocManaged(&p,byte_size);
-  if( err != cudaSuccess ) {
-    p = (void*)NULL;
-    std::cerr << "managed_alloc_check: cudaMallocManaged failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
-    printMem("malloc failed",UniqueID());
-    assert(0);
-  }
-  return p;
+#ifdef GPU_VEC
+  return Grid::acceleratorAllocShared(byte_size);
 #else
   return malloc_check(byte_size);
 #endif
 }
 
 inline void managed_free(void* p){
-#ifdef GRID_NVCC
-  auto err = cudaFree(p);
-  if( err != cudaSuccess ) {
-    std::cerr << "managed_free: cudaFree failed with error " <<cudaGetErrorString(err)<< std::endl;
-    assert(0);
-  }  
+#ifdef GPU_VEC
+  Grid::acceleratorFreeShared(p);
 #else
   free(p);
 #endif
@@ -122,44 +102,24 @@ inline void managed_free(void* p){
 
 //Allocate memory on GPU device if in use; otherwise do memalign
 inline void* device_alloc_check(const size_t align, const size_t byte_size){
-#ifdef GRID_NVCC
-  void *p;
-  auto err = cudaMalloc(&p,byte_size);
-  if( err != cudaSuccess ) {
-    p = (void*)NULL;
-    std::cerr << "device_alloc_check: cudaMalloc failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
-    printMem("malloc failed",UniqueID());
-    assert(0);
-  }
-  return p;
+#ifdef GPU_VEC
+  return Grid::acceleratorAllocDevice(byte_size);
 #else
   return memalign_check(align, byte_size);
 #endif
 }
 
 inline void* device_alloc_check(const size_t byte_size){
-#ifdef GRID_NVCC
-  void *p;
-  auto err = cudaMalloc(&p,byte_size);
-  if( err != cudaSuccess ) {
-    p = (void*)NULL;
-    std::cerr << "device_alloc_check: cudaMalloc failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
-    printMem("malloc failed",UniqueID());
-    assert(0);
-  }
-  return p;
+#ifdef GPU_VEC
+  return Grid::acceleratorAllocDevice(byte_size);
 #else
   return malloc_check(byte_size);
 #endif
 }
 
 inline void device_free(void* p){
-#ifdef GRID_NVCC
-  auto err = cudaFree(p);
-  if( err != cudaSuccess ) {
-    std::cerr << "device_free: cudaFree failed with error " <<cudaGetErrorString(err)<< std::endl;
-    assert(0);
-  }  
+#ifdef GPU_VEC
+  Grid::acceleratorFreeDevice(p);
 #else
   free(p);
 #endif
@@ -172,7 +132,7 @@ inline void device_free(void* p){
 
 //Allocate pinned memory on host if in use; otherwise do memalign
 inline void* pinned_alloc_check(const size_t align, const size_t byte_size){
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
   void *p;
   auto err = cudaMallocHost(&p,byte_size);
   if( err != cudaSuccess ) {
@@ -188,7 +148,7 @@ inline void* pinned_alloc_check(const size_t align, const size_t byte_size){
 }
 
 inline void* pinned_alloc_check(const size_t byte_size){
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
   void *p;
   auto err = cudaMallocHost(&p,byte_size);
   if( err != cudaSuccess ) {
@@ -204,7 +164,7 @@ inline void* pinned_alloc_check(const size_t byte_size){
 }
 
 inline void pinned_free(void* p){
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
   auto err = cudaFreeHost(p);
   if( err != cudaSuccess ) {
     std::cerr << "pinned_free: cudaFree failed with error " <<cudaGetErrorString(err)<< std::endl;
@@ -220,7 +180,7 @@ inline void pinned_free(void* p){
 
 //Allocate mapped memory on host and device (if CUDA, otherwise do memalign)
 inline void mapped_alloc_check(void** hostptr, void **deviceptr,  const size_t align, const size_t byte_size){
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
   auto err1 = cudaHostAlloc(hostptr,byte_size,cudaHostAllocMapped);
   auto err2 = cudaHostGetDevicePointer(deviceptr, *hostptr, 0);	
 
@@ -238,7 +198,7 @@ inline void mapped_alloc_check(void** hostptr, void **deviceptr,  const size_t a
 }
 
 inline void mapped_alloc_check(void** hostptr, void **deviceptr, const size_t byte_size){
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
   auto err1 = cudaHostAlloc(hostptr,byte_size,cudaHostAllocMapped);
   auto err2 = cudaHostGetDevicePointer(deviceptr, *hostptr, 0);	
 
@@ -258,7 +218,7 @@ inline void mapped_alloc_check(void** hostptr, void **deviceptr, const size_t by
 
 
 inline void mapped_free(void* hostptr){
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
   auto err = cudaFreeHost(hostptr);
   if( err != cudaSuccess ) {
     std::cerr << "mapped_free: cudaFree failed with error " <<cudaGetErrorString(err)<< std::endl;
@@ -358,7 +318,7 @@ struct copyControl{
   static inline bool & shallow(){ static bool s=false; return s; }
 };
 
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
 
 //Cache for pinned host memory; a modified version of Grid's pointer cache
 class PinnedHostMemoryCache {
@@ -438,7 +398,7 @@ public:
   }
 };
 
-#endif //GRID_NVCC
+#endif //GRID_CUDA
 
 
 

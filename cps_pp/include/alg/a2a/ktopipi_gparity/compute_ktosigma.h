@@ -132,7 +132,7 @@ public:
   void type12_field(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S);
 
   void type12(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
     type12_field(result, mf_S);
 #else
     type12_omp(result, mf_S);
@@ -253,7 +253,7 @@ public:
   void type3_field(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S);
 
   void type3(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
     type3_field(result, mix3, mf_S);
 #else
     type3_omp(result, mix3, mf_S);
@@ -342,7 +342,7 @@ public:
   void type4_field(ResultsContainerType &result, MixDiagResultsContainerType &mix4);
 
   void type4(ResultsContainerType &result, MixDiagResultsContainerType &mix4){
-#ifdef GRID_NVCC
+#ifdef GPU_VEC
     type4_field(result, mix4);
 #else
     type4_omp(result, mix4);

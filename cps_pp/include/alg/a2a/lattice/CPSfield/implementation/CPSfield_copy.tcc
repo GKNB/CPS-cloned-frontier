@@ -262,6 +262,7 @@ public:
     const int Nd = MapPol::EuclideanDimension;
     assert(Nd == from.Grid()->Nd());
     dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
+    auto from_view = from.View(Grid::CpuRead);
 
 #pragma omp parallel for
     for(size_t site=0;site<into.nsites();site++){
@@ -277,7 +278,7 @@ public:
       }	
       
       sobj siteGrid; //contains both flavors if Gparity
-      peekLocalSite(siteGrid,from,grid_x);
+      peekLocalSite(siteGrid,from_view,grid_x);
 
       for(int f=0;f<into.nflavors();f++){
 	if(fromsitemask == NULL || fromsitemask->query(&x[0],f)){
@@ -286,6 +287,8 @@ public:
 	}
       }      
     }
+
+    from_view.ViewClose();
   }
 
   
@@ -296,7 +299,7 @@ public:
     dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
     const int Nsimd = GridField::vector_type::Nsimd();
     
-    auto oview = into.View();
+    auto oview = into.View(Grid::CpuWrite);
 
 #pragma omp parallel for
     for(size_t out_oidx=0;out_oidx<into.Grid()->oSites();out_oidx++){
@@ -317,6 +320,8 @@ public:
 	pokeLane(oview[out_oidx], tmp, lane);
       }
     }
+
+    oview.ViewClose();
   }
   
 };

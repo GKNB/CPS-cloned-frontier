@@ -1,7 +1,7 @@
 #ifndef _CUBLAS_WRAPPER_H_
 #define _CUBLAS_WRAPPER_H_
 
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
 
 #include "utils_malloc.h"
 #include<cublasXt.h>
@@ -290,6 +290,6 @@ inline gpuHostPinnedMatrix mult_offload_cuBLASxt(const gpuHostPinnedMatrix &A, c
 
 CPS_END_NAMESPACE
 #endif
-//GRID_NVCC
+//GRID_CUDA
 
 #endif

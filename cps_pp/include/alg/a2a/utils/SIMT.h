@@ -30,8 +30,8 @@ template<typename T> struct SIMT{
   typedef BASE::value_type value_type;
 
 
-#ifdef GRID_NVCC
-#ifdef __CUDA_ARCH__
+#ifdef GPU_VEC
+#ifdef GRID_SIMT
 //The above is necessary such that the functions revert to normal for host code
 
 template<typename _vector_type>
@@ -40,13 +40,13 @@ struct SIMT_GridVector{
   typedef typename vector_type::scalar_type value_type;
   typedef Grid::iScalar<vector_type> accessor_type;
 
-  static accelerator_inline value_type read(const vector_type & __restrict__ vec,int lane=Grid::SIMTlane(vector_type::Nsimd()) ){
+  static accelerator_inline value_type read(const vector_type & __restrict__ vec,int lane=Grid::acceleratorSIMTlane(vector_type::Nsimd()) ){
     const accessor_type &v = (const accessor_type &)vec;
     typename accessor_type::scalar_object s = coalescedRead(v, lane);
     return s._internal;
   }
 
-  static accelerator_inline void write(vector_type & __restrict__ vec,const value_type & __restrict__ extracted,int lane=Grid::SIMTlane(vector_type::Nsimd()) ){
+  static accelerator_inline void write(vector_type & __restrict__ vec,const value_type & __restrict__ extracted,int lane=Grid::acceleratorSIMTlane(vector_type::Nsimd()) ){
     accessor_type &v = (accessor_type &)vec;
     coalescedWrite(v, extracted, lane);
   }

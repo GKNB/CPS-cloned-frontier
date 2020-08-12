@@ -3,7 +3,7 @@
 
 #include "CPSfield.h"
 
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
 //Make sure you link -lcufft
 #include <cufft.h>
 #endif
@@ -447,7 +447,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   //Do FFT
   const size_t howmany = munodes_work[munodecoor] * nf * SiteSize;
 
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
   //if(!UniqueID()) printf("Performing FFT using CUFFT\n");
   
   //------------------------------------------------------------------------
@@ -494,7 +494,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   
   device_free(device_in);
 
-#else //GRID_NVCC
+#else //GRID_CUDA
   //if(!UniqueID()) printf("Performing FFT using FFTW (threaded)\n");
   //------------------------------------------------------------------------
   //Perform FFT using FFTW (threaded)
@@ -552,7 +552,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   }
 
 
-#endif //GRID_NVCC
+#endif //GRID_CUDA
   assert(MPI_Waitall(munodes,send_req,status) == MPI_SUCCESS);
       
   fft_opt_mu_timings::get().fft += dclock();

@@ -13,7 +13,7 @@
 #if defined(ARCH_BGQ) && defined(USE_ESSL_A2A)
 //Requires linking to essl_interface and fortran libraries
 #define MULT_IMPL_ESSL
-#elif defined(GRID_NVCC)
+#elif defined(GRID_CUDA)
 //Use cuda version
 #define MULT_IMPL_CUBLASXT
 #else

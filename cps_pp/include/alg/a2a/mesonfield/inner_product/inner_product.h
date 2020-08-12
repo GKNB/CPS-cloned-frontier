@@ -20,7 +20,7 @@ inline void doAccum(std::complex<double> &to, const std::complex<double> &from){
 }
 #ifdef USE_GRID
 
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
 accelerator_inline void doAccum(Grid::ComplexD &to, const Grid::ComplexD &from){
   to += from;
 }
