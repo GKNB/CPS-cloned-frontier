@@ -100,22 +100,62 @@ double CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::norm2(const Includ
   return final;
 }
 
-template<typename SiteType>
+template<typename SiteType, typename Enable = void>
 class _testRandom{
 public:
-  static void rand(SiteType* f, int fsize, const Float hi, const Float lo){
+  static void rand(SiteType* f, size_t fsize, const Float hi, const Float lo){
     for(size_t i=0;i<fsize;i++) f[i] = LRG.Urand(hi,lo,FOUR_D);
   }
 };
 template<typename T>
 class _testRandom<std::complex<T> >{
 public:
-  static void rand(std::complex<T>* f, int fsize, const Float hi, const Float lo){
+  static void rand(std::complex<T>* f, size_t fsize, const Float hi, const Float lo){
     assert(sizeof(std::complex<T>) == 2*sizeof(T));
     T* ff = (T*)f;
     for(size_t i=0;i<2*fsize;i++) ff[i] = LRG.Urand(hi,lo,FOUR_D);
   }
 };
+
+#ifdef GRID_CUDA
+template<>
+class _testRandom<Grid::ComplexD>{
+public:
+  static void rand(Grid::ComplexD* f, size_t fsize, const Float hi, const Float lo){
+    for(size_t i=0;i<fsize;i++)
+      f[i] = Grid::ComplexD(LRG.Urand(hi,lo,FOUR_D), LRG.Urand(hi,lo,FOUR_D));
+  }
+};
+template<>
+class _testRandom<Grid::ComplexF>{
+public:
+  static void rand(Grid::ComplexF* f, size_t fsize, const Float hi, const Float lo){
+    for(size_t i=0;i<fsize;i++)
+      f[i] = Grid::ComplexF(LRG.Urand(hi,lo,FOUR_D), LRG.Urand(hi,lo,FOUR_D));
+  }
+};
+#endif
+
+#ifdef USE_GRID
+template<>
+class _testRandom<Grid::vComplexD>{
+public:
+  static void rand(Grid::vComplexD* f, size_t fsize, const Float hi, const Float lo){
+    for(size_t i=0;i<fsize;i++)
+      for(int s=0;s<Grid::vComplexD::Nsimd();s++)
+    	f[i].putlane( Grid::vComplexD::scalar_type(LRG.Urand(hi,lo,FOUR_D), LRG.Urand(hi,lo,FOUR_D)), s);
+  }
+};
+template<>
+class _testRandom<Grid::vComplexF>{
+public:
+  static void rand(Grid::vComplexF* f, size_t fsize, const Float hi, const Float lo){
+    for(size_t i=0;i<fsize;i++)
+      for(int s=0;s<Grid::vComplexF::Nsimd();s++)
+	f[i].putlane( Grid::vComplexF::scalar_type(LRG.Urand(hi,lo,FOUR_D), LRG.Urand(hi,lo,FOUR_D)), s);
+  }
+};
+#endif
 
 
 //Set each float to a uniform random number in the specified range.

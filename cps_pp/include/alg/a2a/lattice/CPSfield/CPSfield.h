@@ -105,7 +105,7 @@ public:
     return *this;
   }
 
-  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &operator=(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &&r){
+  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &operator=(CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &&r){
     if(own) freemem();
     f = r.f;
     own = r.own;

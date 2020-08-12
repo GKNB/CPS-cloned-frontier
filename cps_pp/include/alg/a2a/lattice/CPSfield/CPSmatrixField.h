@@ -40,6 +40,16 @@ struct getScalarType<T, vector_matrix_mark>{
 };
 
 
+//For testRandom
+template<typename T>
+class _testRandom<T, typename std::enable_if<isCPSsquareMatrix<T>::value, void>::type>{
+public:
+  static void rand(T* f, size_t fsize, const Float hi, const Float lo){
+    static_assert(sizeof(T) == T::nScalarType()*sizeof(typename T::scalar_type));
+    _testRandom<typename T::scalar_type>::rand( (typename T::scalar_type*)f, T::nScalarType()*fsize, hi, lo);
+  }
+};
+
 
 
 //Binops

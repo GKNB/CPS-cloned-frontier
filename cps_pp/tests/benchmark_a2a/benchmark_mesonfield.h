@@ -29,7 +29,7 @@ void ProfilerStop(){}
 #include<alg/a2a/ktopipi_gparity.h>
 
 
-#ifdef GRID_NVCC
+#ifdef GRID_CUDA
 #include <cuda_profiler_api.h>
 #else
 void cudaProfilerStart(){}
@@ -542,7 +542,7 @@ void printRow(const CPSfield<mf_Complex,SiteSize,FourDpolicy<FlavorPolicy>,Alloc
       buf[x] = *site_ptr;
     }
   }
-  globalSumComplex(buf.data(),L);
+  globalSum(buf.data(),L);
 
   
   if(!UniqueID()){
@@ -1316,66 +1316,79 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
 
 
 //Added to attempt to isolate a SEGV on BG/Q!
+template<typename A2Apolicies, int isGparity>
+struct _testKtoPiPiType3{};
+
+template<typename A2Apolicies>
+struct _testKtoPiPiType3<A2Apolicies, 0>{
+  static void run(const A2AArg &a2a_args,Lattice &lat){}
+};
+template<typename A2Apolicies>
+struct _testKtoPiPiType3<A2Apolicies, 1>{
+  static void run(const A2AArg &a2a_args,Lattice &lat){
+    if(!UniqueID()){ printf("Test run of K->pipi type 3\n"); fflush(stdout); }
+    assert(GJP.Gparity());
+
+    typedef typename A2Apolicies::ComplexType mf_Complex;
+    typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
+    FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
+  
+    A2AvectorW<A2Apolicies> W(a2a_args,fp);
+    A2AvectorV<A2Apolicies> V(a2a_args,fp);
+    W.testRandom();
+    V.testRandom();
+
+    int p[3];
+    GparityBaseMomentum(p,+1);
+    ThreeMomentum pp(p);
+
+    GparityBaseMomentum(p,-1);
+    ThreeMomentum pm(p);
+
+    MesonFieldMomentumContainer<A2Apolicies> mf_pions;
+
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+    A2Aparams params(a2a_args);
+
+    typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_WV;
+    typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > mf_WW;
+  
+    mf_WV tmp_WV(Lt);
+    mf_WW tmp_WW(Lt);
+    for(int t=0;t<Lt;t++){
+      tmp_WV[t].setup(params,params,t,t);
+      tmp_WV[t].testRandom();
+
+      tmp_WW[t].setup(params,params,t,t);
+      tmp_WW[t].testRandom();
+    }
+    mf_pions.copyAdd(pp,tmp_WV);
+    mf_pions.copyAdd(pm,tmp_WV);
+
+    int pipi_sep = 2;
+    int tsep_k_pi = 6;
+    int tstep = 1;
+  
+    typedef typename ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
+    typedef typename ComputeKtoPiPiGparity<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+  
+    ResultsContainerType type3;
+    MixDiagResultsContainerType mix3;
+    ComputeKtoPiPiGparity<A2Apolicies>::type3(type3,mix3,
+					      tsep_k_pi, pipi_sep, tstep, pp,
+					      tmp_WW, mf_pions,
+					      V, V,
+					      W, W);
+    if(!UniqueID()){ printf("End of test run of K->pipi type 3\n"); fflush(stdout); }
+  }
+};
+
+
 template<typename A2Apolicies>
 void testKtoPiPiType3(const A2AArg &a2a_args,Lattice &lat){
-  if(!UniqueID()){ printf("Test run of K->pipi type 3\n"); fflush(stdout); }
-  assert(GJP.Gparity());
-
-  typedef typename A2Apolicies::ComplexType mf_Complex;
-  typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
-  FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
-  
-  A2AvectorW<A2Apolicies> W(a2a_args,fp);
-  A2AvectorV<A2Apolicies> V(a2a_args,fp);
-  W.testRandom();
-  V.testRandom();
-
-  int p[3];
-  GparityBaseMomentum(p,+1);
-  ThreeMomentum pp(p);
-
-  GparityBaseMomentum(p,-1);
-  ThreeMomentum pm(p);
-
-  MesonFieldMomentumContainer<A2Apolicies> mf_pions;
-
-  int Lt = GJP.Tnodes()*GJP.TnodeSites();
-
-  A2Aparams params(a2a_args);
-
-  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_WV;
-  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > mf_WW;
-  
-  mf_WV tmp_WV(Lt);
-  mf_WW tmp_WW(Lt);
-  for(int t=0;t<Lt;t++){
-    tmp_WV[t].setup(params,params,t,t);
-    tmp_WV[t].testRandom();
-
-    tmp_WW[t].setup(params,params,t,t);
-    tmp_WW[t].testRandom();
-  }
-  mf_pions.copyAdd(pp,tmp_WV);
-  mf_pions.copyAdd(pm,tmp_WV);
-
-  int pipi_sep = 2;
-  int tsep_k_pi = 6;
-  int tstep = 1;
-  
-  typedef typename ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
-  typedef typename ComputeKtoPiPiGparity<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
-  
-  ResultsContainerType type3;
-  MixDiagResultsContainerType mix3;
-  ComputeKtoPiPiGparity<A2Apolicies>::type3(type3,mix3,
-					    tsep_k_pi, pipi_sep, tstep, pp,
-					    tmp_WW, mf_pions,
-					    V, V,
-					    W, W);
-  if(!UniqueID()){ printf("End of test run of K->pipi type 3\n"); fflush(stdout); }
+  _testKtoPiPiType3<A2Apolicies, A2Apolicies::GPARITY>::run(a2a_args,lat);
 }
-
-
 
 
 
@@ -2116,6 +2129,7 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
 
     for(int test=0;test<ntests_scaled;test++){   
       {
+	using namespace Grid;
 	if(test == ntests_scaled -1) cudaProfilerStart();
 
 	accelerator_for(item, work, Nsimd, 
@@ -3432,8 +3446,8 @@ void testLanczosIO(typename GridA2Apolicies::FgridGFclass &lattice){
       
       assert( c_odd_d_1.equals( c_odd_d_2 ) );
 
-      auto view = lanc.evec[i].View();
-      auto view2 = lanc2.evec[i].View();
+      auto view = lanc.evec[i].View(Grid::CpuRead);
+      auto view2 = lanc2.evec[i].View(Grid::CpuRead);
 
       for(int s=0;s<lanc.evec[i].Grid()->oSites();s++)
 	assert( GridTensorEquals(view[s] , view2[s]) );
@@ -3463,8 +3477,8 @@ void testLanczosIO(typename GridA2Apolicies::FgridGFclass &lattice){
       
       assert( c_odd_f_1.equals( c_odd_f_2 ) );
 
-      auto view = lanc.evec_f[i].View();
-      auto view2 = lanc2.evec_f[i].View();
+      auto view = lanc.evec_f[i].View(Grid::CpuRead);
+      auto view2 = lanc2.evec_f[i].View(Grid::CpuRead);
 
       for(int s=0;s<lanc.evec_f[i].Grid()->oSites();s++)
 	assert( GridTensorEquals(view[s] , view2[s]) );
@@ -3860,11 +3874,12 @@ void test4DlowmodeSubtraction(A2AArg a2a_args, const int ntests, const int nthre
   cg_controls_4dsub.CG_tolerance = 1e-8;
   cg_controls_4dsub.CG_max_iters = 10000;
   cg_controls_4dsub.mixedCG_init_inner_tolerance = 1e-4;
-  cg_controls_4dsub.MADWF_Ls_inner = Ls;
-  cg_controls_4dsub.MADWF_b_plus_c_inner = b_plus_c_outer;
-  cg_controls_4dsub.MADWF_use_ZMobius = false;
-  cg_controls_4dsub.MADWF_ZMobius_lambda_max = 1.42;
-  cg_controls_4dsub.MADWF_precond = SchurOriginal;
+  cg_controls_4dsub.madwf_params.Ls_inner = Ls;
+  cg_controls_4dsub.madwf_params.b_plus_c_inner = b_plus_c_outer;
+  cg_controls_4dsub.madwf_params.precond = SchurOriginal;
+  cg_controls_4dsub.madwf_params.use_ZMobius = false;
+  cg_controls_4dsub.madwf_params.ZMobius_params.compute_lambda_max = 1.42;
+  cg_controls_4dsub.madwf_params.ZMobius_params.gamma_src = A2A_ZMobiusGammaSourceCompute;
 
   CGcontrols cg_controls_5dsub(cg_controls_4dsub);
   cg_controls_5dsub.CGalgorithm = AlgorithmMixedPrecisionRestartedCG;
@@ -4113,6 +4128,47 @@ void benchmarkVVgridOffload(const A2AArg &a2a_args, const int ntests, const int 
     printf("vv offload timings:\n");
     mult_vv_field_offload_timers::get().print();
   }
+
+}
+
+
+
+
+
+
+
+template<typename GridA2Apolicies>
+void benchmarkCPSmatrixField(const int ntests){
+  std::cout << "Starting CPSmatrixField benchmark\n";
+
+  typedef typename GridA2Apolicies::ComplexType ComplexType;
+  const int nsimd = ComplexType::Nsimd();      
+
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+
+  typedef CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > SCFmatrixField;
+
+  static_assert(isCPSsquareMatrix<typename SCFmatrixField::FieldSiteType>::value == 1);
+
+
+  SCFmatrixField m1(simd_dims);
+  m1.testRandom();
+
+  typename std::decay<decltype(Trace(m1))>::type tr_m1(simd_dims);
+
+  //Trace
+  Float total_time_trace = -dclock();
+  for(int iter=0;iter<ntests;iter++){
+    tr_m1 = Trace(m1);
+  }
+  total_time_trace += dclock();
+  
+  double Flops = m1.size() * 24 * 2 * nsimd; //sum of diagonal elements per site, each sum re/im with SIMD vectorization
+  double tavg = total_time_trace/ntests;
+  double Mflops = double(Flops)/tavg/1024./1024.;
+
+  printf("Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
 
 }
 

@@ -124,7 +124,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) testMfFFTreln<GridA2ApoliciesType>(a2a_args,lattice);
 #endif
     
-  if(1) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
+  if(0) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
 
   if(0) testA2AFFTinv<ScalarA2ApoliciesType>(a2a_args,lattice);
   
@@ -206,6 +206,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #ifdef USE_GRID
   if(0) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(1) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
 #endif
 }
 
@@ -327,18 +328,20 @@ int main(int argc,char *argv[])
 
   if(GJP.Gparity()){
     if(use_destructive_FFT) runBenchmarks<A2ApoliciesDoubleManualAllocGparity, 
-					  A2ApoliciesDoubleManualAllocGparity,
-					  A2ApoliciesSIMDdoubleManualAllocGparity>(argc, argv, opt);
-    else runBenchmarks<A2ApoliciesDoubleAutoAllocGparity, 
-		       A2ApoliciesDoubleManualAllocGparity,
-		       A2ApoliciesSIMDdoubleAutoAllocGparity>(argc, argv, opt);
+    					  A2ApoliciesDoubleManualAllocGparity,
+    					  A2ApoliciesSIMDdoubleManualAllocGparity>(argc, argv, opt);
+    else 
+      runBenchmarks<A2ApoliciesDoubleAutoAllocGparity, 
+		    A2ApoliciesDoubleManualAllocGparity,
+		    A2ApoliciesSIMDdoubleAutoAllocGparity>(argc, argv, opt);
   }else{    
     if(use_destructive_FFT) runBenchmarks<A2ApoliciesDoubleManualAlloc, 
-					  A2ApoliciesDoubleManualAlloc,
-					  A2ApoliciesSIMDdoubleManualAlloc>(argc, argv, opt);
-    else runBenchmarks<A2ApoliciesDoubleAutoAlloc, 
-		       A2ApoliciesDoubleManualAlloc,
-		       A2ApoliciesSIMDdoubleAutoAlloc>(argc, argv, opt);
+    					  A2ApoliciesDoubleManualAlloc,
+    					  A2ApoliciesSIMDdoubleManualAlloc>(argc, argv, opt);
+    else 
+      runBenchmarks<A2ApoliciesDoubleAutoAlloc, 
+		    A2ApoliciesDoubleManualAlloc,
+		    A2ApoliciesSIMDdoubleAutoAlloc>(argc, argv, opt);
   }
 
   if(!UniqueID()){ printf("Finished\n"); fflush(stdout); }
