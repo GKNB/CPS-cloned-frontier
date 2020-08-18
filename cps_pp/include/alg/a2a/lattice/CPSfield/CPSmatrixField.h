@@ -467,6 +467,109 @@ ManagedVector<VectorMatrixType> localNodeSpatialSum(const CPSmatrixField<VectorM
 
 
 
+/*Generic unop using functor
+  Sadly it does not work for lambdas as the matrix type will be evaluated with both the vector and scalar matrix arguments
+  Instead use a templated functor e.g.
+
+  struct _tr{
+    template<typename MatrixType>
+    accelerator_inline auto operator()(const MatrixType &matrix) const ->decltype(matrix.Trace()){ return matrix.Trace(); }  
+  };
+
+  then call
+  
+  unop(myfield, tr_());
+*/
+template<typename T, typename Lambda>
+auto unop(const CPSmatrixField<T> &in, const Lambda &l)-> CPSmatrixField<typename std::decay<decltype( l(*in.site_ptr(size_t(0)) )  )>::type>{
+  typedef typename std::decay<decltype(l(*in.site_ptr(size_t(0)) )  )>::type outMatrixType;
+  using namespace Grid;
+  constexpr int nsimd = T::scalar_type::Nsimd();
+  CPSmatrixField<outMatrixType> out(in.getDimPolParams());
+  copyControl::shallow() = true;
+  accelerator_for(x4d, in.size(), nsimd,
+		    {
+		      typedef SIMT<T> ACCr;
+		      typedef SIMT<outMatrixType> ACCo;
+		      auto aa = ACCr::read(*in.site_ptr(x4d));
+		      ACCo::write(*out.site_ptr(x4d), l(aa) );
+		    }
+		    );
+  copyControl::shallow()= false;
+  return out;
+}
+
+
+template<typename T, typename U, typename Lambda>
+auto binop(const CPSmatrixField<T> &a, const CPSmatrixField<U> &b, const Lambda &l)-> 
+  CPSmatrixField<typename std::decay<decltype( l( *a.site_ptr(size_t(0)), *b.site_ptr(size_t(0))  )  )>::type>{
+  typedef typename std::decay<decltype( l( *a.site_ptr(size_t(0)), *b.site_ptr(size_t(0))  )  )>::type outMatrixType;
+  using namespace Grid;
+  constexpr int nsimd = T::scalar_type::Nsimd();
+  CPSmatrixField<outMatrixType> out(a.getDimPolParams());
+  copyControl::shallow() = true;
+  accelerator_for(x4d, a.size(), nsimd,
+		    {
+		      typedef SIMT<T> ACCra;
+		      typedef SIMT<U> ACCrb;			
+		      typedef SIMT<outMatrixType> ACCo;
+		      auto aa = ACCra::read(*a.site_ptr(x4d));
+		      auto bb = ACCrb::read(*b.site_ptr(x4d));
+		      ACCo::write(*out.site_ptr(x4d), l(aa,bb) );
+		    }
+		    );
+  copyControl::shallow()= false;
+  return out;
+}
+
+
+
+/*
+  Expect a functor that acts on SIMD data, pulling out the SIMD lane as appropriate
+  Example:
+
+  template<typename VectorMatrixType>
+  struct _trV{
+     typedef typename VectorMatrixType::scalar_type OutputType;  //must contain OutputType typedef
+     accelerator_inline void operator()(OutputType &out, const VectorMatrixType &in, const int lane) const{     //must take SIMD lane as parameter
+       SIMT<OutputType>::write(out,0,lane); //Should use SIMT accessors
+       _LaneRecursiveTraceImpl<OutputType, VectorMatrixType, cps_square_matrix_mark>::doit(out, in, lane);
+     }
+  };
+*/  
+
+template<typename T, typename Functor>
+auto unop_v(const CPSmatrixField<T> &in, const Functor &l)-> CPSmatrixField<typename Functor::OutputType>{
+  using namespace Grid;
+  constexpr int nsimd = T::scalar_type::Nsimd();
+  CPSmatrixField<typename Functor::OutputType> out(in.getDimPolParams());
+  copyControl::shallow() = true;
+  accelerator_for(x4d, in.size(), nsimd,
+		    {
+		      l(*out.site_ptr(x4d), *in.site_ptr(x4d), lane);
+		    }
+		    );
+  copyControl::shallow()= false;
+  return out;
+}
+
+template<typename T, typename Functor>
+auto binop_v(const CPSmatrixField<T> &a, const CPSmatrixField<T> &b, const Functor &l)-> CPSmatrixField<typename Functor::OutputType>{
+  using namespace Grid;
+  constexpr int nsimd = T::scalar_type::Nsimd();
+  CPSmatrixField<typename Functor::OutputType> out(a.getDimPolParams());
+  copyControl::shallow() = true;
+  accelerator_for(x4d, a.size(), nsimd,
+		    {
+		      l(*out.site_ptr(x4d), *a.site_ptr(x4d), *b.site_ptr(x4d), lane);
+		    }
+		    );
+  copyControl::shallow()= false;
+  return out;
+}
+
+
+
 CPS_END_NAMESPACE
 
 #endif

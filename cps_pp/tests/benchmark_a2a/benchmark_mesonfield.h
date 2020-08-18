@@ -4135,6 +4135,31 @@ void benchmarkVVgridOffload(const A2AArg &a2a_args, const int ntests, const int 
 
 
 
+struct _tr{
+  template<typename MatrixType>
+  accelerator_inline auto operator()(const MatrixType &matrix) const ->decltype(matrix.Trace()){ return matrix.Trace(); }  
+};
+struct _trtr{
+  template<typename MatrixType>
+  accelerator_inline auto operator()(const MatrixType &a, const MatrixType &b) const ->decltype(a.Trace()*b.Trace()){ return a.Trace()*b.Trace(); }  
+};
+
+template<typename VectorMatrixType>
+struct _trV{
+  typedef typename VectorMatrixType::scalar_type OutputType;
+  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &in, const int lane) const{ 
+    Trace(out, in, lane);
+  }
+};
+
+
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+struct _timesV{
+  typedef VectorMatrixType OutputType;
+  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane) const{ 
+    mult(out, a, b, lane);
+  }
+};
 
 
 template<typename GridA2Apolicies>
@@ -4154,21 +4179,136 @@ void benchmarkCPSmatrixField(const int ntests){
 
   SCFmatrixField m1(simd_dims);
   m1.testRandom();
+  SCFmatrixField m2(simd_dims);
+  m2.testRandom();
+
+
 
   typename std::decay<decltype(Trace(m1))>::type tr_m1(simd_dims);
-
-  //Trace
-  Float total_time_trace = -dclock();
-  for(int iter=0;iter<ntests;iter++){
-    tr_m1 = Trace(m1);
-  }
-  total_time_trace += dclock();
   
-  double Flops = m1.size() * 24 * 2 * nsimd; //sum of diagonal elements per site, each sum re/im with SIMD vectorization
-  double tavg = total_time_trace/ntests;
-  double Mflops = double(Flops)/tavg/1024./1024.;
+  if(0){
+    //Trace
+    Float total_time_trace = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      tr_m1 = Trace(m1);
+    }
+    total_time_trace += dclock();
+    
+    double Flops = m1.size() * 24 * 2 * nsimd; //sum of diagonal elements per site, each sum re/im with SIMD vectorization
+    double tavg = total_time_trace/ntests;
+    double Mflops = double(Flops)/tavg/1024./1024.;
+    
+    printf("Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
+  }
 
-  printf("Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
+  if(0){
+    //unop Trace
+    Float total_time_trace = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      tr_m1 = unop(m1, _tr());
+    }
+    total_time_trace += dclock();
+    
+    double Flops = m1.size() * 24 * 2 * nsimd; //sum of diagonal elements per site, each sum re/im with SIMD vectorization
+    double tavg = total_time_trace/ntests;
+    double Mflops = double(Flops)/tavg/1024./1024.;
+    
+    printf("Unop trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
+  }
+
+
+  if(0){
+    //unopV Trace
+    Float total_time_trace = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      tr_m1 = unop_v(m1, _trV<typename SCFmatrixField::FieldSiteType>());
+    }
+    total_time_trace += dclock();
+    
+    double Flops = m1.size() * 24 * 2 * nsimd; //sum of diagonal elements per site, each sum re/im with SIMD vectorization
+    double tavg = total_time_trace/ntests;
+    double Mflops = double(Flops)/tavg/1024./1024.;
+    
+    printf("Unop_v trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
+  }
+
+
+  if(0){
+    //Trace * trace
+    Float total_time = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      tr_m1 = Trace(m1) * Trace(m2);
+    }
+    total_time += dclock();
+    
+    double tr_Flops = m1.size() * 24 * 2 * nsimd; //sum of diagonal elements per site, each sum re/im with SIMD vectorization
+    double mul_flops = m1.size() * nsimd * 6; //complex mult
+
+    double Flops = 2*tr_Flops + mul_flops;
+    double tavg = total_time/ntests;
+    double Mflops = double(Flops)/tavg/1024./1024.;
+    
+    printf("Trace(SCFmatrixField)*Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
+  }
+
+  if(0){
+    //binop(Trace * trace)
+    Float total_time = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      tr_m1 = binop(m1, m2, _trtr());
+    }
+    total_time += dclock();
+    
+    double tr_Flops = m1.size() * 24 * 2 * nsimd; //sum of diagonal elements per site, each sum re/im with SIMD vectorization
+    double mul_flops = m1.size() * nsimd * 6; //complex mult
+
+    double Flops = 2*tr_Flops + mul_flops;
+    double tavg = total_time/ntests;
+    double Mflops = double(Flops)/tavg/1024./1024.;
+    
+    printf("Binop Trace(SCFmatrixField)*Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
+  }
+
+  if(1){
+    //operator* 
+    SCFmatrixField m3(simd_dims);
+
+    Float total_time = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      m3 = m1 * m2;
+    }
+    total_time += dclock();
+    
+    //24*24 matrix multiply
+    //Flops = 24* 24 * ( 24 madds )     madd = 8 Flops * nsimd
+    double Flops = m1.size() * 24 * 24 * ( 24 * 8 * nsimd );
+    double tavg = total_time/ntests;
+    double Mflops = double(Flops)/tavg/1024./1024.;
+    
+    printf("SCFmatrixField*SCFmatrixField %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
+  }
+
+  if(1){
+    //operator* binop_v
+    SCFmatrixField m3(simd_dims);
+
+    Float total_time = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      m3 = binop_v(m1,m2, _timesV<typename SCFmatrixField::FieldSiteType>());
+    }
+    total_time += dclock();
+    
+    //24*24 matrix multiply
+    //Flops = 24* 24 * ( 24 madds )     madd = 8 Flops * nsimd
+    double Flops = m1.size() * 24 * 24 * ( 24 * 8 * nsimd );
+    double tavg = total_time/ntests;
+    double Mflops = double(Flops)/tavg/1024./1024.;
+    
+    printf("Binop_v SCFmatrixField*SCFmatrixField %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
+  }
+
+
+
 
 }
 

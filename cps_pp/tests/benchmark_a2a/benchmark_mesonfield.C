@@ -327,21 +327,21 @@ int main(int argc,char *argv[])
   LRG.Initialize(); //usually initialised when lattice generated, but I pre-init here so I can load the state from file
 
   if(GJP.Gparity()){
-    if(use_destructive_FFT) runBenchmarks<A2ApoliciesDoubleManualAllocGparity, 
-    					  A2ApoliciesDoubleManualAllocGparity,
-    					  A2ApoliciesSIMDdoubleManualAllocGparity>(argc, argv, opt);
-    else 
+    // if(use_destructive_FFT) runBenchmarks<A2ApoliciesDoubleManualAllocGparity, 
+    // 					  A2ApoliciesDoubleManualAllocGparity,
+    // 					  A2ApoliciesSIMDdoubleManualAllocGparity>(argc, argv, opt);
+    // else 
       runBenchmarks<A2ApoliciesDoubleAutoAllocGparity, 
 		    A2ApoliciesDoubleManualAllocGparity,
 		    A2ApoliciesSIMDdoubleAutoAllocGparity>(argc, argv, opt);
   }else{    
-    if(use_destructive_FFT) runBenchmarks<A2ApoliciesDoubleManualAlloc, 
-    					  A2ApoliciesDoubleManualAlloc,
-    					  A2ApoliciesSIMDdoubleManualAlloc>(argc, argv, opt);
-    else 
-      runBenchmarks<A2ApoliciesDoubleAutoAlloc, 
-		    A2ApoliciesDoubleManualAlloc,
-		    A2ApoliciesSIMDdoubleAutoAlloc>(argc, argv, opt);
+    // if(use_destructive_FFT) runBenchmarks<A2ApoliciesDoubleManualAlloc, 
+    // 					  A2ApoliciesDoubleManualAlloc,
+    // 					  A2ApoliciesSIMDdoubleManualAlloc>(argc, argv, opt);
+    // else 
+    //   runBenchmarks<A2ApoliciesDoubleAutoAlloc, 
+    // 		    A2ApoliciesDoubleManualAlloc,
+    // 		    A2ApoliciesSIMDdoubleAutoAlloc>(argc, argv, opt);
   }
 
   if(!UniqueID()){ printf("Finished\n"); fflush(stdout); }

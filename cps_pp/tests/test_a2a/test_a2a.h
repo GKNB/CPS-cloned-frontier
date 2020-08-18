@@ -1319,6 +1319,35 @@ void testVVgridOrig(const A2AArg &a2a_args, const int ntests, const int nthreads
 
 }
 
+struct _tr{
+  template<typename MatrixType>
+  accelerator_inline auto operator()(const MatrixType &matrix) const ->decltype(matrix.Trace()){ return matrix.Trace(); }  
+};
+
+struct _times{
+  template<typename MatrixType>
+  accelerator_inline auto operator()(const MatrixType &a, const MatrixType &b) const ->decltype(a * b){ return a * b; }  
+};
+
+
+
+
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+struct _trV{
+  typedef typename VectorMatrixType::scalar_type OutputType;
+  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &in, const int lane) const{ 
+    Trace(out, in, lane);
+  }
+};
+
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+struct _timesV{
+  typedef VectorMatrixType OutputType;
+  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane) const{ 
+    mult(out, a, b, lane);
+  }
+};
+
 
 
 template<typename GridA2Apolicies>
@@ -1408,6 +1437,74 @@ void testCPSmatrixField(const double tol){
   }
   if(fail) ERR.General("","","CPSmatrixField operator* failed\n");
 
+
+  //Test binop using operator*
+  c = binop(a,b, _times());
+  
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    auto bb=*b.site_ptr(x4d);
+    auto cc = aa*bb;
+    for(int s1=0;s1<4;s1++){
+    for(int c1=0;c1<3;c1++){
+    for(int f1=0;f1<2;f1++){
+    for(int s2=0;s2<4;s2++){
+    for(int c2=0;c2<3;c2++){
+    for(int f2=0;f2<2;f2++){
+      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+      auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: binop (operator*) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
+    }
+    }
+    }
+    }
+    }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField operator* failed\n");
+
+
+
+  //Test binop_v using operator*
+  c = binop_v(a,b, _timesV<VectorMatrixType>());
+  
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    auto bb=*b.site_ptr(x4d);
+    auto cc = aa*bb;
+    for(int s1=0;s1<4;s1++){
+    for(int c1=0;c1<3;c1++){
+    for(int f1=0;f1<2;f1++){
+    for(int s2=0;s2<4;s2++){
+    for(int c2=0;c2<3;c2++){
+    for(int f2=0;f2<2;f2++){
+      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+      auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: binop_v (operator*) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
+    }
+    }
+    }
+    }
+    }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField operator* failed\n");
+
+
   //Test Trace
   typedef CPSmatrixField<ComplexType> ComplexField;
  
@@ -1428,6 +1525,48 @@ void testCPSmatrixField(const double tol){
     } 
   }
   if(fail) ERR.General("","","CPSmatrixField Trace failed\n");
+
+
+  //Test unop via trace
+  d = unop(a, _tr());
+
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    ComplexType aat = aa.Trace();
+    auto got = Reduce( *d.site_ptr(x4d) );
+    auto expect = Reduce( aat );
+      
+    double rdiff = fabs(got.real()-expect.real());
+    double idiff = fabs(got.imag()-expect.imag());
+    if(rdiff > tol|| idiff > tol){
+      printf("Fail: Unop (Trace) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+      fail = true;
+    } 
+  }
+  if(fail) ERR.General("","","CPSmatrixField Unop (Trace) failed\n");
+
+
+  //Test unop_v via trace
+  d = unop_v(a, _trV<VectorMatrixType>());
+
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    ComplexType aat = aa.Trace();
+    auto got = Reduce( *d.site_ptr(x4d) );
+    auto expect = Reduce( aat );
+      
+    double rdiff = fabs(got.real()-expect.real());
+    double idiff = fabs(got.imag()-expect.imag());
+    if(rdiff > tol|| idiff > tol){
+      printf("Fail: Unop_v (Trace) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+      fail = true;
+    } 
+  }
+  if(fail) ERR.General("","","CPSmatrixField Unop_v (Trace) failed\n");
+
+
 
   //Test SpinFlavorTrace
   typedef CPSmatrixField<CPScolorMatrix<ComplexType> > ColorMatrixField;

@@ -74,5 +74,84 @@ struct SIMT< CPSflavorMatrix<Z> >: public SIMT_VectorMatrix< CPSflavorMatrix<Z> 
 #endif
 #endif
 
+//For optimal performance in offloaded routines, the naive method in which the non-SIMD matrix is first extracted from the SIMD matrix on each thread and the 
+//routine applied to the non-SIMD matrix, appears to perform very poorly due to register spilling to local memory. To counteract this we need versions of the
+//matrix operations that act only for a specific SIMD lane
+
+
+///////////////////////////// TRACE ////////////////////////////////////////////////
+
+template<typename scalar_type, typename T, typename TypeClass>
+struct _LaneRecursiveTraceImpl{};
+
+template<typename scalar_type, typename T>
+struct _LaneRecursiveTraceImpl<scalar_type, T, cps_square_matrix_mark>{
+  accelerator_inline static void doit(scalar_type &into, const T &what, const int lane){
+    for(int i=0;i<T::Size;i++)
+      _LaneRecursiveTraceImpl<scalar_type, typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::doit(into,what(i,i),lane);    
+  } 
+};
+template<typename scalar_type>
+struct _LaneRecursiveTraceImpl<scalar_type, scalar_type, no_mark>{  
+  accelerator_inline static void doit(scalar_type &into, const scalar_type &what, const int lane){
+    typedef SIMT<scalar_type> ACC;
+    ACC::write(into,
+	       ACC::read(into,lane) + ACC::read(what,lane),
+	       lane);
+  }
+};
+
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+accelerator_inline void Trace(typename VectorMatrixType::scalar_type &out, const VectorMatrixType &in, const int lane){
+  SIMT<typename VectorMatrixType::scalar_type>::write(out,0,lane);
+  _LaneRecursiveTraceImpl<typename VectorMatrixType::scalar_type, VectorMatrixType, cps_square_matrix_mark>::doit(out, in, lane);
+}
+
+//////////////////////////////////// MATRIX MULT ///////////////////////////////////////////////////
+
+template<typename U> 
+accelerator_inline typename my_enable_if<is_grid_vector_complex<U>::value, void>::type madd(U &out, const U &a, const U &b, const int lane){
+  SIMT<U>::write(out,  
+		 SIMT<U>::read(out,lane) + SIMT<U>::read(a,lane) * SIMT<U>::read(b,lane), 
+		 lane);
+}
+
+
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type madd(U &out, const U &a, const U &b, const int lane){
+  for(int i=0;i<U::Size;i++)
+    for(int k=0;k<U::Size;k++){
+      madd(out(i,k),  a(i,0), b(0,k), lane);
+      for(int j=1;j<U::Size;j++)
+	madd(out(i,k),  a(i,j), b(j,k), lane);
+    }      
+}
+
+
+template<typename U> 
+accelerator_inline typename my_enable_if<is_grid_vector_complex<U>::value, void>::type mult(U &out, const U &a, const U &b, const int lane){
+  SIMT<U>::write(out,  
+		 SIMT<U>::read(a,lane) * SIMT<U>::read(b,lane), 
+		 lane);
+}
+
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type mult(U &out, const U &a, const U &b, const int lane){
+  for(int i=0;i<U::Size;i++)
+    for(int k=0;k<U::Size;k++){
+      mult(out(i,k),  a(i,0), b(0,k), lane);
+      for(int j=1;j<U::Size;j++)
+	madd(out(i,k),  a(i,j), b(j,k), lane);
+    }      
+}
+
+
+
+
+
+
+
+
+
 CPS_END_NAMESPACE
 #endif
