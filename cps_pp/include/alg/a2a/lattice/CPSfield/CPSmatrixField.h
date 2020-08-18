@@ -569,6 +569,21 @@ auto binop_v(const CPSmatrixField<T> &a, const CPSmatrixField<T> &b, const Funct
 }
 
 
+template<typename T, typename Functor>
+CPSmatrixField<T> & unop_self_v(CPSmatrixField<T> &m, const Functor &l){
+  using namespace Grid;
+  constexpr int nsimd = T::scalar_type::Nsimd();
+  copyControl::shallow() = true;
+  accelerator_for(x4d, m.size(), nsimd,
+		    {
+		      l(*m.site_ptr(x4d), lane);
+		    }
+		    );
+  copyControl::shallow()= false;
+  return m;
+}
+
+
 
 CPS_END_NAMESPACE
 

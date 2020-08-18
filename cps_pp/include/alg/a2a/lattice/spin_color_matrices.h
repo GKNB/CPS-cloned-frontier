@@ -264,6 +264,25 @@ struct _rebaseScalarType<T, no_mark, NewNumericalType>{
 };
 
 
+//Transpose a nested matrix on all indices
+template<typename T, typename TypeClass>
+struct _RecursiveTransposeImpl{};
+
+template<typename T>
+struct _RecursiveTransposeImpl<T, cps_square_matrix_mark>{
+  accelerator_inline static void doit(T &into, const T &what){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_RecursiveTransposeImpl<typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::doit(into(i,j), what(j,i));
+  } 
+};
+template<typename scalar_type>
+struct _RecursiveTransposeImpl<scalar_type, no_mark>{
+  accelerator_inline static void doit(scalar_type &into, const scalar_type &what){
+    into = what;
+  }
+};
+
 
 
 template<typename T, int N>
@@ -310,10 +329,9 @@ public:
   accelerator_inline T & operator()(const int i, const int j){ return v[i][j]; }
   accelerator_inline const T & operator()(const int i, const int j) const{ return v[i][j]; }
 
+  //*this = Transpose(r)     Transposes on all indices if a nested matrix
   accelerator_inline void equalsTranspose(const CPSsquareMatrix<T,N> &r){
-    for(int i=0;i<N;i++)
-      for(int j=0;j<N;j++)
-	v[i][j] = r.v[j][i];
+    _RecursiveTransposeImpl<CPSsquareMatrix<T,N>, cps_square_matrix_mark>::doit(*this, r);
   }
   accelerator_inline CPSsquareMatrix<T,N> Transpose() const{
     CPSsquareMatrix<T,N> out; out.equalsTranspose(*this);

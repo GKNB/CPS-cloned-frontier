@@ -18,8 +18,6 @@ void testCPSsquareMatrix(){
     f3_expect.unit(); f3_expect.pr(sigma3); f3_expect.timesI();
     assert( f3_expect == f3 );
 
-
-
     CPSspinMatrix<CPSflavorMatrix<cps::Complex> > sf1;
     sf1.unit();
     sf1.gr(-5);
@@ -83,37 +81,54 @@ void testCPSsquareMatrix(){
     std::cout << "Vectorized sf unit matrix\n" << vsf << std::endl;
 
     static_assert( _equal<typename _PartialTraceFindReducedType<Fmat,0>::type, cps::Complex>::value, "Foutertracetest");
-  }
+  
+    //Check transpose of nested matrix
+    {
+      SFmat nmtr_test;
+      size_t mm=0;
+      for(int s1=0;s1<4;s1++)
+	for(int s2=0;s2<4;s2++)
+	  for(int f1=0;f1<2;f1++)
+	    for(int f2=0;f2<2;f2++)
+	      nmtr_test(s1,s2)(f1,f2) = cps::Complex(mm++,mm++);
+      SFmat tr = nmtr_test.Transpose();
+      
+      for(int s1=0;s1<4;s1++)
+	for(int s2=0;s2<4;s2++)
+	  for(int f1=0;f1<2;f1++)
+	    for(int f2=0;f2<2;f2++)
+	      assert( tr(s1,s2)(f1,f2) == nmtr_test(s2,s1)(f2,f1) );
+    }
 
-  //Test scalar size deduction
-  {
-    typedef CPSsquareMatrix<double, 5> M1_t;
-    M1_t M1;
-    size_t NN_M1 = M1.nScalarType();
-    assert(NN_M1 = 25);
+    //Test scalar size deduction
+    {
+      typedef CPSsquareMatrix<double, 5> M1_t;
+      M1_t M1;
+      size_t NN_M1 = M1.nScalarType();
+      assert(NN_M1 = 25);
 
-    typedef CPSsquareMatrix<CPSsquareMatrix<double,2>, 3> M2_t;
-    M2_t M2;
-    size_t NN_M2 = M2.nScalarType();
-    assert(NN_M2 = 9*4);
-  }
+      typedef CPSsquareMatrix<CPSsquareMatrix<double,2>, 3> M2_t;
+      M2_t M2;
+      size_t NN_M2 = M2.nScalarType();
+      assert(NN_M2 = 9*4);
+    }
 #ifdef USE_GRID
-  //Test Grid reduction of matrix
-  {
-    typedef CPSsquareMatrix<Grid::vComplexD,2> m_t;
-    m_t m;
-    m.unit();
-    constexpr size_t nsimd = Grid::vComplexD::Nsimd();
-    typedef CPSsquareMatrix<Grid::ComplexD,2> ms_t;
-    ms_t m_r = Reduce(m);
-    ms_t ms;
-    ms.unit();
-    ms *= nsimd;
+    //Test Grid reduction of matrix
+    {
+      typedef CPSsquareMatrix<Grid::vComplexD,2> m_t;
+      m_t m;
+      m.unit();
+      constexpr size_t nsimd = Grid::vComplexD::Nsimd();
+      typedef CPSsquareMatrix<Grid::ComplexD,2> ms_t;
+      ms_t m_r = Reduce(m);
+      ms_t ms;
+      ms.unit();
+      ms *= nsimd;
     
-    assert( ms == m_r );
-  }
+      assert( ms == m_r );
+    }
 #endif
-
+  }
   std::cout << "Passed CPSsquareMatrix tests" << std::endl;
 }
 
@@ -1348,6 +1363,63 @@ struct _timesV{
   }
 };
 
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+struct _addV{
+  typedef VectorMatrixType OutputType;
+  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane) const{ 
+    add(out, a, b, lane);
+  }
+};
+
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+struct _subV{
+  typedef VectorMatrixType OutputType;
+  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane) const{ 
+    sub(out, a, b, lane);
+  }
+};
+
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+struct _unitV{
+  accelerator_inline void operator()(VectorMatrixType &out, const int lane) const{ 
+    unit(out, lane);
+  }
+};
+
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+struct _timesIV{
+  typedef VectorMatrixType OutputType;
+  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &in, const int lane) const{ 
+    timesI(out, in, lane);
+  }
+};
+
+
+template<int Index, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+struct _trIndexV{
+  typedef typename _PartialTraceFindReducedType<VectorMatrixType,Index>::type OutputType;
+  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &in, const int lane) const{ 
+    TraceIndex<Index>(out, in, lane);
+  }
+};
+
+template<int Index1, int Index2, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+struct _trTwoIndicesV{
+  typedef typename _PartialDoubleTraceFindReducedType<VectorMatrixType,Index1,Index2>::type OutputType;
+  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &in, const int lane) const{ 
+    TraceTwoIndices<Index1,Index2>(out, in, lane);
+  }
+};
+
+template<int Index, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+struct _transIdx{
+  typedef VectorMatrixType OutputType;
+  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &in, const int lane) const{ 
+    TransposeOnIndex<Index>(out, in, lane);
+  }
+};
+
+
 
 
 template<typename GridA2Apolicies>
@@ -1502,7 +1574,142 @@ void testCPSmatrixField(const double tol){
     }
     }
   }
-  if(fail) ERR.General("","","CPSmatrixField operator* failed\n");
+  if(fail) ERR.General("","","CPSmatrixField binop_v operator* failed\n");
+
+
+
+  //Test binop_v using operator+
+  c = binop_v(a,b, _addV<VectorMatrixType>());
+  
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    auto bb=*b.site_ptr(x4d);
+    auto cc = aa + bb;
+    for(int s1=0;s1<4;s1++){
+    for(int c1=0;c1<3;c1++){
+    for(int f1=0;f1<2;f1++){
+    for(int s2=0;s2<4;s2++){
+    for(int c2=0;c2<3;c2++){
+    for(int f2=0;f2<2;f2++){
+      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+      auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: binop_v (operator+) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
+    }
+    }
+    }
+    }
+    }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField binop_v operator+ failed\n");
+
+
+
+  //Test binop_v using operator-
+  c = binop_v(a,b, _subV<VectorMatrixType>());
+  
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    auto bb=*b.site_ptr(x4d);
+    auto cc = aa - bb;
+    for(int s1=0;s1<4;s1++){
+    for(int c1=0;c1<3;c1++){
+    for(int f1=0;f1<2;f1++){
+    for(int s2=0;s2<4;s2++){
+    for(int c2=0;c2<3;c2++){
+    for(int f2=0;f2<2;f2++){
+      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+      auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: binop_v (operator-) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
+    }
+    }
+    }
+    }
+    }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField binop_v operator- failed\n");
+
+
+
+  //Test unop_self_v using unit
+  unop_self_v(c, _unitV<VectorMatrixType>());
+  
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    VectorMatrixType v;
+    v.unit();
+    for(int s1=0;s1<4;s1++){
+    for(int c1=0;c1<3;c1++){
+    for(int f1=0;f1<2;f1++){
+    for(int s2=0;s2<4;s2++){
+    for(int c2=0;c2<3;c2++){
+    for(int f2=0;f2<2;f2++){
+      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+      auto expect = Reduce( v(s1,s2)(c1,c2)(f1,f2) );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: unop_self_v (unit) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
+    }
+    }
+    }
+    }
+    }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField unop_self_v unit failed\n");
+
+
+
+  //Test unop_v using timesI
+  c = unop_v(a, _timesIV<VectorMatrixType>());
+  
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    aa.timesI();
+
+    for(int s1=0;s1<4;s1++){
+    for(int c1=0;c1<3;c1++){
+    for(int f1=0;f1<2;f1++){
+    for(int s2=0;s2<4;s2++){
+    for(int c2=0;c2<3;c2++){
+    for(int f2=0;f2<2;f2++){
+      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+      auto expect = Reduce( aa(s1,s2)(c1,c2)(f1,f2) );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: unop_v (timesI) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
+    }
+    }
+    }
+    }
+    }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField unop_v timesI failed\n");
 
 
   //Test Trace
@@ -1565,6 +1772,50 @@ void testCPSmatrixField(const double tol){
     } 
   }
   if(fail) ERR.General("","","CPSmatrixField Unop_v (Trace) failed\n");
+
+
+  //Test partial trace using unop_v
+  auto a_tridx1 = unop_v(a, _trIndexV<1,VectorMatrixType>());
+
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    auto aat = aa.template TraceIndex<1>();
+    for(size_t i=0;i<aat.nScalarType();i++){
+      auto got = Reduce( a_tridx1.site_ptr(x4d)->scalarTypePtr()[i] );
+      auto expect = Reduce( aat.scalarTypePtr()[i] );
+
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: Unop_v (TraceIdx<1>) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      } 
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField Unop_v (TraceIdx<1>) failed\n");
+
+
+  //Test partial double trace using unop_v
+  auto a_tridx0_2 = unop_v(a, _trTwoIndicesV<0,2,VectorMatrixType>());
+
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    auto aat = aa.template TraceTwoIndices<0,2>();
+    for(size_t i=0;i<aat.nScalarType();i++){
+      auto got = Reduce( a_tridx0_2.site_ptr(x4d)->scalarTypePtr()[i] );
+      auto expect = Reduce( aat.scalarTypePtr()[i] );
+
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: Unop_v (TraceTwoIndices<0,2>) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      } 
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField Unop_v (TraceTwoIndices<0,2>) failed\n");
 
 
 
@@ -1634,6 +1885,36 @@ void testCPSmatrixField(const double tol){
     }
   }
   if(fail) ERR.General("","","CPSmatrixField TransposeOnIndex failed\n");
+
+
+
+  //Test unop_v TransposeOnIndex
+  f = unop_v(e, _transIdx<1,typename Matrix2Field::FieldSiteType>());
+
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto ee=*e.site_ptr(x4d);
+    auto eet = ee.template TransposeOnIndex<1>();
+    for(int s1=0;s1<2;s1++){
+    for(int c1=0;c1<2;c1++){
+    for(int s2=0;s2<2;s2++){
+    for(int c2=0;c2<2;c2++){
+      auto got = Reduce( (*f.site_ptr(x4d))(s1,s2)(c1,c2) );
+      auto expect = Reduce( eet(s1,s2)(c1,c2) );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: unop_v TranposeOnIndex (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
+    }
+    }
+    }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField unop_v TransposeOnIndex failed\n");
+
 
 
   

@@ -79,6 +79,22 @@ struct SIMT< CPSflavorMatrix<Z> >: public SIMT_VectorMatrix< CPSflavorMatrix<Z> 
 //matrix operations that act only for a specific SIMD lane
 
 
+///////////////////////////// ASSIGMENT ////////////////////////////////////
+
+template<typename U> 
+accelerator_inline typename my_enable_if<is_grid_vector_complex<U>::value, void>::type equals(U &out, const U &a, const int lane){
+  SIMT<U>::write(out,  
+		 SIMT<U>::read(a,lane), 
+		 lane);
+}
+
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type equals(U &out, const U &a, const int lane){
+  for(int i=0;i<U::Size;i++)
+    for(int k=0;k<U::Size;k++)
+      equals(out(i,k),  a(i,k), lane);
+}
+
 ///////////////////////////// TRACE ////////////////////////////////////////////////
 
 template<typename scalar_type, typename T, typename TypeClass>
@@ -146,11 +162,268 @@ accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::typ
 }
 
 
+//////////////////////////////////// ADD/SUBTRACT ///////////////////////////////////////////////////
+
+template<typename U> 
+accelerator_inline typename my_enable_if<is_grid_vector_complex<U>::value, void>::type add(U &out, const U &a, const U &b, const int lane){
+  SIMT<U>::write(out,  
+		 SIMT<U>::read(a,lane) + SIMT<U>::read(b,lane), 
+		 lane);
+}
+
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type add(U &out, const U &a, const U &b, const int lane){
+  for(int i=0;i<U::Size;i++)
+    for(int k=0;k<U::Size;k++)
+      add(out(i,k),  a(i,k), b(i,k), lane);
+}
+
+template<typename U> 
+accelerator_inline typename my_enable_if<is_grid_vector_complex<U>::value, void>::type sub(U &out, const U &a, const U &b, const int lane){
+  SIMT<U>::write(out,  
+		 SIMT<U>::read(a,lane) - SIMT<U>::read(b,lane), 
+		 lane);
+}
+
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type sub(U &out, const U &a, const U &b, const int lane){
+  for(int i=0;i<U::Size;i++)
+    for(int k=0;k<U::Size;k++)
+      sub(out(i,k),  a(i,k), b(i,k), lane);
+}
+
+
+template<typename U> 
+accelerator_inline typename my_enable_if<is_grid_vector_complex<U>::value, void>::type plus_equals(U &out, const U &a, const int lane){
+  SIMT<U>::write(out,  
+		 SIMT<U>::read(out,lane) + SIMT<U>::read(a,lane), 
+		 lane);
+}
+
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type plus_equals(U &out, const U &a, const int lane){
+  for(int i=0;i<U::Size;i++)
+    for(int k=0;k<U::Size;k++)
+      plus_equals(out(i,k),  a(i,k), lane);
+}
+
+
+//////////////////////////////// ZERO / UNIT MATRIX ////////////////////////////////////////////////
+
+template<typename T, typename TypeClass>
+struct _CPSsetZeroOneSIMT{};
+
+template<typename T>
+struct _CPSsetZeroOneSIMT<T,no_mark>{
+  accelerator_inline static void setone(T &what, int lane){
+    SIMT<T>::write(what, typename T::scalar_type(1.), lane);
+  }
+  accelerator_inline static void setzero(T &what, int lane){
+    SIMT<T>::write(what, typename T::scalar_type(0.), lane);
+  }
+};
+template<typename T>
+struct _CPSsetZeroOneSIMT<T, cps_square_matrix_mark>{
+  accelerator_inline static void setone(T &what, int lane){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	i == j ? 
+	  _CPSsetZeroOneSIMT<typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::setone(what(i,j),lane) :
+	  _CPSsetZeroOneSIMT<typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::setzero(what(i,j),lane);
+  }
+  accelerator_inline static void setzero(T &what, int lane){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_CPSsetZeroOneSIMT<typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::setzero(what(i,j),lane);
+  }
+};
+
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type unit(U &out, const int lane){
+  _CPSsetZeroOneSIMT<U, cps_square_matrix_mark>::setone(out, lane);
+}
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type zeroit(U &out, const int lane){
+  _CPSsetZeroOneSIMT<U, cps_square_matrix_mark>::setzero(out, lane);
+}
+
+////////////////////// MULTIPLY BY -1, I, -I
+
+template<typename T, typename Tclass>
+struct _timespmI_SIMT{};
+
+
+template<typename T>
+struct _timespmI_SIMT<T, no_mark>{
+  accelerator_inline static void timesMinusOne(T &out, const T &in, int lane){
+    SIMT<T>::write(out, -SIMT<T>::read(in, lane), lane);
+  }  
+  accelerator_inline static void timesI(T &out, const T &in, int lane){
+    auto v = SIMT<T>::read(in, lane);
+    v = cps::timesI(v);
+    SIMT<T>::write(out, v, lane);
+  }
+  accelerator_inline static void timesMinusI(T &out, const T &in, int lane){
+    auto v = SIMT<T>::read(in, lane);
+    v = cps::timesMinusI(v);
+    SIMT<T>::write(out, v, lane);
+  }
+};
+template<typename T>
+struct _timespmI_SIMT<T,cps_square_matrix_mark>{
+  accelerator_inline static void timesMinusOne(T &out, const T &in, int lane){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_timespmI_SIMT<typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::timesMinusOne(out(i,j), in(i,j), lane);
+  }    
+  accelerator_inline static void timesI(T &out, const T &in, int lane){    
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_timespmI_SIMT<typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::timesI(out(i,j), in(i,j), lane);
+  }
+  accelerator_inline static void timesMinusI(T &out, const T &in, int lane){    
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_timespmI_SIMT<typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::timesMinusI(out(i,j), in(i,j), lane);
+  }
+};
+
+
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type timesI(U &out, const U &in, const int lane){
+  _timespmI_SIMT<U, cps_square_matrix_mark>::timesI(out, in, lane);
+}
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type timesMinusI(U &out, const U &in, const int lane){
+  _timespmI_SIMT<U, cps_square_matrix_mark>::timesMinusI(out, in, lane);
+}
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type timesMinusOne(U &out, const U &in, const int lane){
+  _timespmI_SIMT<U, cps_square_matrix_mark>::timesMinusOne(out, in, lane);
+}
 
 
 
+////////////////////// PARTIAL TRACE ////////////////////////////////////////////////
+
+template<typename U,typename T, int RemoveDepth>
+struct _PartialTraceImplSIMT{
+  accelerator_inline static void doit(U &into, const T&from, int lane){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_PartialTraceImplSIMT<typename U::value_type, typename T::value_type, RemoveDepth-1>::doit(into(i,j), from(i,j), lane);
+  }
+};
+template<typename U, typename T>
+struct _PartialTraceImplSIMT<U,T,0>{
+  accelerator_inline static void doit(U &into, const T&from, int lane){    
+    equals(into, from(0,0), lane);
+    for(int i=1;i<T::Size;i++)
+      plus_equals(into, from(i,i), lane);
+  }
+};
 
 
+template<int RemoveDepth, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+accelerator_inline void TraceIndex(typename _PartialTraceFindReducedType<VectorMatrixType, RemoveDepth>::type &into,
+				   const VectorMatrixType &from, int lane){
+  _PartialTraceImplSIMT<typename _PartialTraceFindReducedType<VectorMatrixType, RemoveDepth>::type,
+			VectorMatrixType, RemoveDepth>::doit(into, from, lane);
+}
+
+
+///////////////////////////////////// PARTIAL DOUBLE TRACE /////////////////////////////////////////////
+template<typename U,typename T, int RemoveDepth>
+struct _PartialDoubleTraceImplSIMT_2{
+  accelerator_inline static void doit(U &into, const T&from, int lane){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_PartialDoubleTraceImplSIMT_2<typename U::value_type, typename T::value_type, RemoveDepth-1>::doit(into(i,j), from(i,j), lane);
+  }
+};
+template<typename U, typename T>
+struct _PartialDoubleTraceImplSIMT_2<U,T,0>{
+  accelerator_inline static void doit(U &into, const T&from, int lane){    
+    for(int i=0;i<T::Size;i++)
+      plus_equals(into, from(i,i), lane);
+  }
+};
+
+
+template<typename U,typename T, int RemoveDepth1,int RemoveDepth2>
+struct _PartialDoubleTraceImplSIMT{
+  accelerator_inline static void doit(U &into, const T&from, int lane){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_PartialDoubleTraceImplSIMT<typename U::value_type, typename T::value_type, RemoveDepth1-1,RemoveDepth2-1>::doit(into(i,j), from(i,j), lane);
+  }
+};
+template<typename U, typename T, int RemoveDepth2>
+struct _PartialDoubleTraceImplSIMT<U,T,0,RemoveDepth2>{
+  accelerator_inline static void doit(U &into, const T&from, int lane){
+    _PartialTraceImplSIMT<U,typename T::value_type, RemoveDepth2-1>::doit(into, from(0,0), lane); //into = tr<Depth>( from(0,0) )
+    for(int i=1;i<T::Size;i++)
+      _PartialDoubleTraceImplSIMT_2<U,typename T::value_type, RemoveDepth2-1>::doit(into, from(i,i), lane); //into += tr<Depth>( from(i,i) )
+  }
+};
+
+template<int RemoveDepth1, int RemoveDepth2, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+accelerator_inline void TraceTwoIndices(typename _PartialDoubleTraceFindReducedType<VectorMatrixType,RemoveDepth1,RemoveDepth2>::type &into,
+					const VectorMatrixType &from, int lane){
+  _PartialDoubleTraceImplSIMT<typename _PartialDoubleTraceFindReducedType<VectorMatrixType,RemoveDepth1,RemoveDepth2>::type,
+			      VectorMatrixType, RemoveDepth1, RemoveDepth2>::doit(into, from, lane);
+}
+
+
+//////////////////////////////////////// FULL TRANSPOSE ///////////////////////
+
+template<typename T, typename TypeClass>
+struct _RecursiveTransposeImplSIMT{};
+
+template<typename T>
+struct _RecursiveTransposeImplSIMT<T, cps_square_matrix_mark>{
+  accelerator_inline static void doit(T &into, const T &what, int lane){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_RecursiveTransposeImplSIMT<typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::doit(into(i,j), what(j,i),lane);
+  } 
+};
+template<typename scalar_type>
+struct _RecursiveTransposeImplSIMT<scalar_type, no_mark>{
+  accelerator_inline static void doit(scalar_type &into, const scalar_type &what, int lane){
+    SIMT<scalar_type>::write(into, SIMT<scalar_type>::read(what,lane), lane);
+  }
+};
+
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+accelerator_inline void Transpose(VectorMatrixType &into, const VectorMatrixType &from, int lane){
+  _RecursiveTransposeImplSIMT<VectorMatrixType, cps_square_matrix_mark>::doit(into, from, lane);
+}
+
+////////////////////////// TRANSPOSE ON SINGLE INDEX ////////////////////
+
+//Transpose the matrix at depth TransposeDepth
+template<typename T, int TransposeDepth>
+struct _IndexTransposeImplSIMT{
+  accelerator_inline static void doit(T &into, const T&from, int lane){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_IndexTransposeImplSIMT<typename T::value_type, TransposeDepth-1>::doit(into(i,j), from(i,j), lane);
+  }
+};
+template<typename T>
+struct _IndexTransposeImplSIMT<T,0>{
+  accelerator_inline static void doit(T &into, const T&from, int lane){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	equals(into(i,j), from(j,i), lane);
+  }
+};
+
+template<int TransposeDepth, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+accelerator_inline void TransposeOnIndex(VectorMatrixType &out, const VectorMatrixType &in, int lane){
+  _IndexTransposeImplSIMT<VectorMatrixType, TransposeDepth>::doit(out,in,lane);
+}
 
 
 CPS_END_NAMESPACE
