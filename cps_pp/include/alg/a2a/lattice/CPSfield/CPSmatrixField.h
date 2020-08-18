@@ -546,6 +546,7 @@ auto unop_v(const CPSmatrixField<T> &in, const Functor &l)-> CPSmatrixField<type
   copyControl::shallow() = true;
   accelerator_for(x4d, in.size(), nsimd,
 		    {
+		      int lane = Grid::acceleratorSIMTlane(nsimd);
 		      l(*out.site_ptr(x4d), *in.site_ptr(x4d), lane);
 		    }
 		    );
@@ -561,6 +562,7 @@ auto binop_v(const CPSmatrixField<T> &a, const CPSmatrixField<T> &b, const Funct
   copyControl::shallow() = true;
   accelerator_for(x4d, a.size(), nsimd,
 		    {
+		      int lane = Grid::acceleratorSIMTlane(nsimd);
 		      l(*out.site_ptr(x4d), *a.site_ptr(x4d), *b.site_ptr(x4d), lane);
 		    }
 		    );
@@ -576,6 +578,7 @@ CPSmatrixField<T> & unop_self_v(CPSmatrixField<T> &m, const Functor &l){
   copyControl::shallow() = true;
   accelerator_for(x4d, m.size(), nsimd,
 		    {
+		      int lane = Grid::acceleratorSIMTlane(nsimd);
 		      l(*m.site_ptr(x4d), lane);
 		    }
 		    );
