@@ -1344,82 +1344,24 @@ struct _times{
   accelerator_inline auto operator()(const MatrixType &a, const MatrixType &b) const ->decltype(a * b){ return a * b; }  
 };
 
-
-
-
 template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
-struct _trV{
-  typedef typename VectorMatrixType::scalar_type OutputType;
-  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &in, const int lane) const{ 
-    Trace(out, in, lane);
-  }
-};
-
-template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
-struct _timesV{
-  typedef VectorMatrixType OutputType;
-  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane) const{ 
-    mult(out, a, b, lane);
-  }
-};
-
-template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
-struct _addV{
-  typedef VectorMatrixType OutputType;
-  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane) const{ 
-    add(out, a, b, lane);
-  }
-};
-
-template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
-struct _subV{
-  typedef VectorMatrixType OutputType;
-  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane) const{ 
-    sub(out, a, b, lane);
-  }
-};
-
-template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
-struct _unitV{
-  accelerator_inline void operator()(VectorMatrixType &out, const int lane) const{ 
-    unit(out, lane);
-  }
-};
-
-template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
-struct _timesIV{
+struct _timesIV_unop{
   typedef VectorMatrixType OutputType;
   accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &in, const int lane) const{ 
     timesI(out, in, lane);
   }
 };
 
-
-template<int Index, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
-struct _trIndexV{
-  typedef typename _PartialTraceFindReducedType<VectorMatrixType,Index>::type OutputType;
-  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &in, const int lane) const{ 
-    TraceIndex<Index>(out, in, lane);
+template<typename VectorMatrixType>
+struct _trtrV{
+  typedef typename VectorMatrixType::scalar_type OutputType;
+  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &a, const const VectorMatrixType &b, const int lane) const{ 
+    typename VectorMatrixType::scalar_type tmp, tmp2; //each thread will have one of these but will only write to a single thread    
+    Trace(tmp, a, lane);
+    Trace(tmp2, b, lane);
+    mult(out, tmp, tmp2, lane);
   }
 };
-
-template<int Index1, int Index2, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
-struct _trTwoIndicesV{
-  typedef typename _PartialDoubleTraceFindReducedType<VectorMatrixType,Index1,Index2>::type OutputType;
-  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &in, const int lane) const{ 
-    TraceTwoIndices<Index1,Index2>(out, in, lane);
-  }
-};
-
-template<int Index, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
-struct _transIdx{
-  typedef VectorMatrixType OutputType;
-  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &in, const int lane) const{ 
-    TransposeOnIndex<Index>(out, in, lane);
-  }
-};
-
-
 
 
 template<typename GridA2Apolicies>
@@ -1578,6 +1520,31 @@ void testCPSmatrixField(const double tol){
 
 
 
+
+  //Test trace * trace using binop_v
+  auto trtr = binop_v(a,b, _trtrV<VectorMatrixType>());
+  
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    auto bb=*b.site_ptr(x4d);
+    auto cc = aa.Trace()*bb.Trace();
+    auto got = Reduce( *trtr.site_ptr(x4d) );
+    auto expect = Reduce( cc );
+      
+    double rdiff = fabs(got.real()-expect.real());
+    double idiff = fabs(got.imag()-expect.imag());
+    if(rdiff > tol|| idiff > tol){
+      printf("Fail: trace*trace binop_v (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+      fail = true;
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField trace*trace binop_v failed\n");
+
+
+
+
+
   //Test binop_v using operator+
   c = binop_v(a,b, _addV<VectorMatrixType>());
   
@@ -1680,7 +1647,7 @@ void testCPSmatrixField(const double tol){
 
 
   //Test unop_v using timesI
-  c = unop_v(a, _timesIV<VectorMatrixType>());
+  c = unop_v(a, _timesIV_unop<VectorMatrixType>());
   
   fail = false;
   for(size_t x4d=0; x4d< a.size(); x4d++){

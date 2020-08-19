@@ -4145,21 +4145,16 @@ struct _trtr{
 };
 
 template<typename VectorMatrixType>
-struct _trV{
+struct _trtrV{
   typedef typename VectorMatrixType::scalar_type OutputType;
-  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &in, const int lane) const{ 
-    Trace(out, in, lane);
+  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &a, const const VectorMatrixType &b, const int lane) const{ 
+    typename VectorMatrixType::scalar_type tmp, tmp2; //each thread will have one of these but will only write to a single thread    
+    Trace(tmp, a, lane);
+    Trace(tmp2, b, lane);
+    mult(out, tmp, tmp2, lane);
   }
 };
 
-
-template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
-struct _timesV{
-  typedef VectorMatrixType OutputType;
-  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane) const{ 
-    mult(out, a, b, lane);
-  }
-};
 
 
 template<typename GridA2Apolicies>
@@ -4186,7 +4181,7 @@ void benchmarkCPSmatrixField(const int ntests){
 
   typename std::decay<decltype(Trace(m1))>::type tr_m1(simd_dims);
   
-  if(0){
+  if(1){
     //Trace
     Float total_time_trace = -dclock();
     for(int iter=0;iter<ntests;iter++){
@@ -4201,7 +4196,7 @@ void benchmarkCPSmatrixField(const int ntests){
     printf("Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
   }
 
-  if(0){
+  if(1){
     //unop Trace
     Float total_time_trace = -dclock();
     for(int iter=0;iter<ntests;iter++){
@@ -4217,7 +4212,7 @@ void benchmarkCPSmatrixField(const int ntests){
   }
 
 
-  if(0){
+  if(1){
     //unopV Trace
     Float total_time_trace = -dclock();
     for(int iter=0;iter<ntests;iter++){
@@ -4233,7 +4228,7 @@ void benchmarkCPSmatrixField(const int ntests){
   }
 
 
-  if(0){
+  if(1){
     //Trace * trace
     Float total_time = -dclock();
     for(int iter=0;iter<ntests;iter++){
@@ -4251,7 +4246,7 @@ void benchmarkCPSmatrixField(const int ntests){
     printf("Trace(SCFmatrixField)*Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
   }
 
-  if(0){
+  if(1){
     //binop(Trace * trace)
     Float total_time = -dclock();
     for(int iter=0;iter<ntests;iter++){
@@ -4267,6 +4262,24 @@ void benchmarkCPSmatrixField(const int ntests){
     double Mflops = double(Flops)/tavg/1024./1024.;
     
     printf("Binop Trace(SCFmatrixField)*Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
+  }
+
+  if(1){
+    //binop_v(Trace * trace)
+    Float total_time = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      tr_m1 = binop_v(m1,m2, _trtrV<typename SCFmatrixField::FieldSiteType>());
+    }
+    total_time += dclock();
+    
+    double tr_Flops = m1.size() * 24 * 2 * nsimd; //sum of diagonal elements per site, each sum re/im with SIMD vectorization
+    double mul_flops = m1.size() * nsimd * 6; //complex mult
+
+    double Flops = 2*tr_Flops + mul_flops;
+    double tavg = total_time/ntests;
+    double Mflops = double(Flops)/tavg/1024./1024.;
+    
+    printf("Binop_v Trace(SCFmatrixField)*Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
   }
 
   if(1){

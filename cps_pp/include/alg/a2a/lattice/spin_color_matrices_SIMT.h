@@ -238,6 +238,7 @@ struct _CPSsetZeroOneSIMT<T, cps_square_matrix_mark>{
   }
 };
 
+//Note these are self-ops
 template<typename U> 
 accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type unit(U &out, const int lane){
   _CPSsetZeroOneSIMT<U, cps_square_matrix_mark>::setone(out, lane);
