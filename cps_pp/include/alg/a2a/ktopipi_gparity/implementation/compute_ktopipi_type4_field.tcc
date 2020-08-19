@@ -1,6 +1,21 @@
 #ifndef _COMPUTE_KTOPIPI_TYPE4_FIELD_H
 #define _COMPUTE_KTOPIPI_TYPE4_FIELD_H
 
+#define TIMER_ELEMS \
+  ELEM(part1) \
+  ELEM(part2) \
+  ELEM(total_contraction_time) \
+  ELEM(contraction_time_geninputs_multgamma) \
+  ELEM(contraction_time_geninputs_other) \
+  ELEM(contraction_time_opcon) \
+  ELEM(finish_up)\
+  ELEM(total)
+#define TIMER Type4FieldTimings
+#include "static_timer_impl.tcc"
+
+
+
+
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &result, const int t_K, 
 							const SCFmatrixField &part1, const SCFmatrixField &part2_L, const SCFmatrixField &part2_H){
@@ -10,25 +25,35 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &re
 
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
+      Type4FieldTimings::timer().contraction_time_geninputs_multgamma -= dclock();
+
       auto G1_pt1 = part1;
       multGammaLeft(G1_pt1,1,gcombidx,mu);
-
-      auto tr_sf_G1_pt1 = SpinFlavorTrace(G1_pt1);
 
       auto G2_pt2_L = part2_L;
       multGammaLeft(G2_pt2_L,2,gcombidx,mu);
 
-      auto tr_sf_G2_pt2_L = SpinFlavorTrace(G2_pt2_L);
-
       auto G2_pt2_H = part2_H;
       multGammaLeft(G2_pt2_H,2,gcombidx,mu);
+
+      Type4FieldTimings::timer().contraction_time_geninputs_multgamma += dclock();
+
+      Type4FieldTimings::timer().contraction_time_geninputs_other -= dclock();
+
+      auto tr_sf_G1_pt1 = SpinFlavorTrace(G1_pt1);
+
+      auto tr_sf_G2_pt2_L = SpinFlavorTrace(G2_pt2_L);
 
       auto tr_sf_G2_pt2_H = SpinFlavorTrace(G2_pt2_H);
 	    
       auto ctrans_G2_pt2_L = TransposeColor(G2_pt2_L);  //speedup by transposing part 1
 	
       auto tr_c_G1_pt1 = ColorTrace(G1_pt1);
-	
+
+      Type4FieldTimings::timer().contraction_time_geninputs_other += dclock();
+
+      Type4FieldTimings::timer().contraction_time_opcon -= dclock();
+      
       //First 6 have a light-quark loop
       add(23, result, t_K, gcombidx, con_off, 
 	  Trace(G1_pt1) * Trace(G2_pt2_L)
@@ -65,6 +90,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &re
 	  Trace( tr_c_G1_pt1 , ColorTrace(G2_pt2_H) ) 
 	  );
 
+      Type4FieldTimings::timer().contraction_time_opcon += dclock();
+
 #undef C	     	    
     }
   }
@@ -80,8 +107,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_field_SIMD(ResultsContainerType &
 						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 						     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
   
-  Type4timings::timer().reset();
-  Type4timings::timer().total -= dclock();
+  Type4FieldTimings::timer().reset();
+  Type4FieldTimings::timer().total -= dclock();
   SCFmat mix4_Gamma[2];
   mix4_Gamma[0].unit().pr(F0).gr(-5);
   mix4_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
@@ -101,19 +128,23 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_field_SIMD(ResultsContainerType &
 
   //Construct part 2 (doesn't care about kaon timeslice):
   //vL(x_op) wL^dag(x_op)   or  vH(x_op) wH^dag(x_op)  (CK: should re-use these from type-3)
+  Type4FieldTimings::timer().part2 -= dclock();
   SCFmatrixField part2_L(field_params), part2_H(field_params);
   mult(part2_L, vL, wL, false, true);
   mult(part2_H, vH, wH, false, true);
+  Type4FieldTimings::timer().part2 += dclock();
    
   for(int t_K = 0; t_K < Lt; t_K += tstep){ //global times
 
     //Construct part 1:
     // = vL(x_op) [[ wL^dag(x_K) wH(x_K) ]] vH^dag(x_op) \gamma_5
+    Type4FieldTimings::timer().part1 -= dclock();
     SCFmatrixField part1(field_params);
     mult(part1, vL,mf_kaon[t_K],vH, false,true);
     gr(part1, -5);
+    Type4FieldTimings::timer().part1 += dclock();
     
-    Type4timings::timer().contraction_time -= dclock();
+    Type4FieldTimings::timer().total_contraction_time -= dclock();
     type4_contract(result,t_K,part1,part2_L,part2_H);
 
     //Compute mix4 diagram
@@ -125,16 +156,16 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_field_SIMD(ResultsContainerType &
 	  );
 #endif
     }
-    Type4timings::timer().contraction_time += dclock();
+    Type4FieldTimings::timer().total_contraction_time += dclock();
 
   }//t_K loop
 
-  Type4timings::timer().finish_up -= dclock();
+  Type4FieldTimings::timer().finish_up -= dclock();
   result.nodeSum();
   mix4.nodeSum();
-  Type4timings::timer().finish_up += dclock();
-  Type4timings::timer().total += dclock();  
-  Type4timings::timer().report();  
+  Type4FieldTimings::timer().finish_up += dclock();
+  Type4FieldTimings::timer().total += dclock();  
+  Type4FieldTimings::timer().report();  
 }
 
 

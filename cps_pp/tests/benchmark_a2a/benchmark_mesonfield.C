@@ -206,7 +206,8 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #ifdef USE_GRID
   if(0) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
-  if(1) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
+  if(0) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
+  if(1) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice);
 #endif
 }
 

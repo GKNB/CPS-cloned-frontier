@@ -1393,6 +1393,89 @@ void testKtoPiPiType3(const A2AArg &a2a_args,Lattice &lat){
 
 
 
+template<typename A2Apolicies, int isGparity>
+struct _benchmarkKtoPiPiType4offload{};
+
+template<typename A2Apolicies>
+struct _benchmarkKtoPiPiType4offload<A2Apolicies, 0>{
+  static void run(const A2AArg &a2a_args,Lattice &lat){}
+};
+template<typename A2Apolicies>
+struct _benchmarkKtoPiPiType4offload<A2Apolicies, 1>{
+  static void run(const A2AArg &a2a_args,Lattice &lat){
+    if(!UniqueID()){ printf("Timing K->pipi type 4 field version\n"); fflush(stdout); }
+    assert(GJP.Gparity());
+
+    typedef typename A2Apolicies::ComplexType mf_Complex;
+    typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
+    FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
+  
+    A2AvectorW<A2Apolicies> W(a2a_args,fp);
+    A2AvectorV<A2Apolicies> V(a2a_args,fp);
+    W.testRandom();
+    V.testRandom();
+
+    A2AvectorW<A2Apolicies> Wh(a2a_args,fp);
+    A2AvectorV<A2Apolicies> Vh(a2a_args,fp);
+    Wh.testRandom();
+    Vh.testRandom();
+
+
+    int p[3];
+    GparityBaseMomentum(p,+1);
+    ThreeMomentum pp(p);
+
+    GparityBaseMomentum(p,-1);
+    ThreeMomentum pm(p);
+
+    MesonFieldMomentumContainer<A2Apolicies> mf_pions;
+
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+    A2Aparams params(a2a_args);
+
+    typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_WV;
+    typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > mf_WW;
+  
+    mf_WV tmp_WV(Lt);
+    mf_WW tmp_WW(Lt);
+    for(int t=0;t<Lt;t++){
+      tmp_WV[t].setup(params,params,t,t);
+      tmp_WV[t].testRandom();
+
+      tmp_WW[t].setup(params,params,t,t);
+      tmp_WW[t].testRandom();
+    }
+    mf_pions.copyAdd(pp,tmp_WV);
+    mf_pions.copyAdd(pm,tmp_WV);
+
+    int pipi_sep = 2;
+    int tsep_k_pi = 6;
+    int tstep = 1;
+  
+    typedef typename ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
+    typedef typename ComputeKtoPiPiGparity<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+  
+    ResultsContainerType result;
+    MixDiagResultsContainerType mix;
+
+    ComputeKtoPiPiGparity<A2Apolicies>::type4_field(result, mix, 1, tmp_WW, V, Vh, W, Wh);
+    if(!UniqueID()){ printf("End of timing of K->pipi type 4 field version\n"); fflush(stdout); }
+  }
+};
+
+
+template<typename A2Apolicies>
+void benchmarkKtoPiPiType4offload(const A2AArg &a2a_args,Lattice &lat){
+  _benchmarkKtoPiPiType4offload<A2Apolicies, A2Apolicies::GPARITY>::run(a2a_args,lat);
+}
+
+
+
+
+
+
+
 //Test the compute-many storage that sums meson fields on the fly
 template<typename A2Apolicies>
 void testSumSource(const A2AArg &a2a_args,Lattice &lat){
