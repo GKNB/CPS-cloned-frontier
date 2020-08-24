@@ -4264,7 +4264,7 @@ void benchmarkCPSmatrixField(const int ntests){
 
   typename std::decay<decltype(Trace(m1))>::type tr_m1(simd_dims);
   
-  if(1){
+  if(0){
     //Trace
     Float total_time_trace = -dclock();
     for(int iter=0;iter<ntests;iter++){
@@ -4279,7 +4279,7 @@ void benchmarkCPSmatrixField(const int ntests){
     printf("Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
   }
 
-  if(1){
+  if(0){
     //unop Trace
     Float total_time_trace = -dclock();
     for(int iter=0;iter<ntests;iter++){
@@ -4295,7 +4295,7 @@ void benchmarkCPSmatrixField(const int ntests){
   }
 
 
-  if(1){
+  if(0){
     //unopV Trace
     Float total_time_trace = -dclock();
     for(int iter=0;iter<ntests;iter++){
@@ -4311,7 +4311,7 @@ void benchmarkCPSmatrixField(const int ntests){
   }
 
 
-  if(1){
+  if(0){
     //Trace * trace
     Float total_time = -dclock();
     for(int iter=0;iter<ntests;iter++){
@@ -4329,7 +4329,7 @@ void benchmarkCPSmatrixField(const int ntests){
     printf("Trace(SCFmatrixField)*Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
   }
 
-  if(1){
+  if(0){
     //binop(Trace * trace)
     Float total_time = -dclock();
     for(int iter=0;iter<ntests;iter++){
@@ -4347,7 +4347,7 @@ void benchmarkCPSmatrixField(const int ntests){
     printf("Binop Trace(SCFmatrixField)*Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
   }
 
-  if(1){
+  if(0){
     //binop_v(Trace * trace)
     Float total_time = -dclock();
     for(int iter=0;iter<ntests;iter++){
@@ -4365,7 +4365,7 @@ void benchmarkCPSmatrixField(const int ntests){
     printf("Binop_v Trace(SCFmatrixField)*Trace(SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
   }
 
-  if(1){
+  if(0){
     //operator* 
     SCFmatrixField m3(simd_dims);
 
@@ -4384,7 +4384,7 @@ void benchmarkCPSmatrixField(const int ntests){
     printf("SCFmatrixField*SCFmatrixField %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
   }
 
-  if(1){
+  if(0){
     //operator* binop_v
     SCFmatrixField m3(simd_dims);
 
@@ -4402,6 +4402,22 @@ void benchmarkCPSmatrixField(const int ntests){
     
     printf("Binop_v SCFmatrixField*SCFmatrixField %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
   }
+
+  if(1){
+    //gl
+    SCFmatrixField m3 = m1;
+
+    Float total_time = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      gl(m3, 0);
+    }
+    total_time += dclock();
+    double tavg = total_time/ntests;
+    
+    printf("gl(SCFmatrixField, 0) %d iters: %g secs\n",ntests,tavg);
+  }
+
+
 
 
 
