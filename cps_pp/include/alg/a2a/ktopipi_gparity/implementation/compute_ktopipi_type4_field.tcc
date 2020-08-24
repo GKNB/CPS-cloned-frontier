@@ -27,14 +27,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &re
     for(int gcombidx=0;gcombidx<8;gcombidx++){
       Type4FieldTimings::timer().contraction_time_geninputs_multgamma -= dclock();
 
-      auto G1_pt1 = part1;
-      multGammaLeft(G1_pt1,1,gcombidx,mu);
-
-      auto G2_pt2_L = part2_L;
-      multGammaLeft(G2_pt2_L,2,gcombidx,mu);
-
-      auto G2_pt2_H = part2_H;
-      multGammaLeft(G2_pt2_H,2,gcombidx,mu);
+      auto G1_pt1 = multGammaLeft(part1,1,gcombidx,mu);
+      auto G2_pt2_L = multGammaLeft(part2_L,2,gcombidx,mu);
+      auto G2_pt2_H = multGammaLeft(part2_H,2,gcombidx,mu);
 
       Type4FieldTimings::timer().contraction_time_geninputs_multgamma += dclock();
 

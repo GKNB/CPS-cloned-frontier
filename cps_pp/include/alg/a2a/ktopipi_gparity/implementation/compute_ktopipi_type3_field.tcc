@@ -10,18 +10,13 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(ResultsContainerType &re
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
       for(int pt1_pion=0; pt1_pion<2; pt1_pion++){  //which pion comes first in part 1?
-	auto G1_pt1 = part1[pt1_pion]; //= G1*part1[pt1_pion];
-	multGammaLeft(G1_pt1,1,gcombidx,mu);
+	auto G1_pt1 = multGammaLeft(part1[pt1_pion],1,gcombidx,mu);
+	auto G2_pt2_L = multGammaLeft(part2_L,2,gcombidx,mu);
+	auto G2_pt2_H = multGammaLeft(part2_H,2,gcombidx,mu);
 
 	auto tr_sf_G1_pt1 = SpinFlavorTrace(G1_pt1);
 
-	auto G2_pt2_L = part2_L;
-	multGammaLeft(G2_pt2_L,2,gcombidx,mu);
-
 	auto tr_sf_G2_pt2_L = SpinFlavorTrace(G2_pt2_L);
-
-	auto G2_pt2_H = part2_H;
-	multGammaLeft(G2_pt2_H,2,gcombidx,mu);
 
 	auto tr_sf_G2_pt2_H = SpinFlavorTrace(G2_pt2_H);
 

@@ -9,14 +9,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &re
   static const int con_off = 7; //index of first contraction in set
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
-      auto G1_pt1 = part1;
-      multGammaLeft(G1_pt1,1,gcombidx,mu);
+      auto G1_pt1 = multGammaLeft(part1,1,gcombidx,mu);
 
       auto tr_sf_G1_pt1 = SpinFlavorTrace(G1_pt1);
       
       for(int pt2_pion=0; pt2_pion<2; pt2_pion++){ //which pion comes first in part 2?
-	auto G2_pt2 = part2[pt2_pion]; 
-	multGammaLeft(G2_pt2,2,gcombidx,mu);
+	auto G2_pt2 = multGammaLeft(part2[pt2_pion],2,gcombidx,mu);
 
 	auto tr_sf_G2_pt2 = SpinFlavorTrace(G2_pt2);
 		

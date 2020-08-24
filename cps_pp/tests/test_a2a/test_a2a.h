@@ -1974,6 +1974,57 @@ void testCPSmatrixField(const double tol){
   if(fail) ERR.General("","","CPSmatrixField glAx failed\n");
 
 
+  //Test gl_r
+  for(int gg=0;gg<5;gg++){
+    int dir = gl_dirs[gg];
+
+    PropagatorField pla = gl_r(a, dir);
+
+    fail = false;
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a.site_ptr(x4d);
+      aa.gl(dir);
+      for(int i=0;i<aa.nScalarType();i++){
+	auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
+	auto expect = Reduce( aa.scalarTypePtr()[i] );
+	
+	double rdiff = fabs(got.real()-expect.real());
+	double idiff = fabs(got.imag()-expect.imag());
+	if(rdiff > tol|| idiff > tol){
+	  printf("Fail: gl_r[%d] (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",dir,got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	  fail = true;
+	}
+      }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField gl_r failed\n");
+
+
+  //Test glAx_r
+  for(int gg=0;gg<4;gg++){
+    int dir = glAx_dirs[gg];
+
+    PropagatorField pla = glAx_r(a, dir);
+
+    fail = false;
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a.site_ptr(x4d);
+      aa.glAx(dir);
+      for(int i=0;i<aa.nScalarType();i++){
+	auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
+	auto expect = Reduce( aa.scalarTypePtr()[i] );
+	
+	double rdiff = fabs(got.real()-expect.real());
+	double idiff = fabs(got.imag()-expect.imag());
+	if(rdiff > tol|| idiff > tol){
+	  printf("Fail: glAx_r[%d] (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",dir,got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	  fail = true;
+	}
+      }
+    }
+  }
+  if(fail) ERR.General("","","CPSmatrixField glAx_r failed\n");
+
   //Test pl
   FlavorMatrixType ftypes[7] = {F0, F1, Fud, sigma0, sigma1, sigma2, sigma3};
   for(int tt=0;tt<7;tt++){

@@ -433,6 +433,9 @@ accelerator_inline void TransposeOnIndex(VectorMatrixType &out, const VectorMatr
 #define TIMESPLUSI(a,b) { SIMT<ComplexType>::write(a, cps::timesI(b), lane); }
 #define TIMESMINUSI(a,b) { SIMT<ComplexType>::write(a, cps::timesMinusI(b), lane); }
 #define SETZERO(a){ SIMT<ComplexType>::write(a, typename SIMT<ComplexType>::value_type(0), lane); }
+#define WR(A,B) SIMT<ComplexType>::write(A,B,lane)
+#define RD(A) SIMT<ComplexType>::read(A,lane)
+
 
 template<typename ComplexType>
 struct gl_spinMatrixIterator{
@@ -548,6 +551,86 @@ accelerator_inline void gl(MatrixType &M, int dir, int lane){
   }
 }
 
+//Non self-op version 
+template<typename MatrixIterator, typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+accelerator_inline void gl_r(MatrixType &O, const MatrixType &M, int dir, int lane){
+  int s2, s1;
+  typedef typename MatrixType::scalar_type ComplexType;
+  MatrixIterator it;
+
+  switch(dir){
+  case 0:
+    while(!it.end()){
+      for(s2=0;s2<4;s2++){
+	TIMESPLUSI(  it.elem(O,0,s2), RD(it.elem(M,3,s2)) );
+	TIMESPLUSI(  it.elem(O,1,s2), RD(it.elem(M,2,s2)) );
+	TIMESMINUSI( it.elem(O,2,s2), RD(it.elem(M,1,s2)) );
+	TIMESMINUSI( it.elem(O,3,s2), RD(it.elem(M,0,s2)) );
+      }
+      ++it;
+    }
+    break;
+  case 1:
+    while(!it.end()){
+      for(s2=0;s2<4;s2++){
+	TIMESMINUSONE( it.elem(O,0,s2), RD(it.elem(M,3,s2)) );
+	TIMESPLUSONE(  it.elem(O,1,s2), RD(it.elem(M,2,s2)) );
+	TIMESPLUSONE(  it.elem(O,2,s2), RD(it.elem(M,1,s2)) );
+	TIMESMINUSONE( it.elem(O,3,s2), RD(it.elem(M,0,s2)) );
+      }
+      ++it;
+    }    
+    break;
+  case 2:
+    while(!it.end()){
+      for(s2=0;s2<4;s2++){
+	TIMESPLUSI(  it.elem(O,0,s2), RD(it.elem(M,2,s2)) );
+	TIMESMINUSI( it.elem(O,1,s2), RD(it.elem(M,3,s2)) );
+	TIMESMINUSI( it.elem(O,2,s2), RD(it.elem(M,0,s2)) );
+	TIMESPLUSI(  it.elem(O,3,s2), RD(it.elem(M,1,s2)) );
+      }
+      ++it;
+    }
+    break;
+  case 3:
+    while(!it.end()){
+      for(s2=0;s2<4;s2++){
+	TIMESPLUSONE( it.elem(O,0,s2), RD(it.elem(M,2,s2)) );
+	TIMESPLUSONE( it.elem(O,1,s2), RD(it.elem(M,3,s2)) );
+	TIMESPLUSONE( it.elem(O,2,s2), RD(it.elem(M,0,s2)) );
+	TIMESPLUSONE( it.elem(O,3,s2), RD(it.elem(M,1,s2)) );
+      }
+      ++it;
+    }
+    break;
+  case -5:
+    while(!it.end()){
+      for(s2=0;s2<4;s2++){
+	TIMESPLUSONE(  it.elem(O,0,s2), RD(it.elem(M,0,s2)) );
+	TIMESPLUSONE(  it.elem(O,1,s2), RD(it.elem(M,1,s2)) );
+	TIMESMINUSONE( it.elem(O,2,s2), RD(it.elem(M,2,s2)) );
+	TIMESMINUSONE( it.elem(O,3,s2), RD(it.elem(M,3,s2)) );
+      }
+      ++it;
+    }
+    break;
+  default:
+    assert(0);
+    break;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 //multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*fro
 template<typename MatrixIterator, typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
@@ -613,6 +696,65 @@ accelerator_inline void glAx(MatrixType &M, int dir, int lane){
 }
 
 
+//multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*fro   non self-op
+template<typename MatrixIterator, typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+accelerator_inline void glAx_r(MatrixType &O, const MatrixType &M, int dir, int lane){
+  int s2, s1;
+  typedef typename MatrixType::scalar_type ComplexType;
+  MatrixIterator it;
+
+  switch(dir){
+  case 0:
+    while(!it.end()){
+      for(s2=0;s2<4;s2++){
+	TIMESMINUSI( it.elem(O,0,s2), RD(it.elem(M,3,s2)) );
+	TIMESMINUSI( it.elem(O,1,s2), RD(it.elem(M,2,s2)) );
+	TIMESMINUSI( it.elem(O,2,s2), RD(it.elem(M,1,s2)) );
+	TIMESMINUSI( it.elem(O,3,s2), RD(it.elem(M,0,s2)) );
+      }
+      ++it;
+    }
+    break;
+  case 1:
+    while(!it.end()){
+      for(s2=0;s2<4;s2++){
+	TIMESPLUSONE(  it.elem(O,0,s2), RD(it.elem(M,3,s2)) );
+	TIMESMINUSONE( it.elem(O,1,s2), RD(it.elem(M,2,s2)) );
+	TIMESPLUSONE(  it.elem(O,2,s2), RD(it.elem(M,1,s2)) );
+	TIMESMINUSONE( it.elem(O,3,s2), RD(it.elem(M,0,s2)) );
+      }
+      ++it;
+    }
+    break;
+  case 2:
+    while(!it.end()){
+      for(s2=0;s2<4;s2++){
+	TIMESMINUSI( it.elem(O,0,s2), RD(it.elem(M,2,s2)) );
+	TIMESPLUSI( it.elem(O,1,s2), RD(it.elem(M,3,s2)) );
+	TIMESMINUSI( it.elem(O,2,s2), RD(it.elem(M,0,s2)) );
+	TIMESPLUSI( it.elem(O,3,s2), RD(it.elem(M,1,s2)) );
+      }
+      ++it;
+    }
+    break;
+  case 3:
+    while(!it.end()){
+      for(s2=0;s2<4;s2++){
+	TIMESMINUSONE( it.elem(O,0,s2), RD(it.elem(M,2,s2)) );
+	TIMESMINUSONE( it.elem(O,1,s2), RD(it.elem(M,3,s2)) );
+	TIMESPLUSONE( it.elem(O,2,s2), RD(it.elem(M,0,s2)) );
+	TIMESPLUSONE( it.elem(O,3,s2), RD(it.elem(M,1,s2)) );
+      }
+      ++it;
+    }
+    break;
+  default:
+    assert(0);
+    break;
+  }
+}
+
+
 
 
 //////////////////// FLAVOR MULT ///////////////////////////
@@ -662,9 +804,6 @@ accelerator_inline void pl(MatrixType &M, const FlavorMatrixType type, int lane)
   typedef typename MatrixType::scalar_type ComplexType;
   typename SIMT<ComplexType>::value_type tmp1, tmp2;
   MatrixIterator it;
-
-#define WR(A,B) SIMT<ComplexType>::write(A,B,lane)
-#define RD(A) SIMT<ComplexType>::read(A,lane)
 
   switch( type ){
   case F0:
@@ -731,13 +870,8 @@ accelerator_inline void pl(MatrixType &M, const FlavorMatrixType type, int lane)
 }
 
 
-
-
-
-
-
-
-
+#undef RD
+#undef WR
 #undef TIMESPLUSONE
 #undef TIMESMINUSONE
 #undef TIMESPLUSI
