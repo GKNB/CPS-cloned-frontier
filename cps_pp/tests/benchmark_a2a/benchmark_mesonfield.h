@@ -4417,7 +4417,23 @@ void benchmarkCPSmatrixField(const int ntests){
     printf("gl(SCFmatrixField, 0) %d iters: %g secs\n",ntests,tavg);
   }
 
-  if(1){
+
+  if(0){
+    //gl_r
+    SCFmatrixField m3 = gl_r(m1,0);
+
+    Float total_time = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      m3 = gl_r(m1, 0);
+    }
+    total_time += dclock();
+    double tavg = total_time/ntests;
+    
+    printf("gl_r(SCFmatrixField, 0) %d iters: %g secs\n",ntests,tavg);
+  }
+
+
+  if(0){
     //Trace(M1*M2)
     tr_m1 = Trace(m1,m2);
 
@@ -4433,6 +4449,26 @@ void benchmarkCPSmatrixField(const int ntests){
     double Mflops = double(Flops)/tavg/1024./1024.;
     
     printf("Trace(SCFmatrixField*SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
+  }
+
+
+  if(1){    
+    //Trace(M1*Ms)  where Ms is not a field
+    CPSspinColorFlavorMatrix<ComplexType> Ms = *m2.site_ptr(size_t(0));
+    tr_m1 = Trace(m1,Ms);
+
+    Float total_time = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      tr_m1 = Trace(m1,Ms);
+    }
+    total_time += dclock();
+    
+    //\sum_{ij} a_{ij}b_{ji}
+    double Flops = m1.size() * 24 * 24 * 8 * nsimd;
+    double tavg = total_time/ntests;
+    double Mflops = double(Flops)/tavg/1024./1024.;
+    
+    printf("Trace(SCFmatrixField*SCFmatrix) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
   }
 
 

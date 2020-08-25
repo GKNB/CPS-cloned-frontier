@@ -1726,6 +1726,31 @@ void testCPSmatrixField(const double tol){
 
 
 
+  //Test Trace-product of non-field
+  typedef CPSmatrixField<ComplexType> ComplexField;
+  VectorMatrixType bs = *b.site_ptr(size_t(0));
+  d = Trace(a,bs);
+
+  fail = false;
+  for(size_t x4d=0; x4d< a.size(); x4d++){
+    auto aa=*a.site_ptr(x4d);
+    auto bb=*b.site_ptr(x4d);
+    ComplexType aat = Trace(aa,bs);
+    auto got = Reduce( *d.site_ptr(x4d) );
+    auto expect = Reduce( aat );
+      
+    double rdiff = fabs(got.real()-expect.real());
+    double idiff = fabs(got.imag()-expect.imag());
+    if(rdiff > tol|| idiff > tol){
+      printf("Fail: Trace-product non-field (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+      fail = true;
+    } 
+  }
+  if(fail) ERR.General("","","CPSmatrixField Trace-product non-field failed\n");
+
+
+
+
   //Test unop via trace
   d = unop(a, _tr());
 

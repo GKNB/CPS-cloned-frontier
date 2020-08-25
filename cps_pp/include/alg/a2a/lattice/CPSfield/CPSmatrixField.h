@@ -809,12 +809,8 @@ CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixFiel
   copyControl::shallow() = true;
   accelerator_for(x4d, a.size(), nsimd,
   		  {
-  		    typedef SIMT<VectorMatrixType> ACCi;
-  		    typedef SIMT<typename VectorMatrixType::scalar_type> ACCo;
-  		    auto aa = ACCi::read(*a.site_ptr(x4d));
-  		    auto bb = ACCi::read(*bptr);		    
-		    auto cc = Trace(aa,bb);
-  		    ACCo::write(*out.site_ptr(x4d), cc );
+		    int lane = Grid::acceleratorSIMTlane(nsimd);
+		    Trace(*out.site_ptr(x4d), *a.site_ptr(x4d), *bptr, lane);
   		  }
   		  );
   copyControl::shallow()= false;
