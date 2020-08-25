@@ -350,6 +350,16 @@ struct _subV{
 };
 
 template<typename VectorMatrixType>
+struct _traceProdV{
+  typedef typename VectorMatrixType::scalar_type OutputType;
+  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane) const{ 
+    Trace(out, a, b, lane);
+  }
+};
+
+
+
+template<typename VectorMatrixType>
 inline CPSmatrixField<VectorMatrixType> operator*(const CPSmatrixField<VectorMatrixType> &a, const CPSmatrixField<VectorMatrixType> &b){
   return binop_v(a,b,_timesV<VectorMatrixType>());
 }
@@ -361,6 +371,14 @@ template<typename VectorMatrixType>
 inline CPSmatrixField<VectorMatrixType> operator-(const CPSmatrixField<VectorMatrixType> &a, const CPSmatrixField<VectorMatrixType> &b){
   return binop_v(a,b,_subV<VectorMatrixType>());
 }
+
+//Trace(a*b) = \sum_{ij} a_{ij}b_{ji}
+template<typename VectorMatrixType>
+inline CPSmatrixField<typename _traceProdV<VectorMatrixType>::OutputType> Trace(const CPSmatrixField<VectorMatrixType> &a, const CPSmatrixField<VectorMatrixType> &b){
+  return binop_v(a,b,_traceProdV<VectorMatrixType>());
+}
+
+
 
 
 /*
@@ -772,28 +790,6 @@ inline CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > & pr(CPSmatrixFiel
 //_MATRIX_FIELD_SELFOP_METHOD_ARG1(grAx, const int, dir);
 
 #undef _MATRIX_FIELD_SELFOP_METHOD_ARG1
-
-
-
-template<typename VectorMatrixType>			
-CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixField<VectorMatrixType> &a, const CPSmatrixField<VectorMatrixType> &b){
-  using namespace Grid;
-  CPSmatrixField<typename VectorMatrixType::scalar_type> out(a.getDimPolParams());
-  static const int nsimd = VectorMatrixType::scalar_type::Nsimd();
-  copyControl::shallow() = true;
-  accelerator_for(x4d, a.size(), nsimd,
-		  {
-		    typedef SIMT<VectorMatrixType> ACCi;
-		    typedef SIMT<typename VectorMatrixType::scalar_type> ACCo;
-		    auto aa = ACCi::read(*a.site_ptr(x4d));
-		    auto bb = ACCi::read(*b.site_ptr(x4d));
-		    auto cc = Trace(aa,bb);
-		    ACCo::write(*out.site_ptr(x4d), cc );
-		  }
-		  );
-  copyControl::shallow()= false;
-  return out;
-}
 
 template<typename VectorMatrixType>			
 CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixField<VectorMatrixType> &a, const VectorMatrixType &b){

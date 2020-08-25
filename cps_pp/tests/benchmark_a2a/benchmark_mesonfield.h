@@ -4403,7 +4403,7 @@ void benchmarkCPSmatrixField(const int ntests){
     printf("Binop_v SCFmatrixField*SCFmatrixField %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
   }
 
-  if(1){
+  if(0){
     //gl
     SCFmatrixField m3 = m1;
 
@@ -4417,6 +4417,23 @@ void benchmarkCPSmatrixField(const int ntests){
     printf("gl(SCFmatrixField, 0) %d iters: %g secs\n",ntests,tavg);
   }
 
+  if(1){
+    //Trace(M1*M2)
+    tr_m1 = Trace(m1,m2);
+
+    Float total_time = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      tr_m1 = Trace(m1,m2);
+    }
+    total_time += dclock();
+    
+    //\sum_{ij} a_{ij}b_{ji}
+    double Flops = m1.size() * 24 * 24 * 8 * nsimd;
+    double tavg = total_time/ntests;
+    double Mflops = double(Flops)/tavg/1024./1024.;
+    
+    printf("Trace(SCFmatrixField*SCFmatrixField) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
+  }
 
 
 

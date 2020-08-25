@@ -102,26 +102,46 @@ struct _LaneRecursiveTraceImpl{};
 
 template<typename scalar_type, typename T>
 struct _LaneRecursiveTraceImpl<scalar_type, T, cps_square_matrix_mark>{
-  accelerator_inline static void doit(scalar_type &into, const T &what, const int lane){
+  accelerator_inline static void trace(scalar_type &into, const T &what, const int lane){
     for(int i=0;i<T::Size;i++)
-      _LaneRecursiveTraceImpl<scalar_type, typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::doit(into,what(i,i),lane);    
+      _LaneRecursiveTraceImpl<scalar_type, typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::trace(into,what(i,i),lane);    
   } 
+  accelerator_inline static void trace_prod(scalar_type &into, const T &a, const T&b, const int lane){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_LaneRecursiveTraceImpl<scalar_type, typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::trace_prod(into, a(i,j), b(j,i),lane);
+  }
+
 };
 template<typename scalar_type>
 struct _LaneRecursiveTraceImpl<scalar_type, scalar_type, no_mark>{  
-  accelerator_inline static void doit(scalar_type &into, const scalar_type &what, const int lane){
+  accelerator_inline static void trace(scalar_type &into, const scalar_type &what, const int lane){
     typedef SIMT<scalar_type> ACC;
     ACC::write(into,
 	       ACC::read(into,lane) + ACC::read(what,lane),
 	       lane);
   }
+  accelerator_inline static void trace_prod(scalar_type &into, const scalar_type &a, const scalar_type &b, const int lane){
+    typedef SIMT<scalar_type> ACC;
+    ACC::write(into,
+	       ACC::read(into,lane) + ACC::read(a,lane)*ACC::read(b,lane),
+	       lane);
+  }
+
 };
 
 template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
 accelerator_inline void Trace(typename VectorMatrixType::scalar_type &out, const VectorMatrixType &in, const int lane){
   SIMT<typename VectorMatrixType::scalar_type>::write(out,0,lane);
-  _LaneRecursiveTraceImpl<typename VectorMatrixType::scalar_type, VectorMatrixType, cps_square_matrix_mark>::doit(out, in, lane);
+  _LaneRecursiveTraceImpl<typename VectorMatrixType::scalar_type, VectorMatrixType, cps_square_matrix_mark>::trace(out, in, lane);
 }
+
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+accelerator_inline void Trace(typename VectorMatrixType::scalar_type &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane){
+  SIMT<typename VectorMatrixType::scalar_type>::write(out,0,lane);
+  _LaneRecursiveTraceImpl<typename VectorMatrixType::scalar_type, VectorMatrixType, cps_square_matrix_mark>::trace_prod(out, a,b, lane);
+}
+
 
 //////////////////////////////////// MATRIX MULT ///////////////////////////////////////////////////
 
