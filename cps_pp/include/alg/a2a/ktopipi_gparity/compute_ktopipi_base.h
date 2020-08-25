@@ -306,7 +306,7 @@ public:
     static int g2[8] = {1,0,3,2,1,0,3,2};
 
     CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > tmp(M.getDimPolParams());
-
+ 
     int gg = whichGamma == 1 ? g1[i] : g2[i];
     switch(gg){
     case 0:
@@ -332,32 +332,39 @@ public:
     return tmp;
   }
 
-  template<typename MatrixType>
-  static void multGammaRight(MatrixType &M, const int whichGamma, const int i, const int mu){
+  template<typename ComplexType>
+  static CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > multGammaRight(const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &M, const int whichGamma, 
+									       const int i, const int mu){
     assert(whichGamma == 1 || whichGamma==2);
     static int g1[8] = {0,1,0,1,2,3,2,3};
     static int g2[8] = {1,0,3,2,1,0,3,2};
 
+    CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > tmp(M.getDimPolParams());
+
     int gg = whichGamma == 1 ? g1[i] : g2[i];
     switch(gg){
     case 0:
-      pr( gr(M,mu), F0 );
+      tmp = gr_r(M,mu);      
+      pr( tmp, F0 );
       break;
     case 1:
-      pr( grAx(M,mu), F0 );
+      tmp = grAx_r(M,mu);
+      pr( tmp, F0 );
       break;
     case 2:
-      timesMinusOne( pr( gr(M,mu), F1 ) );
+      tmp = gr_r(M,mu);
+      timesMinusOne( pr( tmp, F1 ) );
       break;
     case 3:
-      timesMinusOne( pr( grAx(M,mu), F1) );
+      tmp = grAx_r(M,mu);
+      timesMinusOne( pr( tmp, F1) );
       break;
     default:
       ERR.General("ComputeKtoPiPiGparityBase","multGammaRight","Invalid idx\n");
       break;
     }
+    return tmp;
   }
-
 
   
   //Perform the spatial reduction and add the result into the output container

@@ -10,15 +10,13 @@ void ComputeKtoSigma<mf_Policies>::type12_contract(ResultsContainerType &result,
   //D8   = Tr( ( [pt2] M2 )_ba ( [pt1] G5 M1 )_ba )
   //D11  = Tr( [pt1] G5 M1 )_ba Tr( [pt2] M2 )_ba
   //D19  = Tr(  Tr_c( [pt2] M2 ) Tr_c( [pt1] G5 M1 ) )  
-
+  
+  auto pt1_G5 = gr_r(part1, -5);
+  
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
-      auto pt1_G5_M1 = part1;       
-      gr(pt1_G5_M1, -5);
-      multGammaRight(pt1_G5_M1, 1, gcombidx,mu);
-
-      auto pt2_M2 = part2;
-      multGammaRight(pt2_M2, 2, gcombidx,mu);
+      auto pt1_G5_M1 = multGammaRight(pt1_G5, 1, gcombidx,mu);
+      auto pt2_M2 = multGammaRight(part2, 2, gcombidx,mu);
 
       auto ctrans_pt1_G5_M1 = TransposeColor(pt1_G5_M1);
 
@@ -210,26 +208,17 @@ void ComputeKtoSigma<mf_Policies>::type3_contract(ResultsContainerType &result, 
   //D21 = Tr_c(  Tr( [pt2_H] M2) * Tr( [pt1] G5 M1 ) )
   //D23 = Tr( Tr_c( [pt1] G5 M2 )  Tr_c( [pt2_H] M1 ) )
 
+  auto pt1_G5 = gr_r(part1, -5);
+
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
-      auto pt1_G5_M1 = part1;
-      gr(pt1_G5_M1,-5);
-      multGammaRight(pt1_G5_M1, 1, gcombidx,mu);
-
-      auto pt2L_M2 = part2_L;
-      multGammaRight(pt2L_M2, 2, gcombidx,mu);
-
-      auto pt2H_M2 = part2_H;
-      multGammaRight(pt2H_M2, 2, gcombidx,mu);
+      auto pt1_G5_M1 = multGammaRight(pt1_G5, 1, gcombidx,mu);
+      auto pt1_G5_M2 = multGammaRight(pt1_G5, 2, gcombidx,mu);
+      auto pt2L_M2 = multGammaRight(part2_L, 2, gcombidx,mu);
+      auto pt2H_M1 = multGammaRight(part2_H, 1, gcombidx,mu);
+      auto pt2H_M2 = multGammaRight(part2_H, 2, gcombidx,mu);
 
       auto ctrans_pt2L_M2 = TransposeColor(pt2L_M2);
-
-      auto pt1_G5_M2 = part1;
-      gr(pt1_G5_M2,-5);
-      multGammaRight(pt1_G5_M2, 2, gcombidx,mu);
-
-      auto pt2H_M1 = part2_H;
-      multGammaRight(pt2H_M1, 1, gcombidx,mu);
 
       int c = 0;
 	
@@ -473,28 +462,18 @@ void ComputeKtoSigma<mf_Policies>::type4_contract(ResultsContainerType &result, 
   //D20  = Tr_c(  Tr( [pt1] G5 M1 ) Tr( [pt2_H] M2 ) ) 
   //D22  = Tr( Tr_c( [pt2_H] M1 ) Tr_c( [pt1] G5 M2 ) )
 
+  auto pt1_G5 = gr_r(part1, -5);
 
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
-      auto pt1_G5_M1 = part1;
-      gr(pt1_G5_M1, -5);
-      multGammaRight(pt1_G5_M1, 1, gcombidx,mu);
-
-      auto pt2L_M2 = part2_L;
-      multGammaRight(pt2L_M2, 2, gcombidx,mu);
-
-      auto pt2H_M2 = part2_H;
-      multGammaRight(pt2H_M2, 2, gcombidx,mu);
+      auto pt1_G5_M1 = multGammaRight(pt1_G5, 1, gcombidx,mu);
+      auto pt1_G5_M2 = multGammaRight(pt1_G5, 2, gcombidx,mu);
+      auto pt2L_M2 = multGammaRight(part2_L, 2, gcombidx,mu);
+      auto pt2H_M1 = multGammaRight(part2_H, 1, gcombidx,mu);
+      auto pt2H_M2 = multGammaRight(part2_H, 2, gcombidx,mu);
 
       auto ctrans_pt2L_M2 = TransposeColor(pt2L_M2);
 	
-      auto pt1_G5_M2 = part1;
-      gr(pt1_G5_M2,-5);
-      multGammaRight(pt1_G5_M2, 2, gcombidx,mu);
-
-      auto pt2H_M1 = part2_H;
-      multGammaRight(pt2H_M1, 1, gcombidx,mu);
-
       int c = 0;
 
       add(c++, result, tK_glb, gcombidx, 0,
