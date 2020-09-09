@@ -9,6 +9,8 @@ CPS_START_NAMESPACE
 //Multiply v * M * v  (where v are A2A fields and M is a meson field) for all sites
 //Output is a CPSfield<Matrix>  where Matrix is a spin-color(-flavor) matrix
 //conj_l and conj_r control whether the left/right vectors have the complex conjugate applied
+
+//Function is *node local*
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR>

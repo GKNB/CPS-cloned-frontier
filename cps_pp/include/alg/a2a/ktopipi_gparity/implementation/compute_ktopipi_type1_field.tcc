@@ -90,41 +90,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
   std::vector<mf_WV > &mf_pi2 = mf_pions.get(p_pi_2); //*mf_pi2_ptr;
 
   //Compute which pion timeslices are involved in the calculation on this node
+
   std::vector<bool> pi1_tslice_mask(Lt,false);
   std::vector<bool> pi2_tslice_mask(Lt,false);
-  for(int t_pi1_lin = 1; t_pi1_lin <= Lt; t_pi1_lin += tstep){
-    int t_pi1 = modLt(t_pi1_lin,Lt);
-    int t_pi2 = modLt(t_pi1 + tsep_pion, Lt);
-    pi1_tslice_mask[t_pi1] = true;
-    pi2_tslice_mask[t_pi2] = true;
-  }
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-  if(!UniqueID()) printf("Memory prior to fetching meson fields type1 K->pipi:\n");    
-  printMem();
-  nodeGetMany(2,
-	      &mf_pi1,&pi1_tslice_mask,
-	      &mf_pi2,&pi2_tslice_mask);
-  if(!UniqueID()) printf("Memory after fetching meson fields type1 K->pipi:\n");
-  printMem();
-#endif
 
-  //The two meson field are independent of x_op so we can pregenerate them for each y_4, top    
-  //Form contraction  con_pi_K(y_4, t_K) =   [[ wL_i^dag(y_4) S_2 vL_j(y_4) ]] [[ wL_j^dag(t_K) wH_k(t_K) ) ]]
-  //y_4 = t_K + tsep_k_pi
-  //Compute contraction for each K->pi separation. Try to reuse as there will be some overlap.
-  Type1FieldTimings::timer().piK_mfproducts -= dclock();
-  std::vector<std::vector< mf_WW > > con_pi1_K(Lt); //[tpi][tsep_k_pi]
-  std::vector<std::vector< mf_WW > > con_pi2_K(Lt);
-    
-  type1_compute_mfproducts(con_pi1_K,con_pi2_K,mf_pi1,mf_pi2,mf_kaon,mf_pions,tsep_k_pi,tsep_pion,Lt,ntsep_k_pi,pi1_tslice_mask,pi2_tslice_mask);
-  Type1FieldTimings::timer().piK_mfproducts += dclock();
-
-  if(!UniqueID()) printf("Memory after computing mfproducts type1 K->pipi:\n");
-  printMem();
-
-  //Compute data for which operator lies on this node
-  //Determine which t_K and t_pi1 combinations this node contributes to given that t_op > t_K && t_op < t_pi1
-  
+  //Determine which t_K and t_pi1 combinations this node contributes to given that t_op > t_K && t_op < t_pi1 
   std::map<int, std::vector<int> > map_used_tpi1_lin_to_tsep_k_pi;  //tpi1_lin -> vector of tsep_k_pi index
 
   std::stringstream ss;
@@ -133,6 +103,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
   //for(int t_pi1 = 0; t_pi1 < Lt; t_pi1 += tstep){ //my sensible ordering
   for(int t_pi1_lin = 1; t_pi1_lin <= Lt; t_pi1_lin += tstep){ //Daiqian's weird ordering
     int t_pi1 = modLt(t_pi1_lin,Lt);
+    int t_pi2 = modLt(t_pi1 + tsep_pion, Lt);
     
     //Using the pion timeslices, get tK for each separation
     for(int tkpi_idx=0;tkpi_idx<ntsep_k_pi;tkpi_idx++){
@@ -141,6 +112,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
       for(int top=GJP.TnodeCoor()*GJP.TnodeSites(); top < (GJP.TnodeCoor()+1)*GJP.TnodeSites(); top++){
 	int t_dis = modLt(top - t_K, Lt);
 	if(t_dis > 0 && t_dis < tsep_k_pi[tkpi_idx]){
+	  pi1_tslice_mask[t_pi1] = true;
+	  pi2_tslice_mask[t_pi2] = true;
 	  map_used_tpi1_lin_to_tsep_k_pi[t_pi1_lin].push_back(tkpi_idx);
 	  ss << " (" << t_K << "," << t_pi1 << ")";
 	  break; //only need one timeslice in window
@@ -150,12 +123,26 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
   }
   ss << "}\n";
   printf("%s",ss.str().c_str());
-	  
+
+  //Get the meson fields
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+  if(!UniqueID()) printf("Memory prior to fetching meson fields type1 K->pipi:\n");    
+  printMem();
+  nodeGetMany(2,
+	      &mf_pi1,&pi1_tslice_mask,
+	      &mf_pi2,&pi2_tslice_mask);
+  if(!UniqueID()) printf("Memory after fetching meson fields type1 K->pipi:\n");
+  printMem();
+#endif
+  
   for(auto t_it = map_used_tpi1_lin_to_tsep_k_pi.begin(); t_it != map_used_tpi1_lin_to_tsep_k_pi.end(); ++t_it){
     int t_pi1_lin = t_it->first;
     
     int t_pi1 = modLt(t_pi1_lin,Lt);
     int t_pi2 = modLt(t_pi1 + tsep_pion, Lt);
+
+    assert(mf_pi1[t_pi1].isOnNode());
+    assert(mf_pi2[t_pi2].isOnNode());
 
     //Determine what node timeslices are actually needed
     //std::vector<bool> node_top_used;
@@ -175,13 +162,23 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
     for(int ii =0; ii< ntsep_k_pi_do; ii++){
       int tkpi_idx = t_it->second[ii];
       int t_K = modLt(t_pi1 - tsep_k_pi[tkpi_idx], Lt);
+      
+      assert(mf_kaon[t_K].isOnNode());
+
+      //Form contraction  con_pi_K(y_4, t_K) =   [[ wL_i^dag(y_4) S_2 vL_j(y_4) ]] [[ wL_j^dag(t_K) wH_k(t_K) ) ]]
+      //y_4 = t_K + tsep_k_pi
+      Type1FieldTimings::timer().piK_mfproducts -= dclock();
+      mf_WW con_pi1_K, con_pi2_K;
+      mult(con_pi1_K, mf_pi1[t_pi1], mf_kaon[t_K], true); //node local
+      mult(con_pi2_K, mf_pi2[t_pi2], mf_kaon[t_K], true);
+      Type1FieldTimings::timer().piK_mfproducts += dclock();
 
       //Construct part 2:
       //\Gamma_2 vL_i(x_op;y_4) [[ wL_i^dag(y) S_2 vL_j(y;t_K) ]] [[ wL_j^dag(x_K)\gamma^5 \gamma^5 wH_k(x_K) ) ]] vH_k^\dagger(x_op;t_K)\gamma^5
       Type1FieldTimings::timer().part2 -= dclock();
       std::vector<SCFmatrixField> part2(2, SCFmatrixField(field_params)); //part2 has pi1, pi2 at y_4 = t_pi1, t_pi2
-      mult(part2[0], vL, con_pi1_K[t_pi1][tkpi_idx], vH, false, true);
-      mult(part2[1], vL, con_pi2_K[t_pi2][tkpi_idx], vH, false, true);
+      mult(part2[0], vL, con_pi1_K, vH, false, true);
+      mult(part2[1], vL, con_pi2_K, vH, false, true);
       gr(part2[0], -5); //right multiply by g5
       gr(part2[1], -5);
       Type1FieldTimings::timer().part2 += dclock();
