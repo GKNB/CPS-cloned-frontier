@@ -2694,10 +2694,10 @@ void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
 	    double rdiff = fabs(got.real()-expect.real());
 	    double idiff = fabs(got.imag()-expect.imag());
 	    if(rdiff > tol|| idiff > tol){
-	      printf("Fail: KtoPiPi type1 contract full (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	      printf("Fail rank %d: KtoPiPi type1 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",UniqueID(),got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
 	      fail = true;
 	    }else
-	      printf("Pass: KtoPiPi type1 contract full (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	      printf("Pass rank %d: KtoPiPi type1 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",UniqueID(),got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
 	  }
 	}
       }

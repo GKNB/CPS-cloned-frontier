@@ -122,15 +122,40 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
   if(!UniqueID()) printf("Memory after computing mfproducts type1 K->pipi:\n");
   printMem();
 
+  //Compute data for which operator lies on this node
+  //Determine which t_K and t_pi1 combinations this node contributes to given that t_op > t_K && t_op < t_pi1
+  
+  std::map<int, std::vector<int> > map_used_tpi1_lin_to_tsep_k_pi;  //tpi1_lin -> vector of tsep_k_pi index
+
+  std::stringstream ss;
+  ss << "Node " << UniqueID() << " doing (t_K, t_pi1) = {";
+
   //for(int t_pi1 = 0; t_pi1 < Lt; t_pi1 += tstep){ //my sensible ordering
   for(int t_pi1_lin = 1; t_pi1_lin <= Lt; t_pi1_lin += tstep){ //Daiqian's weird ordering
     int t_pi1 = modLt(t_pi1_lin,Lt);
-    int t_pi2 = modLt(t_pi1 + tsep_pion, Lt);
-
+    
     //Using the pion timeslices, get tK for each separation
-    int t_K_all[ntsep_k_pi]; 
-    for(int tkpi_idx=0;tkpi_idx<ntsep_k_pi;tkpi_idx++) 
-      t_K_all[tkpi_idx] = modLt(t_pi1 - tsep_k_pi[tkpi_idx], Lt);
+    for(int tkpi_idx=0;tkpi_idx<ntsep_k_pi;tkpi_idx++){
+      int t_K = modLt(t_pi1 - tsep_k_pi[tkpi_idx], Lt);
+      
+      for(int top=GJP.TnodeCoor()*GJP.TnodeSites(); top < (GJP.TnodeCoor()+1)*GJP.TnodeSites(); top++){
+	int t_dis = modLt(top - t_K, Lt);
+	if(t_dis > 0 && t_dis < tsep_k_pi[tkpi_idx]){
+	  map_used_tpi1_lin_to_tsep_k_pi[t_pi1_lin].push_back(tkpi_idx);
+	  ss << " (" << t_K << "," << t_pi1 << ")";
+	  break; //only need one timeslice in window
+	}
+      }
+    }
+  }
+  ss << "}\n";
+  printf("%s",ss.str().c_str());
+	  
+  for(auto t_it = map_used_tpi1_lin_to_tsep_k_pi.begin(); t_it != map_used_tpi1_lin_to_tsep_k_pi.end(); ++t_it){
+    int t_pi1_lin = t_it->first;
+    
+    int t_pi1 = modLt(t_pi1_lin,Lt);
+    int t_pi2 = modLt(t_pi1 + tsep_pion, Lt);
 
     //Determine what node timeslices are actually needed
     //std::vector<bool> node_top_used;
@@ -145,21 +170,24 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
     mult(part1[1], vL, mf_pi2[t_pi2], wL, false, true);
     Type1FieldTimings::timer().part1 += dclock();    
 
-    for(int tkidx =0; tkidx< ntsep_k_pi; tkidx++){
-      int t_K = t_K_all[tkidx];
-	  	
+    int ntsep_k_pi_do = t_it->second.size();
+
+    for(int ii =0; ii< ntsep_k_pi_do; ii++){
+      int tkpi_idx = t_it->second[ii];
+      int t_K = modLt(t_pi1 - tsep_k_pi[tkpi_idx], Lt);
+
       //Construct part 2:
       //\Gamma_2 vL_i(x_op;y_4) [[ wL_i^dag(y) S_2 vL_j(y;t_K) ]] [[ wL_j^dag(x_K)\gamma^5 \gamma^5 wH_k(x_K) ) ]] vH_k^\dagger(x_op;t_K)\gamma^5
       Type1FieldTimings::timer().part2 -= dclock();
       std::vector<SCFmatrixField> part2(2, SCFmatrixField(field_params)); //part2 has pi1, pi2 at y_4 = t_pi1, t_pi2
-      mult(part2[0], vL, con_pi1_K[t_pi1][tkidx], vH, false, true);
-      mult(part2[1], vL, con_pi2_K[t_pi2][tkidx], vH, false, true);
+      mult(part2[0], vL, con_pi1_K[t_pi1][tkpi_idx], vH, false, true);
+      mult(part2[1], vL, con_pi2_K[t_pi2][tkpi_idx], vH, false, true);
       gr(part2[0], -5); //right multiply by g5
       gr(part2[1], -5);
       Type1FieldTimings::timer().part2 += dclock();
 
       Type1FieldTimings::timer().contraction_time -= dclock();     
-      type1_contract(result[tkidx],t_K,part1,part2);
+      type1_contract(result[tkpi_idx],t_K,part1,part2);
       Type1FieldTimings::timer().contraction_time += dclock();     
     }//end of loop over k->pi seps
   }//tpi loop
