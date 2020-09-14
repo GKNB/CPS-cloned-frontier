@@ -37,7 +37,7 @@ struct ZmobParams{
 };
 
 //Compute the (Z)Mobius gamma vector with caching. Here complex_coeffs == true implies ZMobius, false implies regular Mobius
-std::vector<Grid::ComplexD> computeZmobiusGammaWithCache(double b_plus_c_inner, int Ls_inner, double b_plus_c_outer, int Ls_outer, double lambda_max, bool complex_coeffs){
+inline std::vector<Grid::ComplexD> computeZmobiusGammaWithCache(double b_plus_c_inner, int Ls_inner, double b_plus_c_outer, int Ls_outer, double lambda_max, bool complex_coeffs){
   ZmobParams pstruct(b_plus_c_inner, Ls_inner, b_plus_c_outer, Ls_outer, lambda_max, complex_coeffs);
   static std::map<ZmobParams, std::vector<Grid::ComplexD> > cache;
   auto it = cache.find(pstruct);
@@ -66,7 +66,7 @@ std::vector<Grid::ComplexD> computeZmobiusGammaWithCache(double b_plus_c_inner, 
 }
 
 //Get the (Z)Mobius parameters using the parameters in cg_controls, either through direct computation or from the struct directly
-std::vector<Grid::ComplexD> getZMobiusGamma(const double b_plus_c_outer, const int Ls_outer,
+inline std::vector<Grid::ComplexD> getZMobiusGamma(const double b_plus_c_outer, const int Ls_outer,
 					    const MADWFparams &madwf_p){
   const ZMobiusParams &zmp = madwf_p.ZMobius_params;
 

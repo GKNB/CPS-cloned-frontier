@@ -184,6 +184,11 @@ class ComputeMesonFields{
     fftw_W.getTwistedFFT(p_w.ptr(), Wfftw_base[0], Wfftw_base[1]);
     fftw_V.getTwistedFFT(p_v.ptr(), Vfftw_base[0], Vfftw_base[1]);
     A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(cdest,fftw_W, M, fftw_V);
+
+#ifdef USE_DESTRUCTIVE_FFT
+    fftw_W.freeModes();
+    fftw_V.freeModes();
+#endif
   }
 
   //Same as above but in this version we shift the base *in-place* (i.e. without using extra memory) - of course we need to shift it back again afterwards
