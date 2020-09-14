@@ -157,10 +157,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
     mult(part1[1], vL, mf_pi2[t_pi2], wL, false, true);
     Type1FieldTimings::timer().part1 += dclock();    
 
-    int ntsep_k_pi_do = t_it->second.size();
-
-    for(int ii =0; ii< ntsep_k_pi_do; ii++){
-      int tkpi_idx = t_it->second[ii];
+    for(int tkpi_idx : t_it->second){
       int t_K = modLt(t_pi1 - tsep_k_pi[tkpi_idx], Lt);
       
       assert(mf_kaon[t_K].isOnNode());

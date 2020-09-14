@@ -60,62 +60,110 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
 
   static const int n_contract = 6; //six type2 diagrams
   static const int con_off = 7; //index of first contraction in set
-  
-  auto field_params = vL.getMode(0).getDimPolParams();  
-   
-  //Compile some information about which timeslices are involved in the calculation such that we can minimize work by skipping unused timeslices
-  std::vector< std::vector<bool> > node_top_used(tpi_sampled); //Which local operator timeslices are used for a given pi1 index
-  std::vector<int> t_K_all;   //Which kaon timeslices we need overall
-  for(int t_pi1_lin = 1; t_pi1_lin <= Lt; t_pi1_lin += tstep){ //Daiqian's weird ordering
-    int t_pi1 = modLt(t_pi1_lin,Lt);   int t_pi1_idx = t_pi1 / tstep;
-    getUsedTimeslices(node_top_used[t_pi1_idx],t_K_all,tsep_k_pi,t_pi1);
-  }
-  std::vector< std::vector<bool> > node_top_used_kaon(t_K_all.size()); //Which local operator timeslices are used for a given kaon index
-  std::vector<int> tkidx_map(Lt,-1);
-
-  for(int tkidx=0;tkidx<t_K_all.size();tkidx++){
-    getUsedTimeslicesForKaon(node_top_used_kaon[tkidx],tsep_k_pi,t_K_all[tkidx]);
-    tkidx_map[t_K_all[tkidx]] = tkidx; //allow us to map into the storage given a value of t_K
-  }    
 
   for(int tkp=0;tkp<tsep_k_pi.size();tkp++)
-    result[tkp].resize(n_contract); //Resize zeroes output. Result will be thread-reduced before this method ends 
-
-
-  //Compute part 1	  
-  //    = \sum_{ \vec x_K  }   vL(x_op) [[ wL^dag(x_K) wH(x_K) ]] [vH(x_op)]^dag \gamma^5 
-  //Part 1 does not care about the location of the pion, only that of the kaon. It may be used multiple times if we have multiple K->pi seps, so compute it separately
-  std::vector<SCFmatrixField> part1_storage(t_K_all.size(), SCFmatrixField(field_params));
-  for(int tkidx=0; tkidx < t_K_all.size(); tkidx++){    
-    int t_K = t_K_all[tkidx];
-    mult(part1_storage[tkidx], vL, mf_kaon[t_K], vH, false, true);
-    gr(part1_storage[tkidx], -5);
-  }
+    result[tkp].resize(n_contract); //Resize zeroes output
   
-  //Compute pi1<->pi2 contractions
-  mf_WV con_pi1_pi2, con_pi2_pi1;
-  std::vector<SCFmatrixField> part2(2, SCFmatrixField(field_params));
+  auto field_params = vL.getMode(0).getDimPolParams();  
+
+  //Meson fields
+  int nmom = p_pi_1_all.size();
+  std::vector< std::vector<mf_WV >* > mf_pi1(nmom), mf_pi2(nmom);
+  for(int i=0;i<nmom;i++){
+    const ThreeMomentum &p_pi_1 = p_pi_1_all[i];
+    ThreeMomentum p_pi_2 = -p_pi_1;
+    mf_pi1[i] = &mf_pions.get(p_pi_1);
+    mf_pi2[i] = &mf_pions.get(p_pi_2);
+  }
+   
+  //Determine which t_K and t_pi1 combinations this node contributes to given that t_op > t_K && t_op < t_pi1 
+  int ntsep_k_pi = tsep_k_pi.size();
+  std::map<int, std::vector<int> > map_used_tpi1_lin_to_tsep_k_pi;  //tpi1_lin -> vector of tsep_k_pi index
+  std::set<int> t_K_all;
+  std::vector<bool> pi1_tslice_mask(Lt,false);
+  std::vector<bool> pi2_tslice_mask(Lt,false);
+
+  std::stringstream ss;
+  ss << "Node " << UniqueID() << " doing (t_K, t_pi1) = {";
 
   //for(int t_pi1 = 0; t_pi1 < Lt; t_pi1 += tstep){ //my sensible ordering
   for(int t_pi1_lin = 1; t_pi1_lin <= Lt; t_pi1_lin += tstep){ //Daiqian's weird ordering
     int t_pi1 = modLt(t_pi1_lin,Lt);
-    int t_pi1_idx = t_pi1 / tstep;
+    int t_pi2 = modLt(t_pi1 + tsep_pion, Lt);
+
+    //Using the pion timeslices, get tK for each separation
+    for(int tkpi_idx=0;tkpi_idx<ntsep_k_pi;tkpi_idx++){
+      int t_K = modLt(t_pi1 - tsep_k_pi[tkpi_idx], Lt);
+      
+      for(int top=GJP.TnodeCoor()*GJP.TnodeSites(); top < (GJP.TnodeCoor()+1)*GJP.TnodeSites(); top++){
+	int t_dis = modLt(top - t_K, Lt);
+	if(t_dis > 0 && t_dis < tsep_k_pi[tkpi_idx]){
+	  map_used_tpi1_lin_to_tsep_k_pi[t_pi1_lin].push_back(tkpi_idx);
+	  t_K_all.insert(t_K);
+	  pi1_tslice_mask[t_pi1] = true;
+	  pi2_tslice_mask[t_pi2] = true;
+	  ss << " (" << t_K << "," << t_pi1 << ")";
+	  break; //only need one timeslice in window
+	}
+      }
+    }
+  }
+  ss << "}\n";
+  printf("%s",ss.str().c_str());
+
+  //Gather the meson fields we need
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+  for(int i=0;i<nmom;i++)
+    nodeGetMany(2,mf_pi1[i],&pi1_tslice_mask, mf_pi2[i], &pi2_tslice_mask);
+#endif
+
+  //Compute part 1	  
+  //    = \sum_{ \vec x_K  }   vL(x_op) [[ wL^dag(x_K) wH(x_K) ]] [vH(x_op)]^dag \gamma^5 
+  //Part 1 does not care about the location of the pion, only that of the kaon. It may be used multiple times if we have multiple K->pi seps, so compute it separately
+  std::map<int,std::unique_ptr<SCFmatrixField> > part1_storage;
+  for(auto it=t_K_all.begin(); it != t_K_all.end(); ++it){
+    int t_K = *it;
+    part1_storage[t_K].reset(new SCFmatrixField(field_params));
+    SCFmatrixField &into = *part1_storage[t_K];
+    assert(mf_kaon[t_K].isOnNode());
+    mult(into, vL, mf_kaon[t_K], vH, false, true);
+    gr(into, -5);
+  }
+  
+  //Compute pi1<->pi2 contractions
+  mf_WV con_pi1_pi2, con_pi2_pi1, tmp;
+  std::vector<SCFmatrixField> part2(2, SCFmatrixField(field_params));
+
+  for(auto t_pair : map_used_tpi1_lin_to_tsep_k_pi){
+    int t_pi1_lin = t_pair.first;
     
+    int t_pi1 = modLt(t_pi1_lin,Lt);
     int t_pi2 = modLt(t_pi1 + tsep_pion, Lt);
     
     //Form the product of the two meson fields
     //con_*_* = \sum_{\vec y,\vec z} [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]]
-    type2_compute_mfproducts(con_pi1_pi2, con_pi2_pi1, t_pi1, t_pi2, p_pi_1_all, mf_pions);
+    //Average over all momenta provided (i.e. to the A1 projection)
+    Type2timings::timer().type2_compute_mfproducts -= dclock();
+    mult(con_pi1_pi2, mf_pi1[0]->at(t_pi1), mf_pi2[0]->at(t_pi2), true); //node local
+    mult(con_pi2_pi1, mf_pi2[0]->at(t_pi2), mf_pi1[0]->at(t_pi1), true);
+    for(int pp=1;pp<nmom;pp++){
+      mult(tmp, mf_pi1[0]->at(t_pi1), mf_pi2[0]->at(t_pi2), true); con_pi1_pi2.plus_equals(tmp);
+      mult(tmp, mf_pi2[0]->at(t_pi2), mf_pi1[0]->at(t_pi1), true); con_pi2_pi1.plus_equals(tmp);
+    }
+    if(nmom > 1){
+      con_pi1_pi2.times_equals(1./nmom);  con_pi2_pi1.times_equals(1./nmom);
+    }
+    Type2timings::timer().type2_compute_mfproducts += dclock();
 
     //Construct part 2 (this doesn't involve the kaon):
     // \sum_{ \vec y, \vec z  }  vL(x_op) [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] wL^dag(x_op)
     mult(part2[0], vL, con_pi1_pi2, wL, false, true); //part2 goes from insertion to pi1 to pi2 and back to insertion
     mult(part2[1], vL, con_pi2_pi1, wL, false, true); //part2 goes from insertion to pi2 to pi1 and back to insertion
 
-    for(int tkpi_idx = 0; tkpi_idx < tsep_k_pi.size(); tkpi_idx++){
+    for(int tkpi_idx : t_pair.second){
       int t_K = modLt(t_pi1 - tsep_k_pi[tkpi_idx], Lt);
       
-      const SCFmatrixField &part1 = part1_storage[tkidx_map[t_K]];
+      const SCFmatrixField &part1 = *part1_storage[t_K];
       Type2timings::timer().contraction_time -= dclock();
       type2_contract(result[tkpi_idx],t_K,part1,part2);
       Type2timings::timer().contraction_time += dclock();
@@ -123,6 +171,14 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
   }
 
   Type2timings::timer().finish_up -= dclock();
+
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+  for(int i=0;i<nmom;i++)
+    nodeDistributeMany(2,mf_pi1[i],mf_pi2[i]);
+  if(!UniqueID()) printf("Memory after redistributing meson fields type2 K->pipi:\n");
+  printMem();  
+#endif
+
   for(int tkp=0;tkp<tsep_k_pi.size();tkp++){
     result[tkp].nodeSum();
 #ifndef DAIQIAN_COMPATIBILITY_MODE
