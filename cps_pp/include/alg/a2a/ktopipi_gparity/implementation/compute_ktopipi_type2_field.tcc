@@ -1,6 +1,17 @@
 #ifndef _COMPUTE_KTOPIPI_TYPE2_FIELD_H
 #define _COMPUTE_KTOPIPI_TYPE2_FIELD_H
 
+#define TIMER_ELEMS \
+  ELEM(mfproducts) \
+  ELEM(part1) \
+  ELEM(part2) \
+  ELEM(contraction_time) \
+  ELEM(finish_up)\
+  ELEM(total)
+#define TIMER Type2FieldTimings
+#include "static_timer_impl.tcc"
+
+
 //Expect part2 to be a length=2 vector where for the first elements, pi1 enters first in part2, and in the second element, pi2
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &result, const int t_K, const SCFmatrixField &part1, const std::vector<SCFmatrixField> &part2){
@@ -51,8 +62,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
 						     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 						     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-  Type2timings::timer().reset();
-  Type2timings::timer().total -= dclock();
+  Type2FieldTimings::timer().reset();
+  Type2FieldTimings::timer().total -= dclock();
     
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
   assert(Lt % tstep == 0);
@@ -80,8 +91,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
   int ntsep_k_pi = tsep_k_pi.size();
   std::map<int, std::vector<int> > map_used_tpi1_lin_to_tsep_k_pi;  //tpi1_lin -> vector of tsep_k_pi index
   std::set<int> t_K_all;
-  std::vector<bool> pi1_tslice_mask(Lt,false);
-  std::vector<bool> pi2_tslice_mask(Lt,false);
+  std::vector<bool> pi1_tslice_mask(Lt,false), pi2_tslice_mask(Lt,false);
 
   std::stringstream ss;
   ss << "Node " << UniqueID() << " doing (t_K, t_pi1) = {";
@@ -120,6 +130,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
   //Compute part 1	  
   //    = \sum_{ \vec x_K  }   vL(x_op) [[ wL^dag(x_K) wH(x_K) ]] [vH(x_op)]^dag \gamma^5 
   //Part 1 does not care about the location of the pion, only that of the kaon. It may be used multiple times if we have multiple K->pi seps, so compute it separately
+  Type2FieldTimings::timer().part1 -= dclock();
   std::map<int,std::unique_ptr<SCFmatrixField> > part1_storage;
   for(auto it=t_K_all.begin(); it != t_K_all.end(); ++it){
     int t_K = *it;
@@ -129,6 +140,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
     mult(into, vL, mf_kaon[t_K], vH, false, true);
     gr(into, -5);
   }
+  Type2FieldTimings::timer().part1 += dclock();
   
   //Compute pi1<->pi2 contractions
   mf_WV con_pi1_pi2, con_pi2_pi1, tmp;
@@ -143,7 +155,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
     //Form the product of the two meson fields
     //con_*_* = \sum_{\vec y,\vec z} [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]]
     //Average over all momenta provided (i.e. to the A1 projection)
-    Type2timings::timer().type2_compute_mfproducts -= dclock();
+    Type2FieldTimings::timer().mfproducts -= dclock();
     mult(con_pi1_pi2, mf_pi1[0]->at(t_pi1), mf_pi2[0]->at(t_pi2), true); //node local
     mult(con_pi2_pi1, mf_pi2[0]->at(t_pi2), mf_pi1[0]->at(t_pi1), true);
     for(int pp=1;pp<nmom;pp++){
@@ -153,24 +165,26 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
     if(nmom > 1){
       con_pi1_pi2.times_equals(1./nmom);  con_pi2_pi1.times_equals(1./nmom);
     }
-    Type2timings::timer().type2_compute_mfproducts += dclock();
+    Type2FieldTimings::timer().mfproducts += dclock();
 
     //Construct part 2 (this doesn't involve the kaon):
     // \sum_{ \vec y, \vec z  }  vL(x_op) [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] wL^dag(x_op)
+    Type2FieldTimings::timer().part2 -= dclock();
     mult(part2[0], vL, con_pi1_pi2, wL, false, true); //part2 goes from insertion to pi1 to pi2 and back to insertion
     mult(part2[1], vL, con_pi2_pi1, wL, false, true); //part2 goes from insertion to pi2 to pi1 and back to insertion
+    Type2FieldTimings::timer().part2 += dclock();
 
     for(int tkpi_idx : t_pair.second){
       int t_K = modLt(t_pi1 - tsep_k_pi[tkpi_idx], Lt);
       
       const SCFmatrixField &part1 = *part1_storage[t_K];
-      Type2timings::timer().contraction_time -= dclock();
+      Type2FieldTimings::timer().contraction_time -= dclock();
       type2_contract(result[tkpi_idx],t_K,part1,part2);
-      Type2timings::timer().contraction_time += dclock();
+      Type2FieldTimings::timer().contraction_time += dclock();
     }
   }
 
-  Type2timings::timer().finish_up -= dclock();
+  Type2FieldTimings::timer().finish_up -= dclock();
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   for(int i=0;i<nmom;i++)
@@ -199,9 +213,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
     }
   }
 
-  Type2timings::timer().finish_up += dclock();
-  Type2timings::timer().total += dclock();
-  Type2timings::timer().report();
+  Type2FieldTimings::timer().finish_up += dclock();
+  Type2FieldTimings::timer().total += dclock();
+  Type2FieldTimings::timer().report();
 }
 
 

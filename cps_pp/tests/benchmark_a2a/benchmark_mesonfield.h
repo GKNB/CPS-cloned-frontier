@@ -1474,11 +1474,11 @@ struct _benchmarkKtoPiPiOffload<A2Apolicies, 1>{
   }
 
   void type1(){
-    if(!UniqueID()){ printf("Timing K->pipi type 4 field version\n"); fflush(stdout); }
+    if(!UniqueID()){ printf("Timing K->pipi type 1 field version\n"); fflush(stdout); }
   
     ResultsContainerType result;
     ComputeKtoPiPiGparity<A2Apolicies>::type1_field(&result, tsep_k_pi, pipi_sep, tstep, pp, tmp_WW, mf_pions, *V, *Vh, *W, *Wh);
-    if(!UniqueID()){ printf("End of timing of K->pipi type 4 field version\n"); fflush(stdout); }
+    if(!UniqueID()){ printf("End of timing of K->pipi type 1 field version\n"); fflush(stdout); }
   }
 
   void type4(){
