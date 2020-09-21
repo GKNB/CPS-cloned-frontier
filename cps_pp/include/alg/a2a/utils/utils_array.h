@@ -71,14 +71,22 @@ class ManagedVector{
   T* v;
   size_t sz;
   bool own;
+  
+  void freeMem(){
+    if(!own) ERR.General("ManagedVector","freeMem","Cannot free a shallow copy");
+    for(int i=0;i<sz;i++) v[i].~T();	  
+    managed_free(v);
+    sz = 0;
+    v = NULL;
+  }
+
 public:
   //Destructive resize
   void resize(const size_t n){
     if(n == sz) return;
     if(!own) ERR.General("ManagedVector","resize","Cannot resize a shallow copy");
-
-    if(v) managed_free(v);
-    if(n==0){ v = NULL; sz = n; return; }
+    if(v) freeMem();
+    if(n==0){ v = NULL; sz = 0; return; }
     v = (T*)managed_alloc_check(n*sizeof(T));
     sz = n;
     for(int i=0;i<sz;i++) T* s = new (v + i) T();
@@ -86,9 +94,8 @@ public:
   void resize(const size_t n, const T &init){
     if(n == sz) return;
     if(!own) ERR.General("ManagedVector","resize","Cannot resize a shallow copy");
-
-    if(v) managed_free(v);
-    if(n==0){ v = NULL; sz = n; return; }
+    if(v) freeMem();
+    if(n==0){ v = NULL; sz = 0; return; }
     v = (T*)managed_alloc_check(n*sizeof(T));
     sz = n;
     for(int i=0;i<sz;i++) T* s = new (v + i) T(init);
@@ -117,7 +124,7 @@ public:
     r.v = NULL; r.own = false;
   }   
   ~ManagedVector(){
-    if(v && own) managed_free(v);
+    if(v && own) freeMem();
   }
   accelerator_inline size_t size() const{
     return sz;
@@ -138,7 +145,7 @@ public:
 
   ManagedVector & operator=(ManagedVector &&r){
     if(!own){ own = true; v = NULL; } //relinquish shallow copy status    
-    if(v) managed_free(v);
+    if(v) freeMem();
     v = r.v;
     sz = r.sz;
     r.v = NULL;
@@ -161,11 +168,20 @@ class ShallowCopyManagedVector{
   T* v;
   size_t sz;
   bool own_memory; //am I the original and thus responsible for deallocating?
+
+  void freeMem(){
+    if(!own_memory) ERR.General("ShallowCopyManagedVector","freeMem","Cannot free a shallow copy");
+    for(int i=0;i<sz;i++) v[i].~T();	  
+    managed_free(v);
+    sz = 0;
+    v = NULL;
+  }
+
 public:
   //Destructive resize
   void resize(const size_t n){
-    if(v && own_memory) managed_free(v);
-    if(n==0){ v = NULL; sz = n; return; }
+    if(v && own_memory) freeMem();
+    if(n==0){ v = NULL; sz = 0; return; }
     v = (T*)managed_alloc_check(n*sizeof(T));
     sz = n;
     own_memory = true;
@@ -181,14 +197,14 @@ public:
   }   
 
   ~ShallowCopyManagedVector(){
-    if(v && own_memory) managed_free(v);
+    if(v && own_memory) freeMem();
   }
   accelerator_inline size_t size() const{
     return sz;
   }
 
   ShallowCopyManagedVector & operator=(const ShallowCopyManagedVector &r){
-    if(v && own_memory) managed_free(v);
+    if(v && own_memory) freeMem();
     v = r.v;
     sz = r.sz;
     own_memory = false; //I am a copy
@@ -196,7 +212,7 @@ public:
   }
 
   ShallowCopyManagedVector & operator=(ShallowCopyManagedVector &&r){
-    if(v && own_memory) managed_free(v);
+    if(v && own_memory) freeMem();
     v = r.v;
     sz = r.sz;
     own_memory = true; //I assume responsibility for the malloc
