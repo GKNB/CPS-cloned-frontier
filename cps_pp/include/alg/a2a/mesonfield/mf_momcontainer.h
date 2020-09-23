@@ -180,6 +180,7 @@ public:
   void rebalance(){
     std::vector<DistributedMemoryStorage*> ptrs;
     for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++){
+      if(it->second == NULL) continue; //fixes segfault ~dsh
       for(int t=0;t<it->second->size();t++){
 	ptrs.push_back(dynamic_cast<DistributedMemoryStorage*>(&it->second->operator[](t)));	
       }
