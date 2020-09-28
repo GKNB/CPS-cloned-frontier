@@ -297,6 +297,8 @@ int main(int argc,char *argv[])
   #endif
 
   if(0) testCPSsquareMatrix();
+  if(0) testCPSspinColorMatrix();
+
   if(0) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
 
   if(0) testMFmult<A2Apolicies_std>(a2a_arg,tol);
@@ -354,6 +356,8 @@ int main(int argc,char *argv[])
 #endif
   
   if(0) compareVgridstd<A2Apolicies_std, A2Apolicies_grid>(V_std, V_grid);
+
+  if(1) testMesonFieldCompute<A2Apolicies_std>(V_std, W_std, a2a_arg, lattice, tol);
   
   
   typename SIMDpolicyBase<3>::ParamType simd_dims_3d;
@@ -383,7 +387,7 @@ int main(int argc,char *argv[])
   if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
   if(0) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
   if(0) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);

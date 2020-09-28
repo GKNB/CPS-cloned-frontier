@@ -47,7 +47,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
 	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,p_3d,t_lcl);
 
-	  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
+	  M(mf_accum,lscf,rscf,p_3d,t);
 	}
 	(*this)(i,j) = mf_accum; //downcast after accumulate      
       }

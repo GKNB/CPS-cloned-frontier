@@ -132,6 +132,90 @@ void testCPSsquareMatrix(){
   std::cout << "Passed CPSsquareMatrix tests" << std::endl;
 }
 
+void testCPSspinColorMatrix(){
+  std::cout << "Testing CPSspinColorMatrix types" << std::endl; 
+
+  CPSspinColorMatrix<cps::ComplexD> m1;
+  m1.unit();
+  for(int s1=0;s1<4;s1++){
+    for(int s2=0;s2<4;s2++){
+      for(int c1=0;c1<3;c1++){
+	for(int c2=0;c2<3;c2++){
+	  if(s1 == s2 && c1 == c2) assert(m1(s1,s2)(c1,c2) == cps::ComplexD(1.0) );
+	  else assert(m1(s1,s2)(c1,c2) == cps::ComplexD(0.0) );
+	}
+      }
+    }
+  }
+  
+  CPSspinMatrix<cps::ComplexD> ms1 = m1.ColorTrace();
+  for(int s1=0;s1<4;s1++)
+    for(int s2=0;s2<4;s2++)
+      if(s1==s2) assert( ms1(s1,s2) == cps::ComplexD(3.0));
+      else assert( ms1(s1,s2) == cps::ComplexD(0.0));
+
+
+  CPScolorMatrix<cps::ComplexD> mc1 = m1.SpinTrace();
+  for(int c1=0;c1<3;c1++)
+    for(int c2=0;c2<3;c2++)
+      if(c1==c2) assert( mc1(c1,c2) == cps::ComplexD(4.0));
+      else assert( mc1(c1,c2) == cps::ComplexD(0.0));
+  
+  
+  CPSspinColorMatrix<cps::ComplexD> m2;
+  for(int s1=0;s1<4;s1++)
+    for(int s2=0;s2<4;s2++)
+      for(int c1=0;c1<3;c1++)
+	for(int c2=0;c2<3;c2++)
+	  m2(s1,s2)(c1,c2) = cps::ComplexD(s1+4*(s2+4*(c1+3*c2)));
+	  
+  CPSspinColorMatrix<cps::ComplexD> m2t = m2.TransposeColor();
+  for(int s1=0;s1<4;s1++)
+    for(int s2=0;s2<4;s2++)
+      for(int c1=0;c1<3;c1++)
+	for(int c2=0;c2<3;c2++)
+	  assert(m2t(s1,s2)(c1,c2) == m2(s1,s2)(c2,c1));
+  
+  CPSspinColorMatrix<cps::ComplexD> m2t2;
+  m2t2.equalsColorTranspose(m2);
+   for(int s1=0;s1<4;s1++)
+    for(int s2=0;s2<4;s2++)
+      for(int c1=0;c1<3;c1++)
+	for(int c2=0;c2<3;c2++)
+	  assert(m2t2(s1,s2)(c1,c2) == m2(s1,s2)(c2,c1));
+   
+  std::cout << "Passed CPSspinColorMatrix tests" << std::endl;
+}
+
+template<typename A2Apolicies_std>
+void testMesonFieldCompute(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A2Apolicies_std> &W_std,
+			   const A2AArg &a2a_args, typename A2Apolicies_std::FgridGFclass &lattice,double tol){
+
+  typedef flavorMatrixSpinColorContract<15,true,false> SCconPol;
+  typedef GparityNoSourceInnerProduct<typename A2Apolicies_std::ComplexType, SCconPol> InnerProductType;
+  InnerProductType inner(sigma3);
+
+  ThreeMomentum pp(1,1,1);
+  A2AvectorWfftw<A2Apolicies_std> Wfftw_pp(a2a_args);
+  Wfftw_pp.gaugeFixTwistFFT(W_std,pp.ptr(),lattice);
+
+  A2AvectorVfftw<A2Apolicies_std> Vfftw_pp(a2a_args);
+  Vfftw_pp.gaugeFixTwistFFT(V_std,pp.ptr(),lattice);
+  
+  typedef A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> MFtype;
+  MFtype mf; //(W^dag V) mesonfield
+  mf.compute(Wfftw_pp, inner, Vfftw_pp, 0);
+
+  std::vector<MFtype > mf_t;
+  MFtype::compute(mf_t, Wfftw_pp, inner, Vfftw_pp);
+  
+  assert(mf_t[0].equals(mf, tol));
+
+  std::cout << "Passed testMesonFieldCompute tests" << std::endl;
+}
+
+
+
 
 template<typename A2Apolicies_grid>
 void checkCPSfieldGridImpex5Dcb(typename A2Apolicies_grid::FgridGFclass &lattice){
@@ -1099,6 +1183,8 @@ void testComputeLowModeMADWF(const A2AArg &a2a_args, const LancArg &lanc_arg,
 
 template<typename GridA2Apolicies>
 void testCPSfieldDeviceCopy(){
+#ifdef GPU_VEC
+
   typedef typename GridA2Apolicies::ComplexType ComplexType;
   int nsimd = ComplexType::Nsimd();
   typename SIMDpolicyBase<4>::ParamType simd_dims;
@@ -1191,11 +1277,9 @@ void testCPSfieldDeviceCopy(){
   
   assert( Reduce(expect == *into) );  
 
-
-
-
-
   managed_free(into);
+
+#endif
 }
 
 
@@ -1355,7 +1439,7 @@ struct _timesIV_unop{
 template<typename VectorMatrixType>
 struct _trtrV{
   typedef typename VectorMatrixType::scalar_type OutputType;
-  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &a, const const VectorMatrixType &b, const int lane) const{ 
+  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane) const{ 
     typename VectorMatrixType::scalar_type tmp, tmp2; //each thread will have one of these but will only write to a single thread    
     Trace(tmp, a, lane);
     Trace(tmp2, b, lane);

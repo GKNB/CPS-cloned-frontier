@@ -996,6 +996,39 @@ public:
 
 
 
+template<typename ComplexType>
+class CPSspinColorMatrix: public CPSspinMatrix<CPScolorMatrix<ComplexType> >{
+public:
+  typedef CPSspinMatrix<CPScolorMatrix<ComplexType> > base_type;
+  INHERIT_METHODS_AND_TYPES(CPSspinColorMatrix<ComplexType>, CPSspinColorMatrix);
+  
+  template<typename U>
+  struct Rebase{
+    typedef CPSspinMatrix<U> type;
+  };
+  //Get the type were the underlying numerical type (scalar_type) to be replaced by type U
+  template<typename U>
+  struct RebaseScalarType{
+    typedef CPSspinColorMatrix<U> type;
+  };
+
+  accelerator_inline CPScolorMatrix<ComplexType> SpinTrace() const{
+    return this->CPSsquareMatrix<value_type,4>::template TraceIndex<0>();
+  }
+  accelerator_inline CPSspinMatrix<ComplexType> ColorTrace() const{
+    return this->CPSsquareMatrix<value_type,4>::template TraceIndex<1>();
+  }
+
+  accelerator_inline CPSspinColorMatrix<ComplexType> TransposeColor() const{
+    return CPSspinColorMatrix<ComplexType>(this->CPSsquareMatrix<value_type,4>::template TransposeOnIndex<1>());
+  }
+  accelerator_inline void equalsColorTranspose(const CPSspinColorMatrix<ComplexType> &r){
+    this->CPSsquareMatrix<value_type,4>::template equalsTransposeOnIndex<1>(r);
+  }  
+};
+
+
+
 
 
 #undef TIMESPLUSONE

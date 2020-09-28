@@ -210,10 +210,11 @@ public:
   inline void zero(const bool parallel = true){
     memset(this->data(), 0, sizeof(ScalarComplexType) * fsize);      
   }
-  //For all mode indices l_i and r_j, compute the meson field  V^-1 \sum_p l_i^\dagger(p,t) M(p,t) r_j(p,t)
+  //For all mode indices l_i and r_j, compute the meson field  V^-1 \sum_p l_i^\dagger(p,t) X(p,t) r_j(p,t)
   //It is assumed that A2AfieldL and A2AfieldR are Fourier transformed field containers
-  //M(p,t) is a completely general momentum-space spin/color/flavor matrix per temporal slice
+  //X(p,t) is a completely general momentum-space spin/color/flavor matrix per temporal slice
   //do_setup allows you to disable the reassignment of the memory (it will still reset to zero). Use wisely!
+  //InnerProduct M must accumulate into ScalarComplexType
   template<typename InnerProduct>
   void compute(const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r,const int &t, bool do_setup = true);
 

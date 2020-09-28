@@ -9,11 +9,11 @@ CPS_START_NAMESPACE
 
 //Classes that perform the inner product of two spin-color-flavor vectors on a given (momentum-space) site
 //Class must have an 
-//complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int &p, const int &t) const
+//void operator()(AccumType &into, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const
 //p is the *local* 3-momentum coordinate in canonical ordering 
 //t is the local time coordinate
 //mf_Complex is the base complex type for the vectors
-//Output should be *double precision complex* even if the vectors are stored in single precision. Do this to avoid finite prec errors on spatial sum
+//AccumType is implementation dependent. Generally it is a complex type but may also be an array of complex.
 
 inline void doAccum(std::complex<double> &to, const std::complex<double> &from){
   to += from;
@@ -122,7 +122,6 @@ public:
 template<int smatidx,typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCspinInnerProduct{
   const SourceType src;
-  bool gparity;
   
   template<typename S>
   inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return 1; }
@@ -134,14 +133,13 @@ class SCspinInnerProduct{
 public:
   typedef SourceType InnerProductSourceType;
   
-  SCspinInnerProduct(const SourceType &_src): src(_src), gparity(GJP.Gparity()){ }
+  SCspinInnerProduct(const SourceType &_src): src(_src){ }
 
   inline int mfPerTimeSlice() const{ return _mfPerTimeSlice<SourceType>(); }
 
   template<typename AccumType>  
   accelerator_inline void operator()(AccumType &into, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     assert(mfPerTimeSlice() == 1); //not yet generalized to multi-src types
-    assert(gparity);
     auto out = GeneralSpinColorContractSelect<smatidx,mf_Complex,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit(l.getPtr(0),r.getPtr(0));
     auto site_val = SIMT<mf_Complex>::read(src.siteComplex(p));
     doAccum(into,out * site_val);
