@@ -83,6 +83,210 @@ void setupDoArg(DoArg &do_arg, int size[5], int ngp, bool verbose = true){
   }
 }
 
+void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_arg, LancArg &lanc_arg, int ntests, int nthreads, double tol){
+  //Setup types
+  typedef A2ApoliciesSIMDdoubleAutoAllocGparity A2Apolicies_grid;
+  typedef A2ApoliciesDoubleAutoAllocGparity A2Apolicies_std; 
+
+  typedef A2Apolicies_std::ComplexType mf_Complex;
+  typedef A2Apolicies_grid::ComplexType grid_Complex;
+  typedef A2Apolicies_grid::FgridGFclass LatticeType;  
+  typedef A2Apolicies_grid::GridFermionField GridFermionField;
+
+  //Setup SIMD info
+  int nsimd = grid_Complex::Nsimd();
+  typename SIMDpolicyBase<4>::ParamType simd_dims;
+  SIMDpolicyBase<4>::SIMDdefaultLayout(simd_dims,nsimd,2); //only divide over spatial directions
+  
+  printf("Nsimd = %d, SIMD dimensions:\n", nsimd);
+  for(int i=0;i<4;i++)
+    printf("%d ", simd_dims[i]);
+  printf("\n");
+
+  typename SIMDpolicyBase<3>::ParamType simd_dims_3d;
+  SIMDpolicyBase<3>::SIMDdefaultLayout(simd_dims_3d,nsimd);
+  
+  //Setup lattice
+  FgridParams grid_params; 
+  grid_params.mobius_scale = 2.0;
+  LatticeType lattice(grid_params);
+  lattice.ImportGauge(); //lattice -> Grid  
+
+  AlgFixGauge fix_gauge(lattice,&common_arg,&fix_gauge_arg);
+  fix_gauge.run();
+
+  //#define COMPUTE_VW
+
+#ifdef COMPUTE_VW  
+  LatticeSolvers solvers(jp,nthreads);
+  Lanczos<LanczosPolicies> eig;
+  eig.compute(lanc_arg, solvers, lattice);
+#endif
+  
+  A2AvectorV<A2Apolicies_grid> V_grid(a2a_arg,simd_dims);
+  A2AvectorW<A2Apolicies_grid> W_grid(a2a_arg,simd_dims);
+
+  LatRanGen lrg_bak = LRG;
+#ifdef COMPUTE_VW  
+  computeA2Avectors<A2Apolicies_grid,LanczosPolicies>::compute(V_grid,W_grid,false,false, lattice, eig, solvers);
+#else 
+  randomizeVW<A2Apolicies_grid>(V_grid,W_grid);
+#endif
+
+  A2AvectorV<A2Apolicies_std> V_std(a2a_arg);
+  A2AvectorW<A2Apolicies_std> W_std(a2a_arg);
+
+  LRG = lrg_bak;
+#ifdef COMPUTE_VW 
+  computeA2Avectors<A2Apolicies_std,LanczosPolicies>::compute(V_std,W_std,false,false, lattice, eig, solvers);
+#else 
+  randomizeVW<A2Apolicies_std>(V_std,W_std);
+#endif
+
+
+  std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
+  std::cout << "Starting tests" << std::endl;
+
+  #ifdef USE_GRID
+  if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
+  #endif
+
+  if(0) testCPSsquareMatrix();
+  if(0) testCPSspinColorMatrix();
+
+  if(0) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
+
+  if(0) testMFmult<A2Apolicies_std>(a2a_arg,tol);
+
+  if(0) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
+
+  
+  if(0) compareVgridstd<A2Apolicies_std, A2Apolicies_grid>(V_std, V_grid);
+
+  if(0) testMesonFieldCompute<A2Apolicies_std>(V_std, W_std, a2a_arg, lattice, tol);
+  
+  if(0) testPionContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+							 V_grid, W_grid,
+							 lattice, simd_dims_3d, tol);
+
+  if(0) testKaonContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+							 V_grid, W_grid,
+							 lattice, simd_dims_3d, tol);
+
+  if(0) testPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+								V_grid, W_grid,
+								lattice, simd_dims_3d, tol);
+
+  if(0) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+								   V_grid, W_grid,
+								   lattice, simd_dims_3d, tol);
+
+#ifdef USE_GRID
+  if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testVVgridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
+
+  if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
+  if(0) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+
+  if(0) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+#endif
+
+  if(0) testModeMappingTranspose(a2a_arg);
+
+#ifdef USE_GRID
+  if(0) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
+#endif
+
+  if(0) testFFTopt<A2Apolicies_std>();
+#ifdef USE_GRID
+  if(0) testFFTopt<A2Apolicies_grid>();
+#endif
+
+#ifdef USE_GRID
+  if(0) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
+#endif
+
+}
+
+
+
+
+void testPeriodic(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_arg, LancArg &lanc_arg, int ntests, int nthreads, double tol){
+  //Setup types
+  typedef A2ApoliciesSIMDdoubleAutoAlloc A2Apolicies_grid;
+  typedef A2ApoliciesDoubleAutoAlloc A2Apolicies_std; 
+
+  typedef A2Apolicies_std::ComplexType mf_Complex;
+  typedef A2Apolicies_grid::ComplexType grid_Complex;
+  typedef A2Apolicies_grid::FgridGFclass LatticeType;  
+  typedef A2Apolicies_grid::GridFermionField GridFermionField;
+
+  //Setup SIMD info
+  int nsimd = grid_Complex::Nsimd();
+  typename SIMDpolicyBase<4>::ParamType simd_dims;
+  SIMDpolicyBase<4>::SIMDdefaultLayout(simd_dims,nsimd,2); //only divide over spatial directions
+  
+  printf("Nsimd = %d, SIMD dimensions:\n", nsimd);
+  for(int i=0;i<4;i++)
+    printf("%d ", simd_dims[i]);
+  printf("\n");
+
+  typename SIMDpolicyBase<3>::ParamType simd_dims_3d;
+  SIMDpolicyBase<3>::SIMDdefaultLayout(simd_dims_3d,nsimd);
+  
+  //Setup lattice
+  FgridParams grid_params; 
+  grid_params.mobius_scale = 2.0;
+  LatticeType lattice(grid_params);
+  lattice.ImportGauge(); //lattice -> Grid  
+
+  AlgFixGauge fix_gauge(lattice,&common_arg,&fix_gauge_arg);
+  fix_gauge.run();
+
+  //#define COMPUTE_VW
+
+#ifdef COMPUTE_VW  
+  LatticeSolvers solvers(jp,nthreads);
+  Lanczos<LanczosPolicies> eig;
+  eig.compute(lanc_arg, solvers, lattice);
+#endif
+  
+  A2AvectorV<A2Apolicies_grid> V_grid(a2a_arg,simd_dims);
+  A2AvectorW<A2Apolicies_grid> W_grid(a2a_arg,simd_dims);
+
+  LatRanGen lrg_bak = LRG;
+#ifdef COMPUTE_VW  
+  computeA2Avectors<A2Apolicies_grid,LanczosPolicies>::compute(V_grid,W_grid,false,false, lattice, eig, solvers);
+#else 
+  randomizeVW<A2Apolicies_grid>(V_grid,W_grid);
+#endif
+
+  A2AvectorV<A2Apolicies_std> V_std(a2a_arg);
+  A2AvectorW<A2Apolicies_std> W_std(a2a_arg);
+
+  LRG = lrg_bak;
+#ifdef COMPUTE_VW 
+  computeA2Avectors<A2Apolicies_std,LanczosPolicies>::compute(V_std,W_std,false,false, lattice, eig, solvers);
+#else 
+  randomizeVW<A2Apolicies_std>(V_std,W_std);
+#endif
+
+
+  std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
+  std::cout << "Starting tests" << std::endl;
+
+  if(0) testCPSspinColorMatrix();
+#ifdef USE_GRID
+  if(1) testvMvGridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+#endif
+}
+
 
 
 int main(int argc,char *argv[])
@@ -94,8 +298,10 @@ int main(int argc,char *argv[])
   int ngp;
   { std::stringstream ss; ss << argv[1]; ss >> ngp; }
 
-  if(!UniqueID()) printf("Doing G-parity in %d directions\n",ngp);
-  assert(ngp > 0); //we use Gparity classes 
+  if(!UniqueID()){
+    if(ngp > 0) printf("Doing G-parity in %d directions\n",ngp);
+    else printf("Doing periodic BCs\n",ngp);
+  }
   
   std::string workdir = argv[2];
   if(chdir(workdir.c_str())!=0) ERR.General("","main","Unable to switch to directory '%s'\n",workdir.c_str());
@@ -238,6 +444,14 @@ int main(int argc,char *argv[])
   LRG.setSerial();
 #endif
   LRG.Initialize(); //usually initialised when lattice generated, but I pre-init here so I can load the state from file
+
+  FixGaugeArg fix_gauge_arg;  
+  fix_gauge_arg.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
+  fix_gauge_arg.hyperplane_start = 0;
+  fix_gauge_arg.hyperplane_step = 1;
+  fix_gauge_arg.hyperplane_num = GJP.Tnodes()*GJP.TnodeSites();
+  fix_gauge_arg.stop_cond = 1e-8;
+  fix_gauge_arg.max_iter_num = 10000;
   
   {
     GnoneFnone lattice_tmp; //is destroyed at end of scope but the underlying gauge field remains in memory
@@ -276,139 +490,8 @@ int main(int argc,char *argv[])
     }
   }
 
-  typedef A2ApoliciesSIMDdoubleAutoAllocGparity A2Apolicies_grid;
-  typedef A2ApoliciesDoubleAutoAllocGparity A2Apolicies_std; 
-
-  typedef A2Apolicies_std::ComplexType mf_Complex;
-  typedef A2Apolicies_grid::ComplexType grid_Complex;
-  typedef A2Apolicies_grid::FgridGFclass LatticeType;  
-  typedef A2Apolicies_grid::GridFermionField GridFermionField;
-  
-  FgridParams grid_params; 
-  grid_params.mobius_scale = 2.0;
-  LatticeType lattice(grid_params);
-  lattice.ImportGauge(); //lattice -> Grid  
-
-  std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
-  std::cout << "Starting tests" << std::endl;
-
-  #ifdef USE_GRID
-  if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
-  #endif
-
-  if(0) testCPSsquareMatrix();
-  if(0) testCPSspinColorMatrix();
-
-  if(0) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
-
-  if(0) testMFmult<A2Apolicies_std>(a2a_arg,tol);
-
-  FixGaugeArg fix_gauge_arg;  
-  fix_gauge_arg.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
-  fix_gauge_arg.hyperplane_start = 0;
-  fix_gauge_arg.hyperplane_step = 1;
-  fix_gauge_arg.hyperplane_num = GJP.Tnodes()*GJP.TnodeSites();
-  fix_gauge_arg.stop_cond = 1e-8;
-  fix_gauge_arg.max_iter_num = 10000;
-  AlgFixGauge fix_gauge(lattice,&common_arg,&fix_gauge_arg);
-  fix_gauge.run();
-
-  //Setup SIMD info
-  int nsimd = grid_Complex::Nsimd();
-  typename SIMDpolicyBase<4>::ParamType simd_dims;
-  SIMDpolicyBase<4>::SIMDdefaultLayout(simd_dims,nsimd,2); //only divide over spatial directions
-  
-  printf("Nsimd = %d, SIMD dimensions:\n", nsimd);
-  for(int i=0;i<4;i++)
-    printf("%d ", simd_dims[i]);
-  printf("\n");
-
-
-  if(0) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
-  
-
-  //#define COMPUTE_VW
-
-#ifdef COMPUTE_VW  
-  LatticeSolvers solvers(jp,nthreads);
-  Lanczos<LanczosPolicies> eig;
-  eig.compute(lanc_arg, solvers, lattice);
-#endif
-  
-  A2AvectorV<A2Apolicies_grid> V_grid(a2a_arg,simd_dims);
-  A2AvectorW<A2Apolicies_grid> W_grid(a2a_arg,simd_dims);
-
-  LatRanGen lrg_bak = LRG;
-#ifdef COMPUTE_VW  
-  computeA2Avectors<A2Apolicies_grid,LanczosPolicies>::compute(V_grid,W_grid,false,false, lattice, eig, solvers);
-#else 
-  randomizeVW<A2Apolicies_grid>(V_grid,W_grid);
-#endif
-
-  A2AvectorV<A2Apolicies_std> V_std(a2a_arg);
-  A2AvectorW<A2Apolicies_std> W_std(a2a_arg);
-
-  LRG = lrg_bak;
-#ifdef COMPUTE_VW 
-  computeA2Avectors<A2Apolicies_std,LanczosPolicies>::compute(V_std,W_std,false,false, lattice, eig, solvers);
-#else 
-  randomizeVW<A2Apolicies_std>(V_std,W_std);
-#endif
-  
-  if(0) compareVgridstd<A2Apolicies_std, A2Apolicies_grid>(V_std, V_grid);
-
-  if(1) testMesonFieldCompute<A2Apolicies_std>(V_std, W_std, a2a_arg, lattice, tol);
-  
-  
-  typename SIMDpolicyBase<3>::ParamType simd_dims_3d;
-  SIMDpolicyBase<3>::SIMDdefaultLayout(simd_dims_3d,nsimd);
-
-  if(0) testPionContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
-							 V_grid, W_grid,
-							 lattice, simd_dims_3d, tol);
-
-  if(0) testKaonContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
-							 V_grid, W_grid,
-							 lattice, simd_dims_3d, tol);
-
-  if(0) testPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
-								V_grid, W_grid,
-								lattice, simd_dims_3d, tol);
-
-  if(0) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
-								   V_grid, W_grid,
-								   lattice, simd_dims_3d, tol);
-
-#ifdef USE_GRID
-  if(0) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
-  if(0) testVVgridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
-  if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
-
-  if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
-  if(0) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-
-  if(0) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-#endif
-
-  if(0) testModeMappingTranspose(a2a_arg);
-
-#ifdef USE_GRID
-  if(0) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
-#endif
-
-  if(0) testFFTopt<A2Apolicies_std>();
-#ifdef USE_GRID
-  if(0) testFFTopt<A2Apolicies_grid>();
-#endif
-
-#ifdef USE_GRID
-  if(0) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
-#endif
+  if(ngp > 0) testGparity(common_arg, a2a_arg, fix_gauge_arg, lanc_arg, ntests, nthreads, tol);
+  else testPeriodic(common_arg, a2a_arg, fix_gauge_arg, lanc_arg, ntests, nthreads, tol);
 
   std::cout << "Done" << std::endl;
 
