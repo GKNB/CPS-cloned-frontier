@@ -6,27 +6,16 @@
 CPS_START_NAMESPACE
 
 #include "implementation/mesonfield_mult_vMv_common.tcc"
+#include "implementation/mesonfield_mult_vMv_split_lite.tcc"
 
 //This is a less aggressive version of the split vMv routines that just seeks to avoid memory allocation under the threaded loop
-template<typename mf_Policies, 
-	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,
-	 typename ComplexClass>
-class _mult_vMv_split_lite_impl_v{};
-
-template<typename mf_Policies, 
-	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR	
-	 >
-class mult_vMv_split_lite: public _mult_vMv_split_lite_impl_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,typename ComplexClassify<typename mf_Policies::ComplexType>::type>{};
-
-
-#ifdef USE_GRID
 
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR>
-class _mult_vMv_split_lite_impl_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,grid_vector_complex_mark>{ //for SIMD vectorized W and V vectors
+class mult_vMv_split_lite{
+  typedef typename ComplexClassify<typename mf_Policies::ComplexType>::type ComplexClass;
+  typedef mult_vMv_split_lite_cnum_policy<mf_Policies,ComplexClass> CnumPolicy;
   typedef typename _mult_vMv_impl_v_getPolicy<mf_Policies::GPARITY>::type OutputPolicy;
 
   typedef typename mf_Policies::ComplexType SIMDcomplexType;
@@ -68,8 +57,6 @@ class _mult_vMv_split_lite_impl_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,r
 
 public:
 
-  _mult_vMv_split_lite_impl_v(){}
-
   void free_mem(){
     std::vector<AlignedSIMDcomplexVector>().swap(reord_buf);
     std::vector<std::vector<AlignedSIMDcomplexVector> >().swap(Mr_t);
@@ -89,7 +76,7 @@ public:
     rptr = &r;
      
     top_glb = _top_glb;
-    assert(l.getMode(0).SIMDlogicalNodes(3) == 1);    
+    CnumPolicy::checkDecomp(l.getMode(0));
 
     modeIndexSet ilp, irp, jlp, jrp;
     ilp.time = top_glb;
@@ -184,17 +171,17 @@ public:
 #ifndef MEMTEST_MODE
       for(int j = 0; j < nj_this; j++){
 	const SIMDcomplexType &rval_tmp = rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
-	rreord_p[j] = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
+	rreord_p[j] = conj_r ? CnumPolicy::conj(rval_tmp) : rval_tmp;
       }
 #endif      
 
       for(int i=0;i<Mrows;i++){
 	if(!rowidx_used[i]) continue;
 
-	zeroit(Mr[i][scf]);
+	CnumPolicy::zeroit(Mr[i][scf]);
 
 	for(int j=0;j<nj_this;j++){
-	  Grid::vsplat(tmp_v, (*Mptr)(i, jlmap[scf][j]) );
+	  CnumPolicy::splat(tmp_v, (*Mptr)(i, jlmap[scf][j]) );
 	  Mr[i][scf] = Mr[i][scf] + tmp_v * rreord_p[j];
 	}
       }
@@ -216,7 +203,7 @@ public:
 #ifndef MEMTEST_MODE
     	  for(int i = 0; i < ni_this; i++){
 	    const SIMDcomplexType &lval_tmp = lptr->nativeElem(ilmap_this[i], site4dop, scl, fl);
-	    lreord_p[i] = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
+	    lreord_p[i] = conj_l ? CnumPolicy::conj(lval_tmp) : lval_tmp;
 	  }
 #endif
 
@@ -252,7 +239,7 @@ public:
 };
 
 
-#endif //USE_GRID
+
 
 CPS_END_NAMESPACE
 

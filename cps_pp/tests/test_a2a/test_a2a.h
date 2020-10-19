@@ -1113,12 +1113,13 @@ void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const d
   //#define BASIC_GRID_VMV
 #define GRID_VMV
 #define GRID_SPLIT_VMV_LITE
+#define ORIG_SPLIT_VMV_LITE
 
   std::cout << "Starting vMv tests\n";
       
   CPSspinColorMatrix<mf_Complex> 
     basic_sum[nthreads], orig_sum[nthreads], orig_tmp[nthreads],
-    orig_sum_split_xall[nthreads], orig_sum_split[nthreads];
+    orig_sum_split_xall[nthreads], orig_sum_split[nthreads], orig_sum_split_lite[nthreads];
   int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
 
   CPSspinColorMatrix<grid_Complex> 
@@ -1129,11 +1130,12 @@ void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const d
       
   for(int i=0;i<nthreads;i++){
     basic_sum[i].zero(); basic_grid_sum[i].zero();
-    orig_sum[i].zero(); grid_sum[i].zero(); grid_sum_split_lite[i].zero();
+    orig_sum[i].zero(); orig_sum_split_lite[i].zero();
+    grid_sum[i].zero(); grid_sum_split_lite[i].zero();
   }
 
   mult_vMv_split_lite<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_lite_grid;
-
+  mult_vMv_split_lite<ScalarA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_lite_orig;
   
   if(!UniqueID()){ printf("Starting vMv tests\n"); fflush(stdout); }
   for(int top = 0; top < GJP.TnodeSites(); top++){
@@ -1186,6 +1188,19 @@ void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const d
   }
 #endif
 
+#ifdef ORIG_SPLIT_VMV_LITE
+    //ORIG SPLIT VMV LITE
+    vmv_split_lite_orig.setup(V, mf, W, top);
+#pragma omp parallel for
+    for(int xop=0;xop<orig_3vol;xop++){
+    int me = omp_get_thread_num();
+    vmv_split_lite_orig.contract(orig_tmp[me], xop, false, true);
+    orig_sum_split_lite[me] += orig_tmp[me];
+  }
+#endif
+
+
+
   }//end top loop
 
   for(int i=1;i<nthreads;i++){
@@ -1194,6 +1209,7 @@ void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const d
     basic_grid_sum[0] += basic_grid_sum[i];
     grid_sum[0] += grid_sum[i];
     grid_sum_split_lite[0] += grid_sum_split_lite[i];
+    orig_sum_split_lite[0] += orig_sum_split_lite[i];
   }
   
 #ifdef BASIC_VMV
@@ -1210,6 +1226,12 @@ void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const d
   if(!compare(orig_sum[0],grid_sum_split_lite[0],tol)) ERR.General("","","Standard vs Grid split lite implementation test failed\n");
   else if(!UniqueID()) printf("Standard vs Grid split lite implementation test pass\n");
 #endif
+
+#ifdef ORIG_SPLIT_VMV_LITE
+  if(!compare(orig_sum[0],orig_sum_split_lite[0],tol)) ERR.General("","","Standard vs Scalar split lite implementation test failed\n");
+  else if(!UniqueID()) printf("Standard vs Scalar split lite implementation test pass\n");
+#endif
+
 
 #ifdef BASIC_GRID_VMV
   if(!compare(orig_sum[0],basic_grid_sum[0],tol)) ERR.General("","","Standard vs Basic Grid implementation test failed\n");
