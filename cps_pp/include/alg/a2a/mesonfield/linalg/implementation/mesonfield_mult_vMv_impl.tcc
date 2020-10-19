@@ -1,17 +1,8 @@
 #ifndef _MULT_VMV_IMPL
 #define _MULT_VMV_IMPL
 
+#include "mesonfield_mult_vMv_common.tcc"
 //Vector mesonfield outer product implementation
-struct _mult_vMv_impl_v_GparityPolicy{
-  template<typename T> using MatrixType = CPSspinColorFlavorMatrix<T>;
-  constexpr static int nf(){ return 2; }
-  template<typename T> static inline T & acc(const int s1, const int s2, const int c1, const int c2, const int f1, const int f2, MatrixType<T> &M){ return M(s1,s2)(c1,c2)(f1,f2); }
-};
-struct _mult_vMv_impl_v_StandardPolicy{
-  template<typename T> using MatrixType = CPSspinColorMatrix<T>;
-  constexpr static int nf(){ return 1; }
-  template<typename T> static inline T & acc(const int s1, const int s2, const int c1, const int c2, const int f1, const int f2, MatrixType<T> &M){ return M(s1,s2)(c1,c2); }
-};
 
 template<typename mf_Policies, typename ImplPolicies,
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,

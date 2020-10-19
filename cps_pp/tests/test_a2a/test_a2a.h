@@ -1109,9 +1109,10 @@ void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const d
   typedef typename GridA2Apolicies::ComplexType grid_Complex;
   typedef typename ScalarA2Apolicies::ComplexType mf_Complex;
 
-#define BASIC_VMV
-#define BASIC_GRID_VMV
+  //#define BASIC_VMV
+  //#define BASIC_GRID_VMV
 #define GRID_VMV
+#define GRID_SPLIT_VMV_LITE
 
   std::cout << "Starting vMv tests\n";
       
@@ -1128,8 +1129,11 @@ void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const d
       
   for(int i=0;i<nthreads;i++){
     basic_sum[i].zero(); basic_grid_sum[i].zero();
-    orig_sum[i].zero(); grid_sum[i].zero();
+    orig_sum[i].zero(); grid_sum[i].zero(); grid_sum_split_lite[i].zero();
   }
+
+  mult_vMv_split_lite<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_lite_grid;
+
   
   if(!UniqueID()){ printf("Starting vMv tests\n"); fflush(stdout); }
   for(int top = 0; top < GJP.TnodeSites(); top++){
@@ -1170,6 +1174,18 @@ void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const d
       basic_grid_sum[me] += grid_tmp[me];
     }
 #endif
+
+#ifdef GRID_SPLIT_VMV_LITE
+    //GRID SPLIT VMV LITE
+    vmv_split_lite_grid.setup(Vgrid, mf_grid, Wgrid, top);
+#pragma omp parallel for
+    for(int xop=0;xop<grid_3vol;xop++){
+    int me = omp_get_thread_num();
+    vmv_split_lite_grid.contract(grid_tmp[me], xop, false, true);
+    grid_sum_split_lite[me] += grid_tmp[me];
+  }
+#endif
+
   }//end top loop
 
   for(int i=1;i<nthreads;i++){
@@ -1177,6 +1193,7 @@ void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const d
     orig_sum[0] += orig_sum[i];
     basic_grid_sum[0] += basic_grid_sum[i];
     grid_sum[0] += grid_sum[i];
+    grid_sum_split_lite[0] += grid_sum_split_lite[i];
   }
   
 #ifdef BASIC_VMV
@@ -1187,6 +1204,11 @@ void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const d
 #ifdef GRID_VMV
   if(!compare(orig_sum[0],grid_sum[0],tol)) ERR.General("","","Standard vs Grid implementation test failed\n");
   else if(!UniqueID()) printf("Standard vs Grid implementation test pass\n");
+#endif
+
+#ifdef GRID_SPLIT_VMV_LITE
+  if(!compare(orig_sum[0],grid_sum_split_lite[0],tol)) ERR.General("","","Standard vs Grid split lite implementation test failed\n");
+  else if(!UniqueID()) printf("Standard vs Grid split lite implementation test pass\n");
 #endif
 
 #ifdef BASIC_GRID_VMV
