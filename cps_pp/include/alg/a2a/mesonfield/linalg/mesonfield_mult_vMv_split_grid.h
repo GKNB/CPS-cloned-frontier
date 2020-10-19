@@ -14,7 +14,8 @@ CPS_START_NAMESPACE
 #define VMV_BLOCKED_MATRIX_MULT
 
 
-#define STACK_ALLOC_REORD
+//#define STACK_ALLOC_REORD
+//^ Disabled because large stack allocations cause crashes
 
 
 template<typename ComplexType>
@@ -381,6 +382,7 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 #endif
 
 #ifdef VMV_SPLIT_GRID_MEM_SAVE
+    //If all scf have the same nj it means the low mode part is identical so we can avoid reconstructing this part multiple times
     if(nj_all_same) pokeSubmatrix<MComplexType>(mpptr, mf_reord_lo_lo, this->nrows_used, nj_max, 0, 0, nl_row, nl_col);
 #endif
     

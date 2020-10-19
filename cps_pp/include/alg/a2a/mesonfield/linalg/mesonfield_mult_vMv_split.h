@@ -6,15 +6,40 @@
 CPS_START_NAMESPACE
 
 //Perform A2Avector * Mesonfield * A2Avector products more efficiently by reordering the mesonfield into a more cache-friendly format
+//For local outer contraction of meson field by two vectors we can save a lot of time by column reordering the meson field to improve cache use. 
+//Save even more time by doing this outside the site loop (it makes no reference to the 3d position, only the time at which the vectors
+//are evaluated)
 
-//Try to save memory at the cost of some performance
+//Try to save memory at the cost of some performance by using a more efficient decomposition of the meson field and reconstructing the (reordered) meson field on the fly
 #define VMV_SPLIT_MEM_SAVE
+
+//Specialization of split vMv to different complex type (std::complex and Grid SIMD)
+template<typename mf_Policies, 
+	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,
+	 typename ComplexClass
+	 >
+class mult_vMv_split_v{};
+
+//Wrapper class that hides the determination of the complex type
+//This is the main split vMv interface
+template<typename mf_Policies, 
+	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR	
+	 >
+class mult_vMv_split: public mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,typename ComplexClassify<typename mf_Policies::ComplexType>::type>{};
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  Operations using the packed meson field
 
 template<typename ComplexMatrixType>
 class SCFoperation{
 public:
   virtual void operator()(const ComplexMatrixType& M, const int scf, const int rows, const int cols) = 0;
 };
+
+//Multiply reordered meson field by reordered right A2A vector
 template<typename ScalarComplexType>
 class multiply_M_r_op: public SCFoperation<typename gsl_wrapper<typename ScalarComplexType::value_type>::matrix_complex>{
   typedef typename ScalarComplexType::value_type mf_Float;
@@ -82,21 +107,7 @@ public:
   }
 
 };
-
-template<typename mf_Policies, 
-	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,
-	 typename ComplexClass
-	 >
-class mult_vMv_split_v{};
-
-template<typename mf_Policies, 
-	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR	
-	 >
-class mult_vMv_split: public mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,typename ComplexClassify<typename mf_Policies::ComplexType>::type>{};
-
-
+//Multiply reordered meson field by reordered right A2A vector for single spin/color/flavor
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR>
@@ -121,6 +132,9 @@ public:
   }
 };
 
+
+//////////////////////////////////////////////////////////////////////////////////
+//Base class of split vMv
 
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
@@ -158,7 +172,8 @@ protected:
   int Mrows, Mcols;  
 
   mult_vMv_split_base():rowidx_used(NULL){}
-  
+
+  //Setup member data such as index mappings
   void setup_base(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb, 
 	     const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind, const ModeContractionIndices<jLeftDilutionType,jRightDilutionType>& j_ind){
     lptr = &l; rptr = &r; Mptr = &M; top_glb = _top_glb;
@@ -224,6 +239,7 @@ protected:
     }
   }
 
+  //Perform reordering of the left and right A2A vectors on a single site, performing cconj if necessary
   template<typename MatrixVectorComplex>
   void site_reorder_lr(MatrixVectorComplex &lreord,   //[scf][reordered mode]
 		       MatrixVectorComplex &rreord,
@@ -273,10 +289,9 @@ protected:
   
 };
 
+///////////////////////////////////////////////////////////////////////
 
-//For local outer contraction of meson field by two vectors we can save a lot of time by column reordering the meson field to improve cache use. 
-//Save even more time by doing this outside the site loop (it makes no reference to the 3d position, only the time at which the vectors
-//are evaluated)
+//Implementation of split vMv for std::complex
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
@@ -305,6 +320,7 @@ class mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, 
   const static int nscf = 2*3*4;
   
 #ifdef VMV_SPLIT_MEM_SAVE
+  //A different decomposition of the matrix
   ScalarComplexType *mf_reord_lo_lo; //shared nl*nl submatrix
   ScalarComplexType *mf_reord_lo_hi[nscf]; //the nl * nh[scf] submatrix
   ScalarComplexType *mf_reord_hi_lo[nscf]; //the nh[scf] * nl submatrix
@@ -342,6 +358,7 @@ class mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, 
       int nj_this = this->nj[scf]; //vector size
       
 #ifdef VMV_SPLIT_MEM_SAVE
+      //Reconstruct the packed meson field
       int nh_row = this->nrows_used - nl_row;
       int nh_col = nj_this - nl_col;
       M_packed->size2 = nj_this;
@@ -362,12 +379,13 @@ class mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, 
 #endif      
   }
 
-  
+  //Multiply reordered meson field by reordered right A2A vector
   void multiply_M_r(std::vector<std::vector<ScalarComplexType> >& Mr, const std::vector<std::vector<ScalarComplexType> >& rreord) const{
     multiply_M_r_op<ScalarComplexType> op(Mr, rreord, this->i_packed_unmap_all, this->nrows_used);
     constructPackedMloopSCF(op);
   }
 
+  //Multiply reordered meson field by reordered right A2A vector but for a single spin/color/flavor component of the vector
   //off is the 3d site offset for the start of the internal site loop, and work is the number of sites to iterate over 
   //M_packed is the Mesonfield in packed format.
   void multiply_M_r_singlescf(std::vector<std::vector<std::vector<ScalarComplexType> > >& Mr, const std::vector<std::vector<std::vector<ScalarComplexType> > >& rreord, 
@@ -425,6 +443,8 @@ class mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, 
     gw::vector_complex_free(Mr_packed);
   }
   
+  //Multiply reordered left A2A vector by previously-computed M*r result and output into spin/color/flavor matrix
+  //Uses GSL matrix vector multiplication
   void site_multiply_l_Mr(CPSspinColorFlavorMatrix<ScalarComplexType> &out, 
 			  const std::vector<std::vector<ScalarComplexType> > &lreord,
 			  const std::vector<std::vector<ScalarComplexType> > &Mr,
@@ -533,6 +553,7 @@ public:
     ModeContractionIndices<jLeftDilutionType,jRightDilutionType> j_ind(r);
     setup(l,M,r,_top_glb,i_ind,j_ind);
   }
+  //Same as the above but also takes the mode index mappings
   void setup(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb, 
 	     const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind, const ModeContractionIndices<jLeftDilutionType,jRightDilutionType>& j_ind){
     this->setup_base(l,M,r,_top_glb,i_ind,j_ind);
@@ -544,12 +565,13 @@ public:
     assert(sizeof(typename gw::complex) == sizeof(std::complex<mf_Float>) ); 
 
     //Not all rows or columns of M are used, so lets use a packed matrix
-    for(int scf=0;scf<nscf;scf++){
+    for(int scf=0;scf<nscf;scf++){ //the column indices used are scf-dependent
       int nj_this = this->nj[scf];
       std::vector<int> &jlmap_this = this->jlmap[scf];
       
       typename gw::matrix_complex* mf_scf_reord = M.GSLpackedColReorder(&jlmap_this.front(), nj_this, this->rowidx_used); //packs the GSL matrix
 #ifdef VMV_SPLIT_MEM_SAVE
+      //The packed matrices share common low-mode parts so we can save memory by removing the duplicate data at the cost of having to reconstruct the packed matrix later
       int nl_row = M.getRowParams().getNl();
       int nl_col = M.getColParams().getNl();
       int nh_row = this->nrows_used - nl_row;
@@ -584,7 +606,7 @@ public:
   }
 
 public:
-  //Contract on all 3d sites on this node with fixed operator time coord top_glb into a canonically ordered output vector
+  //Contract on all 3d sites in parallel on this node with fixed operator time coord top_glb into a canonically ordered output vector
   void contract(std::vector<CPSspinColorFlavorMatrix<ScalarComplexType> > &out, const bool conj_l, const bool conj_r) const{
     int top = this->top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
     assert(top >= 0 && top < GJP.TnodeSites()); //make sure you use this method on the appropriate node!
@@ -617,6 +639,7 @@ public:
 	this->site_reorder_lr(lreord[s],rreord[s],conj_l,conj_r,site4dop);
       }
       
+      //Prepare thread temp memory for Mr
       for(int s=off[me];s<off[me]+work[me];s++){
 	Mr[s].resize(nscf); 
 	for(int scf=0;scf<nscf;scf++){
@@ -627,17 +650,16 @@ public:
       }
     }
 
+    //Compute M*r
     multiply_M_r_singlescf_op<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR> op(work,off,Mr,rreord,this);
     constructPackedMloopSCF(op);
 
     #pragma omp parallel
     {
       int me = omp_get_thread_num();
-      //M * r
-      //multiply_M_r(&Mr[0],&rreord[0],off,work);
       
       //Vector vector multiplication l*(M*r)
-      typename gw::vector_complex* Mr_gsl_buffer = gw::vector_complex_alloc(this->Mrows);
+      typename gw::vector_complex* Mr_gsl_buffer = gw::vector_complex_alloc(this->Mrows); //scratch space
       for(int x3d=off[me];x3d<off[me]+work[me];x3d++)
 	site_multiply_l_Mr(out[x3d], lreord[x3d], Mr[x3d], Mr_gsl_buffer);
 

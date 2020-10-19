@@ -4044,6 +4044,329 @@ void test4DlowmodeSubtraction(A2AArg a2a_args, const int ntests, const int nthre
   }
 }
 
+template<typename ScalarA2Apolicies, typename GridA2Apolicies>
+void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthreads){
+#ifdef USE_GRID
+#define CPS_VMV
+  //#define GRID_VMV
+  //#define CPS_SPLIT_VMV
+#define GRID_SPLIT_VMV
+  //#define CPS_SPLIT_VMV_XALL
+#define GRID_SPLIT_VMV_XALL
+#define GRID_SPLIT_LITE_VMV;
+
+  std::cout << "Starting vMv benchmark\n";
+  std::cout << "nl=" << a2a_args.nl << "\n";
+  
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  typename FourDSIMDPolicy<typename ScalarA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<typename ScalarA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
+  A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
+    
+  A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
+  A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
+
+  W.testRandom();
+  V.testRandom();
+  Wgrid.importFields(W);
+  Vgrid.importFields(V);
+  
+  A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
+  A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
+  mf.setup(W,V,0,0);
+  mf_grid.setup(Wgrid,Vgrid,0,0);     
+  mf.testRandom();
+  for(int i=0;i<mf.getNrows();i++)
+    for(int j=0;j<mf.getNcols();j++)
+      mf_grid(i,j) = mf(i,j); //both are scalar complex
+  
+  typedef typename GridA2Apolicies::ComplexType grid_Complex;
+  typedef typename ScalarA2Apolicies::ComplexType mf_Complex;
+
+  int nf = GJP.Gparity()+1;
+
+  //Compute Flops
+  size_t Flops = 0;
+
+  {
+    typedef typename A2AvectorVfftw<ScalarA2Apolicies>::DilutionType iLeftDilutionType;
+    typedef typename A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::LeftDilutionType iRightDilutionType;
+
+    typedef typename A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::RightDilutionType jLeftDilutionType;    
+    typedef typename A2AvectorWfftw<ScalarA2Apolicies>::DilutionType jRightDilutionType;
+
+    ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(V);
+    ModeContractionIndices<jLeftDilutionType,jRightDilutionType> j_ind(W);
+    
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    size_t vol3d = GJP.XnodeSites()*GJP.YnodeSites()*GJP.ZnodeSites();
+
+    //Count Flops on node
+    for(int t=GJP.TnodeCoor()*GJP.TnodeSites();t<(GJP.TnodeCoor()+1)*GJP.TnodeSites();t++){
+      //Count elements of Mr actually used
+      std::vector<bool> ir_used(mf.getNrows(),false);
+      for(int scl=0;scl<12;scl++){
+	for(int fl=0;fl<nf;fl++){
+	  modeIndexSet ilp, irp;
+	  ilp.time = t;
+	  irp.time = mf.getRowTimeslice();
+	      	      
+	  ilp.spin_color = scl;
+	  ilp.flavor = fl;
+
+	  int ni = i_ind.getNindices(ilp,irp);
+	  for(int i=0;i<ni;i++){
+	    int il = i_ind.getLeftIndex(i, ilp,irp);
+	    ir_used[il] = true;
+	  }
+	}
+      }
+      int nir_used = 0;
+      for(int i=0;i<ir_used.size();i++)
+	if(ir_used[i]) nir_used++;
+      
+      //Mr[scr][fr]
+      for(int scr=0;scr<12;scr++){
+	for(int fr=0;fr<nf;fr++){
+
+	  modeIndexSet jlp, jrp;
+	      
+	  jlp.time = mf.getColTimeslice();
+	  jrp.time = t;
+	  
+	  jrp.spin_color = scr;
+	  jrp.flavor = fr;
+	  
+	  int nj = j_ind.getNindices(jlp,jrp);
+	      	      
+	  //Mr =  nir_used * nj * (cmul + cadd)  per site
+	  Flops += nir_used * nj * 8 * vol3d;
+	}
+      }
+
+      //l[scl][fl](Mr[scr][fr])
+      for(int scl=0;scl<12;scl++){
+	for(int fl=0;fl<nf;fl++){
+	  for(int scr=0;scr<12;scr++){
+	    for(int fr=0;fr<nf;fr++){
+
+	      modeIndexSet ilp, irp, jlp, jrp;
+	      ilp.time = t;
+	      irp.time = mf.getRowTimeslice();
+	            
+	      ilp.spin_color = scl;
+	      ilp.flavor = fl;
+
+	      int ni = i_ind.getNindices(ilp,irp);
+	      	      
+	      //l( Mr) = ni  * (cmul + cadd)  per site
+	      Flops += ni * 8 * vol3d;
+	    }
+	  }
+	}
+      } 
+    }//t
+
+  }//Flops count
+  size_t MFlops = Flops/1024/1024;
+  
+      
+  Float total_time = 0.;
+  Float total_time_orig = 0.;
+  Float total_time_split_orig = 0.;
+  Float total_time_split_grid = 0.;
+  Float total_time_split_orig_xall = 0.;
+  Float total_time_split_grid_xall = 0.;
+  Float total_time_split_lite_grid = 0.;
+  Float total_time_field_offload = 0.;
+  mult_vMv_field_offload_timers::get().reset();
+
+  typedef typename AlignedVector<CPSspinColorFlavorMatrix<mf_Complex> >::type BasicVector;
+  typedef typename AlignedVector<CPSspinColorFlavorMatrix<grid_Complex> >::type SIMDvector;
+
+  BasicVector orig_sum(nthreads);
+  SIMDvector grid_sum(nthreads);
+
+  BasicVector orig_tmp(nthreads);
+  SIMDvector grid_tmp(nthreads);
+
+  BasicVector orig_sum_split(nthreads);
+  SIMDvector grid_sum_split(nthreads);
+
+  BasicVector orig_sum_split_xall(nthreads);
+  SIMDvector grid_sum_split_xall(nthreads);
+
+  SIMDvector grid_sum_split_lite(nthreads);      
+
+  int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
+  int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
+
+  mult_vMv_split<ScalarA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_orig;
+  mult_vMv_split<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_grid;
+  mult_vMv_split_lite<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_lite_grid;
+
+  BasicVector orig_split_xall_tmp(orig_3vol);
+  SIMDvector grid_split_xall_tmp(grid_3vol);
+      
+  for(int iter=0;iter<ntests;iter++){
+    for(int i=0;i<nthreads;i++){
+      orig_sum[i].zero(); grid_sum[i].zero();
+      orig_sum_split[i].zero(); grid_sum_split[i].zero();
+      grid_sum_split_lite[i].zero();
+      orig_sum_split_xall[i].zero(); grid_sum_split_xall[i].zero();
+    }
+	
+    for(int top = 0; top < GJP.TnodeSites(); top++){
+#ifdef CPS_VMV
+      //ORIG VMV
+      total_time_orig -= dclock();	  
+#pragma omp parallel for
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult(orig_tmp[me], V, mf, W, xop, top, false, true);
+	orig_sum[me] += orig_tmp[me];
+      }
+      total_time_orig += dclock();
+#endif
+#ifdef GRID_VMV
+      //GRID VMV
+      total_time -= dclock();
+#pragma omp parallel for
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult(grid_tmp[me], Vgrid, mf_grid, Wgrid, xop, top, false, true);
+	grid_sum[me] += grid_tmp[me];
+      }
+      total_time += dclock();
+#endif
+
+#ifdef CPS_SPLIT_VMV
+      //SPLIT VMV
+      total_time_split_orig -= dclock();	  
+      vmv_split_orig.setup(V, mf, W, top);
+
+#pragma omp parallel for
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	vmv_split_orig.contract(orig_tmp[me], xop, false, true);
+	orig_sum_split[me] += orig_tmp[me];
+      }
+      total_time_split_orig += dclock();
+#endif
+
+#ifdef GRID_SPLIT_VMV
+      //SPLIT VMV GRID
+      total_time_split_grid -= dclock();	  
+      vmv_split_grid.setup(Vgrid, mf_grid, Wgrid, top);
+
+#pragma omp parallel for
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	vmv_split_grid.contract(grid_tmp[me], xop, false, true);
+	grid_sum_split[me] += grid_tmp[me];
+      }
+      total_time_split_grid += dclock();
+#endif
+
+#ifdef CPS_SPLIT_VMV_XALL	  	 
+      //SPLIT VMV THAT DOES IT FOR ALL SITES
+      total_time_split_orig_xall -= dclock();	  
+      vmv_split_orig.setup(V, mf, W, top);
+      vmv_split_orig.contract(orig_split_xall_tmp, false, true);
+#pragma omp parallel for
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	orig_sum_split_xall[me] += orig_split_xall_tmp[xop];
+      }
+      total_time_split_orig_xall += dclock();
+#endif
+
+#ifdef GRID_SPLIT_VMV_XALL
+      //SPLIT VMV GRID THAT DOES IT FOR ALL SITES
+      total_time_split_grid_xall -= dclock();	  
+      vmv_split_grid.setup(Vgrid, mf_grid, Wgrid, top);
+      vmv_split_grid.contract(grid_split_xall_tmp, false, true);
+#pragma omp parallel for
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();	    
+	grid_sum_split_xall[me] += grid_split_xall_tmp[xop];
+      }
+      total_time_split_grid_xall += dclock();
+#endif	  
+
+#ifdef GRID_SPLIT_LITE_VMV
+      //SPLIT LITE VMV GRID
+      total_time_split_lite_grid -= dclock();	  
+      vmv_split_lite_grid.setup(Vgrid, mf_grid, Wgrid, top);
+
+#pragma omp parallel for
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	vmv_split_lite_grid.contract(grid_tmp[me], xop, false, true);
+	grid_sum_split_lite[me] += grid_tmp[me];
+      }
+      total_time_split_lite_grid += dclock();
+#endif
+    }//end top loop
+    for(int i=1;i<nthreads;i++){
+      orig_sum[0] += orig_sum[i];
+      grid_sum[0] += grid_sum[i];
+      orig_sum_split[0] += orig_sum_split[i];
+      grid_sum_split[0] += grid_sum_split[i];
+      orig_sum_split_xall[0] += orig_sum_split_xall[i];
+      grid_sum_split_xall[0] += grid_sum_split_xall[i];
+      grid_sum_split_lite[0] += grid_sum_split_lite[i];  
+    }
+
+    //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
+    total_time_field_offload -= dclock();
+    typedef typename mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw>::PropagatorField PropagatorField;
+    PropagatorField pfield(simd_dims);
+    
+    mult(pfield, Vgrid, mf_grid, Wgrid, false, true);
+    total_time_field_offload += dclock();
+
+    CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
+    vmv_offload_sum4.zero();
+    for(size_t i=0;i<pfield.size();i++){
+      vmv_offload_sum4 += *pfield.fsite_ptr(i);
+    }
+  } //tests loop
+#ifdef CPS_VMV
+  printf("vMv: Avg time vMv (non-SIMD) %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_orig/ntests,  MFlops/(total_time_orig/ntests) );
+#endif
+#ifdef GRID_VMV
+  printf("vMv: Avg time vMv (SIMD) code %d iters: %g secs/iter  %g Mflops\n",ntests,total_time/ntests, MFlops/(total_time/ntests) );
+#endif
+#ifdef CPS_SPLIT_VMV
+  printf("vMv: Avg time split vMv (non-SIMD) %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_split_orig/ntests, MFlops/(total_time_split_orig/ntests) );
+#endif
+#ifdef GRID_SPLIT_VMV
+  printf("vMv: Avg time split vMv (SIMD) %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_split_grid/ntests, MFlops/(total_time_split_grid/ntests) );
+#endif
+#ifdef CPS_SPLIT_VMV_XALL
+  printf("vMv: Avg time split vMv (non-SIMD) xall %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_split_orig_xall/ntests, MFlops/(total_time_split_orig_xall/ntests) );
+#endif
+#ifdef GRID_SPLIT_VMV_XALL
+  printf("vMv: Avg time split vMv (SIMD) xall %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_split_grid_xall/ntests, MFlops/(total_time_split_grid_xall/ntests) );
+#endif
+#ifdef GRID_SPLIT_LITE_VMV
+  printf("vMv: Avg time split vMv lite (SIMD) %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_split_lite_grid/ntests, MFlops/(total_time_split_lite_grid/ntests) );
+#endif
+  printf("vMv: Avg time vMv field offload %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_field_offload/ntests, MFlops/(total_time_field_offload/ntests) );
+
+  if(!UniqueID()){
+    printf("vMv offload timings:\n");
+    mult_vMv_field_offload_timers::get().print();
+  }
+
+#endif
+}
+
 
 
 
@@ -4265,7 +4588,7 @@ struct _trtr{
 template<typename VectorMatrixType>
 struct _trtrV{
   typedef typename VectorMatrixType::scalar_type OutputType;
-  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &a, const const VectorMatrixType &b, const int lane) const{ 
+  accelerator_inline void operator()(OutputType &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane) const{ 
     typename VectorMatrixType::scalar_type tmp, tmp2; //each thread will have one of these but will only write to a single thread    
     Trace(tmp, a, lane);
     Trace(tmp2, b, lane);
