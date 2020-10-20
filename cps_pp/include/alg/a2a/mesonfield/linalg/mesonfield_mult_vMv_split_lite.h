@@ -1,14 +1,56 @@
 #ifndef _MULT_VMV_SPLIT_LITE
 #define _MULT_VMV_SPLIT_LITE
 
-#include "mesonfield_mult_vMv_split.h"
-
 CPS_START_NAMESPACE
 
 #include "implementation/mesonfield_mult_vMv_common.tcc"
 #include "implementation/mesonfield_mult_vMv_split_lite.tcc"
 
-//This is a less aggressive version of the split vMv routines that just seeks to avoid memory allocation under the threaded loop
+//Perform site-wise vMv operation more efficiently by moving repeated overhead outside of a threaded loop
+
+//This class contains scratch space for thread writing. It can be shared between multiple instances of mult_vMv_split_lite
+template<typename mf_Policies>
+struct mult_vMv_split_lite_scratch_space{
+  typedef typename mf_Policies::ComplexType SIMDcomplexType;
+  typedef typename AlignedVector<SIMDcomplexType>::type AlignedSIMDcomplexVector;
+  typedef typename _mult_vMv_impl_v_getPolicy<mf_Policies::GPARITY>::type OutputPolicy;
+
+  int nthr_setup; //max number of threads 
+  int Mrows; //number of rows of meson field
+  int blocksize;
+
+  //Reorder rows and columns such that they can be accessed sequentially 
+  //This is done under the parallel loop and so space is needed for all threads
+  std::vector<AlignedSIMDcomplexVector> reord_buf; //[thread_idx][mode idx]
+  std::vector<std::vector<AlignedSIMDcomplexVector> > Mr_t; //[thr][Mrows][nscf]
+
+  //Mrows is the number of rows of the meson field
+  void setup(const int Mrows){
+    const static int nf = OutputPolicy::nf();
+    const static int nscf = nf*3*4;
+    
+    this->blocksize = BlockedSplitvMvArgs::b;
+    this->Mrows = Mrows;
+    this->nthr_setup = omp_get_max_threads();    
+
+    reord_buf.resize(nthr_setup);
+    Mr_t.resize(nthr_setup);
+    for(int t=0;t<nthr_setup;t++){
+      reord_buf[t].resize(blocksize);
+      Mr_t[t].resize(Mrows);
+      for(int r=0;r<Mrows;r++)
+	Mr_t[t][r].resize(nscf);
+    }
+  }
+
+  void free_mem(){
+    std::vector<AlignedSIMDcomplexVector>().swap(reord_buf);
+    std::vector<std::vector<AlignedSIMDcomplexVector> >().swap(Mr_t);
+  }
+};
+  
+
+
 
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
@@ -40,36 +82,41 @@ class mult_vMv_split_lite{
   int Mrows;
   std::vector<bool> rowidx_used; 
 
-  int nthr_setup;
-
   int nimax;
   int njmax;
-
-  //Reorder rows and columns such that they can be accessed sequentially 
-  //This is done under the parallel loop and so space is needed for all threads
-  std::vector<AlignedSIMDcomplexVector> reord_buf; //[thread_idx][mode idx]
-  std::vector<std::vector<AlignedSIMDcomplexVector> > Mr_t; //[thr][Mrows][nscf]
 
   lA2AfieldL<mf_Policies> const* lptr;
   A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> const* Mptr;
   rA2AfieldR<mf_Policies> const* rptr;
 
+  mult_vMv_split_lite_scratch_space<mf_Policies> *scratch;
+  bool own_scratch;
 public:
 
-  void free_mem(){
-    std::vector<AlignedSIMDcomplexVector>().swap(reord_buf);
-    std::vector<std::vector<AlignedSIMDcomplexVector> >().swap(Mr_t);
+  mult_vMv_split_lite(): own_scratch(false), scratch(NULL){}
+
+  ~mult_vMv_split_lite(){
+    if(scratch && own_scratch) delete scratch;
   }
 
-  void setup(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb){
+  //Free the scratch memory (if owned by this instance)
+  void free_mem(){
+    if(scratch && own_scratch)
+      scratch->free_mem();
+  }
+
+  //shared_scratch allows the scratch space to be shared between multiple instances of this class
+  void setup(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb,
+	     mult_vMv_split_lite_scratch_space<mf_Policies> *shared_scratch = NULL){
     //Precompute index mappings
     ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(l);
     ModeContractionIndices<jLeftDilutionType,jRightDilutionType> j_ind(r);
-    setup(l,M,r,_top_glb,i_ind,j_ind);
+    setup(l,M,r,_top_glb,i_ind,j_ind, shared_scratch);
   }
 
   void setup(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb, 
-	     const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind, const ModeContractionIndices<jLeftDilutionType,jRightDilutionType>& j_ind){
+	     const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind, const ModeContractionIndices<jLeftDilutionType,jRightDilutionType>& j_ind,
+	     mult_vMv_split_lite_scratch_space<mf_Policies> *shared_scratch = NULL){
     lptr = &l;
     Mptr = &M;
     rptr = &r;
@@ -85,8 +132,6 @@ public:
     jrp.time = top_glb;
 
     Mrows = M.getNrows();
-
-    nthr_setup = omp_get_max_threads();
 
     //Are particular row indices of M actually used?
     rowidx_used.resize(Mrows); for(int i=0;i<Mrows;i++) rowidx_used[i] = false;
@@ -138,26 +183,34 @@ public:
       }
     }
 
-    reord_buf.resize(nthr_setup, AlignedSIMDcomplexVector(BlockedSplitvMvArgs::b));
-    Mr_t.resize(nthr_setup, std::vector<AlignedSIMDcomplexVector>(Mrows, AlignedSIMDcomplexVector(nscf)));
+    if(shared_scratch){
+      this->scratch = shared_scratch;
+      own_scratch = false;
+    }else{
+      scratch = new mult_vMv_split_lite_scratch_space<mf_Policies>();
+      own_scratch = true;
+    }
+    scratch->setup(Mrows);
   }
   
   void contract(OutputMatrixType &out, const int xop, const bool conj_l, const bool conj_r){
-    assert(omp_get_num_threads() <= nthr_setup);
+    assert(scratch);
+    assert(omp_get_num_threads() <= scratch->nthr_setup);
+    assert(Mrows <= scratch->Mrows);
 
     const int thread_id = omp_get_thread_num();
-    SIMDcomplexType* rreord_p = reord_buf[thread_id].data();
+    SIMDcomplexType* rreord_p = scratch->reord_buf[thread_id].data();
     SIMDcomplexType* lreord_p = rreord_p;
 
     out.zero();
     const int top_lcl = top_glb - GJP.TnodeCoor() * GJP.TnodeSites();
     const int site4dop = lptr->getMode(0).threeToFour(xop, top_lcl);
 
-    std::vector<AlignedSIMDcomplexVector> &Mr = Mr_t[thread_id];
+    std::vector<AlignedSIMDcomplexVector> &Mr = scratch->Mr_t[thread_id];
 
     //Matrix vector multiplication  M*r contracted on mode index j. Only do it for rows that are actually used
 
-    int blocksize = BlockedSplitvMvArgs::b;
+    int blocksize = scratch->blocksize;
     int niblock = (Mrows + blocksize - 1)/blocksize;
     int njblock = (njmax + blocksize - 1)/blocksize;
     SIMDcomplexType tmp_v;
