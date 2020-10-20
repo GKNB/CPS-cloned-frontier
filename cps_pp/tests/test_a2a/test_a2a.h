@@ -850,12 +850,8 @@ bool compare(const CPSspinColorMatrix<mf_Complex> &orig, const CPSspinColorMatri
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const double tol){
 #define BASIC_VMV
-#define CPS_SPLIT_VMV
-#define CPS_SPLIT_VMV_XALL
 #define BASIC_GRID_VMV
 #define GRID_VMV
-#define GRID_SPLIT_VMV
-#define GRID_SPLIT_VMV_XALL
 #define GRID_SPLIT_LITE_VMV;
 
   std::cout << "Starting vMv tests\n";
@@ -889,28 +885,19 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
   typedef typename GridA2Apolicies::ComplexType grid_Complex;
       
   CPSspinColorFlavorMatrix<mf_Complex> 
-    basic_sum[nthreads], orig_sum[nthreads], orig_tmp[nthreads],
-    orig_sum_split_xall[nthreads], orig_sum_split[nthreads];
+    basic_sum[nthreads], orig_sum[nthreads], orig_tmp[nthreads];
   int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
 
   CPSspinColorFlavorMatrix<grid_Complex> 
-    basic_grid_sum[nthreads], grid_sum[nthreads], grid_tmp[nthreads], 
-    grid_sum_split[nthreads], grid_sum_split_xall[nthreads], grid_sum_split_lite[nthreads];      
+    basic_grid_sum[nthreads], grid_sum[nthreads], grid_tmp[nthreads], grid_sum_split_lite[nthreads];      
   int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
 
-  mult_vMv_split<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_grid;
   mult_vMv_split_lite<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_lite_grid;
-  mult_vMv_split<ScalarA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_orig;
-
-  std::vector<CPSspinColorFlavorMatrix<mf_Complex> > orig_split_xall_tmp(orig_3vol);
-  typename AlignedVector<CPSspinColorFlavorMatrix<grid_Complex> >::type grid_split_xall_tmp(grid_3vol);
       
   for(int i=0;i<nthreads;i++){
     basic_sum[i].zero(); basic_grid_sum[i].zero();
     orig_sum[i].zero(); grid_sum[i].zero();
-    orig_sum_split[i].zero(); grid_sum_split[i].zero();
     grid_sum_split_lite[i].zero();
-    orig_sum_split_xall[i].zero(); grid_sum_split_xall[i].zero();
   }
   
   if(!UniqueID()){ printf("Starting vMv tests\n"); fflush(stdout); }
@@ -953,50 +940,6 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
     }
 #endif
 
-#ifdef CPS_SPLIT_VMV
-    //SPLIT VMV
-    vmv_split_orig.setup(V, mf, W, top);
-#pragma omp parallel for
-    for(int xop=0;xop<orig_3vol;xop++){
-      int me = omp_get_thread_num();
-      vmv_split_orig.contract(orig_tmp[me], xop, false, true);
-      orig_sum_split[me] += orig_tmp[me];
-    }
-#endif
-
-#ifdef GRID_SPLIT_VMV
-    //SPLIT VMV GRID
-    vmv_split_grid.setup(Vgrid, mf_grid, Wgrid, top);
-#pragma omp parallel for
-    for(int xop=0;xop<grid_3vol;xop++){
-      int me = omp_get_thread_num();
-      vmv_split_grid.contract(grid_tmp[me], xop, false, true);
-      grid_sum_split[me] += grid_tmp[me];
-    }
-#endif
-
-#ifdef CPS_SPLIT_VMV_XALL	  	 
-    //SPLIT VMV THAT DOES IT FOR ALL SITES
-    vmv_split_orig.setup(V, mf, W, top);
-    vmv_split_orig.contract(orig_split_xall_tmp, false, true);
-#pragma omp parallel for
-    for(int xop=0;xop<orig_3vol;xop++){
-      int me = omp_get_thread_num();
-      orig_sum_split_xall[me] += orig_split_xall_tmp[xop];
-    }
-#endif
-
-#ifdef GRID_SPLIT_VMV_XALL
-    //SPLIT VMV GRID THAT DOES IT FOR ALL SITES
-    vmv_split_grid.setup(Vgrid, mf_grid, Wgrid, top);
-    vmv_split_grid.contract(grid_split_xall_tmp, false, true);
-#pragma omp parallel for
-    for(int xop=0;xop<grid_3vol;xop++){
-      int me = omp_get_thread_num();	    
-      grid_sum_split_xall[me] += grid_split_xall_tmp[xop];
-    }
-#endif	  
-
 #ifdef GRID_SPLIT_LITE_VMV
     //SPLIT LITE VMV GRID
     vmv_split_lite_grid.setup(Vgrid, mf_grid, Wgrid, top);
@@ -1014,10 +957,6 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
     orig_sum[0] += orig_sum[i];
     basic_grid_sum[0] += basic_grid_sum[i];
     grid_sum[0] += grid_sum[i];
-    orig_sum_split[0] += orig_sum_split[i];
-    grid_sum_split[0] += grid_sum_split[i];
-    orig_sum_split_xall[0] += orig_sum_split_xall[i];
-    grid_sum_split_xall[0] += grid_sum_split_xall[i];
     grid_sum_split_lite[0] += grid_sum_split_lite[i];  
   }
   
@@ -1046,26 +985,6 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
 #ifdef BASIC_GRID_VMV
   if(!compare(orig_sum[0],basic_grid_sum[0],tol)) ERR.General("","","Standard vs Basic Grid implementation test failed\n");
   else if(!UniqueID()) printf("Standard vs Basic Grid implementation test pass\n");
-#endif
-
-#ifdef CPS_SPLIT_VMV
-  if(!compare(orig_sum[0],orig_sum_split[0],tol)) ERR.General("","","Standard vs Split implementation test failed\n");
-  else if(!UniqueID()) printf("Standard vs Split implementation test pass\n");
-#endif
-
-#ifdef GRID_SPLIT_VMV
-  if(!compare(orig_sum[0],grid_sum_split[0],tol)) ERR.General("","","Standard vs Grid Split implementation test failed\n");
-  else if(!UniqueID()) printf("Standard vs Grid Split implementation test pass\n");
-#endif
-
-#ifdef CPS_SPLIT_VMV_XALL
-  if(!compare(orig_sum[0],orig_sum_split_xall[0],tol)) ERR.General("","","Standard vs Split xall implementation test failed\n");
-  else if(!UniqueID()) printf("Standard vs Split xall implementation test pass\n");
-#endif
-
-#ifdef GRID_SPLIT_VMV_XALL
-  if(!compare(orig_sum[0],grid_sum_split_xall[0],tol)) ERR.General("","","Standard vs Grid split xall implementation test failed\n");
-  else if(!UniqueID()) printf("Standard vs Grid split xall implementation test pass\n");
 #endif
 
 #ifdef GRID_SPLIT_LITE_VMV

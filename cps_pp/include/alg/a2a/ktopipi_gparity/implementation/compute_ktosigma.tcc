@@ -85,9 +85,7 @@ void ComputeKtoSigma<mf_Policies>::type12_omp(std::vector<ResultsContainerType> 
 
   std::vector<typename AlignedVector<SCFmat>::type > pt2_store(nthread, typename AlignedVector<SCFmat>::type(ntS));
     
-#ifdef KTOSIGMA_USE_SPLIT_VMV_LITE
-  vMv_split_shrbuf shared_buf_inst; vMv_split_shrbuf *shared_buf = &shared_buf_inst;
-#endif
+  vMv_split_shrbuf shared_buf_inst; 
 
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
@@ -95,10 +93,10 @@ void ComputeKtoSigma<mf_Policies>::type12_omp(std::vector<ResultsContainerType> 
 #ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
     time = dclock();
     std::vector<vMv_split_VWWV> part1_split(ntK);
-    setup_type12_pt1_split(part1_split,top_glb, tK_subset_map BUF_PASS);
+    setup_type12_pt1_split(part1_split,top_glb, tK_subset_map, &shared_buf_inst);
 
     std::vector<vMv_split_VWVW> part2_split(ntS);
-    setup_type12_pt2_split(part2_split,mf_S,top_glb, tS_subset_map BUF_PASS);
+    setup_type12_pt2_split(part2_split,mf_S,top_glb, tS_subset_map, &shared_buf_inst);
     vmv_setup_time += dclock() - time;
 #endif
 
@@ -286,9 +284,7 @@ void ComputeKtoSigma<mf_Policies>::type3_omp(std::vector<ResultsContainerType> &
   double pt2_time = 0;
   double contract_time = 0;
 
-#ifdef KTOSIGMA_USE_SPLIT_VMV_LITE
-  vMv_split_shrbuf shared_buf_inst; vMv_split_shrbuf *shared_buf = &shared_buf_inst;
-#endif
+  vMv_split_shrbuf shared_buf_inst; 
 
   std::vector< SCFmatVector > pt1_store_allthr(omp_get_max_threads(), SCFmatVector(ntK_tS));
 
@@ -298,7 +294,7 @@ void ComputeKtoSigma<mf_Policies>::type3_omp(std::vector<ResultsContainerType> &
 #ifndef DISABLE_KTOSIGMA_TYPE3_SPLIT_VMV   
     time = dclock();
     std::vector<vMv_split_VWWV> part1_split(ntK_tS);
-    setup_type3_pt1_split(part1_split,top_glb,mf_prod,tK_tS_idx_map BUF_PASS);
+    setup_type3_pt1_split(part1_split,top_glb,mf_prod,tK_tS_idx_map, &shared_buf_inst);
     vmv_setup_time += dclock() - time;
 #endif
 

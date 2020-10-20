@@ -4049,10 +4049,6 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
 #ifdef USE_GRID
 #define CPS_VMV
   //#define GRID_VMV
-  //#define CPS_SPLIT_VMV
-#define GRID_SPLIT_VMV
-  //#define CPS_SPLIT_VMV_XALL
-#define GRID_SPLIT_VMV_XALL
 #define GRID_SPLIT_LITE_VMV;
 
   std::cout << "Starting vMv benchmark\n";
@@ -4177,10 +4173,6 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
       
   Float total_time = 0.;
   Float total_time_orig = 0.;
-  Float total_time_split_orig = 0.;
-  Float total_time_split_grid = 0.;
-  Float total_time_split_orig_xall = 0.;
-  Float total_time_split_grid_xall = 0.;
   Float total_time_split_lite_grid = 0.;
   Float total_time_field_offload = 0.;
   mult_vMv_field_offload_timers::get().reset();
@@ -4194,30 +4186,17 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
   BasicVector orig_tmp(nthreads);
   SIMDvector grid_tmp(nthreads);
 
-  BasicVector orig_sum_split(nthreads);
-  SIMDvector grid_sum_split(nthreads);
-
-  BasicVector orig_sum_split_xall(nthreads);
-  SIMDvector grid_sum_split_xall(nthreads);
-
   SIMDvector grid_sum_split_lite(nthreads);      
 
   int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
   int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
 
-  mult_vMv_split<ScalarA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_orig;
-  mult_vMv_split<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_grid;
   mult_vMv_split_lite<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_lite_grid;
 
-  BasicVector orig_split_xall_tmp(orig_3vol);
-  SIMDvector grid_split_xall_tmp(grid_3vol);
-      
   for(int iter=0;iter<ntests;iter++){
     for(int i=0;i<nthreads;i++){
       orig_sum[i].zero(); grid_sum[i].zero();
-      orig_sum_split[i].zero(); grid_sum_split[i].zero();
       grid_sum_split_lite[i].zero();
-      orig_sum_split_xall[i].zero(); grid_sum_split_xall[i].zero();
     }
 	
     for(int top = 0; top < GJP.TnodeSites(); top++){
@@ -4244,60 +4223,6 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
       total_time += dclock();
 #endif
 
-#ifdef CPS_SPLIT_VMV
-      //SPLIT VMV
-      total_time_split_orig -= dclock();	  
-      vmv_split_orig.setup(V, mf, W, top);
-
-#pragma omp parallel for
-      for(int xop=0;xop<orig_3vol;xop++){
-	int me = omp_get_thread_num();
-	vmv_split_orig.contract(orig_tmp[me], xop, false, true);
-	orig_sum_split[me] += orig_tmp[me];
-      }
-      total_time_split_orig += dclock();
-#endif
-
-#ifdef GRID_SPLIT_VMV
-      //SPLIT VMV GRID
-      total_time_split_grid -= dclock();	  
-      vmv_split_grid.setup(Vgrid, mf_grid, Wgrid, top);
-
-#pragma omp parallel for
-      for(int xop=0;xop<grid_3vol;xop++){
-	int me = omp_get_thread_num();
-	vmv_split_grid.contract(grid_tmp[me], xop, false, true);
-	grid_sum_split[me] += grid_tmp[me];
-      }
-      total_time_split_grid += dclock();
-#endif
-
-#ifdef CPS_SPLIT_VMV_XALL	  	 
-      //SPLIT VMV THAT DOES IT FOR ALL SITES
-      total_time_split_orig_xall -= dclock();	  
-      vmv_split_orig.setup(V, mf, W, top);
-      vmv_split_orig.contract(orig_split_xall_tmp, false, true);
-#pragma omp parallel for
-      for(int xop=0;xop<orig_3vol;xop++){
-	int me = omp_get_thread_num();
-	orig_sum_split_xall[me] += orig_split_xall_tmp[xop];
-      }
-      total_time_split_orig_xall += dclock();
-#endif
-
-#ifdef GRID_SPLIT_VMV_XALL
-      //SPLIT VMV GRID THAT DOES IT FOR ALL SITES
-      total_time_split_grid_xall -= dclock();	  
-      vmv_split_grid.setup(Vgrid, mf_grid, Wgrid, top);
-      vmv_split_grid.contract(grid_split_xall_tmp, false, true);
-#pragma omp parallel for
-      for(int xop=0;xop<grid_3vol;xop++){
-	int me = omp_get_thread_num();	    
-	grid_sum_split_xall[me] += grid_split_xall_tmp[xop];
-      }
-      total_time_split_grid_xall += dclock();
-#endif	  
-
 #ifdef GRID_SPLIT_LITE_VMV
       //SPLIT LITE VMV GRID
       total_time_split_lite_grid -= dclock();	  
@@ -4311,14 +4236,11 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
       }
       total_time_split_lite_grid += dclock();
 #endif
+
     }//end top loop
     for(int i=1;i<nthreads;i++){
       orig_sum[0] += orig_sum[i];
       grid_sum[0] += grid_sum[i];
-      orig_sum_split[0] += orig_sum_split[i];
-      grid_sum_split[0] += grid_sum_split[i];
-      orig_sum_split_xall[0] += orig_sum_split_xall[i];
-      grid_sum_split_xall[0] += grid_sum_split_xall[i];
       grid_sum_split_lite[0] += grid_sum_split_lite[i];  
     }
 
@@ -4341,18 +4263,6 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
 #endif
 #ifdef GRID_VMV
   printf("vMv: Avg time vMv (SIMD) code %d iters: %g secs/iter  %g Mflops\n",ntests,total_time/ntests, MFlops/(total_time/ntests) );
-#endif
-#ifdef CPS_SPLIT_VMV
-  printf("vMv: Avg time split vMv (non-SIMD) %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_split_orig/ntests, MFlops/(total_time_split_orig/ntests) );
-#endif
-#ifdef GRID_SPLIT_VMV
-  printf("vMv: Avg time split vMv (SIMD) %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_split_grid/ntests, MFlops/(total_time_split_grid/ntests) );
-#endif
-#ifdef CPS_SPLIT_VMV_XALL
-  printf("vMv: Avg time split vMv (non-SIMD) xall %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_split_orig_xall/ntests, MFlops/(total_time_split_orig_xall/ntests) );
-#endif
-#ifdef GRID_SPLIT_VMV_XALL
-  printf("vMv: Avg time split vMv (SIMD) xall %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_split_grid_xall/ntests, MFlops/(total_time_split_grid_xall/ntests) );
 #endif
 #ifdef GRID_SPLIT_LITE_VMV
   printf("vMv: Avg time split vMv lite (SIMD) %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_split_lite_grid/ntests, MFlops/(total_time_split_lite_grid/ntests) );

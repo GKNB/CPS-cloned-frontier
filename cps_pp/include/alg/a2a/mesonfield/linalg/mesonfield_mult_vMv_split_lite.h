@@ -33,11 +33,11 @@ struct mult_vMv_split_lite_scratch_space{
     this->Mrows = Mrows;
     this->nthr_setup = omp_get_max_threads();    
 
-    reord_buf.resize(nthr_setup);
-    Mr_t.resize(nthr_setup);
+    if(reord_buf.size() < nthr_setup) reord_buf.resize(nthr_setup);
+    if(Mr_t.size() < nthr_setup) Mr_t.resize(nthr_setup);
     for(int t=0;t<nthr_setup;t++){
-      reord_buf[t].resize(blocksize);
-      Mr_t[t].resize(Mrows);
+      if(reord_buf[t].size() < blocksize) reord_buf[t].resize(blocksize);
+      if(Mr_t[t].size() < Mrows) Mr_t[t].resize(Mrows);
       for(int r=0;r<Mrows;r++)
 	Mr_t[t][r].resize(nscf);
     }
@@ -91,6 +91,7 @@ class mult_vMv_split_lite{
 
   mult_vMv_split_lite_scratch_space<mf_Policies> *scratch;
   bool own_scratch;
+
 public:
 
   mult_vMv_split_lite(): own_scratch(false), scratch(NULL){}
@@ -184,9 +185,11 @@ public:
     }
 
     if(shared_scratch){
+      if(this->scratch && own_scratch) delete this->scratch;
+
       this->scratch = shared_scratch;
       own_scratch = false;
-    }else{
+    }else if(!this->scratch){
       scratch = new mult_vMv_split_lite_scratch_space<mf_Policies>();
       own_scratch = true;
     }
@@ -194,11 +197,13 @@ public:
   }
   
   void contract(OutputMatrixType &out, const int xop, const bool conj_l, const bool conj_r){
+    const int thread_id = omp_get_thread_num();
+
     assert(scratch);
     assert(omp_get_num_threads() <= scratch->nthr_setup);
     assert(Mrows <= scratch->Mrows);
 
-    const int thread_id = omp_get_thread_num();
+
     SIMDcomplexType* rreord_p = scratch->reord_buf[thread_id].data();
     SIMDcomplexType* lreord_p = rreord_p;
 
@@ -207,6 +212,9 @@ public:
     const int site4dop = lptr->getMode(0).threeToFour(xop, top_lcl);
 
     std::vector<AlignedSIMDcomplexVector> &Mr = scratch->Mr_t[thread_id];
+    for(int i=0;i<Mrows;i++)
+      for(int scf=0;scf<nscf;scf++)
+	CnumPolicy::zeroit(Mr[i][scf]);
 
     //Matrix vector multiplication  M*r contracted on mode index j. Only do it for rows that are actually used
 
@@ -219,9 +227,6 @@ public:
     for(int bi=0;bi<niblock;bi++){
       int istart = bi*blocksize;
       int ilessthan = std::min(istart+blocksize, Mrows);
-      for(int i=istart;i<ilessthan;i++)
-	for(int scf=0;scf<nscf;scf++)	    
-	  CnumPolicy::zeroit(Mr[i][scf]);
 
       for(int bj=0;bj<njblock;bj++){
     
@@ -240,7 +245,9 @@ public:
 	    const SIMDcomplexType &rval_tmp = rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
 	    rreord_p[j-jstart] = conj_r ? CnumPolicy::conj(rval_tmp) : rval_tmp;
 	  }
+	  
 
+	  //M*r
 	  for(int i=istart;i<ilessthan;i++){
 	    if(!rowidx_used[i]) continue;
 	    
@@ -249,10 +256,11 @@ public:
 	      Mr[i][scf] = Mr[i][scf] + tmp_v * rreord_p[j-jstart];
 	    }
 	  }
-	}
-      }//bj
 
+	}//scf
+      }//bj
     }//bi
+
 
     //Vector vector multiplication l*(M*r)
     for(int sl=0;sl<4;sl++){
@@ -274,6 +282,7 @@ public:
 	      const SIMDcomplexType &lval_tmp = lptr->nativeElem(ilmap_this[i], site4dop, scl, fl);
 	      lreord_p[i-istart] = conj_l ? CnumPolicy::conj(lval_tmp) : lval_tmp;
 	    }
+
 	    for(int sr=0;sr<4;sr++){
 	      for(int cr=0;cr<3;cr++){
 		for(int fr=0;fr<nf;fr++){
@@ -287,6 +296,7 @@ public:
 		}
 	      }
 	    }
+
 	  }//bi
 
 	}//fl
@@ -294,7 +304,6 @@ public:
     }//sl
      
 #endif //MEMTEST_MODE
-
   }
 	      
   //Internally parallelized version

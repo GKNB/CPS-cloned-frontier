@@ -18,14 +18,9 @@ public:
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> SigmaMesonFieldType;
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> KaonMesonFieldType;
 
-#ifdef KTOSIGMA_USE_SPLIT_VMV_LITE
-  typedef mult_vMv_split_lite_shrbuf<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
-  typedef mult_vMv_split_lite_shrbuf<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
-  typedef vMvLiteSharedBuf<mf_Policies> vMv_split_shrbuf;
-#else
-  typedef mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
-  typedef mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
-#endif
+  typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
+  typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
+  typedef mult_vMv_split_lite_scratch_space<mf_Policies> vMv_split_shrbuf;
 
 private:
   const A2AvectorV<mf_Policies> & vL;
@@ -72,18 +67,11 @@ private:
     mult(pt1, vL, mf_ls_WW[tK_glb], vH, xop_loc, top_loc, false, true);
   }
 
-#ifdef KTOSIGMA_USE_SPLIT_VMV_LITE 
-#define BUF_ARG , vMv_split_shrbuf *shared_buf
-#define BUF_PASS , shared_buf
-#else
-#define BUF_ARG
-#define BUF_PASS 
-#endif
-
-  void setup_type12_pt1_split(std::vector<vMv_split_VWWV> &part1_split, const int top_glb, const std::vector<int> &tK_subset_map BUF_ARG){
+  void setup_type12_pt1_split(std::vector<vMv_split_VWWV> &part1_split, const int top_glb, const std::vector<int> &tK_subset_map,
+			      vMv_split_shrbuf *shared_buf){
     for(int i=0;i<tK_subset_map.size();i++){
       int tK_glb = tK_subset_map[i];
-      part1_split[i].setup(vL,mf_ls_WW[tK_glb], vH,top_glb BUF_PASS);
+      part1_split[i].setup(vL,mf_ls_WW[tK_glb], vH,top_glb, shared_buf);
     }
   }
 
@@ -92,10 +80,10 @@ private:
   }
 
   void setup_type12_pt2_split(std::vector<vMv_split_VWVW> &part2_split, std::vector<SigmaMesonFieldType> &mf_S, 
-			      const int top_glb, const std::vector<int> &tS_subset_map BUF_ARG){
+			      const int top_glb, const std::vector<int> &tS_subset_map, vMv_split_shrbuf *shared_buf){
     for(int i=0;i<tS_subset_map.size();i++){
       int tS_glb = tS_subset_map[i];
-      part2_split[i].setup(vL, mf_S[tS_glb], wL, top_glb BUF_PASS);
+      part2_split[i].setup(vL, mf_S[tS_glb], wL, top_glb, shared_buf);
     }
   }
 
@@ -211,9 +199,10 @@ private:
   }
 
   void setup_type3_pt1_split(std::vector<vMv_split_VWWV> &part1_split, const int top_glb,
-			     const std::vector<Type3MesonFieldProductType> &mf_prod, const std::vector<std::pair<int,int> > &tK_tS_idx_map BUF_ARG){
+			     const std::vector<Type3MesonFieldProductType> &mf_prod, const std::vector<std::pair<int,int> > &tK_tS_idx_map, 
+			     vMv_split_shrbuf *shared_buf){
     for(int i=0;i<tK_tS_idx_map.size();i++){
-      part1_split[i].setup(vL,mf_prod[i],vH, top_glb BUF_PASS);
+      part1_split[i].setup(vL,mf_prod[i],vH, top_glb, shared_buf);
     }
   }
   

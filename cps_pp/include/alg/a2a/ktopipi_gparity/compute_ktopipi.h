@@ -176,7 +176,7 @@ private:
 public:
   typedef typename mf_Policies::ComplexType ComplexType;
   typedef CPSspinColorFlavorMatrix<ComplexType> SCFmat;
-  typedef typename getInnerVectorType<SCFmat,typename ComplexClassify<ComplexType>::type>::type SCFmatVector;
+  typedef typename AlignedVector<SCFmat>::type SCFmatVector;
   typedef CPSmatrixField<SCFmat> SCFmatrixField;
 
   typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> ResultsContainerType;
@@ -185,13 +185,8 @@ public:
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> mf_WW;
 
-#ifdef KTOPIPI_USE_SPLIT_VMV_LITE
   typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
   typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
-#else
-  typedef mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
-  typedef mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
-#endif
 
 #ifdef USE_DESTRUCTIVE_FFT
   typedef A2AvectorW<mf_Policies> Wtype;
