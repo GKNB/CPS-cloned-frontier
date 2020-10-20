@@ -389,6 +389,10 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss  << argv[i+1]; ss >> BlockedvMvOffloadArgs::bb;
       if(!UniqueID()) printf("Set vMv offload inner blocksize to %d\n", BlockedvMvOffloadArgs::bb);
       i+=2;
+    }else if( cmd == "-vMv_split_blocksize" ){
+      std::stringstream ss; ss  << argv[i+1]; ss >> BlockedSplitvMvArgs::b;
+      if(!UniqueID()) printf("Set vMv split blocksize to %d\n", BlockedSplitvMvArgs::b);
+      i+=2;
     }else if( cmd == "-nl" ){
       std::stringstream ss; ss  << argv[i+1]; ss >> nl;
       if(!UniqueID()) printf("Set nl to %d\n", nl);

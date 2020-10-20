@@ -44,10 +44,13 @@ public:
 };
 
 struct BlockedvMvOffloadArgs{
-  static int b; //block size in both indices of  \sum_i v^(i)(x) M^(i,j) v^(j)(x)
+  static int b; //block size in both indices of  \sum_ij v^(i)(x) M^(i,j) v^(j)(x)
   static int bb; //internal block size
 };
 
+struct BlockedSplitvMvArgs{
+  static int b; //block size of \sum_j M(i,j) v^(j)(x)
+};
 
 
 CPS_END_NAMESPACE

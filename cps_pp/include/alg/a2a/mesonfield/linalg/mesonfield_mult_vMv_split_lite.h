@@ -44,7 +44,6 @@ class mult_vMv_split_lite{
 
   int nimax;
   int njmax;
-  int mmax; //max(nimax, njmax)
 
   //Reorder rows and columns such that they can be accessed sequentially 
   //This is done under the parallel loop and so space is needed for all threads
@@ -139,9 +138,7 @@ public:
       }
     }
 
-    mmax = nimax > njmax ? nimax : njmax;
-    
-    reord_buf.resize(nthr_setup, AlignedSIMDcomplexVector(mmax));
+    reord_buf.resize(nthr_setup, AlignedSIMDcomplexVector(BlockedSplitvMvArgs::b));
     Mr_t.resize(nthr_setup, std::vector<AlignedSIMDcomplexVector>(Mrows, AlignedSIMDcomplexVector(nscf)));
   }
   
@@ -149,6 +146,8 @@ public:
     assert(omp_get_num_threads() <= nthr_setup);
 
     const int thread_id = omp_get_thread_num();
+    SIMDcomplexType* rreord_p = reord_buf[thread_id].data();
+    SIMDcomplexType* lreord_p = rreord_p;
 
     out.zero();
     const int top_lcl = top_glb - GJP.TnodeCoor() * GJP.TnodeSites();
@@ -157,35 +156,50 @@ public:
     std::vector<AlignedSIMDcomplexVector> &Mr = Mr_t[thread_id];
 
     //Matrix vector multiplication  M*r contracted on mode index j. Only do it for rows that are actually used
+
+    int blocksize = BlockedSplitvMvArgs::b;
+    int niblock = (Mrows + blocksize - 1)/blocksize;
+    int njblock = (njmax + blocksize - 1)/blocksize;
     SIMDcomplexType tmp_v;
+
 #ifndef MEMTEST_MODE	       
-    for(int scf=0;scf<nscf;scf++){
-      int sc = scf/nf; int f = scf % nf;
+    for(int bi=0;bi<niblock;bi++){
+      int istart = bi*blocksize;
+      int ilessthan = std::min(istart+blocksize, Mrows);
+      for(int i=istart;i<ilessthan;i++)
+	for(int scf=0;scf<nscf;scf++)	    
+	  CnumPolicy::zeroit(Mr[i][scf]);
 
-      SIMDcomplexType* rreord_p = reord_buf[thread_id].data();
+      for(int bj=0;bj<njblock;bj++){
+    
+	for(int scf=0;scf<nscf;scf++){
+	  int sc = scf/nf; int f = scf % nf;
+    
+	  //j index
+	  int nj_this = nj[scf];	  
+	  const std::vector<int> &jrmap_this = jrmap[scf];
 
-      //j index
-      int nj_this = nj[scf];	  
-      const std::vector<int> &jrmap_this = jrmap[scf];
+	  int jstart = bj*blocksize;
+	  int jlessthan = std::min(jstart+blocksize, nj_this);
 
-#ifndef MEMTEST_MODE
-      for(int j = 0; j < nj_this; j++){
-	const SIMDcomplexType &rval_tmp = rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
-	rreord_p[j] = conj_r ? CnumPolicy::conj(rval_tmp) : rval_tmp;
-      }
-#endif      
+	  //Poke into temp mem
+	  for(int j = jstart; j < jlessthan; j++){
+	    const SIMDcomplexType &rval_tmp = rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
+	    rreord_p[j-jstart] = conj_r ? CnumPolicy::conj(rval_tmp) : rval_tmp;
+	  }
 
-      for(int i=0;i<Mrows;i++){
-	if(!rowidx_used[i]) continue;
-
-	CnumPolicy::zeroit(Mr[i][scf]);
-
-	for(int j=0;j<nj_this;j++){
-	  CnumPolicy::splat(tmp_v, (*Mptr)(i, jlmap[scf][j]) );
-	  Mr[i][scf] = Mr[i][scf] + tmp_v * rreord_p[j];
+	  for(int i=istart;i<ilessthan;i++){
+	    if(!rowidx_used[i]) continue;
+	    
+	    for(int j=jstart;j<jlessthan;j++){
+	      CnumPolicy::splat(tmp_v, (*Mptr)(i, jlmap[scf][j]) );
+	      Mr[i][scf] = Mr[i][scf] + tmp_v * rreord_p[j-jstart];
+	    }
+	  }
 	}
-      }
-    }
+      }//bj
+
+    }//bi
 
     //Vector vector multiplication l*(M*r)
     for(int sl=0;sl<4;sl++){
@@ -193,37 +207,40 @@ public:
 	int scl = cl + 3*sl;
 	for(int fl=0;fl<nf;fl++){
 	  int scfl = fl + nf*scl;	    
-
-	  SIMDcomplexType* lreord_p = reord_buf[thread_id].data();
-  
+ 
    	  //i index
 	  int ni_this = ni[scfl];
     	  const std::vector<int> &ilmap_this = ilmap[scfl];
-	  
-#ifndef MEMTEST_MODE
-    	  for(int i = 0; i < ni_this; i++){
-	    const SIMDcomplexType &lval_tmp = lptr->nativeElem(ilmap_this[i], site4dop, scl, fl);
-	    lreord_p[i] = conj_l ? CnumPolicy::conj(lval_tmp) : lval_tmp;
-	  }
-#endif
 
-	  for(int sr=0;sr<4;sr++){
-	    for(int cr=0;cr<3;cr++){
-	      for(int fr=0;fr<nf;fr++){
-		int scfr = fr + nf*(cr + 3*sr);		
+	  int niblock = (ni_this + blocksize - 1)/blocksize;
+	  for(int bi=0;bi<niblock;bi++){
+	    int istart = bi*blocksize;
+	    int ilessthan = std::min(istart + blocksize, ni_this);
+
+	    for(int i = istart; i < ilessthan; i++){
+	      const SIMDcomplexType &lval_tmp = lptr->nativeElem(ilmap_this[i], site4dop, scl, fl);
+	      lreord_p[i-istart] = conj_l ? CnumPolicy::conj(lval_tmp) : lval_tmp;
+	    }
+	    for(int sr=0;sr<4;sr++){
+	      for(int cr=0;cr<3;cr++){
+		for(int fr=0;fr<nf;fr++){
+		  int scfr = fr + nf*(cr + 3*sr);		
+		  
+		  SIMDcomplexType &into = OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out);
 		
-		SIMDcomplexType &into = OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out);
-		
-		for(int i=0;i<ni_this;i++){
-		  into = into + lreord_p[i]*Mr[irmap[scfl][i]][scfr];
+		  for(int i=istart;i<ilessthan;i++){
+		    into = into + lreord_p[i-istart]*Mr[irmap[scfl][i]][scfr];
+		  }
 		}
 	      }
 	    }
-	  }
-	}
-      }
-    }	    
-#endif
+	  }//bi
+
+	}//fl
+      }//cl
+    }//sl
+     
+#endif //MEMTEST_MODE
 
   }
 	      
