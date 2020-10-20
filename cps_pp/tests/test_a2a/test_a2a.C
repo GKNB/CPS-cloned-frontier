@@ -182,8 +182,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								   lattice, simd_dims_3d, tol);
 
 #ifdef USE_GRID
-  if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(0) testVVgridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(0) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
   if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
 
   if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
@@ -283,7 +283,8 @@ void testPeriodic(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge
 
   if(0) testCPSspinColorMatrix();
 #ifdef USE_GRID
-  if(1) testvMvGridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testvMvGridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testVVgridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
 #endif
 }
 

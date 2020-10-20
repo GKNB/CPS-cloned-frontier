@@ -25,7 +25,8 @@ template<typename mf_Policies,
 	 template <typename> class MA2AfieldL,  template <typename> class MA2AfieldR,
 	 template <typename> class rA2Afield  
 	 >
-void mult(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l,  const A2AmesonField<mf_Policies,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Policies> &r, const int xop, const int top, const bool conj_l, const bool conj_r);
+void mult(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l,  const A2AmesonField<mf_Policies,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Policies> &r, 
+	  const int xop, const int top, const bool conj_l, const bool conj_r);
 
 //For regular BCs
 template<typename mf_Policies, 
@@ -33,17 +34,30 @@ template<typename mf_Policies,
 	 template <typename> class MA2AfieldL,  template <typename> class MA2AfieldR,
 	 template <typename> class rA2Afield  
 	 >
-void mult(CPSspinColorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l,  const A2AmesonField<mf_Policies,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Policies> &r, const int xop, const int top, const bool conj_l, const bool conj_r);
+void mult(CPSspinColorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l,  const A2AmesonField<mf_Policies,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Policies> &r, 
+	  const int xop, const int top, const bool conj_l, const bool conj_r);
 
 
 // l^i(xop,top) r^i(xop,top)
 //argument xop is the *local* 3d site index in canonical ordering, top is the *local* time coordinate
 // Node local and unthreaded
+//For G-parity BCs
 template<typename mf_Policies, 
 	 template <typename> class lA2Afield,  
 	 template <typename> class rA2Afield  
 	 >
-void mult(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r);
+void mult(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+	  const int xop, const int top, const bool conj_l, const bool conj_r);
+
+
+//For regular BCs
+template<typename mf_Policies, 
+	 template <typename> class lA2Afield,  
+	 template <typename> class rA2Afield  
+	 >
+void mult(CPSspinColorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+	  const int xop, const int top, const bool conj_l, const bool conj_r);
+
 
 
 #include "implementation/mesonfield_mult_impl.tcc"

@@ -1,8 +1,7 @@
 #ifndef _MULT_VV_IMPL_H
 #define _MULT_VV_IMPL_H
 
-//#define MULT_LR_BASIC
-#define MULT_LR_GSL
+#include "mesonfield_mult_vMv_common.tcc"
 
 template<typename mf_Policies, 
 	 template <typename> class lA2Afield,  template <typename> class rA2Afield,
@@ -16,61 +15,13 @@ template<typename mf_Policies,
 	 >
 class _mult_lr_impl_v<mf_Policies,lA2Afield,rA2Afield,complex_double_or_float_mark>{ 
 public:
-    typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
-#if defined(MULT_LR_BASIC)
+  typedef typename _mult_vMv_impl_v_getPolicy<mf_Policies::GPARITY>::type OutputPolicy;
+  typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+  typedef typename OutputPolicy::template MatrixType<ScalarComplexType> OutputMatrixType;
+  const static int nf = OutputPolicy::nf();
 
-  static void mult(CPSspinColorFlavorMatrix<ScalarComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
-    typedef typename lA2Afield<mf_Policies>::DilutionType iLeftDilutionType;
-    typedef typename rA2Afield<mf_Policies>::DilutionType iRightDilutionType;
-
-    out = 0.0;
-
-    int top_glb = top+GJP.TnodeSites()*GJP.TnodeCoor();
-
-    //Precompute index mappings
-    ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(l);
-
-    modeIndexSet ilp, irp;
-    ilp.time = top_glb;
-    irp.time = top_glb;
-    
-    int site4dop = l.getMode(0).threeToFour(xop, top);
-
-    for(int sl=0;sl<4;sl++){
-      for(int sr=0;sr<4;sr++){
-	for(int cl=0;cl<3;cl++){
-	  ilp.spin_color = cl + 3*sl;
-	  for(int cr=0;cr<3;cr++){
-	    irp.spin_color = cr + 3*sr;
-	    for(int fl=0;fl<2;fl++){
-	      ilp.flavor = fl;
-	      for(int fr=0;fr<2;fr++){
-		irp.flavor = fr;
-		
-		for(int i=0;i<i_ind.getNindices(ilp,irp);i++){
-		  const int &il = i_ind.getLeftIndex(i,ilp,irp);
-		  const int &ir = i_ind.getRightIndex(i,ilp,irp);
-
-		  const ScalarComplexType &lval_tmp = l.nativeElem(il, site4dop, ilp.spin_color, fl);
-		  ScalarComplexType lval = conj_l ? std::conj(lval_tmp) : lval_tmp;		
-
-		  const ScalarComplexType &rval_tmp = r.nativeElem(ir, site4dop, irp.spin_color, fr);
-		  ScalarComplexType rval = conj_r ? std::conj(rval_tmp) : rval_tmp;
-
-		  out(sl,sr)(cl,cr)(fl,fr) += lval * rval;
-		}
-	      }
-	    }
-	  }
-	}
-      }
-    } 
-  }
-
-#elif defined(MULT_LR_GSL)
-
-
-  static void mult(CPSspinColorFlavorMatrix<ScalarComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  static void mult(OutputMatrixType &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+		   const int xop, const int top, const bool conj_l, const bool conj_r){
     typedef typename lA2Afield<mf_Policies>::DilutionType iLeftDilutionType;
     typedef typename rA2Afield<mf_Policies>::DilutionType iRightDilutionType;
 
@@ -88,7 +39,7 @@ public:
     
     //We want to treat this as a matrix mult of a 24 * nv  matrix with an nv * 24 matrix, where nv is the number of fully undiluted indices. First implementation uses regular GSL, but could perhaps be done better with sparse matrices
     int site4dop = l.getMode(0).threeToFour(xop,top);
-    const static int nscf = 2*3*4;
+    const static int nscf = nf*3*4;
 
     //Pull out the components we need into packed GSL vectors
     typedef gsl_wrapper<typename ScalarComplexType::value_type> gw;
@@ -103,9 +54,9 @@ public:
     for(int s=0;s<4;s++){
       for(int c=0;c<3;c++){
     	ilp.spin_color = irp.spin_color = c + 3*s;
-    	for(int f=0;f<2;f++){
+    	for(int f=0;f<nf;f++){
     	  ilp.flavor = irp.flavor = f;
-    	  int scf = f+2*(c+3*s);
+    	  int scf = f+nf*(c+3*s);
 	  
 	  std::vector<int> lmap;
 	  std::vector<bool> lnon_zeroes;
@@ -114,9 +65,6 @@ public:
 	  for(int i=0;i<nv;i++) //Could probably speed this up using the contiguous block finder and memcpy
 	    if(lnon_zeroes[i]){
 	      const ScalarComplexType &lval_tmp = l.nativeElem(lmap[i], site4dop, ilp.spin_color, f);
-	      // std::complex<mf_Float> lval_tmp = l.nativeElem(lmap[i], site4dop, ilp.spin_color, f);
-	      // if(conj_l) lval_tmp = std::conj(lval_tmp);
-
 	      gw::matrix_complex_set(lgsl, scf, i, reinterpret_cast<typename gw::complex const&>(lval_tmp));
 	    }
 	  
@@ -127,9 +75,6 @@ public:
 	  for(int i=0;i<nv;i++)
 	    if(rnon_zeroes[i]){
 	      const ScalarComplexType &rval_tmp = r.nativeElem(rmap[i], site4dop, irp.spin_color, f);
-	      // std::complex<mf_Float> rval_tmp = r.nativeElem(rmap[i], site4dop, irp.spin_color, f);
-	      // if(conj_r) rval_tmp = std::conj(rval_tmp);
-
 	      gw::matrix_complex_set(rgsl, i, scf, reinterpret_cast<typename gw::complex const&>(rval_tmp));
 	    }
 	}
@@ -157,11 +102,11 @@ public:
       for(int sr=0;sr<4;sr++){
 	for(int cl=0;cl<3;cl++){
 	  for(int cr=0;cr<3;cr++){
-	    for(int fl=0;fl<2;fl++){
-	      int scfl = fl+2*(cl+3*sl);
-    	      for(int fr=0;fr<2;fr++){
-		int scfr = fr+2*(cr+3*sr);
-		typename ScalarComplexType::value_type (&ol)[2] = reinterpret_cast<typename ScalarComplexType::value_type(&)[2]>(out(sl,sr)(cl,cr)(fl,fr));
+	    for(int fl=0;fl<nf;fl++){
+	      int scfl = fl+nf*(cl+3*sl);
+    	      for(int fr=0;fr<nf;fr++){
+		int scfr = fr+nf*(cr+3*sr);
+		typename ScalarComplexType::value_type (&ol)[2] = reinterpret_cast<typename ScalarComplexType::value_type(&)[2]>(OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out));
 		typename gw::complex* gg = gw::matrix_complex_ptr(ogsl, scfl, scfr);
 		ol[0] = gg->dat[0];
 		ol[1] = gg->dat[1];
@@ -177,14 +122,8 @@ public:
     gw::matrix_complex_free(ogsl);
   }
 
-
-
-
-#else
-#error "mult_vv_impl.h NO MULT IMPLEMENTATION DEFINED"
-#endif
-
-  static void mult_slow(CPSspinColorFlavorMatrix<ScalarComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  static void mult_slow(OutputMatrixType &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+			const int xop, const int top, const bool conj_l, const bool conj_r){
     assert( l.paramsEqual(r) );
 
     int site4dop = xop + GJP.VolNodeSites()/GJP.TnodeSites()*top;
@@ -194,15 +133,15 @@ public:
     
     int ni = idil.getNmodes();
 
-    out = 0.0;
+    out.zero();
 
     for(int sl=0;sl<4;sl++){
       for(int cl=0;cl<3;cl++){
-    	for(int fl=0;fl<2;fl++){	  
+    	for(int fl=0;fl<nf;fl++){	  
 
 	  for(int sr=0;sr<4;sr++){
 	    for(int cr=0;cr<3;cr++){
-	      for(int fr=0;fr<2;fr++){
+	      for(int fr=0;fr<nf;fr++){
 
 		for(int i=0;i<ni;i++){
 
@@ -212,7 +151,7 @@ public:
 		  const ScalarComplexType &rval_tmp = r.elem(i,xop,top,cr+3*sr,fr);
 		  ScalarComplexType rval = conj_r ? std::conj(rval_tmp) : rval_tmp;
 
-		  out(sl,sr)(cl,cr)(fl,fr) += lval * rval;
+		  OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out) += lval * rval;
 		}
 	      }
 	    }
@@ -236,60 +175,14 @@ public:
   typedef typename mf_Policies::ComplexType SIMDcomplexType;
 
   typedef typename AlignedVector<SIMDcomplexType>::type AlignedSIMDcomplexVector;
-  
-  //#define BASIC_MULT_GRID
-  
-#ifdef BASIC_MULT_GRID
-  
-  static void mult(CPSspinColorFlavorMatrix<SIMDcomplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
-    typedef typename lA2Afield<mf_Policies>::DilutionType iLeftDilutionType;
-    typedef typename rA2Afield<mf_Policies>::DilutionType iRightDilutionType;
 
-    out.zero();
-    assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
+  typedef typename _mult_vMv_impl_v_getPolicy<mf_Policies::GPARITY>::type OutputPolicy;
+  typedef typename OutputPolicy::template MatrixType<SIMDcomplexType> OutputMatrixType;
+  const static int nf = OutputPolicy::nf();
+ 
 
-    int top_glb = top+GJP.TnodeSites()*GJP.TnodeCoor();
-
-    //Precompute index mappings
-    ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(l);
-
-    modeIndexSet ilp, irp;
-    ilp.time = top_glb;
-    irp.time = top_glb;
-    
-    int site4dop = l.getMode(0).threeToFour(xop, top);
-
-    for(int sl=0;sl<4;sl++){
-      for(int sr=0;sr<4;sr++){
-	for(int cl=0;cl<3;cl++){
-	  ilp.spin_color = cl + 3*sl;
-	  for(int cr=0;cr<3;cr++){	
-	    irp.spin_color = cr + 3*sr;
-	    for(int fl=0;fl<2;fl++){
-	      ilp.flavor = fl;
-	      for(int fr=0;fr<2;fr++){		
-		irp.flavor = fr;
-		
-		for(int i=0;i<i_ind.getNindices(ilp,irp);i++){
-		  const int il = i_ind.getLeftIndex(i,ilp,irp);
-		  const int ir = i_ind.getRightIndex(i,ilp,irp);
-
-		  const SIMDcomplexType &lval_tmp = l.nativeElem(il, site4dop, ilp.spin_color, fl);
-		  const SIMDcomplexType &rval_tmp = r.nativeElem(ir, site4dop, irp.spin_color, fr);
-
-		  out(sl,sr)(cl,cr)(fl,fr) = out(sl,sr)(cl,cr)(fl,fr) + (conj_l ? Grid::conjugate(lval_tmp) : lval_tmp)* (conj_r ? Grid::conjugate(rval_tmp) : rval_tmp);
-		}
-	      }
-	    }
-	  }
-	}
-      }
-    } 
-  }
-
-#else
-
-  static void mult(CPSspinColorFlavorMatrix<SIMDcomplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  static void mult(OutputMatrixType &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+		   const int xop, const int top, const bool conj_l, const bool conj_r){
     typedef typename lA2Afield<mf_Policies>::DilutionType iLeftDilutionType;
     typedef typename rA2Afield<mf_Policies>::DilutionType iRightDilutionType;
 
@@ -307,7 +200,7 @@ public:
 
     const StandardIndexDilution &std_idx = l;
     int nv = std_idx.getNmodes();
-    const static int nscf = 2*3*4;
+    const static int nscf = nf*3*4;
 
     std::vector<AlignedSIMDcomplexVector> lcp(nscf, AlignedSIMDcomplexVector(nv) );    
     std::vector<AlignedSIMDcomplexVector> rcp(nv, AlignedSIMDcomplexVector(nscf) );    
@@ -318,9 +211,9 @@ public:
     for(int s=0;s<4;s++){
       for(int c=0;c<3;c++){
     	ilp.spin_color = irp.spin_color = c + 3*s;
-    	for(int f=0;f<2;f++){
+    	for(int f=0;f<nf;f++){
     	  ilp.flavor = irp.flavor = f;
-    	  int scf = f+2*(c+3*s);
+    	  int scf = f+nf*(c+3*s);
 	  
 	  std::vector<int> lmap;
 	  std::vector<bool> &lnon_zeroes = lnon_zeroes_all[scf];
@@ -353,14 +246,14 @@ public:
       for(int sr=0;sr<4;sr++){
 	for(int cl=0;cl<3;cl++){
 	  for(int cr=0;cr<3;cr++){
-	    for(int fl=0;fl<2;fl++){
-	      for(int fr=0;fr<2;fr++){
-		int scfl = fl+2*(cl+3*sl);
-		int scfr = fr+2*(cr+3*sr);
+	    for(int fl=0;fl<nf;fl++){
+	      for(int fr=0;fr<nf;fr++){
+		int scfl = fl+nf*(cl+3*sl);
+		int scfr = fr+nf*(cr+3*sr);
 #ifndef MEMTEST_MODE
 		for(int v=0;v<nv;v++)
 		  if(lnon_zeroes_all[scfl][v] && rnon_zeroes_all[scfr][v])
-		    out(sl,sr)(cl,cr)(fl,fr) = out(sl,sr)(cl,cr)(fl,fr) + lcp[scfl][v]*rcp[v][scfr];
+		    OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out) = OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out) + lcp[scfl][v]*rcp[v][scfr];
 #endif
 	      }
 	    }
@@ -370,10 +263,8 @@ public:
     }
   }
 
-
-#endif
-
-  static void mult_slow(CPSspinColorFlavorMatrix<ScalarComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  static void mult_slow(OutputMatrixType &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+			const int xop, const int top, const bool conj_l, const bool conj_r){
     assert( l.paramsEqual(r) );
 
     int site4dop = xop + GJP.VolNodeSites()/GJP.TnodeSites()*top;
@@ -383,15 +274,15 @@ public:
     
     int ni = idil.getNmodes();
 
-    out = 0.0;
+    out.zero();
 
     for(int sl=0;sl<4;sl++){
       for(int cl=0;cl<3;cl++){
-    	for(int fl=0;fl<2;fl++){	  
+    	for(int fl=0;fl<nf;fl++){	  
 
 	  for(int sr=0;sr<4;sr++){
 	    for(int cr=0;cr<3;cr++){
-	      for(int fr=0;fr<2;fr++){
+	      for(int fr=0;fr<nf;fr++){
 
 		for(int i=0;i<ni;i++){
 
@@ -401,7 +292,7 @@ public:
 		  const SIMDcomplexType &rval_tmp = r.elem(i,xop,top,cr+3*sr,fr);
 		  ScalarComplexType rval = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
 
-		  out(sl,sr)(cl,cr)(fl,fr) = out(sl,sr)(cl,cr)(fl,fr) + lval * rval;
+		  OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out) = OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out) + lval * rval;
 		}
 	      }
 	    }
@@ -422,7 +313,8 @@ template<typename mf_Policies,
 	 template <typename> class lA2Afield,  
 	 template <typename> class rA2Afield  
 	 >
-void mult(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+void mult(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+	  const int xop, const int top, const bool conj_l, const bool conj_r){
   _mult_lr_impl_v<mf_Policies,lA2Afield,rA2Afield,typename ComplexClassify<typename mf_Policies::ComplexType>::type >::mult(out,l,r,xop,top,conj_l,conj_r);
 }
 
@@ -430,8 +322,33 @@ template<typename mf_Policies,
 	 template <typename> class lA2Afield,  
 	 template <typename> class rA2Afield  
 	 >
-void mult_slow(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+void mult(CPSspinColorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+	  const int xop, const int top, const bool conj_l, const bool conj_r){
+  _mult_lr_impl_v<mf_Policies,lA2Afield,rA2Afield,typename ComplexClassify<typename mf_Policies::ComplexType>::type >::mult(out,l,r,xop,top,conj_l,conj_r);
+}
+
+
+
+
+template<typename mf_Policies, 
+	 template <typename> class lA2Afield,  
+	 template <typename> class rA2Afield  
+	 >
+void mult_slow(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+	       const int xop, const int top, const bool conj_l, const bool conj_r){
   _mult_lr_impl_v<mf_Policies,lA2Afield,rA2Afield,typename ComplexClassify<typename mf_Policies::ComplexType>::type >::mult_slow(out,l,r,xop,top,conj_l,conj_r);
 }
+
+template<typename mf_Policies, 
+	 template <typename> class lA2Afield,  
+	 template <typename> class rA2Afield  
+	 >
+void mult_slow(CPSspinColorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+	       const int xop, const int top, const bool conj_l, const bool conj_r){
+  _mult_lr_impl_v<mf_Policies,lA2Afield,rA2Afield,typename ComplexClassify<typename mf_Policies::ComplexType>::type >::mult_slow(out,l,r,xop,top,conj_l,conj_r);
+}
+
+
+
 
 #endif
