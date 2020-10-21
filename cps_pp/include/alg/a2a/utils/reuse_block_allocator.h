@@ -103,8 +103,8 @@ public:
 
 struct ReuseBlockAllocatorOptions{
   //Fix the maximum number of blocks that the allocator will retain in its pool
-  //-1 = unlimited
-  inline static size_t & maxBlocks(){ static size_t b = -1; return b; }
+  //0 = unlimited
+  inline static size_t & maxBlocks(){ static size_t b = 0; return b; }
 };
 
 template<typename AllocPolicy>
@@ -188,7 +188,7 @@ public:
     typename blockList::iterator bit = pit->second; //iterator to block
     size_t mem_size = bit->size;
 
-    if(ReuseBlockAllocatorOptions::maxBlocks() != -1 && all_free[mem_size].size() >= ReuseBlockAllocatorOptions::maxBlocks()){
+    if(ReuseBlockAllocatorOptions::maxBlocks() != 0 && all_free[mem_size].size() >= ReuseBlockAllocatorOptions::maxBlocks()){
       this->freeMem(bit->ptr);
       ptr_map.erase(pit);
       blocks.erase(bit);
