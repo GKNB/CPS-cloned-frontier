@@ -477,7 +477,7 @@ void Lattice::mult_su3_links_by_u1 (const Float Q)
 // it is linear in coordinates. Includes boundary links
 // to ensure flux is same on every plaquette, assunming
 // q B = 2 pi n / L_i L_j
-void Lattice::mult_su3_links_by_mag_field (Float * B0)
+void Lattice::mult_su3_links_by_mag_field (Float * B0_val)
 {
   // multiply su3 links by u1 links
   // assumes both are in canonical order!
@@ -495,7 +495,7 @@ void Lattice::mult_su3_links_by_mag_field (Float * B0)
   int Lz = GJP.Znodes () * GJP.ZnodeSites ();
   Matrix temp;
 
-  printf ("MAGNETIC FIELD IN GAUGE FIELD: %g %g %g\n", B0[0], B0[1], B0[2]);
+  printf ("MAGNETIC FIELD IN GAUGE FIELD: %g %g %g\n", B0_val[0], B0_val[1], B0_val[2]);
 
   for (x[3] = 0; x[3] < GJP.TnodeSites (); x[3]++) {
     for (x[2] = 0; x[2] < GJP.ZnodeSites (); x[2]++) {
@@ -513,27 +513,27 @@ void Lattice::mult_su3_links_by_mag_field (Float * B0)
             Float theta;
             switch (mu) {
             case 0:
-              theta = (Float) gz *B0[1] - (Float) gy *B0[2];
+              theta = (Float) gz *B0_val[1] - (Float) gy *B0_val[2];
               // fix up the boundary
               if (gx == Lx - 1) {
-                theta -= (Float) gy *B0[2] * Lx;
-                theta += (Float) gz *B0[1] * Lx;
+                theta -= (Float) gy *B0_val[2] * Lx;
+                theta += (Float) gz *B0_val[1] * Lx;
               }
               break;
             case 1:
-              theta = (Float) gx *B0[2] - (Float) gz *B0[0];
+              theta = (Float) gx *B0_val[2] - (Float) gz *B0_val[0];
               // fix up the boundary
               if (gy == Ly - 1) {
-                theta += (Float) gx *B0[2] * Ly;
-                theta -= (Float) gz *B0[0] * Ly;
+                theta += (Float) gx *B0_val[2] * Ly;
+                theta -= (Float) gz *B0_val[0] * Ly;
               }
               break;
             case 2:
-              theta = (Float) gy *B0[0] - (Float) gx *B0[1];
+              theta = (Float) gy *B0_val[0] - (Float) gx *B0_val[1];
               // fix up the boundary
               if (gz == Lz - 1) {
-                theta -= (Float) gx *B0[1] * Lz;
-                theta += (Float) gy *B0[0] * Lz;
+                theta -= (Float) gx *B0_val[1] * Lz;
+                theta += (Float) gy *B0_val[0] * Lz;
               }
               break;
             default:

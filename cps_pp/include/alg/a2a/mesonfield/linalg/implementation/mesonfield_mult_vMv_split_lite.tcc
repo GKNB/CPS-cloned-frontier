@@ -19,8 +19,8 @@ struct mult_vMv_split_lite_cnum_policy<mf_Policies, complex_double_or_float_mark
   inline static void splat(ComplexType &out, const ComplexType &in){
     out = in;
   }
-  inline static ComplexType conj(const ComplexType &in){
-    return std::conj(in);
+  inline static ComplexType cconj(const ComplexType &in){
+    return conj(in);
   }
 };
 
@@ -43,7 +43,7 @@ struct mult_vMv_split_lite_cnum_policy<mf_Policies, grid_vector_complex_mark>{  
   inline static void splat(ComplexType &out, const ScalarComplexType &in){
     Grid::vsplat(out, in);
   }
-  inline static ComplexType conj(const ComplexType &in){
+  inline static ComplexType cconj(const ComplexType &in){
     return Grid::conjugate(in);
   }
 };

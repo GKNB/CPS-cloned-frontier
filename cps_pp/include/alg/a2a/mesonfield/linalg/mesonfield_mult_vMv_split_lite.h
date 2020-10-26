@@ -243,7 +243,7 @@ public:
 	  //Poke into temp mem
 	  for(int j = jstart; j < jlessthan; j++){
 	    const SIMDcomplexType &rval_tmp = rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
-	    rreord_p[j-jstart] = conj_r ? CnumPolicy::conj(rval_tmp) : rval_tmp;
+	    rreord_p[j-jstart] = conj_r ? CnumPolicy::cconj(rval_tmp) : rval_tmp;
 	  }
 	  
 
@@ -280,7 +280,7 @@ public:
 
 	    for(int i = istart; i < ilessthan; i++){
 	      const SIMDcomplexType &lval_tmp = lptr->nativeElem(ilmap_this[i], site4dop, scl, fl);
-	      lreord_p[i-istart] = conj_l ? CnumPolicy::conj(lval_tmp) : lval_tmp;
+	      lreord_p[i-istart] = conj_l ? CnumPolicy::cconj(lval_tmp) : lval_tmp;
 	    }
 
 	    for(int sr=0;sr<4;sr++){

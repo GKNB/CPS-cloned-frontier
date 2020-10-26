@@ -275,7 +275,7 @@ class Lattice
       // implement twisted boundary conditions
     void mult_su3_links_by_u1(const Float Q);
       //mult su3 links by exp(i Q theta_mu) theta_mu = QED potential
-    void mult_su3_links_by_mag_field(Float* B0);
+    void mult_su3_links_by_mag_field(Float* B0_val); //CK: B0 is a preprocessor symbol defined by termios.h!
       //mult su3 links by constant B field (linear vector potential)
       // and fix boundary links to give same plaquette (flux)
 

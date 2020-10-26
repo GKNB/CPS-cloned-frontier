@@ -438,7 +438,7 @@ public:
   
   //The flavor and timeslice dilutions are still packed so we must treat them differently
   //Mode is a full 'StandardIndex', (unpacked mode index)
-  accelerator_inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+  inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
     static FieldSiteType zero(0.0);
     if(mode < nl){
       int site = getWl(mode).threeToFour(x3d,t);

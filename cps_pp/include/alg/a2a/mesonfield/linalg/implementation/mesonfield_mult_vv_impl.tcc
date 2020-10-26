@@ -146,10 +146,10 @@ public:
 		for(int i=0;i<ni;i++){
 
 		  const ScalarComplexType &lval_tmp = l.elem(i,xop,top,cl+3*sl,fl);
-		  ScalarComplexType lval = conj_l ? std::conj(lval_tmp) : lval_tmp;
+		  ScalarComplexType lval = conj_l ? conj(lval_tmp) : lval_tmp;
 		  
 		  const ScalarComplexType &rval_tmp = r.elem(i,xop,top,cr+3*sr,fr);
-		  ScalarComplexType rval = conj_r ? std::conj(rval_tmp) : rval_tmp;
+		  ScalarComplexType rval = conj_r ? conj(rval_tmp) : rval_tmp;
 
 		  OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out) += lval * rval;
 		}
