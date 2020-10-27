@@ -2543,16 +2543,31 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   CALLGRIND_TOGGLE_COLLECT ;
   CALLGRIND_STOP_INSTRUMENTATION ;
 
-  int g5_FLOPs = 12*6*nsimd + 12*2*nsimd;//4 flav * 12 vectorized conj(a)*b  + 12 vectorized += or -=         
-  int siteFmat_FLOPs = 3*nsimd;  //1 vectorized z.im*-1, 1 vectorized -1*z
-  int s3_FLOPs = 4*nsimd; //2 vectorized -1*z
-  int TransLeftTrace_FLOPs = nsimd*4*6 + nsimd*3*2; //4 vcmul + 3vcadd
-  int reduce_FLOPs = nsimd*2; //nsimd cadd  (reduce over lanes and sites)
-  
-  double FLOPs_per_site = 0.;
+  const typename GridA2Apolicies::FermionFieldType &mode0 = Wgrid.getMode(0);
+  size_t g5_FLOPs = 12*6*nsimd + 12*2*nsimd;//12 vectorized conj(a)*b  + 12 vectorized += or -=         
+  size_t siteFmat_FLOPs = 3*nsimd;  //1 vectorized z.im*-1, 1 vectorized -1*z
+  size_t s3_FLOPs = 4*nsimd; //2 vectorized -1*z
+  size_t TransLeftTrace_FLOPs = nsimd*4*6 + nsimd*3*2; //4 vcmul + 3vcadd
+  size_t reduce_FLOPs = nsimd*2; //nsimd cadd  (reduce over lanes and sites)
+
+  size_t size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+  size_t field4d_bytes = size_3d * GJP.TnodeSites() * 24 * 2*8*nsimd;
+
+  size_t rd_bytes = 
+    Wgrid.getNmodes() * field4d_bytes 
+    +
+    Vgrid.getNmodes() * field4d_bytes 
+    +
+    size_3d * 2*8*nsimd; //the source
+
+  size_t wr_bytes = 0;
+    
+  size_t FLOPs_per_site = 0.;
   for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
     const int nl_l = mf_grid_t[t].getRowParams().getNl();
     const int nl_r = mf_grid_t[t].getColParams().getNl();
+
+    wr_bytes += nl_l * nl_r * 2*8; //non-SIMD complex matrix
 
     int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
 
@@ -2572,11 +2587,12 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
       }
     }
   }
-  const typename GridA2Apolicies::FermionFieldType &mode0 = Wgrid.getMode(0);
-  const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
-  double total_FLOPs = double(FLOPs_per_site) * double(size_3d) * double(ntests);
+  size_t total_FLOPs = FLOPs_per_site * size_3d;
+  double t_avg = total_time / ntests;
+  double mem_bandwidth_GBps = double(rd_bytes + wr_bytes)/t_avg / 1024/1024/1024;
+  double Gflops = double(total_FLOPs)/t_avg/1e9;
 
-  printf("MF contract all t: Avg time new code %d iters: %g secs. Avg flops %g Gflops\n",ntests,total_time/ntests, total_FLOPs/total_time/1e9);
+  printf("MF contract all t: Avg time new code %d iters: %g secs. Avg flops %g Gflops. Avg bandwidth %g GB/s\n",ntests,t_avg, Gflops, mem_bandwidth_GBps);
 #endif
 }
 

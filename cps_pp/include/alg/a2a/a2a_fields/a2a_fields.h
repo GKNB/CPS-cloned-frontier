@@ -478,6 +478,7 @@ public:
 
   //BELOW are for use by the meson field
   //Meson field W-type indices are described in terms of the timePacked dilution index , where flavor has been diluted out in the process of computing the meson fields
+  //Wfftw is packed in flavor, such that each packed 2f high mode field contains the data for 2 actual high modes
   //This method performs the flavor dilution 'in-place' (i.e. without actually unpacking into another object). 
   //'site' is a local canonical-ordered, packed four-vector
   //i_high_unmapped is the index i unmapped to its high mode sub-indices (if it is a high mode of course!)
