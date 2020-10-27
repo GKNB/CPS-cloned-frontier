@@ -118,7 +118,7 @@ void ComputeKtoSigma<mf_Policies>::type12_omp(std::vector<ResultsContainerType> 
       }
 
       //Start loop over tdis
-      for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
+      for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){ //note for tsep_k_sigma==tsep_k_sigma_lrg this is inconsistent with skipping tdis>tsep_k_sigma below; annoying but keep for repro purposes
 	int tK_glb = modLt(top_glb - tdis, Lt);
 	    
 	SCFmat pt1;

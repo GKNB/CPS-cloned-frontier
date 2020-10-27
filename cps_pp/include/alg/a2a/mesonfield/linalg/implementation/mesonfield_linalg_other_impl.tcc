@@ -23,7 +23,7 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA
 
   //W * W is only non-zero when the timeslice upon which we evaluate them are equal
   const int n_threads = omp_get_max_threads();
-  std::vector<ScalarComplexType, BasicAlignedAllocator<ScalarComplexType> > ret_vec(n_threads,(0.,0.));
+  std::vector<ScalarComplexType, BasicAlignedAllocator<ScalarComplexType> > ret_vec(n_threads,ScalarComplexType(0.,0.));
     
   modeIndexSet lip; lip.time = times[0];
   modeIndexSet rip; rip.time = times[3];

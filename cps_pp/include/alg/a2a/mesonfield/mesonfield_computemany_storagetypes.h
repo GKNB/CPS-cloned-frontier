@@ -452,9 +452,11 @@ protected:
 private:
   bool getSourceShift(int shift[3], const int cidx) const{
     assert(0);
+    return false; //stop compiler complaining
   }    
   bool needSourceShift(const int cidx) const{
     assert(0);
+    return false;
   }
 public:
   

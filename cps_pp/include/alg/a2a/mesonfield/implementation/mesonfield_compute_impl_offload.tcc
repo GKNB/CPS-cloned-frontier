@@ -311,17 +311,17 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     const size_t nmodes_r = mf_ref.getNcols();
 
     size_t bi = BlockedMesonFieldArgs::bi, bj = BlockedMesonFieldArgs::bj, bx = BlockedMesonFieldArgs::bp;
-    if(bi > nmodes_l) bi = nmodes_l;
-    if(bj > nmodes_r) bj = nmodes_r;
-    if(bx > size_3d || bx == -1) bx = size_3d; //optional disable of x blocking
+    if(bi > nmodes_l || bi == 0) bi = nmodes_l;
+    if(bj > nmodes_r || bj == 0) bj = nmodes_r;
+    if(bx > size_3d || bx == 0) bx = size_3d; //optional disable of x blocking
 
 #define MF_OFFLOAD_INNER_BLOCKING
 #ifdef MF_OFFLOAD_INNER_BLOCKING
     //Note these will be shrunk if necessary to be an exact divisor of the true block size, which can be smaller for the last block if the block size is not a divisor
     size_t sbi = BlockedMesonFieldArgs::bii, sbj = BlockedMesonFieldArgs::bjj, sbx = BlockedMesonFieldArgs::bpp;
-    if(sbi == -1 || sbi > bi) sbi = bi;
-    if(sbj == -1 || sbj > bj) sbj = bj;
-    if(sbx == -1 || sbx > bx) sbx = bx;
+    if(sbi == 0 || sbi > bi) sbi = bi;
+    if(sbj == 0 || sbj > bj) sbj = bj;
+    if(sbx == 0 || sbx > bx) sbx = bx;
 #endif
     
     //Make a table of p base pointers and site offsets (stride between 3d sites) for each i,j

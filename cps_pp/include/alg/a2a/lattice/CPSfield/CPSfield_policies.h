@@ -144,7 +144,7 @@ protected:
     checkPolicyName(file, "FLAVORPOLICY", os.str());
   }
 public:
-  accelerator_inline const int nflavors() const{ return Nf; }
+  accelerator_inline int nflavors() const{ return Nf; }
 };
 typedef FixedFlavorPolicy<1> OneFlavorPolicy;
 
@@ -160,7 +160,7 @@ protected:
   int nf;
 public:
   DynamicFlavorPolicy(): nf(GJP.Gparity() + 1){}
-  accelerator_inline const int nflavors() const{ return nf; }
+  accelerator_inline int nflavors() const{ return nf; }
 };
 
 #define _DEF_REBASE(P) \
@@ -182,8 +182,8 @@ public:
   typedef FlavorPolicy FieldFlavorPolicy;
   _DEF_REBASE(FourDpolicy);
   
-  accelerator_inline const size_t nsites() const{ return vol4d; }
-  accelerator_inline const size_t nfsites() const{ return this->nflavors()*this->nsites(); }
+  accelerator_inline size_t nsites() const{ return vol4d; }
+  accelerator_inline size_t nfsites() const{ return this->nflavors()*this->nsites(); }
   
   accelerator_inline size_t siteMap(const int x[]) const{ return x[0] + node_sites[0]*( x[1] + node_sites[1]*( x[2] + node_sites[2]*x[3])); }
 
@@ -238,8 +238,8 @@ public:
   typedef FlavorPolicy FieldFlavorPolicy;
   _DEF_REBASE(FiveDpolicy);
   
-  accelerator_inline const size_t nsites() const{ return vol5d; }
-  accelerator_inline const size_t nfsites() const{ return this->nflavors()*this->nsites(); }
+  accelerator_inline size_t nsites() const{ return vol5d; }
+  accelerator_inline size_t nfsites() const{ return this->nflavors()*this->nsites(); }
   
   //Note this does not correspond to the ordering of the data in memory. To compute the offset use fsiteMap or siteMap followed by siteFsiteConvert
   accelerator_inline size_t siteMap(const int x[]) const{ return x[0] + node_sites[0]*( x[1] + node_sites[1]*( x[2] + node_sites[2]*(x[3] + node_sites[3]*x[4]))); }
@@ -314,8 +314,8 @@ public:
   typedef FlavorPolicy FieldFlavorPolicy;
   _DEF_REBASE(FourDglobalInOneDir);
   
-  accelerator_inline const size_t nsites() const{ return dvol; }
-  accelerator_inline const size_t nfsites() const{ return this->nflavors()*this->nsites(); }
+  accelerator_inline size_t nsites() const{ return dvol; }
+  accelerator_inline size_t nfsites() const{ return this->nflavors()*this->nsites(); }
   
   accelerator_inline size_t siteMap(const int x[]) const{ return x[lmap[0]] + dims[0]*( x[lmap[1]] + dims[1]*( x[lmap[2]] + dims[2]*x[lmap[3]])); }
 
@@ -378,8 +378,8 @@ public:
   typedef FlavorPolicy FieldFlavorPolicy;
   _DEF_REBASE(SpatialPolicy);
   
-  accelerator_inline const size_t nsites() const{ return threevol; }
-  accelerator_inline const size_t nfsites() const{ return this->nflavors()*this->nsites(); }
+  accelerator_inline size_t nsites() const{ return threevol; }
+  accelerator_inline size_t nfsites() const{ return this->nflavors()*this->nsites(); }
   
   accelerator_inline size_t siteMap(const int x[]) const{ return x[0] + node_sites[0]*( x[1] + node_sites[1]*x[2]); }
   accelerator_inline void siteUnmap(size_t site, int x[]) const{
@@ -743,8 +743,8 @@ public:
   typedef FlavorPolicy FieldFlavorPolicy;
   _DEF_REBASE(FourDSIMDPolicy);
   
-  accelerator_inline const size_t nsites() const{ return logical_vol; }
-  accelerator_inline const size_t nfsites() const{ return this->nflavors()*this->nsites(); }
+  accelerator_inline size_t nsites() const{ return logical_vol; }
+  accelerator_inline size_t nfsites() const{ return this->nflavors()*this->nsites(); }
   
   accelerator_inline int Nsimd() const{ return nsimd; }
   accelerator_inline int SIMDlogicalNodes(const int dir) const{ return simd_dims[dir]; } 
@@ -853,8 +853,8 @@ public:
   typedef FlavorPolicy FieldFlavorPolicy;
    _DEF_REBASE(ThreeDSIMDPolicy);
   
-  accelerator_inline const size_t nsites() const{ return logical_vol; }
-  accelerator_inline const size_t nfsites() const{ return this->nflavors()*this->nsites(); }
+  accelerator_inline size_t nsites() const{ return logical_vol; }
+  accelerator_inline size_t nfsites() const{ return this->nflavors()*this->nsites(); }
   
   accelerator_inline int Nsimd() const{ return nsimd; }
   accelerator_inline int SIMDlogicalNodes(const int dir) const{ return simd_dims[dir]; }

@@ -135,8 +135,7 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
 
   for(int i=0; i<ntsep_k_sigma; i++){
     for(int t_dis=0;t_dis<Lt;t_dis++){
-      if( !(t_dis <= tsep_k_sigma[i] && t_dis >= 0) ){      
-
+      if(t_dis > tsep_k_sigma[i] || (tsep_k_sigma[i] == tsep_k_sigma_lrg && t_dis == tsep_k_sigma[i])){ //annoying to have to reproduce typos from old code!
 	for(int t_K=0;t_K<Lt;t_K++)
 	  for(int conidx=0;conidx<n_contract;conidx++)
 	    for(int gcombidx=0;gcombidx<8;gcombidx++)
@@ -373,8 +372,7 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
 
   for(int i=0; i<ntsep_k_sigma; i++){
     for(int t_dis=0;t_dis<Lt;t_dis++){
-      if( !(t_dis <= tsep_k_sigma[i] && t_dis >= 0) ){      
-
+      if(t_dis > tsep_k_sigma[i] || (tsep_k_sigma[i] == tsep_k_sigma_lrg && t_dis == tsep_k_sigma[i])){ //annoying to have to reproduce typos from old code!
 	for(int t_K=0;t_K<Lt;t_K++){
 	  for(int conidx=0;conidx<n_contract;conidx++)
 	    for(int gcombidx=0;gcombidx<8;gcombidx++)
@@ -594,6 +592,22 @@ void ComputeKtoSigma<mf_Policies>::type4_field_SIMD(ResultsContainerType &result
 
   print_time("ComputeKtoSigma","type4 accum",dclock()-time);  
   print_time("ComputeKtoSigma","type4 total",dclock()-total_time);  
+
+  //For comparison with old code, zero out data not within the K->sigma time region for any of the specified K->sigma tseps (later optimization may render this unnecessary)
+  int n_contract = 9;
+
+  for(int t_dis=tsep_k_sigma_lrg;t_dis<Lt;t_dis++){
+    for(int t_K=0;t_K<Lt;t_K++){
+      for(int conidx=0;conidx<n_contract;conidx++)
+	for(int gcombidx=0;gcombidx<8;gcombidx++)
+	  result(t_K,t_dis,conidx,gcombidx) = 0;
+
+      for(int midx=0;midx<2;midx++){
+	mix4(t_K,t_dis,midx) = 0;	  
+      }
+    }
+  }
+
 }
 
 //Field version only applicable to SIMD data. For non SIMD data we should fall back to CPU version

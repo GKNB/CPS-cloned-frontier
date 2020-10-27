@@ -130,7 +130,7 @@ public:
   }
   
   //Size in complex
-  inline const int size() const{ return fsize; }
+  inline int size() const{ return fsize; }
 
   //Access elements with compressed mode index
   inline ScalarComplexType & operator()(const int i, const int j){ //Use at your own risk
@@ -148,8 +148,8 @@ public:
     return out;
   }
   
-  inline const int getRowTimeslice() const{ return tl; }
-  inline const int getColTimeslice() const{ return tr; }
+  inline int getRowTimeslice() const{ return tl; }
+  inline int getColTimeslice() const{ return tr; }
   
   //A slow implementation to access elements from full unpacked indices
   inline const ScalarComplexType & elem(const int full_i, const int full_j) const{
@@ -227,12 +227,12 @@ public:
   static void compute(std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > &mf_st, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup = true);
 
   //These functions return the number of *packed* modes not the full number of modes
-  inline const int getNrows() const{ return nmodes_l; }
-  inline const int getNcols() const{ return nmodes_r; }
+  inline int getNrows() const{ return nmodes_l; }
+  inline int getNcols() const{ return nmodes_r; }
 
   //These functions return the number of *full* modes
-  inline const int getNrowsFull() const{ return lindexdilution.getNv(); }
-  inline const int getNcolsFull() const{ return rindexdilution.getNv(); }
+  inline int getNrowsFull() const{ return lindexdilution.getNv(); }
+  inline int getNcolsFull() const{ return rindexdilution.getNv(); }
 
   //Return the full set of dilution parameters
   inline const LeftDilutionType & getRowParams() const{ return lindexdilution; }

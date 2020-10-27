@@ -536,7 +536,6 @@ void globalSum(MatrixType *m){
 #define INHERIT_METHODS_AND_TYPES(DERIVED, DERIVED_CON)		\
   typedef typename base_type::value_type value_type;	\
   typedef typename base_type::scalar_type scalar_type;			\
-  accelerator_inline operator base_type(){ return static_cast<base_type &>(*this); } \
 									\
   accelerator DERIVED_CON(const base_type &r): base_type(r){} \
   accelerator DERIVED_CON(): base_type(){}			\
@@ -558,6 +557,8 @@ void globalSum(MatrixType *m){
   accelerator_inline DERIVED & operator*=(const scalar_type &r){ return static_cast<DERIVED &>(this->base_type::operator*=(r)); } \
   accelerator_inline DERIVED & operator-=(const DERIVED &r){ return static_cast<DERIVED &>(this->base_type::operator-=(r)); } 
 
+
+//  accelerator_inline operator base_type(){ return static_cast<base_type &>(*this); } \
 
 
 template<typename T>

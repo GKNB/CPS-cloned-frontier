@@ -120,6 +120,7 @@ public:
   inline ManagedPtrWrapper & operator=(const ManagedPtrWrapper &r){
     if(r.t !=NULL) emplace(*r.t);
     else free();
+    return *this;
   } 
 };
 

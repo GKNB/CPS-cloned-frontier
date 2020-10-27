@@ -106,6 +106,8 @@ public:
       scratch->free_mem();
   }
 
+  //NOTE: The provided time index is the *global* time index. The contract component should only be run on the node in which this timeslice is contained
+
   //shared_scratch allows the scratch space to be shared between multiple instances of this class
   void setup(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb,
 	     mult_vMv_split_lite_scratch_space<mf_Policies> *shared_scratch = NULL){
@@ -203,13 +205,14 @@ public:
     assert(omp_get_num_threads() <= scratch->nthr_setup);
     assert(Mrows <= scratch->Mrows);
 
-
     SIMDcomplexType* rreord_p = scratch->reord_buf[thread_id].data();
     SIMDcomplexType* lreord_p = rreord_p;
 
     out.zero();
     const int top_lcl = top_glb - GJP.TnodeCoor() * GJP.TnodeSites();
     const int site4dop = lptr->getMode(0).threeToFour(xop, top_lcl);
+
+    if(top_lcl < 0 || top_lcl >= GJP.TnodeSites()) ERR.General("mult_vMv_split_lite","contract","This function should only be run on the node containing the contraction timeslice!");
 
     std::vector<AlignedSIMDcomplexVector> &Mr = scratch->Mr_t[thread_id];
     for(int i=0;i<Mrows;i++)

@@ -39,7 +39,7 @@ public:
   T* ptr(){ return tt;}
   T const* ptr() const{ return tt;}
   
-  const int size() const{ return fsize; }
+  int size() const{ return fsize; }
   
   void resize(const int _rows, const int _cols){
     if(tt == NULL || _rows * _cols != fsize){
@@ -51,8 +51,8 @@ public:
   inline const T & operator()(const int i, const int j) const{ return tt[j + cols*i]; }
   inline T & operator()(const int i, const int j){ return tt[j + cols*i]; }
 
-  inline const int nRows() const{ return rows; }
-  inline const int nCols() const{ return cols; }
+  inline int nRows() const{ return rows; }
+  inline int nCols() const{ return cols; }
 
   ~basicMatrix(){
     this->free();
@@ -105,8 +105,8 @@ public:
   inline const mf_Complex & operator()(const int i, const int j) const{ return tt[j + cols*i]; }
   inline mf_Complex & operator()(const int i, const int j){ return tt[j + cols*i]; }
 
-  inline const int nRows() const{ return rows; }
-  inline const int nCols() const{ return cols; }
+  inline int nRows() const{ return rows; }
+  inline int nCols() const{ return cols; }
 
   void nodeSum(){
     globalSum( (typename mf_Complex::value_type*)tt,2*fsize);

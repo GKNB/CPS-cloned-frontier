@@ -108,6 +108,7 @@ public:
       return *this;
     }
     ERR.General(cname,"pl(const FlavorMatrixType &type)","Unknown FlavorMatrixType");
+    return *( (SpinColorFlavorMatrix*)NULL ); //never reached
   }
   //multiply on right by a flavor matrix
   SpinColorFlavorMatrix & pr(const FlavorMatrixType &type){
@@ -145,6 +146,7 @@ public:
       return *this;
     }
     ERR.General(cname,"pr(const FlavorMatrixType &type)","Unknown FlavorMatrixType");
+    return *( (SpinColorFlavorMatrix*)NULL ); //never reached
   }
   WilsonMatrix FlavorTrace() const{
     WilsonMatrix out(wmat[0][0]);
@@ -482,7 +484,7 @@ public:
   inline static int fsc_matrix_map(const int &rf, const int &rs,const int&rc, const int &cf, const int &cs, const int &cc){
     return (cc+3*(cs+4*(cf+2*(rc+3*(rs+4*rf)))));
   }
-  inline static int fsc_matrix_invmap(int idx, int &rf, int &rs, int&rc, int &cf, int &cs, int &cc){
+  inline static void fsc_matrix_invmap(int idx, int &rf, int &rs, int&rc, int &cf, int &cs, int &cc){
     cc = idx%3; idx/=3;
     cs = idx%4; idx/=4;
     cf = idx%2; idx/=2;
@@ -516,6 +518,7 @@ public:
     for(int s1=0;s1<4;++s1) for(int c1=0;c1<3;++c1)
     for(int s2=0;s2<4;++s2) for(int c2=0;c2<3;++c2)
        out(s1,c1,s2,c2) = p.f[f1].d[s1].c[c1].f[f2].d[s2].c[c2];
+    return out;
   }
 
   void generate(QPropWcontainer &from_f0, QPropWcontainer &from_f1, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY){

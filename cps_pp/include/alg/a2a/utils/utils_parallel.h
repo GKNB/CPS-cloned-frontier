@@ -201,6 +201,7 @@ inline bool checkDirExists(const std::string& dir){
   }else{
     ERR.General("","checkDirExists failed with error %s searching for path %s. cf https://linux.die.net/man/3/opendir for error descriptions.\n",strerror(errno),dir.c_str());
   }
+  return false; //never reached
 }
 
 
