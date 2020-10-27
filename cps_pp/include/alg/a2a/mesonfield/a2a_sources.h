@@ -78,7 +78,7 @@ public:
 
   //On the GPU this pulls out an individual SIMD lane for the kernel to act on
   //accelerator_inline const typename SIMT<mf_Complex>::value_type & siteComplex(const size_t site) const{ return SIMT<mf_Complex>::read(*src->site_ptr(site)); }
-  accelerator_inline const size_t nsites() const{ return src->nsites(); }
+  accelerator_inline size_t nsites() const{ return src->nsites(); }
 
   template< typename extComplexType, template<typename> typename extDimPol, typename extAllocPol>
   void importSource(const A2Asource<extComplexType,extDimPol<OneFlavorPolicy>,extAllocPol> &from){

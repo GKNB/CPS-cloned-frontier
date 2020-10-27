@@ -591,6 +591,7 @@ public:
 
   inline IndependentDiskWriteStorage & operator=(const IndependentDiskWriteStorage &r){
     static_cast<BurstBufferMemoryStorage&>(*this) = r;
+    return *this;
   }
 
   void distribute(){

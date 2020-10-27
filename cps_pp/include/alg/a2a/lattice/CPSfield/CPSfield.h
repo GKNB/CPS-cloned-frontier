@@ -22,6 +22,7 @@ inline CPSfield_checksumType checksumTypeFromString(const std::string &str){
   if(str == "checksumCRC32") return checksumCRC32;
   else if(str == "checksumBasic") return checksumBasic;
   else ERR.General("","checksumTypeFromString","Could not parse checksum type %s\n",str.c_str());
+  return (CPSfield_checksumType)0; //never reached
 }
 
 //A wrapper for a CPS-style field. Most functionality is generic so it can do quite a lot of cool things
@@ -130,10 +131,10 @@ public:
   void testRandom(const Float hi = 0.5, const Float lo = -0.5);
 
   //Number of SiteType per site
-  accelerator_inline const int siteSize() const{ return SiteSize; }
+  accelerator_inline int siteSize() const{ return SiteSize; }
 
   //Number of SiteType in field
-  accelerator_inline const size_t size() const{ return fsize; }
+  accelerator_inline size_t size() const{ return fsize; }
 
   //Accessors
   accelerator_inline SiteType* ptr(){ return f; }

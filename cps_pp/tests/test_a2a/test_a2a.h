@@ -105,12 +105,12 @@ void testCPSsquareMatrix(){
       typedef CPSsquareMatrix<double, 5> M1_t;
       M1_t M1;
       size_t NN_M1 = M1.nScalarType();
-      assert(NN_M1 = 25);
+      assert(NN_M1 == 25);
 
       typedef CPSsquareMatrix<CPSsquareMatrix<double,2>, 3> M2_t;
       M2_t M2;
       size_t NN_M2 = M2.nScalarType();
-      assert(NN_M2 = 9*4);
+      assert(NN_M2 == 9*4);
     }
 #ifdef USE_GRID
     //Test Grid reduction of matrix
@@ -933,7 +933,7 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
 #ifdef BASIC_GRID_VMV
     //BASIC GRID VMV FOR TESTING
 #pragma omp parallel for
-    for(int xop=0;xop<orig_3vol;xop++){
+    for(int xop=0;xop<grid_3vol;xop++){
       int me = omp_get_thread_num();
       mult_slow(grid_tmp[me], Vgrid, mf_grid, Wgrid, xop, top, false, true);
       basic_grid_sum[me] += grid_tmp[me];
@@ -942,7 +942,8 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
 
 #ifdef GRID_SPLIT_LITE_VMV
     //SPLIT LITE VMV GRID
-    vmv_split_lite_grid.setup(Vgrid, mf_grid, Wgrid, top);
+    int top_glb = top + GJP.TnodeCoor() * GJP.TnodeSites();
+    vmv_split_lite_grid.setup(Vgrid, mf_grid, Wgrid, top_glb);
 #pragma omp parallel for
     for(int xop=0;xop<grid_3vol;xop++){
       int me = omp_get_thread_num();
@@ -3168,7 +3169,7 @@ void testKtoPiPiType3FieldFull(const A2AArg &a2a_args, const double tol){
 
 template<typename GridA2Apolicies>
 void testKtoSigmaType12FieldFull(const A2AArg &a2a_args, const double tol){
-  std::cout << "Starting K->sigma type1/2 full test\n";
+  if(!UniqueID()) std::cout << "Starting K->sigma type1/2 full test\n";
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -3216,23 +3217,23 @@ void testKtoSigmaType12FieldFull(const A2AArg &a2a_args, const double tol){
       for(int tdis=0;tdis<Lt;tdis++){
 	for(int cidx=0; cidx<n_contract; cidx++){
 	  for(int gcombidx=0;gcombidx<8;gcombidx++){
-	    std::cout << "tsep_k_sigma=" << tsep_k_sigma[tsep_k_sigma_idx] << " tK " << t_K << " tdis " << tdis << " C" << cidx << " gcombidx " << gcombidx << std::endl;
+	    if(!UniqueID()) std::cout << "tsep_k_sigma=" << tsep_k_sigma[tsep_k_sigma_idx] << " tK " << t_K << " tdis " << tdis << " C" << cidx << " gcombidx " << gcombidx << std::endl;
 	    ComplexD expect = convertComplexD(expect_r[tsep_k_sigma_idx](t_K,tdis,cidx,gcombidx));
 	    ComplexD got = convertComplexD(got_r[tsep_k_sigma_idx](t_K,tdis,cidx,gcombidx));
 	    
 	    double rdiff = fabs(got.real()-expect.real());
 	    double idiff = fabs(got.imag()-expect.imag());
 	    if(rdiff > tol|| idiff > tol){
-	      printf("Fail: KtoSigma type1/2 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	      if(!UniqueID()) printf("Fail: KtoSigma type1/2 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
 	      fail = true;
 	    }else
-	      printf("Pass: KtoSigma type1/2 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	      if(!UniqueID()) printf("Pass: KtoSigma type1/2 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
 	  }
 	}
       }
     }
   }
-  if(fail) ERR.General("","","KtoSigma type1/2 contract full failed\n");
+  if(fail) ERR.General("","","KtoSigma type1/2 contract full failed on node %d\n", UniqueID());
 
 }
 
@@ -3240,7 +3241,7 @@ void testKtoSigmaType12FieldFull(const A2AArg &a2a_args, const double tol){
 
 template<typename GridA2Apolicies>
 void testKtoSigmaType3FieldFull(const A2AArg &a2a_args, const double tol){
-  std::cout << "Starting K->sigma type3 full test\n";
+  if(!UniqueID()) std::cout << "Starting K->sigma type3 full test\n";
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -3291,46 +3292,46 @@ void testKtoSigmaType3FieldFull(const A2AArg &a2a_args, const double tol){
       for(int tdis=0;tdis<Lt;tdis++){
 	for(int cidx=0; cidx<n_contract; cidx++){
 	  for(int gcombidx=0;gcombidx<8;gcombidx++){
-	    std::cout << "tsep_k_sigma=" << tsep_k_sigma[tsep_k_sigma_idx] << " tK " << t_K << " tdis " << tdis << " C" << cidx << " gcombidx " << gcombidx << std::endl;
+	    if(!UniqueID()) std::cout << "tsep_k_sigma=" << tsep_k_sigma[tsep_k_sigma_idx] << " tK " << t_K << " tdis " << tdis << " C" << cidx << " gcombidx " << gcombidx << std::endl;
 	    ComplexD expect = convertComplexD(expect_r[tsep_k_sigma_idx](t_K,tdis,cidx,gcombidx));
 	    ComplexD got = convertComplexD(got_r[tsep_k_sigma_idx](t_K,tdis,cidx,gcombidx));
 	    
 	    double rdiff = fabs(got.real()-expect.real());
 	    double idiff = fabs(got.imag()-expect.imag());
 	    if(rdiff > tol|| idiff > tol){
-	      printf("Fail: KtoSigma type3 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	      if(!UniqueID()) printf("Fail: KtoSigma type3 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
 	      fail = true;
 	    }else
-	      printf("Pass: KtoSigma type3 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	      if(!UniqueID()) printf("Pass: KtoSigma type3 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
 	  }
 	}
       }
     }
   }
-  if(fail) ERR.General("","","KtoSigma type3 contract full failed\n");
+  if(fail) ERR.General("","","KtoSigma type3 contract full failed node %d\n", UniqueID());
 
 
   for(int tsep_k_sigma_idx=0; tsep_k_sigma_idx<2; tsep_k_sigma_idx++){
     for(int t_K=0;t_K<Lt;t_K++){
       for(int tdis=0;tdis<Lt;tdis++){
 	for(int cidx=0; cidx<2; cidx++){
-	  std::cout << "tsep_k_sigma=" << tsep_k_sigma[tsep_k_sigma_idx] << " tK " << t_K << " tdis " << tdis << " mix3(" << cidx << ")" << std::endl;
+	  if(!UniqueID()) std::cout << "tsep_k_sigma=" << tsep_k_sigma[tsep_k_sigma_idx] << " tK " << t_K << " tdis " << tdis << " mix3(" << cidx << ")" << std::endl;
 	  ComplexD expect = convertComplexD(expect_mix_r[tsep_k_sigma_idx](t_K,tdis,cidx));
 	  ComplexD got = convertComplexD(got_mix_r[tsep_k_sigma_idx](t_K,tdis,cidx));
 	  
 	  double rdiff = fabs(got.real()-expect.real());
 	  double idiff = fabs(got.imag()-expect.imag());
 	  if(rdiff > tol|| idiff > tol){
-	    printf("Fail: KtoSigma mix3 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	    if(!UniqueID()) printf("Fail: KtoSigma mix3 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
 	    fail = true;
 	  }else
-	    printf("Pass: KtoSigma mix3 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	    if(!UniqueID()) printf("Pass: KtoSigma mix3 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
 	}
       }
     }
   }
 
-  if(fail) ERR.General("","","KtoSigma mix3 contract full failed\n");
+  if(fail) ERR.General("","","KtoSigma mix3 contract full failed node %d\n", UniqueID());
 }
 
 
@@ -3382,44 +3383,44 @@ void testKtoSigmaType4FieldFull(const A2AArg &a2a_args, const double tol){
     for(int tdis=0;tdis<Lt;tdis++){
       for(int cidx=0; cidx<n_contract; cidx++){
 	for(int gcombidx=0;gcombidx<8;gcombidx++){
-	  std::cout << "tK " << t_K << " tdis " << tdis << " C" << cidx << " gcombidx " << gcombidx << std::endl;
+	  if(!UniqueID()) std::cout << "tK " << t_K << " tdis " << tdis << " C" << cidx << " gcombidx " << gcombidx << std::endl;
 	  ComplexD expect = convertComplexD(expect_r(t_K,tdis,cidx,gcombidx));
 	  ComplexD got = convertComplexD(got_r(t_K,tdis,cidx,gcombidx));
 	    
 	  double rdiff = fabs(got.real()-expect.real());
 	  double idiff = fabs(got.imag()-expect.imag());
 	  if(rdiff > tol|| idiff > tol){
-	    printf("Fail: KtoSigma type4 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	    if(!UniqueID()) printf("Fail: KtoSigma type4 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
 	    fail = true;
 	  }else
-	    printf("Pass: KtoSigma type4 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	    if(!UniqueID()) printf("Pass: KtoSigma type4 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
 	}
       }
     }
   }
   
-  if(fail) ERR.General("","","KtoSigma type4 contract full failed\n");
+  if(fail) ERR.General("","","KtoSigma type4 contract full failed node %d\n", UniqueID());
 
   
   for(int t_K=0;t_K<Lt;t_K++){
     for(int tdis=0;tdis<Lt;tdis++){
       for(int cidx=0; cidx<2; cidx++){
-	std::cout << "tK " << t_K << " tdis " << tdis << " mix3(" << cidx << ")" << std::endl;
+	if(!UniqueID()) std::cout << "tK " << t_K << " tdis " << tdis << " mix3(" << cidx << ")" << std::endl;
 	ComplexD expect = convertComplexD(expect_mix_r(t_K,tdis,cidx));
 	ComplexD got = convertComplexD(got_mix_r(t_K,tdis,cidx));
 	  
 	double rdiff = fabs(got.real()-expect.real());
 	double idiff = fabs(got.imag()-expect.imag());
 	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: KtoSigma mix4 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	  if(!UniqueID()) printf("Fail: KtoSigma mix4 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
 	  fail = true;
 	}else
-	  printf("Pass: KtoSigma mix4 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	  if(!UniqueID()) printf("Pass: KtoSigma mix4 contract got (%g,%g) expect (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
       }
     }
   }
 
-  if(fail) ERR.General("","","KtoSigma mix4 contract full failed\n");
+  if(fail) ERR.General("","","KtoSigma mix4 contract full failed node %d\n", UniqueID());
 }
 
 

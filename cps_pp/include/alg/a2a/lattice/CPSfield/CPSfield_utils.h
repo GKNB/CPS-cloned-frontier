@@ -453,12 +453,12 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   //------------------------------------------------------------------------
   //Perform FFT using CUFFT
   //------------------------------------------------------------------------
-  static int plan_howmany[Dimension];
+  static size_t plan_howmany[Dimension];
   static bool plan_init = false;
   static cufftHandle handle[Dimension];
   
   if(!plan_init || plan_howmany[mu] != howmany){
-    if(!plan_init) for(int i=0;i<Dimension;i++) plan_howmany[i] = -1;
+    if(!plan_init) for(int i=0;i<Dimension;i++) plan_howmany[i] = 0; //must be initialized at some point
 
     //ComplexType* to = send_bufs[i] + SiteSize * (w + munodes_work[i]*( f + nf*xmu ) );  //with musite changing slowest
 
@@ -478,8 +478,14 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
     cufftType type = CUFFT_Z2Z; //double complex
     int batch = howmany; //how many FFTs are we doing?
 
+    if(plan_init && plan_howmany[mu] != 0){
+      assert( cufftDestroy(handle[mu]) == CUFFT_SUCCESS );
+    }
+
     assert( cufftCreate(&handle[mu])== CUFFT_SUCCESS );
     assert( cufftPlanMany(&handle[mu], rank, n, inembed, istride, idist, onembed, ostride, odist, type, batch) == CUFFT_SUCCESS );    
+    plan_howmany[mu] = howmany;
+    plan_init = true; //other mu's will still init later	
   }
 
   static_assert(sizeof(cufftDoubleComplex) == sizeof(ComplexType));
@@ -531,6 +537,8 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 			       tmp_f, NULL, musite_stride, 1,
 			       tmp_f, NULL, musite_stride, 1,
 			       plan_fft_phase, FFTW_ESTIMATE);	
+
+    plan_howmany[mu] = howmany;
     plan_init = true; //other mu's will still init later
   }
   FFTComplex*fftw_mem = (FFTComplex*)recv_buf;
@@ -552,7 +560,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   }
 
 
-#endif //GRID_CUDA
+#endif //!GRID_CUDA
   assert(MPI_Waitall(munodes,send_req,status) == MPI_SUCCESS);
       
   fft_opt_mu_timings::get().fft += dclock();

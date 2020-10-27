@@ -47,7 +47,7 @@ struct gsl_wrapper<float>{
   inline static vector_complex* vector_complex_alloc(const size_t i){ return gsl_vector_complex_float_alloc(i); }
   inline static complex vector_complex_get (const vector_complex * v, const size_t i){ return gsl_vector_complex_float_get(v,i); }
   inline static void vector_complex_free (vector_complex * m){ gsl_vector_complex_float_free(m); }
-  inline static complex* vector_complex_ptr(vector_complex * v, const size_t i){   gsl_vector_complex_float_ptr(v,i); }
+  inline static complex* vector_complex_ptr(vector_complex * v, const size_t i){  return gsl_vector_complex_float_ptr(v,i); }
 
 
   inline static int blas_gemm (CBLAS_TRANSPOSE_t TransA, CBLAS_TRANSPOSE_t TransB, const complex alpha, 
@@ -93,7 +93,7 @@ struct gsl_wrapper<double>{
   inline static vector_complex* vector_complex_alloc(const size_t i){ return gsl_vector_complex_alloc(i); }
   inline static complex vector_complex_get (const vector_complex * v, const size_t i){ return gsl_vector_complex_get(v,i); }
   inline static void vector_complex_free (vector_complex * m){ gsl_vector_complex_free(m); }
-  inline static complex* vector_complex_ptr(vector_complex * v, const size_t i){   gsl_vector_complex_ptr(v,i); }
+  inline static complex* vector_complex_ptr(vector_complex * v, const size_t i){  return gsl_vector_complex_ptr(v,i); }
 
   inline static int blas_gemm (CBLAS_TRANSPOSE_t TransA, CBLAS_TRANSPOSE_t TransB, const complex alpha, 
 			       const matrix_complex * A, const matrix_complex * B, const complex beta, matrix_complex * C){

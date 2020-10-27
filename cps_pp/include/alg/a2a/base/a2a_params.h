@@ -20,14 +20,14 @@ protected:
   int nv; //total number of v fields =  nl + ndilute * nhits
 
 public:
-  inline const int getNl() const{ return nl; }
-  inline const int getNhits() const{ return nhits; }
-  inline const int getNflavors() const{ return nflavors; }
-  inline const int getNspinColor() const{ return nspincolor; }
-  inline const int getNtBlocks() const{ return ntblocks; }
-  inline const int getNdilute() const{ return ndilute; }
-  inline const int getNh() const{ return nh; }
-  inline const int getNv() const{ return nv; }
+  inline int getNl() const{ return nl; }
+  inline int getNhits() const{ return nhits; }
+  inline int getNflavors() const{ return nflavors; }
+  inline int getNspinColor() const{ return nspincolor; }
+  inline int getNtBlocks() const{ return ntblocks; }
+  inline int getNdilute() const{ return ndilute; }
+  inline int getNh() const{ return nh; }
+  inline int getNv() const{ return nv; }
 
   A2Aparams(): nl(0),nhits(0),nflavors(0),nspincolor(0),ntblocks(0),ndilute(0),nh(0),nv(0){}
   A2Aparams(const A2AArg &_args);

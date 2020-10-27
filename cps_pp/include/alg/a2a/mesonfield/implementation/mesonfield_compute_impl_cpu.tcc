@@ -195,10 +195,10 @@ public:
 			       SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> const *base_ptrs_j,
 			       std::pair<int,int> const *site_offsets_i,
 			       std::pair<int,int> const *site_offsets_j){
-    const int bii = BlockedMesonFieldArgs::bii;
-    const int bjj = BlockedMesonFieldArgs::bjj;
-    const int bpp = BlockedMesonFieldArgs::bpp;
-    
+    const int bii = BlockedMesonFieldArgs::bii == 0 ? iup-i0 : BlockedMesonFieldArgs::bii;
+    const int bjj = BlockedMesonFieldArgs::bjj == 0 ? jup-j0 : BlockedMesonFieldArgs::bjj;
+    const int bpp = BlockedMesonFieldArgs::bpp == 0 ? pup-p0 : BlockedMesonFieldArgs::bpp;
+
     for(int ii0=i0; ii0 < iup; ii0+=bii){
       int iiup = std::min(ii0+bii,iup);
       for(int jj0=j0; jj0 < jup; jj0+=bjj){
@@ -514,7 +514,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
       double ttime = -dclock();
       const int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
 #ifdef ACCUM_BUF_HEAP_MANY
-      for(int t=0;t<nthread;t++) memset(accum_buf_thr[t],0,accum_thr_size);
+      for(int thr=0;thr<nthread;thr++) memset(accum_buf_thr[thr],0,accum_thr_size);
 #else
       memset(accum_buf, 0, accum_buf_size);
 #endif

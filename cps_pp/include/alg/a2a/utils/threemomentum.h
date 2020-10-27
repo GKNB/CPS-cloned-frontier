@@ -14,7 +14,7 @@ public:
   ThreeMomentum(const int _p[3]){ memcpy(p,_p,3*sizeof(int)); }
   
   int &operator()(const int i){ return p[i]; }
-  const int operator()(const int i) const{ return p[i]; }
+  int operator()(const int i) const{ return p[i]; }
 
   bool operator<(const ThreeMomentum &r) const{
     for(int i=0;i<3;i++){

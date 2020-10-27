@@ -1,6 +1,8 @@
 #ifndef _CUBLAS_WRAPPER_H_
 #define _CUBLAS_WRAPPER_H_
 
+#include <Grid.h>
+
 #ifdef GRID_CUDA
 
 #include "utils_malloc.h"
@@ -238,8 +240,12 @@ inline void mult_offload_cuBLASxt(cuDoubleComplex* C,
 
   cublasXtHandle_t handle_xt;
   assert( cublasXtCreate(&handle_xt) == CUBLAS_STATUS_SUCCESS );
+  
+  //Get the device that Grid has assigned to this rank
+  int devices[1] = { 0 };
+  assert(cudaGetDevice(devices) == cudaSuccess);
 
-  int devices[1] = { Grid::GlobalSharedMemory::WorldShmRank };   //use the same GPU Grid does
+  //int devices[1] = { Grid::GlobalSharedMemory::WorldShmRank };   //use the same GPU Grid does
   assert(cublasXtDeviceSelect(handle_xt, 1, devices) == CUBLAS_STATUS_SUCCESS);
   
   //cuBLAS uses awful column-major order
