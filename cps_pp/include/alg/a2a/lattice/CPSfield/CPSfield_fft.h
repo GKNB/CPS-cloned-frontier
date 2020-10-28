@@ -244,8 +244,11 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 
   //Setup send/receive    
   for(int i=0;i<munodes;i++){ //works fine to send to all nodes, even if this involves a send to self.
-    assert( MPI_Isend(send_bufs[i], send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], 0, MPI_COMM_WORLD, &send_req[i]) == MPI_SUCCESS );
-    assert( MPI_Irecv(recv_buf + i*munodes_work[munodecoor]*nf*SiteSize*munodesites, send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], MPI_ANY_TAG, MPI_COMM_WORLD, &recv_req[i]) == MPI_SUCCESS );
+    assert( MPI_Isend(send_bufs[i], send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, 
+		      munodes_mpiranks[i], 0, MPI_COMM_WORLD, &send_req[i]) == MPI_SUCCESS );
+
+    assert( MPI_Irecv(recv_buf + i*munodes_work[munodecoor]*nf*SiteSize*munodesites, send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, 
+		      munodes_mpiranks[i], MPI_ANY_TAG, MPI_COMM_WORLD, &recv_req[i]) == MPI_SUCCESS );
   }      
   assert( MPI_Waitall(munodes,recv_req,status) == MPI_SUCCESS );
    
@@ -257,7 +260,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   const size_t howmany = munodes_work[munodecoor] * nf * SiteSize;
 
 #ifdef GRID_CUDA
-  CPSfield_do_fft_cufft<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf);
+  CPSfield_do_fft_cufft<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf, bufsz);
 #else //GRID_CUDA
   CPSfield_do_fft_fftw<FloatType>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf);
 #endif //!GRID_CUDA
