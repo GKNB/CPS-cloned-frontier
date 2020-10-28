@@ -1,6 +1,7 @@
 #ifndef CPS_FIELD_UTILS_H
 #define CPS_FIELD_UTILS_H
 
+#include <map>
 #include "CPSfield.h"
 
 #ifdef GRID_CUDA
@@ -334,6 +335,47 @@ struct fft_opt_mu_timings{
 };
 
 
+struct CPSfieldFFTplanParams{
+  int mutotalsites; //total sites in mu direction (global)
+  int fft_work_per_musite; //orthogonal sites * nf * siteSize divided over threads
+  int musite_stride; //stride between elements of each fft
+  int plan_fft_phase; //forwards or backwards
+
+  CPSfieldFFTplanParams(int _mutotalsites, int _fft_work_per_musite, int _musite_stride, int _plan_fft_phase):
+    mutotalsites(_mutotalsites), fft_work_per_musite(_fft_work_per_musite), 
+    musite_stride(_musite_stride), plan_fft_phase(_plan_fft_phase){}
+
+  CPSfieldFFTplanParams(){}
+
+  bool operator<(const CPSfieldFFTplanParams &r) const{
+    if(mutotalsites == r.mutotalsites){
+      if(fft_work_per_musite == r.fft_work_per_musite){
+	if(musite_stride == r.musite_stride){
+	  return plan_fft_phase < r.plan_fft_phase;	  
+	}else return musite_stride < r.musite_stride;
+      }else return fft_work_per_musite < r.fft_work_per_musite;
+    }else return mutotalsites < r.mutotalsites;
+  }
+
+  bool operator==(const CPSfieldFFTplanParams &r) const{
+    return mutotalsites == r.mutotalsites &&
+      fft_work_per_musite == r.fft_work_per_musite &&
+      musite_stride == r.musite_stride && 
+      plan_fft_phase == r.plan_fft_phase;
+  }
+
+  template<typename FloatType>
+  void createPlan(FFTplanContainer<FloatType> &plan) const{
+    typename FFTWwrapper<FloatType>::complexType *tmp_f = NULL; //not used
+    plan.setPlan(1, &mutotalsites, fft_work_per_musite, 
+		 tmp_f, NULL, musite_stride, 1,
+		 tmp_f, NULL, musite_stride, 1,
+		 plan_fft_phase, FFTW_ESTIMATE);
+  }
+
+};
+
+
 
 template<typename CPSfieldType>
 void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, const std::vector<int> &node_map, const bool inverse_transform,
@@ -512,36 +554,28 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   //if(!UniqueID()) printf("FFT work per site %d, divided over %d threads with %d work each. Remaining work %d allocated to ascending threads\n", howmany, nthread, howmany_per_thread_base, howmany - howmany_per_thread_base*nthread);
 
   int fft_phase = inverse_transform ? FFTW_BACKWARD : FFTW_FORWARD;
-  
-  static FFTplanContainer<FloatType> plan_f_base[Dimension]; //destructors deallocate plans
-  static FFTplanContainer<FloatType> plan_f_base_p1[Dimension];
-      
-  static int plan_howmany[Dimension];
-  static bool plan_init = false;
-  static int plan_fft_phase;
-  
-  if(!plan_init || plan_howmany[mu] != howmany || fft_phase != plan_fft_phase){
-    if(!plan_init) for(int i=0;i<Dimension;i++) plan_howmany[i] = -1;
+  int fft_work_per_musite = howmany_per_thread_base;
+  int musite_stride = howmany; //stride between musites
 
-    typename FFTWwrapper<FloatType>::complexType *tmp_f; //I don't think it actually does anything with this
+  //Get the plan
+  typedef std::map<CPSfieldFFTplanParams, FFTplanContainer<FloatType> > PlanMapType;
+  typedef typename PlanMapType::iterator PlanMapIterator;
 
-    plan_fft_phase = fft_phase;
-    const int fft_work_per_musite = howmany_per_thread_base;
-    const int musite_stride = howmany; //stride between musites
-    
-    plan_f_base[mu].setPlan(1, &mutotalsites, fft_work_per_musite, 
-			    tmp_f, NULL, musite_stride, 1,
-			    tmp_f, NULL, musite_stride, 1,
-			    plan_fft_phase, FFTW_ESTIMATE);
-    plan_f_base_p1[mu].setPlan(1, &mutotalsites, fft_work_per_musite+1, 
-			       tmp_f, NULL, musite_stride, 1,
-			       tmp_f, NULL, musite_stride, 1,
-			       plan_fft_phase, FFTW_ESTIMATE);	
+  static PlanMapType fft_plans;
 
-    plan_howmany[mu] = howmany;
-    plan_init = true; //other mu's will still init later
-  }
-  FFTComplex*fftw_mem = (FFTComplex*)recv_buf;
+  CPSfieldFFTplanParams params(mutotalsites, fft_work_per_musite, musite_stride, fft_phase);
+  CPSfieldFFTplanParams params_p1(mutotalsites, fft_work_per_musite+1, musite_stride, fft_phase);
+
+  PlanMapIterator it = fft_plans.find(params);
+  if(it == fft_plans.end()) params.createPlan(fft_plans[params]);
+  it = fft_plans.find(params_p1);
+  if(it == fft_plans.end()) params_p1.createPlan(fft_plans[params_p1]);
+
+  FFTplanContainer<FloatType> &plan = fft_plans[params];
+  FFTplanContainer<FloatType> &plan_p1 = fft_plans[params_p1];
+
+  //Perform the FFTs
+  FFTComplex*fftw_mem = (FFTComplex*)recv_buf; //reuse receive buffer
 
 #pragma omp parallel
   {
@@ -552,8 +586,8 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 
     const FFTplanContainer<FloatType>* thr_plan_ptr;
     
-    if(thr_work == howmany_per_thread_base) thr_plan_ptr = &plan_f_base[mu];
-    else if(thr_work == howmany_per_thread_base + 1) thr_plan_ptr = &plan_f_base_p1[mu];
+    if(thr_work == howmany_per_thread_base) thr_plan_ptr = &plan;
+    else if(thr_work == howmany_per_thread_base + 1) thr_plan_ptr = &plan_p1;
     else assert(0); //catch if logic for thr_work changes
 
     FFTWwrapper<FloatType>::execute_dft(thr_plan_ptr->getPlan(), fftw_mem + thr_off, fftw_mem + thr_off); 

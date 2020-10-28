@@ -192,9 +192,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-  if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 #endif
 
   if(0) testModeMappingTranspose(a2a_arg);

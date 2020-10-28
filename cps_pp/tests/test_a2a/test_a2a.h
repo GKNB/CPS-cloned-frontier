@@ -2662,29 +2662,58 @@ void testFFTopt(){
   typedef typename FieldType::InputParamType FieldInputParamType;
   FieldInputParamType fp; setupFieldParams<FieldType>(fp);
 
-  bool do_dirs[4] = {1,1,0,0};
-  
-  FieldType in(fp);
-  in.testRandom();
+  {
+    bool do_dirs[4] = {1,1,0,0};
+    
+    FieldType in(fp);
+    in.testRandom();
 
-  FieldType out1(fp);
-  if(!UniqueID()) printf("FFT orig\n");
-  fft(out1,in,do_dirs);
+    FieldType out1(fp);
+    if(!UniqueID()) printf("FFT orig\n");
+    fft(out1,in,do_dirs);
 
-  FieldType out2(fp);
-  if(!UniqueID()) printf("FFT opt\n");
-  fft_opt(out2,in,do_dirs);
+    FieldType out2(fp);
+    if(!UniqueID()) printf("FFT opt\n");
+    fft_opt(out2,in,do_dirs);
 
-  assert( out1.equals(out2, 1e-8, true ) );
-  printf("Passed FFT test\n");
+    assert( out1.equals(out2, 1e-8, true ) );
+    printf("Passed FFT test\n");
 
-  //Test inverse
-  FieldType inv(fp);
-  if(!UniqueID()) printf("FFT opt inverse\n");
-  fft_opt(inv,out2,do_dirs,true);
+    //Test inverse
+    FieldType inv(fp);
+    if(!UniqueID()) printf("FFT opt inverse\n");
+    fft_opt(inv,out2,do_dirs,true);
 
-  assert( inv.equals(in, 1e-8, true ) );
-  printf("Passed FFT inverse test\n");  
+    assert( inv.equals(in, 1e-8, true ) );
+    printf("Passed FFT inverse test\n");  
+  }
+
+  { //test it works a second time! (plans are persistent)
+    bool do_dirs[4] = {0,1,1,0};
+    
+    FieldType in(fp);
+    in.testRandom();
+
+    FieldType out1(fp);
+    if(!UniqueID()) printf("FFT orig (2)\n");
+    fft(out1,in,do_dirs);
+
+    FieldType out2(fp);
+    if(!UniqueID()) printf("FFT opt (2)\n");
+    fft_opt(out2,in,do_dirs);
+
+    assert( out1.equals(out2, 1e-8, true ) );
+    printf("Passed FFT test\n");
+
+    //Test inverse
+    FieldType inv(fp);
+    if(!UniqueID()) printf("FFT opt inverse (2)\n");
+    fft_opt(inv,out2,do_dirs,true);
+
+    assert( inv.equals(in, 1e-8, true ) );
+    printf("Passed FFT inverse test (2)\n");  
+  }
+
 }
 
 
