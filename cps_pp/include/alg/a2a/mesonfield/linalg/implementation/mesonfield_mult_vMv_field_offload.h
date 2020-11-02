@@ -202,7 +202,6 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
 
     typedef SIMT<VectorComplexType> ACC;
-    typedef typename ACC::value_type value_type;
 
     //Need to compute \sum_i\sum_j v(il)_{scl,fl}(x)  M(ir, jl) * v(jr)_{scr,fr}(x)
     
@@ -347,7 +346,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			    for(int f=0;f<nf;f++){
 			      for(int sc=0;sc<12;sc++){
 				VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index 
-				value_type val = ACC::read(l.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f));
+				auto val = ACC::read(l.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f));
 				val = conj_l ? Grid::conjugate(val) : val;
 				val = val * double(alpha[sc + 12*(f+ nf*(t_glob + Lt*iprime))]);
 				ACC::write(*into, val);
@@ -383,7 +382,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			      for(int f=0;f<nf;f++){
 				for(int sc=0;sc<12;sc++){
 				  VectorComplexType *into = vbprime + jprimeb + njprime_block*(sc + 12*(f + nf*x4d) );  //contiguous in summed index
-				  value_type val = ACC::read(r.nativeElem(jl_jr_pairs[jprime].second, x4d, sc, f));
+				  auto val = ACC::read(r.nativeElem(jl_jr_pairs[jprime].second, x4d, sc, f));
 				  val = conj_r ? Grid::conjugate(val) : val;
 				  val = val * double(beta[sc + 12*(f+ nf*(t_glob + Lt*jprime))]);
 				  ACC::write(*into, val);
@@ -417,36 +416,37 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	time.Mr -= dclock();
 	memset(Mvbprime, 0, vaprime_bytes);
 	
+	size_t niprimeb_subblocks = (niprime_block + inner_blocksize - 1)/inner_blocksize;
+
 	copyControl::shallow() = true;
 	{
 	  using namespace Grid;
-	  accelerator_for(scf_x4d, 12*nf*vol4d, nsimd,
+	  accelerator_for(b_scf_x4d, niprimeb_subblocks*12*nf*vol4d, nsimd,
 			  {
-			    size_t niprimeb_subblocks = (niprime_block + inner_blocksize - 1)/inner_blocksize;
-			    for(int iprimeb_subblock=0; iprimeb_subblock < niprimeb_subblocks; iprimeb_subblock++){
-			      size_t iprimeb_start = iprimeb_subblock * inner_blocksize;
-			      size_t iprimeb_lessthan = min_value( iprimeb_start + inner_blocksize, niprime_block );
+			    int iprimeb_subblock = b_scf_x4d % niprimeb_subblocks;
+			    size_t scf_x4d = b_scf_x4d / niprimeb_subblocks;
+			    size_t iprimeb_start = iprimeb_subblock * inner_blocksize;
+			    size_t iprimeb_lessthan = min_value( iprimeb_start + inner_blocksize, niprime_block );
 			      
-			      size_t njprimeb_subblocks = (njprime_block + inner_blocksize - 1)/inner_blocksize;
-			      for(int jprimeb_subblock=0; jprimeb_subblock < njprimeb_subblocks; jprimeb_subblock++){
-				size_t jprimeb_start = jprimeb_subblock * inner_blocksize;
-				size_t jprimeb_lessthan = min_value( jprimeb_start + inner_blocksize, njprime_block );
+			    size_t njprimeb_subblocks = (njprime_block + inner_blocksize - 1)/inner_blocksize;
+			    for(int jprimeb_subblock=0; jprimeb_subblock < njprimeb_subblocks; jprimeb_subblock++){
+			      size_t jprimeb_start = jprimeb_subblock * inner_blocksize;
+			      size_t jprimeb_lessthan = min_value( jprimeb_start + inner_blocksize, njprime_block );
 				
-				for(int iprimeb=iprimeb_start;iprimeb<iprimeb_lessthan; iprimeb++){
-				  VectorComplexType *into = Mvbprime + iprimeb + niprime_block*scf_x4d;
-				  value_type sum = ACC::read(*into);
-				  VectorComplexType *rptr = vbprime + jprimeb_start + njprime_block*scf_x4d;
-				  VectorComplexType *Mptr = Mprime + jprimeb_start + njprime_block * iprimeb;
+			      for(int iprimeb=iprimeb_start;iprimeb<iprimeb_lessthan; iprimeb++){
+				VectorComplexType *into = Mvbprime + iprimeb + niprime_block*scf_x4d;
+				auto sum = ACC::read(*into);
+				VectorComplexType *rptr = vbprime + jprimeb_start + njprime_block*scf_x4d;
+				VectorComplexType *Mptr = Mprime + jprimeb_start + njprime_block * iprimeb;
 				
-				  for(int jprimeb=jprimeb_start;jprimeb<jprimeb_lessthan; jprimeb++){
-				    value_type rval = ACC::read(*rptr++);
-				    ScalarComplexType Mval = ACC::read(*Mptr++);
-				    sum = sum + Mval * rval;
-				  }
-				  ACC::write(*into, sum);
+				for(int jprimeb=jprimeb_start;jprimeb<jprimeb_lessthan; jprimeb++){
+				  auto rval = ACC::read(*rptr++);
+				  auto Mval = ACC::read(*Mptr++);
+				  sum = sum + Mval * rval;
 				}
+				ACC::write(*into, sum);
 			      }
-			    }
+			    }			    
 			  });
 	}
 	copyControl::shallow() = false;
@@ -477,14 +477,14 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			    		  int scr = cr+3*sr;
 				      
 			    		  VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
-			    		  value_type sum = ACC::read(out);
+			    		  auto sum = ACC::read(out);
 
 			    		  VectorComplexType *lptr = vaprime + iprimeb_start + niprime_block*(scl + 12*(fl + nf*x4d) );
 			    		  VectorComplexType *Mrptr = Mvbprime + iprimeb_start + niprime_block*(scr + 12*(fr + nf*x4d) );
 
 			    		  for(int iprimeb=iprimeb_start;iprimeb<iprimeb_lessthan; iprimeb++){
-			    		    value_type lval = ACC::read(*lptr++); 
-			    		    value_type Mrval = ACC::read(*Mrptr++); 
+			    		    auto lval = ACC::read(*lptr++); 
+			    		    auto Mrval = ACC::read(*Mrptr++); 
 			    		    sum = sum + lval * Mrval;
 			    		  }
 			    		  ACC::write(out, sum);
