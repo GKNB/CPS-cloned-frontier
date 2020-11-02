@@ -28,6 +28,18 @@ CPS_START_NAMESPACE
 #define MF_COMPUTE_BPP 4
 #endif
 
+
+#ifdef SUMMIT_OPTIMIZATIONS
+#define MF_COMPUTE_BI 128
+#define MF_COMPUTE_BJ 128
+#define MF_COMPUTE_BP 512
+
+#define MF_COMPUTE_BII 8
+#define MF_COMPUTE_BJJ 8
+#define MF_COMPUTE_BPP 32
+#endif
+
+
 class BlockedMesonFieldArgs{ //Initialized to the above but can be modified by user
 public:
   //Outer blocking
