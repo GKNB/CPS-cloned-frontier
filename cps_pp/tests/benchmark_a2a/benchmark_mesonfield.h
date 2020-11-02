@@ -1101,7 +1101,6 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
 
   ThreeMomentum pp3 = pp * 3;
   ThreeMomentum pm3 = pm * 3;
-
   if(1){ //1s + 2s source
     typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::FieldParamType SrcFieldParamType;
     typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::ComplexType SrcComplexType;
@@ -4184,7 +4183,7 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
     }//t
 
   }//Flops count
-  size_t MFlops = Flops/1024/1024;
+  double MFlops = double(Flops)/1e6;
   
       
   Float total_time = 0.;
@@ -4422,7 +4421,7 @@ void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int
   Flops *= GJP.TotalNodes()*GJP.VolNodeSites()/GJP.TnodeSites(); //the above is done for every 3d site
 
   double tavg = total_time_field_offload/ntests;
-  double Mflops = double(Flops)/tavg/1024./1024.;
+  double Mflops = double(Flops)/tavg/1e6;
 
   if(!UniqueID()){
     printf("vMv: Avg time offload %d iters: %g secs  perf %f Mflops\n",ntests,tavg,Mflops);
@@ -4487,7 +4486,7 @@ void benchmarkVVgridOffload(const A2AArg &a2a_args, const int ntests, const int 
   Flops *= GJP.TotalNodes()*GJP.VolNodeSites()/GJP.TnodeSites(); //the above is done for every global 3d site
 
   double tavg = total_time_field_offload/ntests;
-  double Mflops = double(Flops)/tavg/1024./1024.;
+  double Mflops = double(Flops)/tavg/1e6;
 
   printf("vv: Avg time field offload code %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
 
