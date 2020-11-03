@@ -416,37 +416,25 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	time.Mr -= dclock();
 	memset(Mvbprime, 0, vaprime_bytes);
 	
-	size_t niprimeb_subblocks = (niprime_block + inner_blocksize - 1)/inner_blocksize;
-
 	copyControl::shallow() = true;
 	{
 	  using namespace Grid;
-	  accelerator_for(b_scf_x4d, niprimeb_subblocks*12*nf*vol4d, nsimd,
+	  accelerator_for(i_scf_x4d, niprime_block*12*nf*vol4d, nsimd,
 			  {
-			    int iprimeb_subblock = b_scf_x4d % niprimeb_subblocks;
-			    size_t scf_x4d = b_scf_x4d / niprimeb_subblocks;
-			    size_t iprimeb_start = iprimeb_subblock * inner_blocksize;
-			    size_t iprimeb_lessthan = min_value( iprimeb_start + inner_blocksize, niprime_block );
+			    int iprimeb = i_scf_x4d % niprime_block;
+			    size_t scf_x4d = i_scf_x4d / niprime_block;
 			      
-			    size_t njprimeb_subblocks = (njprime_block + inner_blocksize - 1)/inner_blocksize;
-			    for(int jprimeb_subblock=0; jprimeb_subblock < njprimeb_subblocks; jprimeb_subblock++){
-			      size_t jprimeb_start = jprimeb_subblock * inner_blocksize;
-			      size_t jprimeb_lessthan = min_value( jprimeb_start + inner_blocksize, njprime_block );
-				
-			      for(int iprimeb=iprimeb_start;iprimeb<iprimeb_lessthan; iprimeb++){
-				VectorComplexType *into = Mvbprime + iprimeb + niprime_block*scf_x4d;
-				auto sum = ACC::read(*into);
-				VectorComplexType *rptr = vbprime + jprimeb_start + njprime_block*scf_x4d;
-				VectorComplexType *Mptr = Mprime + jprimeb_start + njprime_block * iprimeb;
-				
-				for(int jprimeb=jprimeb_start;jprimeb<jprimeb_lessthan; jprimeb++){
-				  auto rval = ACC::read(*rptr++);
-				  auto Mval = ACC::read(*Mptr++);
-				  sum = sum + Mval * rval;
-				}
-				ACC::write(*into, sum);
-			      }
-			    }			    
+			    VectorComplexType *into = Mvbprime + i_scf_x4d;
+			    auto sum = ACC::read(*into);
+			    VectorComplexType *rptr = vbprime + njprime_block*scf_x4d;
+			    VectorComplexType *Mptr = Mprime + njprime_block * iprimeb;
+			    
+			    for(int jprimeb=0;jprimeb<njprime_block; jprimeb++){
+			      auto rval = ACC::read(*rptr++);
+			      auto Mval = ACC::read(*Mptr++);
+			      sum = sum + Mval * rval;
+			    }
+			    ACC::write(*into, sum);
 			  });
 	}
 	copyControl::shallow() = false;
