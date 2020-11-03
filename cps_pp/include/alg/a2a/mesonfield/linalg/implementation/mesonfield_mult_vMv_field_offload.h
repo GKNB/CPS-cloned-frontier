@@ -419,15 +419,12 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	copyControl::shallow() = true;
 	{
 	  using namespace Grid;
-	  accelerator_for(i_scf_x4d, niprime_block*12*nf*vol4d, nsimd,
+	  accelerator_for2d(iprimeb, niprime_block, scf_x4d, 12*nf*vol4d, nsimd,
 			  {
-			    int iprimeb = i_scf_x4d % niprime_block;
-			    size_t scf_x4d = i_scf_x4d / niprime_block;
-			      
-			    VectorComplexType *into = Mvbprime + i_scf_x4d;
+			    VectorComplexType *into = Mvbprime + iprimeb + niprime_block*scf_x4d;
 			    auto sum = ACC::read(*into);
-			    VectorComplexType *rptr = vbprime + njprime_block*scf_x4d;
-			    VectorComplexType *Mptr = Mprime + njprime_block * iprimeb;
+			    VectorComplexType *rptr = vbprime + njprime_block*scf_x4d; //jprimeb=0
+			    VectorComplexType *Mptr = Mprime + njprime_block * iprimeb; //jprimeb=0
 			    
 			    for(int jprimeb=0;jprimeb<njprime_block; jprimeb++){
 			      auto rval = ACC::read(*rptr++);
