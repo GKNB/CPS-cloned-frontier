@@ -6,7 +6,10 @@
   ELEM(piK_mfproducts) \
   ELEM(part1) \
   ELEM(part2) \
-  ELEM(contraction_time) \
+  ELEM(total_contraction_time) \
+  ELEM(contraction_time_geninputs_multgamma) \
+  ELEM(contraction_time_geninputs_other) \
+  ELEM(contraction_time_opcon) \
   ELEM(finish_up)\
   ELEM(total)
 #define TIMER Type1FieldTimings
@@ -24,14 +27,25 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_contract(ResultsContainerType &re
 
     for(int mu=0;mu<4;mu++){ //sum over mu here
       for(int gcombidx=0;gcombidx<8;gcombidx++){
+
+	Type1FieldTimings::timer().contraction_time_geninputs_multgamma -= dclock();     
+
 	auto G1_pt1 = multGammaLeft(part1[pt1_pion],1,gcombidx,mu);
 	auto G2_pt2 = multGammaLeft(part2[pt2_pion],2,gcombidx,mu);
+
+	Type1FieldTimings::timer().contraction_time_geninputs_multgamma += dclock();     
+
+	Type1FieldTimings::timer().contraction_time_geninputs_other -= dclock();     
 
 	auto tr_sf_G1_pt1 = SpinFlavorTrace(G1_pt1);
 
 	auto tr_sf_G2_pt2 = SpinFlavorTrace(G2_pt2);
 
 	auto ctrans_G2_pt2 = TransposeColor(G2_pt2);
+
+	Type1FieldTimings::timer().contraction_time_geninputs_other += dclock();     
+
+	Type1FieldTimings::timer().contraction_time_opcon -= dclock();     
 
 	add(1, result, t_K, gcombidx, con_off, 
 	  Trace(G1_pt1) * Trace(G2_pt2)
@@ -51,6 +65,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_contract(ResultsContainerType &re
 	add(6, result, t_K, gcombidx, con_off, 
 	    Trace( ColorTrace(G1_pt1) , ColorTrace(G2_pt2) )
 	    );
+
+	Type1FieldTimings::timer().contraction_time_opcon += dclock();     
       }
     }
   }
@@ -180,9 +196,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
       gr(part2[1], -5);
       Type1FieldTimings::timer().part2 += dclock();
 
-      Type1FieldTimings::timer().contraction_time -= dclock();     
+      Type1FieldTimings::timer().total_contraction_time -= dclock();     
       type1_contract(result[tkpi_idx],t_K,part1,part2);
-      Type1FieldTimings::timer().contraction_time += dclock();     
+      Type1FieldTimings::timer().total_contraction_time += dclock();     
     }//end of loop over k->pi seps
   }//tpi loop
 

@@ -303,10 +303,10 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t vbprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
     size_t Mprime_bytes = blocksize * blocksize * sizeof(VectorComplexType);
 
-    VectorComplexType* vaprime = (VectorComplexType*)managed_alloc_check(vaprime_bytes);
-    VectorComplexType* vbprime = (VectorComplexType*)managed_alloc_check(vbprime_bytes);
+    VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
+    VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vbprime_bytes);
     VectorComplexType* Mprime = (VectorComplexType*)managed_alloc_check(Mprime_bytes);
-    VectorComplexType* Mvbprime = (VectorComplexType*)managed_alloc_check(vaprime_bytes);
+    VectorComplexType* Mvbprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
     
     if(!UniqueID()){
       std::cout << "Outer block size " << blocksize << " inner blocksize " << inner_blocksize << std::endl;
@@ -414,15 +414,14 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	//std::cout << "M' * vb'" << std::endl;
 	//Mprime * vbprime
 	time.Mr -= dclock();
-	memset(Mvbprime, 0, vaprime_bytes);
-	
 	copyControl::shallow() = true;
 	{
 	  using namespace Grid;
 	  accelerator_for2d(iprimeb, niprime_block, scf_x4d, 12*nf*vol4d, nsimd,
 			  {
 			    VectorComplexType *into = Mvbprime + iprimeb + niprime_block*scf_x4d;
-			    auto sum = ACC::read(*into);
+			    
+			    typename ACC::value_type sum(0);
 			    VectorComplexType *rptr = vbprime + njprime_block*scf_x4d; //jprimeb=0
 			    VectorComplexType *Mptr = Mprime + njprime_block * iprimeb; //jprimeb=0
 			    
@@ -435,7 +434,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			  });
 	}
 	copyControl::shallow() = false;
-	
+
 	time.Mr += dclock();
 
 	//std::cout << "va' (M' vb')" << std::endl;
@@ -488,10 +487,10 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       }
     }
 
-    managed_free(vaprime);
-    managed_free(vbprime);
+    device_free(vaprime);
+    device_free(vbprime);
     managed_free(Mprime);
-    managed_free(Mvbprime);
+    device_free(Mvbprime);
     
   }//end of func
     
