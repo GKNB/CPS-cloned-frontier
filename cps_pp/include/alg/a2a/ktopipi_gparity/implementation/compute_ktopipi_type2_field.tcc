@@ -159,8 +159,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
     mult(con_pi1_pi2, mf_pi1[0]->at(t_pi1), mf_pi2[0]->at(t_pi2), true); //node local
     mult(con_pi2_pi1, mf_pi2[0]->at(t_pi2), mf_pi1[0]->at(t_pi1), true);
     for(int pp=1;pp<nmom;pp++){
-      mult(tmp, mf_pi1[0]->at(t_pi1), mf_pi2[0]->at(t_pi2), true); con_pi1_pi2.plus_equals(tmp);
-      mult(tmp, mf_pi2[0]->at(t_pi2), mf_pi1[0]->at(t_pi1), true); con_pi2_pi1.plus_equals(tmp);
+      mult(tmp, mf_pi1[pp]->at(t_pi1), mf_pi2[pp]->at(t_pi2), true); con_pi1_pi2.plus_equals(tmp); //pp??
+      mult(tmp, mf_pi2[pp]->at(t_pi2), mf_pi1[pp]->at(t_pi1), true); con_pi2_pi1.plus_equals(tmp);
     }
     if(nmom > 1){
       con_pi1_pi2.times_equals(1./nmom);  con_pi2_pi1.times_equals(1./nmom);

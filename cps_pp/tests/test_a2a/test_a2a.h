@@ -3036,8 +3036,14 @@ void testKtoPiPiType2FieldFull(const A2AArg &a2a_args, const double tol){
 
   int tstep = 2;
   int tsep_pion = 1;
+
+  //For type2 we want >1 p_pi1 to test the average over momenta
   ThreeMomentum p_pi1(1,1,1);
   ThreeMomentum p_pi2 = -p_pi1;
+
+  ThreeMomentum p_pi1_2(-1,1,1);
+  ThreeMomentum p_pi2_2 = -p_pi1_2;
+
 
   MesonFieldMomentumContainer<GridA2Apolicies> mf_pion;
   std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_tmp(Lt);
@@ -3046,12 +3052,22 @@ void testKtoPiPiType2FieldFull(const A2AArg &a2a_args, const double tol){
     mf_pion_tmp[t].testRandom();
   }
   mf_pion.copyAdd(p_pi1, mf_pion_tmp);
-  for(int t=0;t<Lt;t++){
+  for(int t=0;t<Lt;t++)
     mf_pion_tmp[t].testRandom();
-  }
   mf_pion.copyAdd(p_pi2, mf_pion_tmp);
 
-  std::vector<ThreeMomentum> p_pi1_all(1, p_pi1);
+  for(int t=0;t<Lt;t++)
+    mf_pion_tmp[t].testRandom();  
+  mf_pion.copyAdd(p_pi1_2, mf_pion_tmp);
+
+  for(int t=0;t<Lt;t++)
+    mf_pion_tmp[t].testRandom();
+  mf_pion.copyAdd(p_pi2_2, mf_pion_tmp);
+
+  std::vector<ThreeMomentum> p_pi1_all(2);
+  p_pi1_all[0] = p_pi1;
+  p_pi1_all[1] = p_pi1_2;
+
 
   ComputeKtoPiPiGparity<GridA2Apolicies>::type2_omp_v2(expect_r.data(), tsep_k_pi, tsep_pion, tstep,  p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
   ComputeKtoPiPiGparity<GridA2Apolicies>::type2_field_SIMD(got_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
