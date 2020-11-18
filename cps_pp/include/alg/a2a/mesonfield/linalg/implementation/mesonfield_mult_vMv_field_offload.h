@@ -202,6 +202,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
 
     typedef SIMT<VectorComplexType> ACC;
+    typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
 
     //Need to compute \sum_i\sum_j v(il)_{scl,fl}(x)  M(ir, jl) * v(jr)_{scr,fr}(x)
     
@@ -301,11 +302,11 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t field_size = 12 * nf * vol4d;
     size_t vaprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
     size_t vbprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
-    size_t Mprime_bytes = blocksize * blocksize * sizeof(VectorComplexType);
+    size_t Mprime_bytes = blocksize * blocksize * sizeof(MFcomplexType);
 
     VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
     VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vbprime_bytes);
-    VectorComplexType* Mprime = (VectorComplexType*)managed_alloc_check(Mprime_bytes);
+    MFcomplexType* Mprime = (MFcomplexType*)managed_alloc_check(Mprime_bytes);
     VectorComplexType* Mvbprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
     
     if(!UniqueID()){
@@ -372,38 +373,38 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	{
 	  copyControl::shallow() = true;
 	  using namespace Grid;
-	  accelerator_for(x4d, vol4d, nsimd,
-			  {
-			    size_t xop; int top;
-			    into.fourToThree(xop, top, x4d);
-			    int t_glob = top + t_off;
-			    for(size_t jprime = jprimestart; jprime < jprimelessthan; jprime++){
-			      size_t jprimeb = jprime - jprimestart;
-			      for(int f=0;f<nf;f++){
-				for(int sc=0;sc<12;sc++){
-				  VectorComplexType *into = vbprime + jprimeb + njprime_block*(sc + 12*(f + nf*x4d) );  //contiguous in summed index
-				  auto val = ACC::read(r.nativeElem(jl_jr_pairs[jprime].second, x4d, sc, f));
-				  val = conj_r ? Grid::conjugate(val) : val;
-				  val = val * double(beta[sc + 12*(f+ nf*(t_glob + Lt*jprime))]);
-				  ACC::write(*into, val);
-				}
-			      }
-			    }
-			  });
+	  accelerator_for2d(jprimeb, njprime_block, scf_x4d, 12*nf*vol4d, nsimd,
+			    {
+			      size_t rem = scf_x4d; //sc + 12*(f + nf*x4d)
+			      int sc = rem % 12; rem /= 12;
+			      int f = rem % nf; rem /= nf;
+			      size_t x4d = rem;
+
+			      size_t jprime = jprimeb + jprimestart;
+			      size_t xop; int top;
+			      into.fourToThree(xop, top, x4d);
+			      int t_glob = top + t_off;
+
+			      VectorComplexType *into = vbprime + jprimeb + njprime_block*scf_x4d;  //contiguous in summed index
+			      auto val = ACC::read(r.nativeElem(jl_jr_pairs[jprime].second, x4d, sc, f));
+			      val = conj_r ? Grid::conjugate(val) : val;
+			      val = val * double(beta[sc + 12*(f+ nf*(t_glob + Lt*jprime))]);
+			      ACC::write(*into, val);
+			    });
 	  copyControl::shallow() = false;
 	}
 
 	//std::cout << "Create Mprime" << std::endl;
 	//Create Mprime
 	{
-	  VectorComplexType *Mptr = Mprime;
+	  MFcomplexType *Mptr = Mprime;
 	  for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
 	    size_t iprimeb = iprime - iprimestart;
 	    size_t ir = il_ir_pairs[iprime].second;
 	    for(size_t jprime = jprimestart; jprime < jprimelessthan; jprime++){
 	      size_t jprimeb = jprime - jprimestart;
 	      size_t jl = jl_jr_pairs[jprime].first;
-	      Grid::vsplat(*Mptr++, M(ir, jl));
+	      *Mptr++ = M(ir, jl);
 	    }
 	  }
 	}
@@ -423,11 +424,11 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			    
 			    typename ACC::value_type sum(0);
 			    VectorComplexType *rptr = vbprime + njprime_block*scf_x4d; //jprimeb=0
-			    VectorComplexType *Mptr = Mprime + njprime_block * iprimeb; //jprimeb=0
+			    MFcomplexType *Mptr = Mprime + njprime_block * iprimeb; //jprimeb=0
 			    
 			    for(int jprimeb=0;jprimeb<njprime_block; jprimeb++){
 			      auto rval = ACC::read(*rptr++);
-			      auto Mval = ACC::read(*Mptr++);
+			      auto Mval = *Mptr++; //not vectorized
 			      sum = sum + Mval * rval;
 			    }
 			    ACC::write(*into, sum);
@@ -442,43 +443,34 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	{
 	  copyControl::shallow() = true;
 	  using namespace Grid;
-	  accelerator_for(x4d, vol4d, nsimd,
+	  accelerator_for2d(x4d, vol4d, scfl_scfr, 12*nf*12*nf, nsimd,
 			  {
 			    VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
-			    size_t niprimeb_subblocks = (niprime_block + inner_blocksize - 1)/inner_blocksize;
-			    for(int iprimeb_subblock=0; iprimeb_subblock < niprimeb_subblocks; iprimeb_subblock++){
-			      size_t iprimeb_start = iprimeb_subblock * inner_blocksize;
-			      size_t iprimeb_lessthan = min_value( iprimeb_start + inner_blocksize, niprime_block );
+			    int scfr = scfl_scfr % (12*nf); //scfl_scfr = scfr + 12*nf*scfl
+			    int scfl = scfl_scfr / (12*nf);
+			    
+			    int scr = scfr % 12; //scfr = scr + 12*fr
+			    int fr = scfr / 12;
+			    int cr = scr % 3;
+			    int sr = scr / 3; //scr = cr + 3*sr
 
-			      for(int fl=0;fl<nf;fl++){
-			    	for(int sl=0;sl<4;sl++){
-			    	  for(int cl=0;cl<3;cl++){
-			    	    int scl = cl+3*sl;
-				  
-			    	    for(int fr=0;fr<nf;fr++){
-			    	      for(int sr=0;sr<4;sr++){
-			    		for(int cr=0;cr<3;cr++){
-			    		  int scr = cr+3*sr;
-				      
-			    		  VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
-			    		  auto sum = ACC::read(out);
+			    int scl = scfl % 12;
+			    int fl = scfl / 12;
+			    int cl = scl % 3;
+			    int sl = scl / 3;			    
+			    
+			    VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
+			    auto sum = ACC::read(out);
+			    
+			    VectorComplexType *lptr = vaprime + niprime_block*(scfl + 12*nf*x4d);
+			    VectorComplexType *Mrptr = Mvbprime + niprime_block*(scfr + 12*nf*x4d);
 
-			    		  VectorComplexType *lptr = vaprime + iprimeb_start + niprime_block*(scl + 12*(fl + nf*x4d) );
-			    		  VectorComplexType *Mrptr = Mvbprime + iprimeb_start + niprime_block*(scr + 12*(fr + nf*x4d) );
-
-			    		  for(int iprimeb=iprimeb_start;iprimeb<iprimeb_lessthan; iprimeb++){
-			    		    auto lval = ACC::read(*lptr++); 
-			    		    auto Mrval = ACC::read(*Mrptr++); 
-			    		    sum = sum + lval * Mrval;
-			    		  }
-			    		  ACC::write(out, sum);
-			    		}
-			    	      }
-			    	    }
-			    	  }
-			    	}
-			      }
+			    for(size_t iprimeb=0; iprimeb < niprime_block; iprimeb++){
+			      auto lval = ACC::read(*lptr++); 
+			      auto Mrval = ACC::read(*Mrptr++); 
+			      sum = sum + lval * Mrval;
 			    }
+			    ACC::write(out, sum);
 			  });
 	  copyControl::shallow() = false;
 	}

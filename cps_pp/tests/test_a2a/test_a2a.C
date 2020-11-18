@@ -182,14 +182,14 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								   lattice, simd_dims_3d, tol);
 
 #ifdef USE_GRID
-  if(0) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
   if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
 
   if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
   if(0) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
   if(0) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
