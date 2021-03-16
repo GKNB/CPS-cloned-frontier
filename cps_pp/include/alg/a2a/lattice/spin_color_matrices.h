@@ -545,20 +545,17 @@ void globalSum(MatrixType *m){
   template<int TransposeDepth>						\
   accelerator_inline DERIVED TransposeOnIndex() const{ return this->base_type::template TransposeOnIndex<TransposeDepth>(); } \
 									\
-  accelerator_inline DERIVED & zero(){ return static_cast<DERIVED &>(this->base_type::zero()); } \  
-  accelerator_inline DERIVED & unit(){ return static_cast<DERIVED &>(this->base_type::unit()); } \  
-  accelerator_inline DERIVED & timesMinusOne(){ return static_cast<DERIVED &>(this->base_type::timesMinusOne()); } \  
-  accelerator_inline DERIVED & timesI(){ return static_cast<DERIVED &>(this->base_type::timesI()); } \  
-  accelerator_inline DERIVED & timesMinusI(){ return static_cast<DERIVED &>(this->base_type::timesMinusI()); } \  
+  accelerator_inline DERIVED & zero(){ return static_cast<DERIVED &>(this->base_type::zero()); } \
+  accelerator_inline DERIVED & unit(){ return static_cast<DERIVED &>(this->base_type::unit()); } \
+  accelerator_inline DERIVED & timesMinusOne(){ return static_cast<DERIVED &>(this->base_type::timesMinusOne()); } \
+  accelerator_inline DERIVED & timesI(){ return static_cast<DERIVED &>(this->base_type::timesI()); } \
+  accelerator_inline DERIVED & timesMinusI(){ return static_cast<DERIVED &>(this->base_type::timesMinusI()); } \
 									\
   accelerator_inline DERIVED & operator=(const base_type &r){ return static_cast<DERIVED &>(this->base_type::operator=(r)); } \
   accelerator_inline DERIVED & operator=(base_type &&r){ return static_cast<DERIVED &>(this->base_type::operator=(std::move(r))); } \
   accelerator_inline DERIVED & operator+=(const DERIVED &r){ return static_cast<DERIVED &>(this->base_type::operator+=(r)); } \
   accelerator_inline DERIVED & operator*=(const scalar_type &r){ return static_cast<DERIVED &>(this->base_type::operator*=(r)); } \
   accelerator_inline DERIVED & operator-=(const DERIVED &r){ return static_cast<DERIVED &>(this->base_type::operator-=(r)); } 
-
-
-//  accelerator_inline operator base_type(){ return static_cast<base_type &>(*this); } \
 
 
 template<typename T>

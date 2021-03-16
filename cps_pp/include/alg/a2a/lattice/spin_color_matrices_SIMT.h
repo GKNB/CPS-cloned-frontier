@@ -20,7 +20,7 @@ struct SIMT_VectorMatrix{
   typedef VectorMatrixType vector_type;
   typedef typename VectorMatrixType::scalar_type vector_complex_type; //the scalar_type of a matrix is the underlying complex type; it can be SIMD vectorized!
   typedef typename vector_complex_type::scalar_type scalar_complex_type; //this is a non-SIMD numerical type
-  typedef typename VectorMatrixType::RebaseScalarType<scalar_complex_type>::type value_type; //non-simd Matrix type
+  typedef typename VectorMatrixType::template RebaseScalarType<scalar_complex_type>::type value_type; //non-simd Matrix type
   static const int N = sizeof(vector_type)/sizeof(vector_complex_type);
 
   static accelerator_inline value_type read(const vector_type & __restrict__ vec,int lane=Grid::acceleratorSIMTlane(vector_complex_type::Nsimd()) ){

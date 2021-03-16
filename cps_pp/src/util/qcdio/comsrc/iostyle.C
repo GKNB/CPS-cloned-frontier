@@ -183,7 +183,7 @@ data, data_per_site, site_mem,
 		      input.read(fbuf,chars_per_site);
 		      if(!input.good()) {
 			error = 1;
-			printf("Node %d: csum IO read error in ParIO::load() buf %p badbit:%d eofbit:%d failbit:%d xr=%d yr=%d zr=%d tr=%d stk=%d sr=%d\n", UniqueID(), fbuf, input.bad(), input.eof(), input.fail(),xr,yr,zr,tr,stk,sr ); fflush(stdout);
+			printf("Node %d: csum IO read error in ParIO::load() buf %p badbit:%d eofbit:%d failbit:%d xr=%d yr=%d zr=%d tr=%d stk=%d sr=%d\n", UniqueID(), (void*)fbuf.CharPtr(), input.bad(), input.eof(), input.fail(),xr,yr,zr,tr,stk,sr ); fflush(stdout);
 			goto sync_error;
 		      }
 		      lcsum = dconv.checksum(fbuf,data_per_site);

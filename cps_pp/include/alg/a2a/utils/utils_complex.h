@@ -1,5 +1,5 @@
 #ifndef _UTILS_COMPLEX_H_
-#define _UTILS_COMPLES_H_
+#define _UTILS_COMPLEX_H_
 
 #include <alg/qpropw_arg.h>
 #include <util/random.h>

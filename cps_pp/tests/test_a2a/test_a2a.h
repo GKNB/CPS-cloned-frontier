@@ -1280,7 +1280,7 @@ void testCPSfieldDeviceCopy(){
 #ifdef GPU_VEC
 
   typedef typename GridA2Apolicies::ComplexType ComplexType;
-  int nsimd = ComplexType::Nsimd();
+  size_t nsimd = ComplexType::Nsimd();
   typename SIMDpolicyBase<4>::ParamType simd_dims;
   SIMDpolicyBase<4>::SIMDdefaultLayout(simd_dims,nsimd,2); //only divide over spatial directions
 
@@ -1296,7 +1296,12 @@ void testCPSfieldDeviceCopy(){
   ComplexType expect = *field.site_ptr(size_t(0));
 
   using Grid::acceleratorThreads;
+
+#ifdef GRID_CUDA  
   using Grid::LambdaApply;
+#elif defined(GRID_SYCL)
+  using Grid::theGridAccelerator;
+#endif
   copyControl::shallow() = true;
   accelerator_for(x, 1, nsimd,
 		  {

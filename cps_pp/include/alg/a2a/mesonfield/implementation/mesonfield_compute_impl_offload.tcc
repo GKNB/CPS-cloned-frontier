@@ -414,19 +414,22 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    if(!UniqueID()) printf("Kernel execute with true outer block sizes %d %d %d and inner %d %d %d\n", bi_true, bj_true, bx_true, sbi_use, sbj_use, sbx_use);
 #endif
 
+#ifdef GRID_CUDA
 	    if(t_lcl == 0 && x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStart();
-	        
+#endif
+	    	    
 	    size_t nwork = bi_true * bj_true * bx_true;	  
+	    mfVectorPolicies* this_base = (mfVectorPolicies*)this;
 	    
 	    kernel_time -= dclock();
 	    copyControl::shallow() = true; //enable shallow copy of inner product object
 	    using namespace Grid;
 	    {
-	      accelerator_for(item, nwork, Nsimd, 
+	      accelerator_for(elem, nwork, Nsimd, 
 			      {
 #ifdef MF_OFFLOAD_INNER_BLOCKING
 				//item = xs + sbx_use*( js + sbj_use * ( is + sbi_use * ( xblk + nxblk * (jblk + njblk * iblk))))
-				int rem = item;
+				int rem = elem;
 				int xs = rem % sbx_use; rem /= sbx_use;
 				int js = rem % sbj_use; rem /= sbj_use;
 				int is = rem % sbi_use; rem /= sbi_use;
@@ -461,7 +464,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 				vPtr lptr = base_ptrs_i[i]; lptr.incrementPointers(site_offsets_i[i], x);
 				vPtr rptr = base_ptrs_j[j]; rptr.incrementPointers(site_offsets_j[j], x);
 
-				typename mfVectorPolicies::accessType acc = this->getAccessor(into);
+				typename mfVectorPolicies::accessType acc = this_base->getAccessor(into);
 				
 				M(acc,lptr,rptr,x,t);
 			      });
@@ -473,7 +476,9 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    this->reduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, bx_true);
 	    reduce_time += dclock();
 
+#ifdef GRID_CUDA
 	    if(x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStop();
+#endif
 	  }
 	}
       }

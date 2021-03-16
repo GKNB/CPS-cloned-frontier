@@ -110,7 +110,17 @@ void initCPS(int argc, char **argv, const DoArg &do_arg, const int nthreads){
 #endif
 
 #if defined(USE_OMP) && !defined(_OPENMP)
-#error "CPS was configured to use openmp but preprocessor flag _OPENMP not set!"
+
+  //This error can trigger when compiling for accelerators in the device compilation stage
+  //We can avoid if we have Grid by using Grid's macro that recognizes when device compilation is occurring
+  #ifdef USE_GRID
+    #ifndef GRID_SIMT
+      #error "CPS was configured to use openmp but preprocessor flag _OPENMP not set!  We have tested using GRID_SIMT to ensure this is not occuring at device compilation stage"
+    #endif
+  #else
+      #error "CPS was configured to use openmp but preprocessor flag _OPENMP not set!  This may be occuring at device compilation stage"  
+  #endif
+  
 #endif
 
 #ifndef _OPENMP

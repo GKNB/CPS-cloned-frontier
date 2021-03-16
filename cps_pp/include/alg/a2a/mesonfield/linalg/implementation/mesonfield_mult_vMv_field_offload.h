@@ -119,7 +119,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     int ni = idil.getNmodes();
     int nj = jdil.getNmodes();
     
-    int nsimd = VectorComplexType::Nsimd();
+    size_t nsimd = VectorComplexType::Nsimd();
     
     size_t vol4d = into.size();
 
@@ -195,7 +195,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     assert(into.nodeSites(3) == GJP.TnodeSites()); //cannot be SIMD packed in t-direction
     int Lt = GJP.Tnodes() * GJP.TnodeSites();
     int nf = GJP.Gparity() + 1;
-    int nsimd = VectorComplexType::Nsimd();
+    size_t nsimd = VectorComplexType::Nsimd();
     size_t vol4d = into.size();
     int t_off = GJP.TnodeSites() * GJP.TnodeCoor();
     size_t blocksize = BlockedvMvOffloadArgs::b;

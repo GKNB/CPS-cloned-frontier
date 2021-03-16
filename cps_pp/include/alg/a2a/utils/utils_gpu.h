@@ -48,6 +48,9 @@
 
 CPS_START_NAMESPACE
 
+#if defined(GRID_CUDA) || !defined(GPU_VEC)
+//Only implemented for CUDA right now but I want to actually compile with non-CUDA devices!
+
 //query the max bytes allocatable as block shared memory for a given device. If the device index is -1 it will be inferred from the current device
 //Returns 0 if not using a CUDA GPU
 inline int maxDeviceShmemPerBlock(int device = -1){
@@ -62,6 +65,10 @@ inline int maxDeviceShmemPerBlock(int device = -1){
   return 0;
 #endif
 }
+
+#endif
+
+
 
 //Wrappers for device copy; default to memcpy on non-GPU machine
 inline void copy_host_to_device(void* to, void const* from, size_t bytes){
