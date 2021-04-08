@@ -64,15 +64,17 @@ AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
     // Ls for Fbfm can depend on input mass, so we can't choose the right
     // sizes for Fbfm without knowing the masses.
     if (bi_arg->fermion != F_CLASS_BFM) {
-    if(GJP.Gparity()) f_vec_count *= 2; //2 stacked G-parity flavors
+      int nf = GJP.Gparity() + 1;
+    
+      //!< Number of Floats in a Vector array
+      f_size = nf * GJP.VolNodeSites() * lat.FsiteSize() / (lat.FchkbEvl() + 1)   ;
+      //!< Number of Vectors in a Vector array
+      f_vec_count = f_size / (2 * lat.Colors());
+    
+      //!< Number of lattice sites
+      f_sites = f_size / (2 * lat.Colors() * lat.SpinComponents()) / nf;
 
-	//!< Number of Floats in a Vector array
-	f_size = GJP.VolNodeSites() * lat.FsiteSize() / (lat.FchkbEvl() + 1);
-	//!< Number of Vectors in a Vector array
-	f_vec_count = f_size / (2 * lat.Colors());
-	//!< Number of lattice sites
-	f_sites = f_size / (2 * lat.Colors() * lat.SpinComponents());
-	VRB.Result(cname, fname, "f_sites = %d, f_vec_count = %d, f_size = %d (lat.FchkbEvl() = %d)\n", f_sites, f_vec_count, f_size, lat.FchkbEvl());
+      VRB.Result(cname, fname, "f_sites = %d, f_vec_count = %d, f_size = %d (lat.FchkbEvl() = %d)\n", f_sites, f_vec_count, f_size, lat.FchkbEvl());
     } else {
 	VRB.Result(cname, fname, "Skipping setting f_size etc. b/c fermion == Fbfm and I don't know the masses!\n");
 	VRB.Result(cname, fname, "Sizes should be set momentarily by AlgActionQuotient or AlgActionRationalQuotient.\n");

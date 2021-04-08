@@ -1297,6 +1297,7 @@ void testCPSfieldDeviceCopy(){
 
   using Grid::acceleratorThreads;
   using Grid::LambdaApply;
+  using Grid::acceleratorAbortOnGpuError;
   copyControl::shallow() = true;
   accelerator_for(x, 1, nsimd,
 		  {

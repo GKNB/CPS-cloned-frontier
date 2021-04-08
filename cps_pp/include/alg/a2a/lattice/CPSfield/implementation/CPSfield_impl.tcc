@@ -290,11 +290,6 @@ void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, 
   }
 }
 
-
-
-//Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
-//The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
-//x_lcl is the site in node lattice coords. 3 or more dimensions (those after 3 are ignored)
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(double punits[3]){
   for(int i=0;i<3;i++){
@@ -308,7 +303,9 @@ void CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(double p
   }
 }
 
-
+//Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
+//The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
+//x_lcl is the site in node lattice coords. 3 or more dimensions (those after 3 are ignored)
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy, typename ComplexClass>
 struct _apply_phase_site_op_impl{};
 
