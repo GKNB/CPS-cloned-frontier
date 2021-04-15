@@ -27,7 +27,7 @@ bool ThreePtArg::Vml(VML *vmls,char *instance){
 bool_t
 vml_ThreePtArg (VML *vmls, char *name,ThreePtArg *objp)
 {
-  register int32_t *buf;
+  int32_t *buf;
 
   vml_class_begin(vmls,"ThreePtArg",name);
   if (!vml_string (vmls, "results", &objp->results, ~0))

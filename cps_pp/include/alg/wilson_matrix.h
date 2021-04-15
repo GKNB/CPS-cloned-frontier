@@ -33,6 +33,13 @@
 
 #include <alg/spin_matrix.h>
 
+//CK 4/21 "register" does not compile with c++17 onwards
+#if (__cplusplus - 0) >= 201703L
+  #define __REGISTER
+#else
+  #define __REGISTER                             register
+#endif
+
 CPS_START_NAMESPACE
 /* 
    The following structures used to define the quark propagator
@@ -1500,11 +1507,11 @@ inline WilsonMatrix& eq_mult( WilsonMatrix& xmat,
   const Rcomplex* a(amat.ptr());
   const Rcomplex* b(bmat.ptr());
   Rcomplex* xoff(xmat.ptr());
-  register Rcomplex const *point;
+  __REGISTER Rcomplex const *point;
   for (int i1=0;i1<12;++i1)
     {
       point = b;
-      register const Rcomplex& aval(*a);
+      __REGISTER const Rcomplex& aval(*a);
       cmeq(xoff[0] ,aval, point[0]);
       cmeq(xoff[1] ,aval, point[1]);
       cmeq(xoff[2] ,aval, point[2]);
@@ -1521,7 +1528,7 @@ inline WilsonMatrix& eq_mult( WilsonMatrix& xmat,
       point+=12;
       for (int i3=1;i3<12;++i3)
 	{
-	  register const Rcomplex& aval(*a);
+	  __REGISTER const Rcomplex& aval(*a);
 	  cmad(xoff[0] ,aval, point[0]);
 	  cmad(xoff[1] ,aval, point[1]);
 	  cmad(xoff[2] ,aval, point[2]);
@@ -1826,5 +1833,7 @@ CPS_END_NAMESPACE
 #undef TIMESMINUSONE
 #undef TIMESPLUSI
 #undef TIMESMINUSI
+
+#undef __REGISTER
 
 #endif

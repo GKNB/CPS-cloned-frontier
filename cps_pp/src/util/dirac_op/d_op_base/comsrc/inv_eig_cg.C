@@ -52,7 +52,11 @@ void min_eig_index(int *INDEX, int nev,Float *EIG, int n)
 
 void invcg_copy_rnorm(Float *v, Float rsq, Float *X, int len)
 {
-	register Float a=1.0/sqrt(rsq);
+#if (__cplusplus - 0) < 201703L
+        register Float a=1.0/sqrt(rsq);
+#else
+        Float a=1.0/sqrt(rsq);
+#endif
 	Float *vp=v;
 	Float *rp=X;
 	for(int i=0;i<len;i++)

@@ -10,6 +10,13 @@
 CPS_START_NAMESPACE
 using namespace std;
 
+//CK 4/21 "register" does not compile with c++17 onwards
+#if (__cplusplus - 0) >= 201703L
+  #define __REGISTER
+#else
+  #define __REGISTER                             register
+#endif
+
 const char * FP_FORMAT_NAME[] = { 
   "n/a",
   "AUTOMATIC",
@@ -152,7 +159,7 @@ void FPConv::byterevn(type32 w[], int n) const{
   */
   //  cout << "Byte reverse 32 bits" << endl;
 
-  register type32 oldv, newv;
+  __REGISTER type32 oldv, newv;
 
   for(int i=0;i<n;i++) {
     oldv = w[i];
@@ -179,7 +186,7 @@ void FPConv::byterevn64(type64 w[], int n) const{
   */
   //  cout << "Byte reverse 64 bits" << endl;
 
-  register type64 oldv, newv;
+  __REGISTER type64 oldv, newv;
 
   for(int i=0;i<n;i++) {
     oldv = w[i];
@@ -452,7 +459,7 @@ bool FPConv::big_endian(const enum FP_FORMAT datatype) const {
 
 
 void FPConv::ti2ieee(type32 *ti, int Num) const{
-  register type32 tmp, tisave;
+  __REGISTER type32 tmp, tisave;
   
   type32 sign(0);
   type32 expo(0);
