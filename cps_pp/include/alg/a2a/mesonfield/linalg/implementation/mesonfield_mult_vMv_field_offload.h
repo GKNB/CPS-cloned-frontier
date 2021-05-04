@@ -128,7 +128,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     typedef SIMT<VectorComplexType> ACC;
 
     using namespace Grid;
-    accelerator_for(x4d, vol4d, nsimd, 
+    thread_for(x4d, vol4d,
 		    {
 		      VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
 		      size_t xop, top;
@@ -189,6 +189,10 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
     into.zero();
 
+    CPSautoView(l_v, l);
+    CPSautoView(r_v, r);
+    auto into_v = into.view(); //doesn't require free
+       
     ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(l);
     ModeContractionIndices<jLeftDilutionType,jRightDilutionType> j_ind(r);
 
@@ -253,7 +257,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       ++ii;
     }
     int nil_ir_pairs = il_ir_pairs.size();
-
+    auto il_ir_pairs_v = il_ir_pairs.view();
+    
     ManagedVector< std::pair<int,int> > jl_jr_pairs(jl_jr_pairs_s.size());
     std::map<std::pair<int,int>, int> jl_jr_pairs_index_map;
     ii=0;
@@ -263,10 +268,13 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       ++ii;
     }
     int njl_jr_pairs = jl_jr_pairs.size();
-
+    auto jl_jr_pairs_v = jl_jr_pairs.view();
+    
     //Construct the masks
     ManagedVector<uint8_t> alpha(12*nf*Lt*nil_ir_pairs,0);
+    auto alpha_v = alpha.view();
     ManagedVector<uint8_t> beta(12*nf*Lt*njl_jr_pairs,0);
+    auto beta_v = beta.view();
     
     {
       modeIndexSet ilp, irp, jlp, jrp;
@@ -335,28 +343,26 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
       //Create va'
       {	
-	copyControl::shallow() = true;
 	using namespace Grid;
 	accelerator_for(x4d, vol4d, nsimd,
 			{
 			  size_t xop; int top;
-			  into.fourToThree(xop, top, x4d);
+			  into_v.fourToThree(xop, top, x4d);
 			  int t_glob = top + t_off;
 			  for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
 			    size_t iprimeb = iprime - iprimestart;
 			    for(int f=0;f<nf;f++){
 			      for(int sc=0;sc<12;sc++){
 				VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index 
-				auto val = ACC::read(l.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f));
+				auto val = ACC::read(l_v.nativeElem(il_ir_pairs_v[iprime].first, x4d, sc, f));
 				val = conj_l ? Grid::conjugate(val) : val;
-				val = val * double(alpha[sc + 12*(f+ nf*(t_glob + Lt*iprime))]);
+				val = val * double(alpha_v[sc + 12*(f+ nf*(t_glob + Lt*iprime))]);
 				ACC::write(*into, val);
 			      }
 			    }
 			  }
 			});
 	time.init2 += dclock();
-	copyControl::shallow() = false;
       }
 
       for(size_t jprimeblock =0; jprimeblock < njprime_blocks; jprimeblock++){
@@ -371,7 +377,6 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
 	//Create vb'
 	{
-	  copyControl::shallow() = true;
 	  using namespace Grid;
 	  accelerator_for2d(jprimeb, njprime_block, scf_x4d, 12*nf*vol4d, nsimd,
 			    {
@@ -382,16 +387,15 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
 			      size_t jprime = jprimeb + jprimestart;
 			      size_t xop; int top;
-			      into.fourToThree(xop, top, x4d);
+			      into_v.fourToThree(xop, top, x4d);
 			      int t_glob = top + t_off;
 
 			      VectorComplexType *into = vbprime + jprimeb + njprime_block*scf_x4d;  //contiguous in summed index
-			      auto val = ACC::read(r.nativeElem(jl_jr_pairs[jprime].second, x4d, sc, f));
+			      auto val = ACC::read(r_v.nativeElem(jl_jr_pairs_v[jprime].second, x4d, sc, f));
 			      val = conj_r ? Grid::conjugate(val) : val;
-			      val = val * double(beta[sc + 12*(f+ nf*(t_glob + Lt*jprime))]);
+			      val = val * double(beta_v[sc + 12*(f+ nf*(t_glob + Lt*jprime))]);
 			      ACC::write(*into, val);
 			    });
-	  copyControl::shallow() = false;
 	}
 
 	//std::cout << "Create Mprime" << std::endl;
@@ -415,7 +419,6 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	//std::cout << "M' * vb'" << std::endl;
 	//Mprime * vbprime
 	time.Mr -= dclock();
-	copyControl::shallow() = true;
 	{
 	  using namespace Grid;
 	  accelerator_for2d(iprimeb, niprime_block, scf_x4d, 12*nf*vol4d, nsimd,
@@ -434,18 +437,16 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			    ACC::write(*into, sum);
 			  });
 	}
-	copyControl::shallow() = false;
 
 	time.Mr += dclock();
 
 	//std::cout << "va' (M' vb')" << std::endl;
 	time.v_Mr -= dclock();
 	{
-	  copyControl::shallow() = true;
 	  using namespace Grid;
 	  accelerator_for2d(x4d, vol4d, scfl_scfr, 12*nf*12*nf, nsimd,
 			  {
-			    VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
+			    VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
 			    int scfr = scfl_scfr % (12*nf); //scfl_scfr = scfr + 12*nf*scfl
 			    int scfl = scfl_scfr / (12*nf);
 			    
@@ -472,7 +473,6 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			    }
 			    ACC::write(out, sum);
 			  });
-	  copyControl::shallow() = false;
 	}
 
 	time.v_Mr += dclock();

@@ -216,6 +216,13 @@ struct Elem{
   typedef V ValueType;
   typedef N NextType;
 };
+//Example usage:
+//  typedef Elem<ExpSrcType, Elem<HydSrcType,ListEnd > > SrcList;    for type list  ExpSrcType, HydSrcType
+
+#define GenerateTypeList2(ListName, A,B) typedef Elem<A, Elem<B,ListEnd > > ListName
+#define GenerateTypeList3(ListName, A,B,C) typedef Elem<A, Elem<B, Elem<C,ListEnd > > > ListName
+#define GenerateTypeList4(ListName, A,B,C,D) typedef Elem<A, Elem<B, Elem<C, Elem<D,ListEnd > > > > ListName
+
 
 //Get a type by index
 template<typename TypeList, int i>
@@ -237,7 +244,8 @@ struct ListStruct{
   NextType n;
 
   ListStruct(){}
-  ListStruct(const ListStruct &r): v(r.v),n(r.n){}
+  ListStruct(const ListStruct &r) = default;
+  ListStruct(ListStruct &&r) = default;
 };
 template<>
 struct ListStruct<ListEnd>{};
@@ -321,10 +329,22 @@ struct _operationAll{
     Operation<ValueType>::doit(src.v);
     _operationAll<Operation, NextType>::doit(src.n);
   }
+
+  //non-const version
+  static void doit(aListStruct &src){
+    typedef typename aListStruct::ValueType ValueType;
+    typedef typename aListStruct::NextType NextType;
+    Operation<ValueType>::doit(src.v);
+    _operationAll<Operation, NextType>::doit(src.n);
+  }
+
 };
 template< template<typename> class Operation>
 struct _operationAll<Operation, ListStruct<ListEnd> >{
   static void doit(const ListStruct<ListEnd> &src){
+  }
+
+  static void doit(ListStruct<ListEnd> &src){
   }
 };
 
@@ -340,7 +360,10 @@ struct _printcout{
 template<bool> struct StaticAssert;
 template<> struct StaticAssert<true> {};
 
-
+template<class T>
+struct Void {
+  typedef void type;
+};
 
 
 CPS_END_NAMESPACE

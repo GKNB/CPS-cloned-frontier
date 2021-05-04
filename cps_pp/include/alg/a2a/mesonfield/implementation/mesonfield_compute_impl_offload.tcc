@@ -419,10 +419,12 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 #endif
 	    	    
 	    size_t nwork = bi_true * bj_true * bx_true;	  
-	    mfVectorPolicies* this_base = (mfVectorPolicies*)this;
 	    
 	    kernel_time -= dclock();
 	    copyControl::shallow() = true; //enable shallow copy of inner product object
+
+	    auto M_v = M.view();
+	    
 	    using namespace Grid;
 	    {
 	      accelerator_for(elem, nwork, Nsimd, 
@@ -464,9 +466,9 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 				vPtr lptr = base_ptrs_i[i]; lptr.incrementPointers(site_offsets_i[i], x);
 				vPtr rptr = base_ptrs_j[j]; rptr.incrementPointers(site_offsets_j[j], x);
 
-				typename mfVectorPolicies::accessType acc = this_base->getAccessor(into);
+				typename mfVectorPolicies::accessType acc = mfVectorPolicies::getAccessor(into);
 				
-				M(acc,lptr,rptr,x,t);
+				M_v(acc,lptr,rptr,x,t);
 			      });
 	    }	  
 	    copyControl::shallow() = false;

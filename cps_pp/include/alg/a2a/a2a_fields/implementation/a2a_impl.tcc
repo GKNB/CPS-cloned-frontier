@@ -71,7 +71,7 @@ struct _set_wh_random_impl{};
 
 template<typename ComplexFieldType>
 struct _set_wh_random_impl<ComplexFieldType, complex_double_or_float_mark>{
-  static void doit(ManagedVector<ManagedPtrWrapper<ComplexFieldType> > &wh, const RandomType &type, const int nhits){
+  static void doit(CPSfieldArray<ComplexFieldType> &wh, const RandomType &type, const int nhits){
     typedef typename ComplexFieldType::FieldSiteType FieldSiteType;
     LRG.SetInterval(1, 0);
     int sites = wh[0]->nsites(), flavors = wh[0]->nflavors();
@@ -87,7 +87,7 @@ struct _set_wh_random_impl<ComplexFieldType, complex_double_or_float_mark>{
       }
     }
   }
-  static void doit(ManagedVector<ManagedPtrWrapper<ComplexFieldType> > &wh, const std::vector<ComplexFieldType> &to, const int nhits){
+  static void doit(CPSfieldArray<ComplexFieldType> &wh, const std::vector<ComplexFieldType> &to, const int nhits){
     assert(to.size() == nhits);
     for(int i=0;i<nhits;i++)
       *wh[i] = to[i];
@@ -104,15 +104,15 @@ struct _set_wh_random_impl<ComplexFieldType, grid_vector_complex_mark>{
 		   typename ComplexFieldType::FieldMappingPolicy::EquivalentScalarPolicy, typename ComplexFieldType::FieldAllocPolicy>
   ScalarComplexFieldType;
 
-  static void doit(ManagedVector<ManagedPtrWrapper<ComplexFieldType> > &wh, const RandomType &type, const int nhits){
+  static void doit(CPSfieldArray<ComplexFieldType> &wh, const RandomType &type, const int nhits){
     NullObject null_obj;
     
     //Use scalar generation code and import
-    ManagedVector<ManagedPtrWrapper<ScalarComplexFieldType> > wh_scalar(nhits); for(int i=0;i<nhits;i++) wh_scalar[i].emplace(null_obj);
+    CPSfieldArray<ScalarComplexFieldType> wh_scalar(nhits); for(int i=0;i<nhits;i++) wh_scalar[i].emplace(null_obj);
     _set_wh_random_impl<ScalarComplexFieldType, complex_double_or_float_mark>::doit(wh_scalar,type,nhits);
     for(int i=0;i<nhits;i++) wh[i]->importField(*wh_scalar[i]);
   }
-  static void doit(ManagedVector<ManagedPtrWrapper<ComplexFieldType> > &wh, const std::vector<ScalarComplexFieldType> &to, const int nhits){
+  static void doit(CPSfieldArray<ComplexFieldType> &wh, const std::vector<ScalarComplexFieldType> &to, const int nhits){
     assert(to.size() == nhits);
     for(int i=0;i<nhits;i++) wh[i]->importField(to[i]);
   }

@@ -41,15 +41,22 @@ public:
   inline PtrWrapper & operator=(const PtrWrapper &r){
     if(t!=NULL){ delete t; t = NULL; }
     if(r.t!=NULL) t = new T(*r.t);
-  } 
+  }
+
+  //Construct the object in-place using memory assigned internally
+  template<typename... ConstructArgs>
+  inline void emplace(ConstructArgs&&... construct_args){
+    if(t) delete t;
+    t = new T(std::forward<ConstructArgs>(construct_args)...);
+  }
+
 };
 
 
-//A variant of the above where the pointer is to managed memory and the copy constructor is shallow if copyControl::shallow() is enabled
+//A variant of the above where the pointer is to managed memory
 template<typename T>
 class ManagedPtrWrapper{
   T* t;
-  bool own; //do I own this memory?
 public:
   inline T* ptr(){ return t; }
   inline T const* ptr() const{ return t; }
@@ -57,48 +64,48 @@ public:
   inline T* operator->(){ return t; }
   inline T const& operator*() const{ return *t; }
   inline T const* operator->() const{ return t; }
+
+  class View{
+    T* t;
+  public:
+    accelerator_inline T* ptr() const{ return t; }
+    accelerator_inline T& operator*() const{ return *t; }
+    accelerator_inline T* operator->() const{ return t; }
+
+    View(const ManagedPtrWrapper &r): t(r.t){}
+  };
+
+  View view() const{ return View(*this); }
   
-  inline ManagedPtrWrapper(): t(NULL), own(true){};
+  inline ManagedPtrWrapper(): t(NULL){};
 
   //Construct an instance of T in place with arguments provided
   template<typename... ConstructArgs>
-  inline ManagedPtrWrapper(ConstructArgs&&... construct_args): t(NULL), own(true){
+  inline ManagedPtrWrapper(ConstructArgs&&... construct_args): t(NULL){
     emplace(std::forward<ConstructArgs>(construct_args)...);
   }
 
-  inline ManagedPtrWrapper(ManagedPtrWrapper &&r): t(r.t), own(r.own){
-    r.t = NULL; r.own = false;
+  inline ManagedPtrWrapper(ManagedPtrWrapper &&r): t(r.t){
+    r.t = NULL;
   }
 
-  //Deep/shallow copies as necessary
-  inline ManagedPtrWrapper(const ManagedPtrWrapper &r): t(NULL), own(true){
-    if(copyControl::shallow()){
-      t = r.t; own = false;
-    }else if(r.t != NULL) emplace(*r.t);
+  inline ManagedPtrWrapper(const ManagedPtrWrapper &r): t(NULL){
+    if(r.t != NULL) emplace(*r.t);
   }
   //Need non-const version to avoid the arg being caught by the variadic constructor
-  inline ManagedPtrWrapper(ManagedPtrWrapper &r): t(NULL), own(true){
-    if(copyControl::shallow()){
-      t = r.t; own = false;
-    }else if(r.t != NULL) emplace(*r.t);
+  inline ManagedPtrWrapper(ManagedPtrWrapper &r): t(NULL){
+    if(r.t != NULL) emplace(*r.t);
   }
-
 
   inline ~ManagedPtrWrapper(){ 
     free(); 
   }
 
-  //Is this a shallow copy of another instance?
-  inline bool isShallowCopy() const{ return !own; }
-
   inline bool assigned() const{ return t != NULL; }
   
   //Construct the object in-place using memory assigned internally
-  //If the object is currently a shallow copy that status will be removed; it will own its memory afterwards
   template<typename... ConstructArgs>
   inline void emplace(ConstructArgs&&... construct_args){
-    if(!own){ t = NULL; own = true; } //relinquish shallow copy status
-
     if(t!=NULL){
       t->~T();
     }else{
@@ -108,12 +115,11 @@ public:
   }
   //If the memory is owned, free it and set ptr to NULL. If not owned, just set pointer to NULL
   inline void free(){
-    if(t!=NULL && own){ 
+    if(t!=NULL){ 
       t->~T();
       managed_free(t);
     }
     t = NULL;
-    own = true;
   }
   
   //Always deep copy

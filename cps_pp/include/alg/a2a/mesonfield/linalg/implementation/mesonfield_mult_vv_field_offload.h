@@ -89,7 +89,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
     typedef SIMT<VectorComplexType> ACC;
     using namespace Grid;
-    accelerator_for(x4d, vol4d, nsimd, 
+    thread_for(x4d, vol4d, 
 		    {
 		      VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
 		      size_t xop; int top;
@@ -133,8 +133,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 #ifdef GRID_CUDA
   static void run_VV_kernel_CUDA(VectorComplexType* vaprime,
 				 VectorComplexType* vbprime,
-				 ManagedVector<uint8_t> &alpha,
-				 PropagatorField &into,
+				 typename ManagedVector<uint8_t>::View &alpha,
+				 typename PropagatorField::View &into,
 				 size_t niprime, size_t niprime_block,
 				 size_t iprimestart, size_t iprimelessthan,
 				 size_t vol4d, int t_off, int nf, size_t nsimd,
@@ -241,8 +241,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 #ifndef GRID_CUDA
   static void run_VV_kernel_base(VectorComplexType* vaprime,
 				 VectorComplexType* vbprime,
-				 ManagedVector<uint8_t> &alpha,
-				 PropagatorField &into,
+				 typename ManagedVector<uint8_t>::View &alpha,
+				 typename PropagatorField::View &into,
 				 size_t niprime, size_t niprime_block,
 				 size_t iprimestart, size_t iprimelessthan,
 				 size_t vol4d, int t_off, int nf, size_t nsimd
@@ -250,7 +250,6 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     static const int shmem_iblock_size = 4;
     
     using namespace Grid;
-    copyControl::shallow() = true;
 
     accelerator_for(x4d, 
 		    vol4d, 
@@ -329,7 +328,6 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			}//fl
 		      }//iprimeb_subblock
 		    });
-    copyControl::shallow() = false;
   }
 #endif
 
@@ -346,6 +344,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
     time.init1 -= dclock();
 
+    auto into_v = into.view();
+	
     into.zero();
 
     ModeContractionIndices<leftDilutionType,rightDilutionType> i_ind(l);
@@ -365,6 +365,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 #endif
 
     //Need to compute \sum_i v(il)_{scl,fl}(x) v(ir)_{scr,fr}(x)
+    //The map of i -> il, ir depends on scl,fl, scr,fr, t
     
     //Transform into   \sum_i'  v'(i')_{scl, fl}(x) v'(i')_{scr, fr}(x)  alpha(scl,fl,scr,fr,t,i')
     //i' runs over the full set of allowed index pairs
@@ -402,8 +403,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 	  ++nil_ir_pairs;
 
     //Map
-    ManagedVector< std::pair<int,int> > il_ir_pairs(nil_ir_pairs);
-    std::vector<std::vector<int> > il_ir_pairs_index_map(lmodes, std::vector<int>(rmodes)); 
+    std::vector< std::pair<int,int> > il_ir_pairs(nil_ir_pairs); //map of pair index to pair (ll,rr) 
+    std::vector<std::vector<int> > il_ir_pairs_index_map(lmodes, std::vector<int>(rmodes)); //inverse map of (ll,rr) -> pair index  (if ll,rr in use)
     int ii=0;
     for(int ll=0;ll<lmodes;ll++){
       for(int rr=0;rr<rmodes;rr++){
@@ -417,7 +418,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
     //Construct the mask
     ManagedVector<uint8_t> alpha(nil_ir_pairs*12*nf*12*nf*Lt,0); //map as  i' + ni' * (scr + 12*(fr + nf*( scl + 12*(fl + nf*t)  ) ) )
-    
+    auto alpha_v = alpha.view();
     {
       modeIndexSet ilp, irp;
       for(int tv=0;tv<Lt;tv++){
@@ -521,9 +522,9 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 #endif
     
 #ifdef GRID_CUDA
-      run_VV_kernel_CUDA(vaprime, vbprime, alpha, into, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, nsimd, device);
+      run_VV_kernel_CUDA(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, nsimd, device);
 #else
-      run_VV_kernel_base(vaprime, vbprime, alpha, into, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, nsimd);
+      run_VV_kernel_base(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, nsimd);
 #endif
 
       time.vv += dclock();

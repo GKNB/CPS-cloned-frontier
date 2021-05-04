@@ -65,15 +65,12 @@ inline void resize_3d(std::vector<std::vector<std::vector<T> > > &v, const size_
 
 
 //A vector class that uses managed memory (if available) such that the internal pointer is valid on host and device
-//The copy-constructor deep-copies the data if copyControl::shallow() == false, otherwise it does a shallow copy
 template<typename T>
 class ManagedVector{
   T* v;
   size_t sz;
-  bool own;
   
   void freeMem(){
-    if(!own) ERR.General("ManagedVector","freeMem","Cannot free a shallow copy");
     for(int i=0;i<sz;i++) v[i].~T();	  
     managed_free(v);
     sz = 0;
@@ -84,7 +81,6 @@ public:
   //Destructive resize
   void resize(const size_t n){
     if(n == sz) return;
-    if(!own) ERR.General("ManagedVector","resize","Cannot resize a shallow copy");
     if(v) freeMem();
     if(n==0){ v = NULL; sz = 0; return; }
     v = (T*)managed_alloc_check(n*sizeof(T));
@@ -93,7 +89,6 @@ public:
   }
   void resize(const size_t n, const T &init){
     if(n == sz) return;
-    if(!own) ERR.General("ManagedVector","resize","Cannot resize a shallow copy");
     if(v) freeMem();
     if(n==0){ v = NULL; sz = 0; return; }
     v = (T*)managed_alloc_check(n*sizeof(T));
@@ -101,35 +96,28 @@ public:
     for(int i=0;i<sz;i++) T* s = new (v + i) T(init);
   }
 
-  ManagedVector(): v(NULL), sz(0), own(true){}
-  ManagedVector(const int n): v(NULL), sz(0), own(true){
+  ManagedVector(): v(NULL), sz(0){}
+  ManagedVector(const int n): v(NULL), sz(0){
     this->resize(n);
   }
-  ManagedVector(const int n, const T &init): v(NULL), sz(0), own(true){
+  ManagedVector(const int n, const T &init): v(NULL), sz(0){
     this->resize(n,init);
   }
 
   ManagedVector(const ManagedVector &r){
-    if(copyControl::shallow()){
-      v = r.v; sz = r.sz; own = false;
-      //std::cout << "ManagedVector shallow copy" << std::endl;
-    }else{
-      if(!own){ own = true; v = NULL; }
-      //std::cout << "ManagedVector deep copy" << std::endl;
-      this->resize(r.sz);
-      for(int i=0;i<sz;i++) T* s = new (v + i) T(r.v[i]);
-    }
+    this->resize(r.sz);
+    for(int i=0;i<sz;i++) T* s = new (v + i) T(r.v[i]);
   }   
-  ManagedVector(ManagedVector &&r): v(r.v), sz(r.sz), own(r.own){
-    r.v = NULL; r.own = false;
+  ManagedVector(ManagedVector &&r): v(r.v), sz(r.sz){
+    r.v = NULL; r.sz = 0;
   }   
   ~ManagedVector(){
-    if(v && own) freeMem();
+    if(v) freeMem();
   }
-  accelerator_inline size_t size() const{
+  inline size_t size() const{
     return sz;
   }
-  accelerator_inline size_t byte_size() const{
+  inline size_t byte_size() const{
     return sz*sizeof(T);
   }
 
@@ -137,14 +125,12 @@ public:
   inline void free(){ resize(0); }
 
   ManagedVector & operator=(const ManagedVector &r){
-    if(!own){ own = true; v = NULL; } //relinquish shallow copy status    
     this->resize(r.sz);
     for(int i=0;i<sz;i++) T* s = new (v + i) T(r.v[i]);
     return *this;
   }
 
   ManagedVector & operator=(ManagedVector &&r){
-    if(!own){ own = true; v = NULL; } //relinquish shallow copy status    
     if(v) freeMem();
     v = r.v;
     sz = r.sz;
@@ -152,10 +138,25 @@ public:
     return *this;
   }
 
-  accelerator_inline T & operator[](const size_t i){ return v[i]; }
-  accelerator_inline const T & operator[](const size_t i) const{ return v[i]; }
-  accelerator_inline T* data(){ return v; }
-  accelerator_inline T const* data() const{ return v; }
+  inline T & operator[](const size_t i){ return v[i]; }
+  inline const T & operator[](const size_t i) const{ return v[i]; }
+  inline T* data(){ return v; }
+  inline T const* data() const{ return v; }
+
+  class View{
+    T* v;
+    size_t sz;
+  public:
+    View(const ManagedVector &r): v(r.v), sz(r.sz){}
+
+    accelerator_inline T & operator[](const size_t i) const{ return v[i]; }
+    accelerator_inline T* data() const{ return v; }
+
+    accelerator_inline size_t size() const{ return sz; }
+    accelerator_inline size_t byte_size() const{ return sz*sizeof(T); }
+  };
+
+  View view() const{ return View(*this); } 
 };
 
 

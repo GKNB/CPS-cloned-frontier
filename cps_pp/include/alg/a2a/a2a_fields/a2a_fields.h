@@ -1,5 +1,5 @@
-#ifndef CK_A2A
-#define CK_A2A
+#ifndef CPS_A2A_FIELDS_H_
+#define CPS_A2A_FIELDS_H_
 
 #include<util/lattice.h>
 #include<util/time_cps.h>
@@ -13,6 +13,7 @@
 #include<alg/a2a/utils.h>
 #include<alg/a2a/lattice.h>
 
+#include "field_array.h"
 #include "a2a_policies.h"
 #include "a2a_fft.h"
 
@@ -43,7 +44,7 @@ public:
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
 private:
-  ManagedVector<ManagedPtrWrapper<FermionFieldType> > v;
+  CPSfieldArray<FermionFieldType> v;
 
 public:
   typedef StandardIndexDilution DilutionType;
@@ -69,27 +70,58 @@ public:
     return v[0]->getDimPolParams();
   }    
   
-  accelerator_inline const FermionFieldType & getMode(const int i) const{ return *v[i]; }
-  accelerator_inline FermionFieldType & getMode(const int i){ return *v[i]; }  
+  inline const FermionFieldType & getMode(const int i) const{ return *v[i]; }
+  inline FermionFieldType & getMode(const int i){ return *v[i]; }  
 
   //Get a mode from the low mode part
-  accelerator_inline FermionFieldType & getVl(const int il){ return *v[il]; }
-  accelerator_inline const FermionFieldType & getVl(const int il) const{ return *v[il]; }
+  inline FermionFieldType & getVl(const int il){ return *v[il]; }
+  inline const FermionFieldType & getVl(const int il) const{ return *v[il]; }
 
   //Get a mode from the high-mode part
-  accelerator_inline FermionFieldType & getVh(const int ih){ return *v[nl+ih]; }
-  accelerator_inline const FermionFieldType & getVh(const int ih) const{ return *v[nl+ih]; }
+  inline FermionFieldType & getVh(const int ih){ return *v[nl+ih]; }
+  inline const FermionFieldType & getVh(const int ih) const{ return *v[nl+ih]; }
 
   //Get a particular site/spin/color element of a given mode 
-  accelerator_inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+  inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
     int x4d = v[mode]->threeToFour(x3d,t);
     return  *(v[mode]->site_ptr(x4d,flavor) + spin_color);
   }
   //Get a particular site/spin/color element of a given *native* (packed) mode. For V this does the same as the above
-  accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
+  inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
     return *(v[i]->site_ptr(site,flavor)+spin_color);
   }
 
+
+  class View: public StandardIndexDilution{
+    typename CPSfieldArray<FermionFieldType>::View av;
+  public:
+    typedef typename CPSfieldArray<FermionFieldType>::FieldView FieldView;
+    typedef typename FermionFieldType::FieldSiteType FieldSiteType;
+
+    View(const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d): av(vin.view()), StandardIndexDilution(d){}
+      
+    accelerator_inline FieldView & getMode(const int i) const{ return av[i]; }
+
+    //Get a mode from the low mode part
+    accelerator_inline FieldView & getVl(const int il) const{ return av[il]; }
+    
+    //Get a mode from the high-mode part
+    accelerator_inline FieldView & getVh(const int ih) const{ return av[nl+ih]; }
+
+    //Get a particular site/spin/color element of a given *native* (packed) mode. For V this does the same as the above
+    accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
+      return *(av[i].site_ptr(site,flavor)+spin_color);
+    }
+
+    void free(){
+      av.free();
+    }
+	
+  };
+
+  View view() const{ return View(v, *this); }
+
+  
   void importVl(const FermionFieldType &vv, const int il){
     *v[il] = vv;
   }
@@ -124,7 +156,7 @@ public:
 
   #define VFFTW_ENABLE_IF_MANUAL_ALLOC(P) typename my_enable_if<  _equal<typename P::A2AvectorVfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , void>::type
 private:
-  ManagedVector<ManagedPtrWrapper<FermionFieldType> > v;
+  CPSfieldArray<FermionFieldType> v;
 
 public:
   typedef StandardIndexDilution DilutionType;
@@ -147,10 +179,42 @@ public:
     return v[0]->getDimPolParams();
   }   
   
-  accelerator_inline const FermionFieldType & getMode(const int i) const{ return *v[i]; }
-  accelerator_inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
+  inline const FermionFieldType & getMode(const int i) const{ return *v[i]; }
+  inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
 
-  accelerator_inline FermionFieldType & getMode(const int i){ return *v[i]; }
+  inline FermionFieldType & getMode(const int i){ return *v[i]; }
+
+  inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+    int site = v[mode]->threeToFour(x3d,t);
+    return *(v[mode]->site_ptr(site,flavor) + spin_color);
+  }
+  //Get a particular site/spin/color element of a given 'native' (packed) mode. For V this does the same thing as the above
+  inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
+    return *(v[i]->site_ptr(site,flavor)+spin_color);
+  }
+
+  class View: public StandardIndexDilution{
+    typename CPSfieldArray<FermionFieldType>::View av;
+  public:
+    typedef typename CPSfieldArray<FermionFieldType>::FieldView FieldView; 
+    typedef typename FermionFieldType::FieldSiteType FieldSiteType;
+
+    View(const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d): av(vin.view()), StandardIndexDilution(d){}
+     
+    accelerator_inline FieldView & getMode(const int i) const{ return av[i]; }
+
+    accelerator_inline FieldView & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return av[i]; }
+      
+    //Get a particular site/spin/color element of a given 'native' (packed) mode. For V this does the same thing as the above
+    accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
+      return *(av[i].site_ptr(site,flavor)+spin_color);
+    }
+
+    void free(){ av.free(); }
+  };
+
+  View view() const{ return View(v, *this); }
+
   
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
@@ -180,15 +244,6 @@ public:
   
   static std::pair< A2AvectorVfftw<mf_Policies>*, std::vector<int> > inPlaceTwistedFFT(const int p[3], A2AvectorVfftw<mf_Policies> *base_p, A2AvectorVfftw<mf_Policies> *base_m = NULL);
   
-  accelerator_inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
-    int site = v[mode]->threeToFour(x3d,t);
-    return *(v[mode]->site_ptr(site,flavor) + spin_color);
-  }
-  //Get a particular site/spin/color element of a given 'native' (packed) mode. For V this does the same thing as the above
-  accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
-    return *(v[i]->site_ptr(site,flavor)+spin_color);
-  }
-
   //i_high_unmapped is the index i unmapped to its high mode sub-indices (if it is a high mode of course!)
   inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
     const FermionFieldType &field = getMode(i);
@@ -236,8 +291,8 @@ public:
   typedef typename my_enable_if< _equal<typename FermionFieldType::FieldSiteType, typename ComplexFieldType::FieldSiteType>::value,  typename FermionFieldType::FieldSiteType>::type FieldSiteType;
   typedef typename my_enable_if< _equal<typename FermionFieldType::InputParamType, typename ComplexFieldType::InputParamType>::value,  typename FermionFieldType::InputParamType>::type FieldInputParamType;
 private:
-  ManagedVector<ManagedPtrWrapper<FermionFieldType> > wl; //The low mode part of the W field, comprised of nl fermion fields
-  ManagedVector<ManagedPtrWrapper<ComplexFieldType> > wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
+  CPSfieldArray<FermionFieldType> wl; //The low mode part of the W field, comprised of nl fermion fields
+  CPSfieldArray<ComplexFieldType> wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
 
   bool wh_rand_performed; //store if the wh random numbers have been set
 public:
@@ -271,11 +326,64 @@ public:
     ERR.General("A2AvectorW","getFieldInputParams","Neither of the zeroth fields are assigned\n");
   }   
   
-  accelerator_inline const FermionFieldType & getWl(const int i) const{ return *wl[i]; }
-  accelerator_inline const ComplexFieldType & getWh(const int hit) const{ return *wh[hit]; }
+  inline const FermionFieldType & getWl(const int i) const{ return *wl[i]; }
+  inline const ComplexFieldType & getWh(const int hit) const{ return *wh[hit]; }
 
-  accelerator_inline FermionFieldType & getWl(const int i){ return *wl[i]; }
-  accelerator_inline ComplexFieldType & getWh(const int hit){ return *wh[hit]; }
+  inline FermionFieldType & getWl(const int i){ return *wl[i]; }
+  inline ComplexFieldType & getWh(const int hit){ return *wh[hit]; }
+  
+  //The spincolor, flavor and timeslice dilutions are packed so we must treat them differently
+  //Mode is a full 'StandardIndex', (unpacked mode index)
+  inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+    static FieldSiteType zero(0.0);
+    if(mode < nl){
+      int site = getWl(mode).threeToFour(x3d,t);
+      return *(getWl(mode).site_ptr(site,flavor) + spin_color);
+    }else{
+      int mode_hit, mode_tblock, mode_spin_color,mode_flavor;
+      const StandardIndexDilution &dilfull = static_cast<StandardIndexDilution const&>(*this);
+      dilfull.indexUnmap(mode-nl,mode_hit,mode_tblock,mode_spin_color,mode_flavor);
+      //flavor and time block indices match those of the mode, the result is zero
+      int tblock = (t+GJP.TnodeSites()*GJP.TnodeCoor())/args.src_width;
+      if(spin_color != mode_spin_color || flavor != mode_flavor || tblock != mode_tblock) return zero;
+      int site = getWh(mode_hit).threeToFour(x3d,t);
+      return *(getWh(mode_hit).site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
+    }
+  }
+  //Get a particular site/spin/color element of a given *native* (packed) mode 
+  inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
+    return i < nl ? 
+      *(wl[i]->site_ptr(site,flavor)+spin_color) :
+      *(wh[i-nl]->site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
+  }
+
+
+  class View: public FullyPackedIndexDilution{
+    typename CPSfieldArray<FermionFieldType>::View awl;
+    typename CPSfieldArray<ComplexFieldType>::View awh;
+  public:
+    typedef typename CPSfieldArray<FermionFieldType>::FieldView FermionFieldView;
+    typedef typename CPSfieldArray<ComplexFieldType>::FieldView ComplexFieldView;
+    typedef typename FermionFieldType::FieldSiteType FieldSiteType;
+
+    View(const CPSfieldArray<FermionFieldType> &wlin,
+	 const CPSfieldArray<ComplexFieldType> &whin,
+	 const FullyPackedIndexDilution &d): awl(wlin.view()), awh(whin.view()), FullyPackedIndexDilution(d){}
+      
+    accelerator_inline FermionFieldView & getWl(const int i) const{ return awl[i]; }
+    accelerator_inline ComplexFieldView & getWh(const int hit) const{ return awh[hit]; }
+  
+    //Get a particular site/spin/color element of a given *native* (packed) mode 
+    accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
+      return i < nl ? 
+		 *(awl[i].site_ptr(site,flavor)+spin_color) :
+	*(awh[i-nl].site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
+    }
+
+    void free(){ awl.free(); awh.free(); }
+  };
+
+  View view() const{ return View(wl, wh, *this); }
   
   void importWl(const FermionFieldType &wlin, const int i){
     *wl[i] = wlin;
@@ -294,31 +402,6 @@ public:
   //When gauge fixing prior to taking the FFT it is necessary to uncompact the wh field in the spin-color index, as these indices are acted upon by the gauge fixing
   //(I suppose technically only the color indices need uncompacting; this might be considered as a future improvement)
   void getSpinColorDilutedSource(FermionFieldType &into, const int hit, const int sc_id) const;
-
-  //The spincolor, flavor and timeslice dilutions are packed so we must treat them differently
-  //Mode is a full 'StandardIndex', (unpacked mode index)
-  accelerator_inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
-    static FieldSiteType zero(0.0);
-    if(mode < nl){
-      int site = getWl(mode).threeToFour(x3d,t);
-      return *(getWl(mode).site_ptr(site,flavor) + spin_color);
-    }else{
-      int mode_hit, mode_tblock, mode_spin_color,mode_flavor;
-      const StandardIndexDilution &dilfull = static_cast<StandardIndexDilution const&>(*this);
-      dilfull.indexUnmap(mode-nl,mode_hit,mode_tblock,mode_spin_color,mode_flavor);
-      //flavor and time block indices match those of the mode, the result is zero
-      int tblock = (t+GJP.TnodeSites()*GJP.TnodeCoor())/args.src_width;
-      if(spin_color != mode_spin_color || flavor != mode_flavor || tblock != mode_tblock) return zero;
-      int site = getWh(mode_hit).threeToFour(x3d,t);
-      return *(getWh(mode_hit).site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
-    }
-  }
-  //Get a particular site/spin/color element of a given *native* (packed) mode 
-  accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
-    return i < nl ? 
-      *(wl[i]->site_ptr(site,flavor)+spin_color) :
-      *(wh[i-nl]->site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
-  }
 
   //Set each float to a uniform random number in the specified range.
   //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
@@ -352,8 +435,8 @@ public:
 #define WFFTW_ENABLE_IF_MANUAL_ALLOC(P) typename my_enable_if<  _equal<typename P::A2AvectorWfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , int>::type
 private:
 
-  ManagedVector<ManagedPtrWrapper<FermionFieldType> > wl;
-  ManagedVector<ManagedPtrWrapper<FermionFieldType> > wh; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
+  CPSfieldArray<FermionFieldType> wl;
+  CPSfieldArray<FermionFieldType> wh; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
 
   //#define ZEROSC_MANAGED
   
@@ -395,18 +478,74 @@ public:
     ERR.General("A2AvectorWfftw","getFieldInputParams","Neither of the zeroth fields are assigned\n");
   }   
   
-  accelerator_inline const FermionFieldType & getWl(const int i) const{ return *wl[i]; }
-  accelerator_inline const FermionFieldType & getWh(const int hit, const int spin_color) const{ return *wh[spin_color + 12*hit]; }
+  inline const FermionFieldType & getWl(const int i) const{ return *wl[i]; }
+  inline const FermionFieldType & getWh(const int hit, const int spin_color) const{ return *wh[spin_color + 12*hit]; }
+  
+  inline const FermionFieldType & getMode(const int i) const{ return i < nl ? *wl[i] : *wh[i-nl]; }
 
-  accelerator_inline const FermionFieldType & getMode(const int i) const{ return i < nl ? *wl[i] : *wh[i-nl]; }
+  inline FermionFieldType & getWl(const int i){ return *wl[i]; }
+  inline FermionFieldType & getWh(const int hit, const int spin_color){ return *wh[spin_color + 12*hit]; }
 
-  accelerator_inline FermionFieldType & getWl(const int i){ return *wl[i]; }
-  accelerator_inline FermionFieldType & getWh(const int hit, const int spin_color){ return *wh[spin_color + 12*hit]; }
-
-  accelerator_inline FermionFieldType & getMode(const int i){ return i < nl ? *wl[i] : *wh[i-nl]; }
+  inline FermionFieldType & getMode(const int i){ return i < nl ? *wl[i] : *wh[i-nl]; }
 
   //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices: for i>=nl the modeIndexSet is used to obtain the appropriate mode 
   inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
+
+  //The flavor and timeslice dilutions are still packed so we must treat them differently
+  //Mode is a full 'StandardIndex', (unpacked mode index)
+  inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+    static FieldSiteType zero(0.0);
+    if(mode < nl){
+      int site = getWl(mode).threeToFour(x3d,t);
+      return *(getWl(mode).site_ptr(site,flavor) + spin_color);
+    }else{
+      int mode_hit, mode_tblock, mode_spin_color,mode_flavor;
+      const StandardIndexDilution &dilfull = static_cast<StandardIndexDilution const&>(*this);
+      dilfull.indexUnmap(mode-nl,mode_hit,mode_tblock,mode_spin_color,mode_flavor);
+      //flavor and time block indices match those of the mode, the result is zero
+      int tblock = (t+GJP.TnodeSites()*GJP.TnodeCoor())/args.src_width;
+      if(flavor != mode_flavor || tblock != mode_tblock) return zero;
+
+      int site = getWh(mode_hit,mode_spin_color).threeToFour(x3d,t);
+      return *(getWh(mode_hit,mode_spin_color).site_ptr(site,flavor) +spin_color); //because we multiplied by an SU(3) matrix, the field is not just a delta function in spin/color
+    }
+  }
+  //Get a particular site/spin/color element of a given *native* (packed) mode 
+  inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
+    return i < nl ? 
+      *(wl[i]->site_ptr(site,flavor)+spin_color) :
+      *(wh[i-nl]->site_ptr(site,flavor)+spin_color); //spin_color index diluted out.
+  }
+
+  class View: public TimeFlavorPackedIndexDilution{
+    typename CPSfieldArray<FermionFieldType>::View awl;
+    typename CPSfieldArray<FermionFieldType>::View awh;
+  public:
+    typedef typename CPSfieldArray<FermionFieldType>::FieldView FermionFieldView;
+    typedef typename FermionFieldType::FieldSiteType FieldSiteType;
+
+    View(const CPSfieldArray<FermionFieldType> &wlin,
+	 const CPSfieldArray<FermionFieldType> &whin,
+	 const TimeFlavorPackedIndexDilution &d): awl(wlin.view()), awh(whin.view()), TimeFlavorPackedIndexDilution(d){}
+      
+    accelerator_inline FermionFieldView & getWl(const int i) const{ return awl[i]; }
+    accelerator_inline FermionFieldView & getWh(const int hit, const int spin_color) const{ return awh[spin_color + 12*hit]; }
+
+    accelerator_inline FermionFieldView & getMode(const int i) const{ return i < nl ? awl[i] : awh[i-nl]; }
+
+    //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices: for i>=nl the modeIndexSet is used to obtain the appropriate mode 
+    accelerator_inline FermionFieldView & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
+
+    accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
+      return i < nl ? 
+		 *(awl[i].site_ptr(site,flavor)+spin_color) :
+	*(awh[i-nl].site_ptr(site,flavor)+spin_color); //spin_color index diluted out.
+    }
+
+    void free(){ awl.free(); awh.free(); }
+  };
+
+  View view() const{ return View(wl, wh, *this); }
   
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
@@ -436,32 +575,6 @@ public:
   
   static std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> > inPlaceTwistedFFT(const int p[3], A2AvectorWfftw<mf_Policies> *base_p, A2AvectorWfftw<mf_Policies> *base_m = NULL);
   
-  //The flavor and timeslice dilutions are still packed so we must treat them differently
-  //Mode is a full 'StandardIndex', (unpacked mode index)
-  inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
-    static FieldSiteType zero(0.0);
-    if(mode < nl){
-      int site = getWl(mode).threeToFour(x3d,t);
-      return *(getWl(mode).site_ptr(site,flavor) + spin_color);
-    }else{
-      int mode_hit, mode_tblock, mode_spin_color,mode_flavor;
-      const StandardIndexDilution &dilfull = static_cast<StandardIndexDilution const&>(*this);
-      dilfull.indexUnmap(mode-nl,mode_hit,mode_tblock,mode_spin_color,mode_flavor);
-      //flavor and time block indices match those of the mode, the result is zero
-      int tblock = (t+GJP.TnodeSites()*GJP.TnodeCoor())/args.src_width;
-      if(flavor != mode_flavor || tblock != mode_tblock) return zero;
-
-      int site = getWh(mode_hit,mode_spin_color).threeToFour(x3d,t);
-      return *(getWh(mode_hit,mode_spin_color).site_ptr(site,flavor) +spin_color); //because we multiplied by an SU(3) matrix, the field is not just a delta function in spin/color
-    }
-  }
-  //Get a particular site/spin/color element of a given *native* (packed) mode 
-  accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
-    return i < nl ? 
-      *(wl[i]->site_ptr(site,flavor)+spin_color) :
-      *(wh[i-nl]->site_ptr(site,flavor)+spin_color); //spin_color index diluted out.
-  }
-
   //Replace this vector with the average of this another vector, 'with'
   void average(const A2AvectorWfftw<Policies> &with, const bool &parallel = true){
     if( !paramsEqual(with) ) ERR.General("A2AvectorWfftw","average","Second field must share the same underlying parameters\n");

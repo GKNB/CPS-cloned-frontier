@@ -147,9 +147,14 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
 
-  #ifdef USE_GRID
   if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
-  #endif
+  if(0) testAutoView();
+  if(0) testViewArray();
+  if(0) testCPSfieldArray<A2Apolicies_grid>();
+
+  if(0) testA2AfieldAccess<A2Apolicies_grid>();
+  if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
+  if(0) testMultiSourceDeviceCopy<A2Apolicies_grid>();
 
   if(0) testCPSsquareMatrix();
   if(0) testCPSspinColorMatrix();
@@ -164,6 +169,12 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) compareVgridstd<A2Apolicies_std, A2Apolicies_grid>(V_std, V_grid);
 
   if(0) testMesonFieldCompute<A2Apolicies_std>(V_std, W_std, a2a_arg, lattice, tol);
+
+  if(0) testGridMesonFieldCompute<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+
+  if(0) testGridMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
+
+  if(0) testGridShiftMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
   
   if(0) testPionContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
 							 V_grid, W_grid,
@@ -182,19 +193,19 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								   lattice, simd_dims_3d, tol);
 
 #ifdef USE_GRID
-  if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
-  if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
+  if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
 
-  if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
-  if(0) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
+  if(1) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-  if(0) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 #endif
 
   if(0) testModeMappingTranspose(a2a_arg);
@@ -284,7 +295,7 @@ void testPeriodic(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge
   if(0) testCPSspinColorMatrix();
 #ifdef USE_GRID
   if(0) testvMvGridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(1) testVVgridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(0) testVVgridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
 #endif
 }
 

@@ -3,6 +3,7 @@
 
 #include<alg/a2a/utils.h>
 #include "a2a_fft.h"
+#include "field_array.h"
 
 CPS_START_NAMESPACE
 
@@ -18,7 +19,7 @@ template<typename mf_Policies>
 class A2AvectorV_autoAllocPolicies{
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
 protected:
-  void allocInitializeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
+  void allocInitializeFields(CPSfieldArray<FermionFieldType> &v, const typename FermionFieldType::InputParamType &field_setup_params){
     for(int i=0;i<v.size();i++){
       v[i].emplace(field_setup_params);
       v[i]->zero(); //initialize to zero
@@ -66,7 +67,7 @@ template<typename mf_Policies>
 class A2AvectorVfftw_autoAllocPolicies{
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
 protected:
-  void allocInitializeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
+  void allocInitializeFields(CPSfieldArray<FermionFieldType> &v, const typename FermionFieldType::InputParamType &field_setup_params){
     for(int i=0;i<v.size();i++){
       v[i].emplace(field_setup_params);
       v[i]->zero(); //initialize to zero
@@ -135,10 +136,10 @@ class A2AvectorW_autoAllocPolicies{
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
   typedef typename mf_Policies::ComplexFieldType ComplexFieldType;
 protected:
-  void allocInitializeLowModeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
+  void allocInitializeLowModeFields(CPSfieldArray<FermionFieldType> &v, const typename FermionFieldType::InputParamType &field_setup_params){
     for(int i=0;i<v.size();i++) v[i].emplace(field_setup_params);
   }
-  void allocInitializeHighModeFields(ManagedVector<ManagedPtrWrapper<ComplexFieldType> > &v, const typename ComplexFieldType::InputParamType &field_setup_params){
+  void allocInitializeHighModeFields(CPSfieldArray<ComplexFieldType> &v, const typename ComplexFieldType::InputParamType &field_setup_params){
     for(int i=0;i<v.size();i++) v[i].emplace(field_setup_params);
   }  
 public:
@@ -199,10 +200,10 @@ template<typename mf_Policies>
 class A2AvectorWfftw_autoAllocPolicies{
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
 protected:
-  void allocInitializeLowModeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
+  void allocInitializeLowModeFields(CPSfieldArray<FermionFieldType> &v, const typename FermionFieldType::InputParamType &field_setup_params){
     for(int i=0;i<v.size();i++) v[i].emplace(field_setup_params);
   }
-  void allocInitializeHighModeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &field_setup_params){
+  void allocInitializeHighModeFields(CPSfieldArray<FermionFieldType> &v, const typename FermionFieldType::InputParamType &field_setup_params){
     for(int i=0;i<v.size();i++) v[i].emplace(field_setup_params);
   }  
   

@@ -130,46 +130,89 @@ public:
   //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
   void testRandom(const Float hi = 0.5, const Float lo = -0.5);
 
+  //Accelerator accessor functionality
+  class View: public MappingPolicy{
+    SiteType* f;
+  protected:
+    size_t fsize; //number of SiteType in the array = SiteSize * fsites
+  public:
+    View(const CPSfield &field): f(field.f), fsize(field.fsize), MappingPolicy(field){}
+    
+    //Number of SiteType per site
+    accelerator_inline int siteSize() const{ return SiteSize; }
+
+    //Number of SiteType in field
+    accelerator_inline size_t size() const{ return fsize; }
+
+    //Accessors
+    accelerator_inline SiteType* ptr() const{ return f; }
+
+    //Accessors *do not check bounds*
+    //int fsite is the linearized N-dimensional site/flavorcoordinate with the mapping specified by the policy class
+    accelerator_inline size_t fsite_offset(const size_t fsite) const{ return SiteSize*fsite; }
+  
+    accelerator_inline SiteType* fsite_ptr(const size_t fsite) const{  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
+      return f + SiteSize*fsite;
+    }
+
+    //int site is the linearized N-dimension Euclidean coordinate with mapping specified by the policy class
+    accelerator_inline size_t site_offset(const size_t site, const int flav = 0) const{ return SiteSize*this->siteFsiteConvert(site,flav); }
+    accelerator_inline size_t site_offset(const int x[], const int flav = 0) const{ return SiteSize*this->fsiteMap(x,flav); }
+
+    accelerator_inline SiteType* site_ptr(const size_t site, const int flav = 0) const{  //site is in the internal Euclidean mapping of the MappingPolicy
+      return f + SiteSize*this->siteFsiteConvert(site,flav);
+    }
+    accelerator_inline SiteType* site_ptr(const int x[], const int flav = 0) const{ 
+      return f + SiteSize*this->fsiteMap(x,flav);
+    }    
+ 
+    accelerator_inline size_t flav_offset() const{ return SiteSize*this->fsiteFlavorOffset(); } //pointer offset between flavors
+  };
+
+  //Return a view object for use on the accelerator
+  View view() const{ return View(*this); }
+
+  
   //Number of SiteType per site
-  accelerator_inline int siteSize() const{ return SiteSize; }
+  inline int siteSize() const{ return SiteSize; }
 
   //Number of SiteType in field
-  accelerator_inline size_t size() const{ return fsize; }
+  inline size_t size() const{ return fsize; }
 
   //Accessors
-  accelerator_inline SiteType* ptr(){ return f; }
-  accelerator_inline SiteType const* ptr() const{ return f; }
+  inline SiteType* ptr(){ return f; }
+  inline SiteType const* ptr() const{ return f; }
 
   //Accessors *do not check bounds*
   //int fsite is the linearized N-dimensional site/flavorcoordinate with the mapping specified by the policy class
-  accelerator_inline size_t fsite_offset(const size_t fsite) const{ return SiteSize*fsite; }
+  inline size_t fsite_offset(const size_t fsite) const{ return SiteSize*fsite; }
   
-  accelerator_inline SiteType* fsite_ptr(const size_t fsite){  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
+  inline SiteType* fsite_ptr(const size_t fsite){  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
     return f + SiteSize*fsite;
   }
-  accelerator_inline SiteType const* fsite_ptr(const size_t fsite) const{  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
+  inline SiteType const* fsite_ptr(const size_t fsite) const{  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
     return f + SiteSize*fsite;
   }
 
   //int site is the linearized N-dimension Euclidean coordinate with mapping specified by the policy class
-  accelerator_inline size_t site_offset(const size_t site, const int flav = 0) const{ return SiteSize*this->siteFsiteConvert(site,flav); }
-  accelerator_inline size_t site_offset(const int x[], const int flav = 0) const{ return SiteSize*this->fsiteMap(x,flav); }
+  inline size_t site_offset(const size_t site, const int flav = 0) const{ return SiteSize*this->siteFsiteConvert(site,flav); }
+  inline size_t site_offset(const int x[], const int flav = 0) const{ return SiteSize*this->fsiteMap(x,flav); }
 
-  accelerator_inline SiteType* site_ptr(const size_t site, const int flav = 0){  //site is in the internal Euclidean mapping of the MappingPolicy
+  inline SiteType* site_ptr(const size_t site, const int flav = 0){  //site is in the internal Euclidean mapping of the MappingPolicy
     return f + SiteSize*this->siteFsiteConvert(site,flav);
   }
-  accelerator_inline SiteType* site_ptr(const int x[], const int flav = 0){ 
+  inline SiteType* site_ptr(const int x[], const int flav = 0){ 
     return f + SiteSize*this->fsiteMap(x,flav);
   }    
 
-  accelerator_inline SiteType const* site_ptr(const size_t site, const int flav = 0) const{  //site is in the internal Euclidean mapping of the MappingPolicy
+  inline SiteType const* site_ptr(const size_t site, const int flav = 0) const{  //site is in the internal Euclidean mapping of the MappingPolicy
     return f + SiteSize*this->siteFsiteConvert(site,flav);
   }
-  accelerator_inline SiteType const* site_ptr(const int x[], const int flav = 0) const{ 
+  inline SiteType const* site_ptr(const int x[], const int flav = 0) const{ 
     return f + SiteSize*this->fsiteMap(x,flav);
   }    
  
-  accelerator_inline size_t flav_offset() const{ return SiteSize*this->fsiteFlavorOffset(); } //pointer offset between flavors
+  inline size_t flav_offset() const{ return SiteSize*this->fsiteFlavorOffset(); } //pointer offset between flavors
 
   //Set this field to the average of this and a second field, r
   void average(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r, const bool &parallel = true);

@@ -187,6 +187,7 @@ void testCPSspinColorMatrix(){
   std::cout << "Passed CPSspinColorMatrix tests" << std::endl;
 }
 
+//This test will ensure the scalar version of the general (multi-timeslice) optimized MF compute gives the same result as the basic, single timeslice CPU implementation
 template<typename A2Apolicies_std>
 void testMesonFieldCompute(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A2Apolicies_std> &W_std,
 			   const A2AArg &a2a_args, typename A2Apolicies_std::FgridGFclass &lattice,double tol){
@@ -213,6 +214,257 @@ void testMesonFieldCompute(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A2Apol
 
   std::cout << "Passed testMesonFieldCompute tests" << std::endl;
 }
+
+//This test checks the Grid (SIMD) general MF compute against the non-SIMD
+template<typename ScalarA2Apolicies, typename GridA2Apolicies>
+void testGridMesonFieldCompute(const A2AArg &a2a_args, const int nthreads, const double tol){
+ 
+#ifdef USE_GRID
+  std::cout << "Starting MF contraction test\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
+  A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
+    
+  A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
+  A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
+  
+  std::vector<A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf;
+  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_grid;
+  
+  typedef typename GridA2Apolicies::ComplexType grid_Complex;
+  typedef typename ScalarA2Apolicies::ComplexType mf_Complex;
+
+  typedef typename GridA2Apolicies::ScalarComplexType Ctype;
+  typedef typename Ctype::value_type Ftype;
+  
+  ThreeDSIMDPolicy<OneFlavorPolicy>::ParamType simd_dims_3d;
+  ThreeDSIMDPolicy<OneFlavorPolicy>::SIMDdefaultLayout(simd_dims_3d,nsimd);
+
+  typedef typename GridA2Apolicies::SourcePolicies GridSrcPolicy;    
+  int p[3] = {1,1,1};
+  if(!UniqueID()){ printf("Generating Grid source\n"); fflush(stdout); }
+  A2AflavorProjectedExpSource<GridSrcPolicy> src_grid(2.0,p,simd_dims_3d);
+  typedef SCFspinflavorInnerProduct<15,typename GridA2Apolicies::ComplexType,A2AflavorProjectedExpSource<GridSrcPolicy> > GridInnerProduct;
+  if(!UniqueID()){ printf("Generating Grid inner product\n"); fflush(stdout); }
+  GridInnerProduct mf_struct_grid(sigma3,src_grid);
+
+
+  //typedef GparityNoSourceInnerProduct<typename GridA2Apolicies::ComplexType, flavorMatrixSpinColorContract<15,true,false> > GridInnerProduct;
+  //GridInnerProduct mf_struct_grid(sigma3);
+  
+  if(!UniqueID()){ printf("Generating std. source\n"); fflush(stdout); }
+  A2AflavorProjectedExpSource<> src(2.0,p);
+  typedef SCFspinflavorInnerProduct<15,typename ScalarA2Apolicies::ComplexType,A2AflavorProjectedExpSource<> > StdInnerProduct;
+  if(!UniqueID()){ printf("Generating std. inner product\n"); fflush(stdout); }
+  StdInnerProduct mf_struct(sigma3,src);
+
+  if(!UniqueID()){ printf("Generating random fields\n"); fflush(stdout); }
+  W.testRandom();
+  V.testRandom();
+  if(!UniqueID()){ printf("Importing fields to Grid\n"); fflush(stdout); }
+  Wgrid.importFields(W);
+  Vgrid.importFields(V);
+  
+#ifndef GPU_VEC
+  //Original Grid implementation
+  {
+    if(!UniqueID()){ printf("Grid non-GPU version\n"); fflush(stdout); }
+    typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
+    typedef SingleSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
+    mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
+    cg.compute(mf_grid,Wgrid,mf_struct_grid,Vgrid, true);
+  }
+#else
+  {
+    if(!UniqueID()){ printf("Grid GPU version\n"); fflush(stdout); }
+    typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
+    typedef SingleSrcVectorPoliciesSIMDoffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
+    mfComputeGeneralOffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
+    cg.compute(mf_grid,Wgrid,mf_struct_grid,Vgrid, true);
+  }
+#endif
+
+  if(!UniqueID()){ printf("Starting scalar version\n"); fflush(stdout); }
+  A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf,W,mf_struct,V);
+
+
+  if(!UniqueID()){ printf("Comparing\n"); fflush(stdout); }
+  bool fail = false;
+  for(int t=0;t<mf.size();t++){
+    for(int i=0;i<mf[t].size();i++){
+      const Ctype& gd = mf_grid[t].ptr()[i];
+      const Ctype& cp = mf[t].ptr()[i];
+      Ftype rdiff = fabs(gd.real()-cp.real());
+      Ftype idiff = fabs(gd.imag()-cp.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: t %d idx %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",t, i,gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+	fail = true;
+      }
+    }
+  }
+  if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");
+  else if(!UniqueID()){ printf("Passed MF contraction test\n"); fflush(stdout); }
+#endif
+}
+
+
+
+
+template<typename GridA2Apolicies>
+void testGridMultiSourceMesonFieldCompute(const A2AArg &a2a_args, const int nthreads, const double tol){
+ #ifdef USE_GRID
+  std::cout << "Starting multi-source MF contraction test\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AvectorWfftw<GridA2Apolicies> W(a2a_args, simd_dims);
+  A2AvectorVfftw<GridA2Apolicies> V(a2a_args, simd_dims);
+
+  W.testRandom();
+  V.testRandom();
+  
+  typedef typename GridA2Apolicies::ComplexType ComplexType;
+  typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
+  
+  ThreeDSIMDPolicy<OneFlavorPolicy>::ParamType simd_dims_3d;
+  ThreeDSIMDPolicy<OneFlavorPolicy>::SIMDdefaultLayout(simd_dims_3d,nsimd);
+
+  typedef typename GridA2Apolicies::SourcePolicies SrcPolicy;    
+  int p[3] = {1,1,1};
+  A2AflavorProjectedExpSource<SrcPolicy> exp_src(2.0,p,simd_dims_3d);
+  A2AflavorProjectedPointSource<SrcPolicy> pnt_src(simd_dims_3d);
+
+  typedef Elem<A2AflavorProjectedExpSource<SrcPolicy>, Elem<A2AflavorProjectedPointSource<SrcPolicy>, ListEnd> > Sources;
+  A2AmultiSource<Sources> multi_src;
+  multi_src.template getSource<0>().setup(2.0,p,simd_dims_3d);
+  multi_src.template getSource<1>().setup(simd_dims_3d);
+
+  typedef SCFspinflavorInnerProduct<15, ComplexType, A2AflavorProjectedExpSource<SrcPolicy> > ExpSrcInnerProduct;
+  typedef SCFspinflavorInnerProduct<15, ComplexType, A2AflavorProjectedPointSource<SrcPolicy> > PointSrcInnerProduct;
+  typedef SCFspinflavorInnerProduct<15, ComplexType, A2AmultiSource<Sources>  > MultiSrcInnerProduct;
+  
+  if(!UniqueID()){ printf("Generating inner products\n"); fflush(stdout); }
+  ExpSrcInnerProduct inner_product_exp(sigma3, exp_src);
+  PointSrcInnerProduct inner_product_pnt(sigma3, pnt_src);
+  MultiSrcInnerProduct inner_product_multi(sigma3, multi_src);
+    
+  typedef A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>  MFtype;
+  std::vector<MFtype> mf_exp;
+  std::vector<MFtype> mf_pnt;
+
+  std::vector<MFtype> mf_exp_m;
+  std::vector<MFtype> mf_pnt_m;
+  std::vector< std::vector<MFtype>* > mf_m = { &mf_exp_m, &mf_pnt_m };
+    
+  if(!UniqueID()){ printf("Exp source computation\n"); fflush(stdout); }
+  MFtype::compute(mf_exp, W, inner_product_exp, V);
+  if(!UniqueID()){ printf("Point source computation\n"); fflush(stdout); }
+  MFtype::compute(mf_pnt, W, inner_product_pnt, V);
+  if(!UniqueID()){ printf("Multi source computation\n"); fflush(stdout); }    
+  MFtype::compute(mf_m, W, inner_product_multi, V);
+
+  int Lt=GJP.Tnodes()*GJP.TnodeSites();
+  for(int t=0;t<Lt;t++){
+    std::cout << "Checking exp source t=" << t << std::endl;
+    assert(mf_exp[t].equals(mf_exp_m[t], tol, true));
+    std::cout << "Checking point source t=" << t << std::endl;
+    assert(mf_pnt[t].equals(mf_pnt_m[t], tol, true));
+  }
+  if(!UniqueID()){ printf("Passed multi-source MF contraction test\n"); fflush(stdout); }
+#endif
+}
+
+
+
+
+template<typename GridA2Apolicies>
+void testGridShiftMultiSourceMesonFieldCompute(const A2AArg &a2a_args, const int nthreads, const double tol){
+ #ifdef USE_GRID
+  std::cout << "Starting shifted multi-source MF contraction test\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AvectorWfftw<GridA2Apolicies> W(a2a_args, simd_dims);
+  A2AvectorVfftw<GridA2Apolicies> V(a2a_args, simd_dims);
+
+  W.testRandom();
+  V.testRandom();
+  
+  typedef typename GridA2Apolicies::ComplexType ComplexType;
+  typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
+  
+  ThreeDSIMDPolicy<OneFlavorPolicy>::ParamType simd_dims_3d;
+  ThreeDSIMDPolicy<OneFlavorPolicy>::SIMDdefaultLayout(simd_dims_3d,nsimd);
+
+  typedef typename GridA2Apolicies::SourcePolicies SrcPolicy;    
+  int p[3] = {1,1,1};
+  A2AflavorProjectedExpSource<SrcPolicy> exp_src(2.0,p,simd_dims_3d);
+  A2AflavorProjectedPointSource<SrcPolicy> pnt_src(simd_dims_3d);
+
+  typedef Elem<A2AflavorProjectedExpSource<SrcPolicy>, Elem<A2AflavorProjectedPointSource<SrcPolicy>, ListEnd> > Sources;
+  A2AmultiSource<Sources> multi_src;
+  multi_src.template getSource<0>().setup(2.0,p,simd_dims_3d);
+  multi_src.template getSource<1>().setup(simd_dims_3d);
+
+  typedef flavorMatrixSpinColorContract<15,true,false> ContractPolicy;
+  typedef GparitySourceShiftInnerProduct<ComplexType, A2AflavorProjectedExpSource<SrcPolicy>, ContractPolicy> ExpSrcInnerProduct;
+  typedef GparitySourceShiftInnerProduct<ComplexType, A2AflavorProjectedPointSource<SrcPolicy>, ContractPolicy> PointSrcInnerProduct;
+  typedef GparitySourceShiftInnerProduct<ComplexType, A2AmultiSource<Sources>, ContractPolicy> MultiSrcInnerProduct;
+
+
+  std::vector< std::vector<int> > shifts = {  {1,1,1}  };
+  std::vector< std::vector<int> > shifts_multi = {  {1,1,1} };
+  
+  if(!UniqueID()){ printf("Generating inner products\n"); fflush(stdout); }
+  ExpSrcInnerProduct inner_product_exp(sigma3, exp_src);
+  PointSrcInnerProduct inner_product_pnt(sigma3, pnt_src);
+  MultiSrcInnerProduct inner_product_multi(sigma3, multi_src);
+
+  inner_product_pnt.setShifts(shifts);
+  inner_product_exp.setShifts(shifts);
+  inner_product_multi.setShifts(shifts_multi);
+  
+  typedef A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>  MFtype;
+  std::vector<MFtype> mf_exp;
+  std::vector< std::vector<MFtype>* > mf_exp_a = { &mf_exp };
+  
+  std::vector<MFtype> mf_pnt;
+  std::vector< std::vector<MFtype>* > mf_pnt_a = { &mf_pnt };
+
+  std::vector<MFtype> mf_exp_m;
+  std::vector<MFtype> mf_pnt_m;
+  std::vector< std::vector<MFtype>* > mf_m = { &mf_exp_m, &mf_pnt_m };
+    
+  if(!UniqueID()){ printf("Exp source computation\n"); fflush(stdout); }
+  MFtype::compute(mf_exp_a, W, inner_product_exp, V);
+  if(!UniqueID()){ printf("Point source computation\n"); fflush(stdout); }
+  MFtype::compute(mf_pnt_a, W, inner_product_pnt, V);
+  if(!UniqueID()){ printf("Multi source computation\n"); fflush(stdout); }    
+  MFtype::compute(mf_m, W, inner_product_multi, V);
+
+  int Lt=GJP.Tnodes()*GJP.TnodeSites();
+  for(int t=0;t<Lt;t++){
+    std::cout << "Checking exp source t=" << t << std::endl;
+    assert(mf_exp[t].equals(mf_exp_m[t], tol, true));
+    std::cout << "Checking point source t=" << t << std::endl;
+    assert(mf_pnt[t].equals(mf_pnt_m[t], tol, true));
+  }
+  if(!UniqueID()){ printf("Passed shifted multi-source MF contraction test\n"); fflush(stdout); }
+#endif
+}
+
+
 
 
 
@@ -1275,6 +1527,244 @@ void testComputeLowModeMADWF(const A2AArg &a2a_args, const LancArg &lanc_arg,
 
 }
 
+
+#ifdef __SYCL_DEVICE_ONLY__
+  #define CONSTANT __attribute__((opencl_constant))
+#else
+  #define CONSTANT
+#endif
+
+
+template<typename GridA2Apolicies>
+void testCPSfieldArray(){
+  std::cout << "Starting testCPSfieldArray" << std::endl;
+  typedef typename GridA2Apolicies::ComplexType ComplexType;
+  size_t nsimd = ComplexType::Nsimd();
+  typename SIMDpolicyBase<4>::ParamType simd_dims;
+  SIMDpolicyBase<4>::SIMDdefaultLayout(simd_dims,nsimd,2); //only divide over spatial directions
+
+  typedef typename GridA2Apolicies::FermionFieldType FermionFieldType;
+
+  std::cout << "Generating random field" << std::endl;
+  FermionFieldType field(simd_dims);
+  field.testRandom();
+
+  std::cout  << "Seting up field array" << std::endl;
+  CPSfieldArray<FermionFieldType> farray(1);
+  farray[0].set(new FermionFieldType(field));
+
+  ComplexType* into = (ComplexType*)managed_alloc_check(sizeof(ComplexType));
+  ComplexType expect = *field.site_ptr(size_t(0));
+
+  std::cout << "Getting view" << std::endl;
+  CPSautoView(av, farray); //auto destruct memory alloced
+   
+  using Grid::acceleratorThreads;
+
+  typedef SIMT<ComplexType> ACC;
+
+#ifdef GRID_CUDA  
+  using Grid::LambdaApply;
+#elif defined(GRID_SYCL)
+  using Grid::theGridAccelerator;
+#endif
+
+  std::cout << "Starting kernel" << std::endl;
+
+  ComplexType* expect_p = farray[0]->fsite_ptr(size_t(0));
+  std::cout << "Site 0 ptr " << expect_p << std::endl;
+  
+  accelerator_for(x, farray[0]->size(), nsimd,
+		  {
+		    if(x == 0){
+		      ComplexType* site_ptr = av[0].fsite_ptr(x);
+		      auto v = ACC::read(*site_ptr);
+		      ACC::write(*into, v);
+		    }
+		  });
+
+  std::cout << "Got " << *into << " expect " << expect << std::endl;
+  
+  assert( Reduce(expect == *into) );
+  
+  managed_free(into);
+  
+  std::cout << "Passed testCPSfieldArray" << std::endl;
+}
+
+
+template<typename GridA2Apolicies>
+void testA2AfieldAccess(){
+  std::cout << "Starting testA2AfieldAccess" << std::endl;
+  typedef typename GridA2Apolicies::ComplexType ComplexType;
+  size_t nsimd = ComplexType::Nsimd();
+  typename SIMDpolicyBase<4>::ParamType simd_dims;
+  SIMDpolicyBase<4>::SIMDdefaultLayout(simd_dims,nsimd,2); //only divide over spatial directions
+
+  typedef typename GridA2Apolicies::FermionFieldType FermionFieldType;
+
+  std::cout << "Generating random field" << std::endl;
+  FermionFieldType field(simd_dims);
+  field.testRandom();
+
+  ComplexType* into = (ComplexType*)managed_alloc_check(sizeof(ComplexType));
+  ComplexType expect = *field.site_ptr(size_t(0));
+  
+  A2AArg a2a_arg;
+  a2a_arg.nl = 1;
+  a2a_arg.nhits = 1;
+  a2a_arg.rand_type = UONE;
+  a2a_arg.src_width = 1;
+
+  A2AvectorV<GridA2Apolicies> v(a2a_arg,simd_dims);
+  v.getMode(0) = field;
+  
+  memset(into, 0, sizeof(ComplexType));
+
+  using Grid::acceleratorThreads;
+
+  typedef SIMT<ComplexType> ACC;
+
+#ifdef GRID_CUDA  
+  using Grid::LambdaApply;
+#elif defined(GRID_SYCL)
+  using Grid::theGridAccelerator;
+#endif
+
+  std::cout << "Generating views" << std::endl;
+  CPSautoView(vv, v);
+   
+  size_t fsize = field.size();
+ 
+  std::cout << "Starting kernel, fsize " << fsize << std::endl;
+  accelerator_for(x, fsize, nsimd,
+  		  {
+  		    if(x==0){
+		      const ComplexType &val_vec = *vv.getMode(0).fsite_ptr(x);
+		      auto val_lane = ACC::read(val_vec);
+ 		      ACC::write(*into, val_lane);
+		    }
+  		  });
+
+  std::cout << "Got " << *into << " expect " << expect << std::endl;
+  
+  assert( Reduce(expect == *into) );  
+
+  managed_free(into);
+ 
+  std::cout << "Passed testA2AfieldAccess" << std::endl;
+}
+
+
+struct autoViewTest1{
+  double v;
+  bool free_called;
+  autoViewTest1(): free_called(false){}
+  
+  struct View{    
+    double v;
+    View(const autoViewTest1 &p): v(p.v){}
+  };
+  View view() const{ return View(*this); }
+};
+
+struct autoViewTest2{
+  double v;
+  bool free_called;    
+  
+  struct View{
+    double v;
+    bool* free_called;
+    
+    View(autoViewTest2 &p): v(p.v), free_called(&p.free_called){}
+    void free(){ *free_called = true; }
+  };
+  View view(){ return View(*this); }
+};
+
+void testAutoView(){ 
+  autoViewTest1 t1;
+  t1.v = 3.14;
+  
+  {  
+    CPSautoView(t1_v, t1);
+
+    assert(t1_v.v == t1.v);
+  }
+  assert( t1.free_called == false );
+
+  autoViewTest2 t2;
+  t1.v = 6.28;
+  
+  {  
+    CPSautoView(t2_v, t2);
+
+    assert(t2_v.v == t2.v);
+  }
+  assert( t2.free_called == true );
+  
+}
+
+void testViewArray(){
+  //Test for a type that doesn't have a free method in its view
+  std::vector<autoViewTest1> t1(2);
+  t1[0].v = 3.14;
+  t1[1].v = 6.28;
+  
+  std::vector<autoViewTest1*> t1_p = { &t1[0], &t1[1] };
+  ViewArray<typename autoViewTest1::View> t1_v(t1_p);
+
+  double* into = (double*)managed_alloc_check(2*sizeof(double));
+
+  using Grid::acceleratorThreads;
+
+#ifdef GRID_CUDA  
+  using Grid::LambdaApply;
+#elif defined(GRID_SYCL)
+  using Grid::theGridAccelerator;
+#endif
+  
+  accelerator_for(x, 100, 1,
+		  {
+		    if(x==0 || x==1){
+		      into[x] = t1_v[x].v;
+		    }
+		  });
+  assert(into[0] == 3.14);
+  assert(into[1] == 6.28);
+
+
+  //Test for a type that does have a free method in its view
+  std::vector<autoViewTest2> t2(2);
+  t2[0].v = 31.4;
+  t2[1].v = 62.8;
+  
+  std::vector<autoViewTest2*> t2_p = { &t2[0], &t2[1] };
+  ViewArray<typename autoViewTest2::View> t2_v(t2_p);
+
+  accelerator_for(x, 100, 1,
+		  {
+		    if(x==0 || x==1){
+		      into[x] = t2_v[x].v;
+		    }
+		  });
+  assert(into[0] == 31.4);
+  assert(into[1] == 62.8);
+
+  t2_v.free();
+  
+  assert(t2[0].free_called);
+  assert(t2[1].free_called); 
+
+  
+  managed_free(into);
+  std::cout << "testViewArray passed" << std::endl;
+}
+
+
+
+
+
 template<typename GridA2Apolicies>
 void testCPSfieldDeviceCopy(){
 #ifdef GPU_VEC
@@ -1302,75 +1792,29 @@ void testCPSfieldDeviceCopy(){
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
-  copyControl::shallow() = true;
+  auto field_v = field.view();
+  
   accelerator_for(x, 1, nsimd,
 		  {
-		    auto v = ACC::read(*field.site_ptr(x));
+		    auto v = ACC::read(*field_v.site_ptr(x));
 		    ACC::write(*into, v);
 		  });
-  copyControl::shallow() = false;
-
 
   std::cout << "Got " << *into << " expect " << expect << std::endl;
   
   assert( Reduce(expect == *into) );
-  
-  //Test a CPSfield allocated directly into managed memory such that it's contents are directly accessible to the device
-  ManagedPtrWrapper<FermionFieldType> wrp(field);
-  //wrp.emplace(field);
-  
-  memset(into, 0, sizeof(ComplexType));
 
-  copyControl::shallow() = true;
-  accelerator_for(x, 1, nsimd,
-		  {
-		    auto v = ACC::read(*wrp->site_ptr(x));
-		    ACC::write(*into, v);
-		  });
-  copyControl::shallow() = false;
-
-
-  std::cout << "Got " << *into << " expect " << expect << std::endl;
-  
-  assert( Reduce(expect == *into) );  
-
-  //Test a ManagedVector<ManagedPtrWrapper>
-  ManagedVector<ManagedPtrWrapper<FermionFieldType> > vect(1);
-  vect[0] = field;
-
-  memset(into, 0, sizeof(ComplexType));
-
-  copyControl::shallow() = true;
-  accelerator_for(x, 1, nsimd,
-		  {
-		    auto v = ACC::read(* vect[0]->site_ptr(x));
-		    ACC::write(*into, v);
-		  });
-  copyControl::shallow() = false;
-
-  std::cout << "Got " << *into << " expect " << expect << std::endl;
-  
-  assert( Reduce(expect == *into) );  
-
-  A2AArg a2a_arg;
-  a2a_arg.nl = 1;
-  a2a_arg.nhits = 1;
-  a2a_arg.rand_type = UONE;
-  a2a_arg.src_width = 1;
-
-  A2AvectorV<GridA2Apolicies> v(a2a_arg,simd_dims);
-  v.getMode(0) = field;
+  //Test a view that is allocated in shared memory; basically a 1-element array
+  ManagedPtrWrapper<typename FermionFieldType::View> wrp(field.view());
   
   memset(into, 0, sizeof(ComplexType));
 
-  copyControl::shallow() = true;
+  auto wrp_v = wrp.view();
   accelerator_for(x, 1, nsimd,
-		  {
-		    const ComplexType &vv = *v.getMode(0).site_ptr(x);
-		    auto v = ACC::read(vv);
-		    ACC::write(*into, v);
-		  });
-  copyControl::shallow() = false;
+  		  {
+  		    auto v = ACC::read(*wrp_v->site_ptr(x));
+  		    ACC::write(*into, v);
+  		  });
 
   std::cout << "Got " << *into << " expect " << expect << std::endl;
   
@@ -1380,6 +1824,76 @@ void testCPSfieldDeviceCopy(){
 
 #endif
 }
+
+
+
+
+
+template<typename GridA2Apolicies>
+void testMultiSourceDeviceCopy(){
+#ifdef GPU_VEC
+
+  typedef typename GridA2Apolicies::ComplexType ComplexType;
+  size_t nsimd = ComplexType::Nsimd();
+
+  typedef typename GridA2Apolicies::SourceFieldType SourceFieldType;
+  typename SourceFieldType::InputParamType simd_dims_3d;
+  setupFieldParams<SourceFieldType>(simd_dims_3d);
+
+  typedef typename GridA2Apolicies::SourcePolicies SourcePolicies;
+
+  typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
+  typedef A2AflavorProjectedHydrogenSource<SourcePolicies> HydSrcType;
+  typedef Elem<ExpSrcType, Elem<HydSrcType,ListEnd > > SrcList;
+  typedef A2AmultiSource<SrcList> MultiSrcType;
+
+  MultiSrcType src;
+
+  double rad = 2.0;
+  int pbase[3] = {1,1,1};
+  src.template getSource<0>().setup(rad,pbase, simd_dims_3d); //1s
+  src.template getSource<1>().setup(2,0,0,rad,pbase, simd_dims_3d); //2s
+
+  auto src_v = src.view();
+
+  ComplexType expect1 = src.template getSource<0>().siteComplex(size_t(0));
+  ComplexType expect2 = src.template getSource<1>().siteComplex(size_t(0));
+
+  using Grid::acceleratorThreads;
+
+#ifdef GRID_CUDA  
+  using Grid::LambdaApply;
+#elif defined(GRID_SYCL)
+  using Grid::theGridAccelerator;
+#endif
+
+  ComplexType* into = (ComplexType*)managed_alloc_check(sizeof(ComplexType));
+  typedef SIMT<ComplexType> ACC;
+ 
+  
+  accelerator_for(x, 100, nsimd,
+		  {
+		    if(x==0){
+		      auto v1 = ACC::read(src_v.template getSource<0>().siteComplex(x));
+		      ACC::write(into[0], v1);
+		      
+		      auto v2 = ACC::read(src_v.template getSource<1>().siteComplex(x));
+		      ACC::write(into[1], v2);
+		    }
+		  });
+
+  std::cout << "Got " << into[0] << " expect " << expect1 << std::endl;
+  assert( Reduce(expect1 == into[0]) );
+  std::cout << "Got " << into[1] << " expect " << expect2 << std::endl;
+  assert( Reduce(expect2 == into[1]) );
+		  
+  managed_free(into);
+  src_v.free();
+  std::cout << "Passed testMultiSourceDeviceCopy" << std::endl;
+#endif
+}
+
+
 
 
 

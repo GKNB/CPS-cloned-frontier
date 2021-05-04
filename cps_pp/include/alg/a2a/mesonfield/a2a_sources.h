@@ -15,70 +15,61 @@ public:
   typedef CPSfield<mf_Complex,1,MappingPolicy,FieldAllocPolicy> FieldType;  
 protected:
   FieldType *src;
-public:
-#ifdef GPU_VEC
-  //Make sure pointers to objects of this type created by new are in managed memory
-  static inline void* operator new(const size_t sz){
-    return managed_alloc_check(sz);
-  }
-  static inline void operator delete(void* ptr){
-    managed_free(ptr);
-  }
-#endif
-  
+public: 
   A2Asource(const typename FieldType::InputParamType &params){
     setup(params);
   }
   inline void setup(const typename FieldType::InputParamType &params){
-    //Make sure the src pointer remains valid on the device
-#ifdef GPU_VEC
-    void* p = managed_alloc_check(sizeof(FieldType));
-    src = new (p) FieldType(params);
-#else
     src = new FieldType(params);
-#endif
   }
   
   A2Asource(): src(NULL){}
   A2Asource(const A2Asource &cp){
-    if(copyControl::shallow()){
-      //printf("Performing shallow copy\n"); fflush(stdout);
-      src = cp.src;
-      return;
-    }
-    
-#ifdef GPU_VEC
-    if(cp.src != NULL){
-      void* p = managed_alloc_check(sizeof(FieldType));
-      src = new (p) FieldType(*cp.src);
-    }else src = NULL;
-#else
     src = cp.src == NULL ? NULL : new FieldType(*cp.src);
-#endif
   }
 
   A2Asource & operator=(const A2Asource &r) = delete;
   
   ~A2Asource(){
-    if(copyControl::shallow()) return;
-    
-#ifdef GPU_VEC
-    if(src != NULL){
-      src->~FieldType();
-      managed_free(src);
-    }
-#else     
     if(src != NULL) delete src;
-#endif
   }
 
+  //Accelerator accessor functionality
+  class View{
+    typename FieldType::View src;
+  public:
+    //Get the value of the source at a particular 3d site.
+    //site is an 3d site index in the logical 3d volume (i.e. a SIMD site coordinate if vectorized)
+    accelerator_inline const mf_Complex & siteComplex(const size_t site) const{ return *src.site_ptr(site); }
+
+    //On the GPU this pulls out an individual SIMD lane for the kernel to act on
+    //accelerator_inline const typename SIMT<mf_Complex>::value_type & siteComplex(const size_t site) const{ return SIMT<mf_Complex>::read(*src->site_ptr(site)); }
+    accelerator_inline size_t nsites() const{ return src.nsites(); }
+
+    //Get the flavor matrix for a given site. In a SIMD context this pulls out a specific lane.
+    accelerator_inline void siteFmat(FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> &out, const size_t site) const{
+      out(0,0) = out(1,1) = SIMT<mf_Complex>::read(this->siteComplex(site));
+      out(0,1) = out(1,0) = typename SIMT<mf_Complex>::value_type(0);    
+    }
+        
+    View(const A2Asource &r): src(r.src->view()){}
+  };
+
+  View view() const{ return View(*this); }
+  
   //Get the value of the source at a particular 3d site.
   //site is an 3d site index in the logical 3d volume (i.e. a SIMD site coordinate if vectorized)
-  accelerator_inline const mf_Complex & siteComplex(const size_t site) const{ return *src->site_ptr(site); }
+  const mf_Complex & siteComplex(const size_t site) const{ return *src->site_ptr(site); }
 
   //On the GPU this pulls out an individual SIMD lane for the kernel to act on
   //accelerator_inline const typename SIMT<mf_Complex>::value_type & siteComplex(const size_t site) const{ return SIMT<mf_Complex>::read(*src->site_ptr(site)); }
-  accelerator_inline size_t nsites() const{ return src->nsites(); }
+  size_t nsites() const{ return src->nsites(); }
+
+  //Default sources have unit matrix flavor structure
+  inline void siteFmat(FlavorMatrixGeneral<mf_Complex> &out, const size_t site) const{
+    out(0,0) = out(1,1) = this->siteComplex(site);
+    out(0,1) = out(1,0) = mf_Complex(0);
+  }
 
   template< typename extComplexType, template<typename> typename extDimPol, typename extAllocPol>
   void importSource(const A2Asource<extComplexType,extDimPol<OneFlavorPolicy>,extAllocPol> &from){
@@ -122,7 +113,8 @@ public:
 };
 
 
-//Use CRTP for 'setSite' method which should be specialized according to the source type
+//Use CRTP for 'value' method which should be specialized according to the source type
+//Defines the common "fft_source" method
 template<typename FieldPolicies, typename Child>
 class A2AsourceBase: public A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>{
 public:
@@ -132,7 +124,8 @@ public:
   A2AsourceBase(const FieldParamType &p): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>(p){};
   A2AsourceBase(): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>(){}; //SOURCE IS NOT SETUP
   A2AsourceBase(const A2AsourceBase &r): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>(r){}
-  
+
+  //Fourier transform the source 
   void fft_source(){
     assert(this->src != NULL);
     int glb_size[3]; for(int i=0;i<3;i++) glb_size[i] = GJP.Nodes(i)*GJP.NodeSites(i);
@@ -178,11 +171,6 @@ public:
     return setup(NullObject());
   }
     
-  accelerator_inline void siteFmat(FlavorMatrixGeneral<typename SIMT<ComplexType>::value_type> &out, const size_t site) const{
-    out(0,0) = out(1,1) = SIMT<ComplexType>::read(this->siteComplex(site));
-    out(0,1) = out(1,0) = typename SIMT<ComplexType>::value_type(0);    
-  }
-
   inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
     Float r = this->pmodr(site,glb_size);
     return ComplexD(r == 0. ? 1./(size_t(glb_size[0])*size_t(glb_size[1])*size_t(glb_size[2])) : 0.);
@@ -216,11 +204,6 @@ public:
   }
   void setup(const Float radius){
     return setup(radius, NullObject());
-  }
-    
-  inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const size_t site) const{
-    out(0,0) = out(1,1) = this->siteComplex(site);
-    out(0,1) = out(1,0) = typename Policies::ComplexType(0);    
   }
 };
 
@@ -391,12 +374,6 @@ public:
     this->A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >::setup(field_params);
     this->box_setup_fft(_box_size);
   }
-
-  
-  inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const size_t site) const{
-    out(0,0) = out(1,1) = this->siteComplex(site);
-    out(0,1) = out(1,0) = typename Policies::ComplexType(0);    
-  }
 };
 
 //Splat a cps::ComplexD onto a SIMD type. Just a plain copy for non-SIMD complex types
@@ -410,7 +387,11 @@ template<typename ComplexType>
 inline void SIMDsplat(ComplexType &to, const cps::ComplexD &from, typename my_enable_if< !_equal<  typename ComplexClassify<ComplexType>::type, grid_vector_complex_mark  >::value, int>::type = 0){
   to = ComplexType(from.real(),from.imag());
 }
+
+
   
+
+
 
 //Daiqian's original implementation sets the (1 +/- sigma_2) flavor projection on G-parity fields to unity when the two fermion fields coincide.
 //I'm not sure this is actually necessary, but I need to be able to reproduce his numbers
@@ -422,24 +403,26 @@ public:
   typedef typename SourceType::Policies::ComplexType ComplexType;
 protected:
   int sign;
-  ComplexType *val000;
+
+  //Apparently Grid complex types aren't trivially copy constructible. To get around this absurdly restrictive part of the Sycl standard we need to use a pointer wrapper to a complex type allocated in managed memory
+  ManagedPtrWrapper<ComplexType> val000;
   virtual void dummy() = 0; //make sure this class can't be instantiated directly
 
   void setup_projected_src_info(const int p[3]){
     sign = getProjSign(p);
     int zero[3] = {0,0,0}; int L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
     cps::ComplexD v = this->value(zero,L);
-    SIMDsplat(*val000,v);    
+    ComplexType val000_t;
+    SIMDsplat(val000_t,v);
+    val000.emplace(val000_t);
   }
 public:
 
-  A2AflavorProjectedSource(): SourceType(), val000((ComplexType*)managed_alloc_check(128,sizeof(ComplexType)) ) {}
+  A2AflavorProjectedSource(): SourceType(){}
   
-  A2AflavorProjectedSource(const A2AflavorProjectedSource &r): val000((ComplexType*)managed_alloc_check(128,sizeof(ComplexType)) ), sign(r.sign), SourceType(r){
-    *val000 = *r.val000;
-  }
+  A2AflavorProjectedSource(const A2AflavorProjectedSource &r): val000(r.val000), sign(r.sign), SourceType(r){}
 
-  ~A2AflavorProjectedSource(){ managed_free(val000); }
+  ~A2AflavorProjectedSource(){}
   
   //Assumes momenta are in units of \pi/2L, and must be *odd integer* (checked)
   inline static int getProjSign(const int p[3]){
@@ -466,11 +449,33 @@ public:
     return sgn;
   }
 
-  accelerator_inline void siteFmat(FlavorMatrixGeneral<typename SIMT<ComplexType>::value_type> &out, const size_t site) const{
+  class View: public SourceType::View{
+    int sign;
+    typename ManagedPtrWrapper<ComplexType>::View val000;
+  public:
+    accelerator_inline void siteFmat(FlavorMatrixGeneral<typename SIMT<ComplexType>::value_type> &out, const size_t site) const{
+      //Matrix is FFT of  (1 + [sign]*sigma_2) when |x-y| !=0 or 1 when |x-y| == 0
+      //It is always 1 on the diagonals
+      auto val_ln = SIMT<ComplexType>::read(this->siteComplex(site));
+      auto val000_ln = SIMT<ComplexType>::read(*val000);
+    
+      out(0,0) = out(1,1) = val_ln;
+      //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0
+      out(1,0) = multiplySignTimesI(sign,val_ln - val000_ln);
+      out(0,1) = -out(1,0); //-1 from sigma2
+    }
+
+    View(const A2AflavorProjectedSource &s): sign(s.sign), val000(s.val000.view()), SourceType::View(s){}
+  };
+
+  View view() const{ return View(*this); }
+  
+  
+  inline void siteFmat(FlavorMatrixGeneral<ComplexType> &out, const size_t site) const{
     //Matrix is FFT of  (1 + [sign]*sigma_2) when |x-y| !=0 or 1 when |x-y| == 0
     //It is always 1 on the diagonals
-    auto val_ln = SIMT<ComplexType>::read(this->siteComplex(site));
-    auto val000_ln = SIMT<ComplexType>::read(*val000);
+    auto val_ln = this->siteComplex(site);
+    auto const &val000_ln = *val000;
     
     out(0,0) = out(1,1) = val_ln;
     //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0
@@ -554,6 +559,48 @@ public:
 
 define_test_has_enum(nSources); //a test for multisrc types (all should have enum nSources)
 
+namespace A2AmultiSource_ns{
+  template<typename CurElem>
+  struct getSourceViewList{
+    typedef typename CurElem::ValueType::View ViewType;
+    typedef ViewPointerWrapper<ViewType> ViewTypeWrapper; //ViewPointerWrapper allows us to wrap and thus dynamically create views that don't have default constructors
+    typedef Elem<ViewTypeWrapper, typename getSourceViewList<typename CurElem::NextType>::type > type;
+  };
+  template<>
+  struct getSourceViewList<ListEnd>{
+    typedef ListEnd type;
+  };
+
+
+
+  template<typename CurSourceViewElem, typename CurSourceElem>
+  struct createViews{
+    static void doit(CurSourceViewElem &sve, const CurSourceElem &se){
+      sve.v.assign(se.v.view()); //copies view to GPU memory
+      createViews<typename CurSourceViewElem::NextType, typename CurSourceElem::NextType>::doit(sve.n, se.n);
+    }
+  };
+  template<>
+  struct createViews<ListStruct<ListEnd>, ListStruct<ListEnd> >{
+    static void doit(ListStruct<ListEnd> &sve, const ListStruct<ListEnd> &se){
+    }
+  };
+
+
+  template<typename CurSourceViewElem>
+  struct freeViews{
+    static void doit(CurSourceViewElem &sve){
+      sve.v.free();
+      freeViews<typename CurSourceViewElem::NextType>::doit(sve.n);
+    }
+  };
+  template<>
+  struct freeViews<ListStruct<ListEnd> >{
+    static void doit(ListStruct<ListEnd> &sve){
+    }
+  };
+}
+
 template<typename SourceList>
 class A2AmultiSource{
 public:
@@ -563,12 +610,32 @@ private:
 public:
   enum { nSources = getSizeOfListStruct<SourceListStruct>::value };
 
-  //Accessors for sources  (call like  src.template get<Idx>() )
+  //Accessors for sources  (call like  src.template getSource<Idx>() )
   template<int i>
-  accelerator_inline typename getTypeFromList<SourceListStruct,i>::type & getSource(){ return getElemFromListStruct<SourceListStruct,i>::get(sources); }
+  inline typename getTypeFromList<SourceListStruct,i>::type & getSource(){ return getElemFromListStruct<SourceListStruct,i>::get(sources); }
   template<int i>
-  accelerator_inline const typename getTypeFromList<SourceListStruct,i>::type & getSource() const{ return getConstElemFromListStruct<SourceListStruct,i>::get(sources); }    
+  inline const typename getTypeFromList<SourceListStruct,i>::type & getSource() const{ return getConstElemFromListStruct<SourceListStruct,i>::get(sources); }    
 
+  class View{
+    typedef typename A2AmultiSource_ns::getSourceViewList<SourceList>::type SourceViewList;
+    typedef ListStruct<SourceViewList> SourceViewListStruct;
+    SourceViewListStruct sources;
+    
+  public:
+    template<int i>
+    accelerator_inline typename getTypeFromList<SourceViewListStruct,i>::type::ViewType & getSource() const{ return *getElemFromListStruct<SourceViewListStruct,i>::get(const_cast<SourceViewListStruct &>(sources)); }
+
+    View(const A2AmultiSource &p){
+      A2AmultiSource_ns::createViews<SourceViewListStruct, SourceListStruct>::doit(sources, p.sources);
+    }
+
+    void free(){
+      A2AmultiSource_ns::freeViews<SourceViewListStruct>::doit(sources);
+    }
+  };
+
+  View view() const{ return View(*this); }
+  
 #ifdef GPU_VEC
   //Allocate source in managed memory 
   static inline void* operator new(const size_t sz){
