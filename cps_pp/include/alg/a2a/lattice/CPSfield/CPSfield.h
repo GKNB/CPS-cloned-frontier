@@ -31,13 +31,12 @@ class CPSfield: public MappingPolicy, public AllocPolicy{
   SiteType* f;
 protected:
   size_t fsize; //number of SiteType in the array = SiteSize * fsites
-  bool own; //is the memory owned by this object?
-  
+
   void alloc(){
     this->_alloc((void**)&f, fsize*sizeof(SiteType));
   }
   void freemem(){
-    this->_free((void*)f);
+    if(f) this->_free((void*)f);
   }
 
 public:
@@ -48,30 +47,22 @@ public:
   
   typedef typename MappingPolicy::ParamType InputParamType;
 
-  CPSfield(const InputParamType &params): MappingPolicy(params), own(true){
+  CPSfield(const InputParamType &params): MappingPolicy(params){
     fsize = this->nfsites() * SiteSize;
     alloc();
   }
   CPSfield(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r): fsize(r.fsize), MappingPolicy(r){
-    if(copyControl::shallow() && AllocPolicy::UVMenabled == 1){
-      //std::cout << "CPSFIELD CONSTRUCTOR SHALLOW COPY" << std::endl;
-      f = r.f; own = false;
-    }else{
-      //std::cout << "CPSFIELD CONSTRUCTOR DEEP COPY" << std::endl;
-      alloc();
-      memcpy(f,r.f,sizeof(SiteType) * fsize);
-      own = true;
-    }
+    alloc();
+    memcpy(f,r.f,sizeof(SiteType) * fsize);
   }
 
-  CPSfield(CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &&r): fsize(r.fsize), MappingPolicy(r), own(r.own), f(r.f){
+  CPSfield(CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &&r): fsize(r.fsize), MappingPolicy(r), f(r.f){
     r.f = NULL;
-    r.own = false;
     r.fsize = 0;
   }
 
   //Copy from external pointer. Make sure you set the params and policies correctly because it has no way of bounds checking
-  CPSfield(SiteType const* copyme, const InputParamType &params): MappingPolicy(params), own(true){
+  CPSfield(SiteType const* copyme, const InputParamType &params): MappingPolicy(params){
     fsize = this->nfsites() * SiteSize;
     alloc();
     memcpy(f,copyme,sizeof(SiteType) * fsize);
@@ -79,10 +70,7 @@ public:
 
   //Self destruct initialized (no more sfree!!)
   virtual ~CPSfield(){
-    if(own){
-      //std::cout << "CPSFIELD DESTRUCTOR DEEP FREE" <<std::endl;
-      freemem();    
-    }//else std::cout << "CPSFIELD DESTRUCTOR SHALLOW FREE" <<std::endl;
+    freemem();    
   }
   
   //Set the field to zero
@@ -91,8 +79,6 @@ public:
   }
 
   CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &operator=(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r){
-    if(!own){ own = true; fsize = r.fsize; alloc(); } //was a shallow copy, alloc new memory and take ownership
-    
     static_cast<MappingPolicy&>(*this) = r; //copy policy info
 
     size_t old_fsize = fsize;
@@ -107,12 +93,11 @@ public:
   }
 
   CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &operator=(CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &&r){
-    if(own) freemem();
+    freemem();
     f = r.f;
-    own = r.own;
     fsize = r.fsize;
     r.f = NULL;
-    r.own = false;
+    r.fsize = 0;
     return *this;
   }
 

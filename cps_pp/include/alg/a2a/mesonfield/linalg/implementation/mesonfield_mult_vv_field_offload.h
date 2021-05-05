@@ -152,7 +152,6 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     if(shmem_iblock_size == 0) assert(0);
 
     using namespace Grid;
-    copyControl::shallow() = true;
 
     accelerator_for_shmem(x4d, 
 			  vol4d, 
@@ -233,7 +232,6 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			    }//fl
 			  }//iprimeb_subblock
 			});
-    copyControl::shallow() = false;
   }
 #endif
 

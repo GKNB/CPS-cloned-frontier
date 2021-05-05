@@ -421,8 +421,6 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    size_t nwork = bi_true * bj_true * bx_true;	  
 	    
 	    kernel_time -= dclock();
-	    copyControl::shallow() = true; //enable shallow copy of inner product object
-
 	    auto M_v = M.view();
 	    
 	    using namespace Grid;
@@ -471,7 +469,6 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 				M_v(acc,lptr,rptr,x,t);
 			      });
 	    }	  
-	    copyControl::shallow() = false;
 	    kernel_time += dclock();
 
 	    reduce_time -= dclock();

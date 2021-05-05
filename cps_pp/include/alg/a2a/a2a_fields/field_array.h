@@ -67,6 +67,11 @@ public:
   };
 
   View view() const{ return View(*this); }
+
+  //Free all memory
+  void free(){
+    std::vector<PtrWrapper<FieldType> >().swap(v);
+  }
 }; 
 
 

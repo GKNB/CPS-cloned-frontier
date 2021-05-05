@@ -13,7 +13,7 @@
 CPS_START_NAMESPACE
 
 
-//A simple matrix class with managed memory and controllable shallow/deepcopy
+//A simple matrix class with managed memory
 class gpuMatrix{
 public:
   typedef typename thrust::complex<double> complexD;
@@ -31,15 +31,10 @@ public:
     alloc();
   }
   gpuMatrix(const gpuMatrix &r): m_rows(r.m_rows), m_cols(r.m_cols){    
-    if(!copyControl::shallow()){
-      alloc();
-      memcpy(d, r.d, m_rows*m_cols*sizeof(complexD));
-    }else{
-      d = r.d;
-    }
+    alloc();
+    memcpy(d, r.d, m_rows*m_cols*sizeof(complexD));
   }
   gpuMatrix(gpuMatrix &&r): m_rows(r.m_rows), m_cols(r.m_cols), d(r.d){
-    assert(!copyControl::shallow());
     r.d = NULL;
   }
 
@@ -57,9 +52,7 @@ public:
   cuDoubleComplex const* ptr() const{ return (cuDoubleComplex*)d; }
   
   ~gpuMatrix(){
-    if(!copyControl::shallow() && d != NULL){
-      cudaFree(d);
-    }
+    if(d) cudaFree(d);
   }
 
   bool equals(const gpuMatrix &r, const double tol = 1e-8) const{

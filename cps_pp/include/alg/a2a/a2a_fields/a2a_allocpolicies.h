@@ -33,9 +33,9 @@ template<typename mf_Policies>
 class A2AvectorV_manualAllocPolicies{
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
   typename FermionFieldType::InputParamType field_setup_params;
-  ManagedVector<ManagedPtrWrapper<FermionFieldType> > *vptr;
+  CPSfieldArray<FermionFieldType> *vptr;
 protected:
-  void allocInitializeFields(ManagedVector< ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
+  void allocInitializeFields(CPSfieldArray<FermionFieldType> &v, const typename FermionFieldType::InputParamType &_field_setup_params){
     vptr = &v; field_setup_params = _field_setup_params;
     for(int i=0;i<v.size();i++) v[i].free();
   }
@@ -81,9 +81,9 @@ template<typename mf_Policies>
 class A2AvectorVfftw_manualAllocPolicies{
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
   typename FermionFieldType::InputParamType field_setup_params;
-  ManagedVector<ManagedPtrWrapper<FermionFieldType> > *vptr;
+  CPSfieldArray<FermionFieldType> *vptr;
 protected:
-  void allocInitializeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
+  void allocInitializeFields(CPSfieldArray<FermionFieldType> &v, const typename FermionFieldType::InputParamType &_field_setup_params){
     //if(!UniqueID()){ printf("A2AvectorVfftw_manualAllocPolicies::allocInitializeFields called\n"); fflush(stdout); }
     vptr = &v; field_setup_params = _field_setup_params;
     for(int i=0;i<v.size();i++) v[i].free();
@@ -154,14 +154,14 @@ class A2AvectorW_manualAllocPolicies{
   typename FermionFieldType::InputParamType lfield_setup_params;
   typename ComplexFieldType::InputParamType hfield_setup_params;
   
-  ManagedVector<ManagedPtrWrapper<FermionFieldType> > *lptr;
-  ManagedVector<ManagedPtrWrapper<ComplexFieldType> > *hptr;
+  CPSfieldArray<FermionFieldType> *lptr;
+  CPSfieldArray<ComplexFieldType> *hptr;
 protected:
-  void allocInitializeLowModeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
+  void allocInitializeLowModeFields(CPSfieldArray<FermionFieldType> &v, const typename FermionFieldType::InputParamType &_field_setup_params){
     lptr = &v; lfield_setup_params = _field_setup_params;
     for(int i=0;i<v.size();i++) v[i].free();
   }
-  void allocInitializeHighModeFields(ManagedVector<ManagedPtrWrapper<ComplexFieldType> > &v, const typename ComplexFieldType::InputParamType &_field_setup_params){
+  void allocInitializeHighModeFields(CPSfieldArray<ComplexFieldType> &v, const typename ComplexFieldType::InputParamType &_field_setup_params){
     hptr = &v; hfield_setup_params = _field_setup_params;
     for(int i=0;i<v.size();i++) v[i].free();
   }
@@ -217,14 +217,14 @@ class A2AvectorWfftw_manualAllocPolicies{
   
   typename FermionFieldType::InputParamType field_setup_params;
   
-  ManagedVector<ManagedPtrWrapper<FermionFieldType> > *lptr;
-  ManagedVector<ManagedPtrWrapper<FermionFieldType> > *hptr;
+  CPSfieldArray<FermionFieldType> *lptr;
+  CPSfieldArray<FermionFieldType> *hptr;
 protected:
-  void allocInitializeLowModeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
+  void allocInitializeLowModeFields(CPSfieldArray<FermionFieldType> &v, const typename FermionFieldType::InputParamType &_field_setup_params){
     lptr = &v; field_setup_params = _field_setup_params;
     for(int i=0;i<v.size();i++) v[i].free();
   }
-  void allocInitializeHighModeFields(ManagedVector<ManagedPtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
+  void allocInitializeHighModeFields(CPSfieldArray<FermionFieldType> &v, const typename FermionFieldType::InputParamType &_field_setup_params){
     hptr = &v; 
     for(int i=0;i<v.size();i++) v[i].free();
   }

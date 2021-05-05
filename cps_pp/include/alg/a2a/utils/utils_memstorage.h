@@ -56,6 +56,7 @@ class DistributedMemoryStorage{
 #ifndef USE_MPI
       _master_uid = master_uid;
       if(nodes > 1) ERR.General("DistributedMemoryStorage","initMaster","Implementation requires MPI\n");
+      else assert(master_uid == 0); //this should always be the case but is worth checking anyway!
 #else
 
       //# define DO_MASTER_CHECK
@@ -234,7 +235,7 @@ public:
   //Every node performs gather but if not required and not master, data is not kept  
   void gather_bcast_full(bool require){
 #ifndef USE_MPI
-    if(ptr != NULL) ERR.General("DistributedMemoryStorage","gather_bcast_full","Implementation requires MPI\n");
+    if(require && ptr == NULL) ERR.General("DistributedMemoryStorage","gather_bcast_full","Implementation requires MPI\n");
 #else
     double time = dclock();
     int do_gather_node = (require && ptr == NULL);
@@ -330,7 +331,7 @@ public:
       MPI_Comm_free(&req_comm);
     }
 #else
-    if(ptr != NULL) ERR.General("DistributedMemoryStorage","gather_bcast_subcomm","Implementation requires MPI\n"); 
+    if(require && ptr == NULL) ERR.General("DistributedMemoryStorage","gather_bcast_subcomm","Implementation requires MPI\n"); 
 #endif //USE_MPI
   }
 
