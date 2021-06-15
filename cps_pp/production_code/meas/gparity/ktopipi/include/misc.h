@@ -22,6 +22,10 @@ void setupJob(int argc, char **argv, const Parameters &params, const CommandLine
     assert(params.a2a_arg_s.nl <= params.lanc_arg_s.N_true_get);
   }
 
+  if(cmdline.old_gparity_cfg){
+    if(!UniqueID()) printf("Correcting for incorrect factor of 2 in G-parity config header plaquette\n");
+    LatticeHeader::GparityMultPlaqByTwo() = true;
+  }
   printMem("Initial memory post-initialize");
 }
 

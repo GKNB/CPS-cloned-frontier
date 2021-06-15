@@ -22,6 +22,8 @@ struct CommandLineArgs{
   bool do_sigma2pt;
   bool do_pipitosigma;
 
+  bool old_gparity_cfg; //for old G-parity configs the plaquette in the header was 2x too small. Now this is fixed those configs won't load unless this arg is set
+
   //For split job version
   bool do_split_job;
   int split_job_part;
@@ -69,6 +71,8 @@ struct CommandLineArgs{
     do_ktosigma = true;
     do_sigma2pt = true;
     do_pipitosigma = true;
+
+    old_gparity_cfg = false;
 
     do_split_job = false;
 
@@ -256,6 +260,9 @@ struct CommandLineArgs{
 	arg+=2;
 #endif
 
+      }else if( cmdstr == "-old_gparity_cfg"){
+	old_gparity_cfg = true;
+	arg++;
       }else{
 	bool is_grid_arg = false;
 	for(int i=0;i<ngrid_arg;i++){

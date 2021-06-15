@@ -188,6 +188,9 @@ class LatticeHeader : public LatHeaderBase {
 
   FP_FORMAT floating_point;
 
+  //A number of old G-parity ensembles incorrectly divided by an additional factor of 2. To load those configurations set this to true
+  static bool & GparityMultPlaqByTwo(){ static bool b = false; return b; }
+
   LatticeHeader():cname("LatticeHeader") ,
     ensemble_id ("unspecified"),
     ensemble_label ("unspecified"),

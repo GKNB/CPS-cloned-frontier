@@ -290,6 +290,8 @@ void LatticeHeader::read(istream & fin) {
   link_trace = hd.asFloat("LINK_TRACE");
   plaquette = hd.asFloat("PLAQUETTE");
 
+  if(GparityMultPlaqByTwo()) plaquette *= 2.0; //fix for old G-parity configs
+
   string bcs[] = {hd.asString("BOUNDARY_1"), hd.asString("BOUNDARY_2"), hd.asString("BOUNDARY_3"), hd.asString("BOUNDARY_4") };
   for(int d=0;d<4;d++){
     if(bcs[d] == "PERIODIC") boundary[d] == BND_CND_PRD;
