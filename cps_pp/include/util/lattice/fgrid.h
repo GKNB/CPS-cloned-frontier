@@ -226,6 +226,12 @@ public:
 		   Grid::LatticeGaugeFieldF * grid_lat_f, Matrix * mom,
 		   int cps2grid)
   {
+    const char *fname = "ImpexGauge()";
+
+    //Currently this code does not treat the flavor 1 (complex conjugate) component of the gauge field correctly
+    //For CPS->Grid this doesn't matter because only the flavor 0 (unconjugated) field is stored in LatticeGaugeField and the doubleStore operation performed when the field is imported into the fermion action
+    //performs the conjugation and applies the BC for the second flavor
+    if(GJP.Gparity() && !cps2grid) ERR.General(cname, fname, "Impex of Gparity gauge field from Grid not implemented yet");
 
     BondCond ();
     Float *gauge = (Float *) mom;
@@ -234,7 +240,6 @@ public:
 //              if (!grid_lat)  grid_lat = Umu;
 //              if (!grid_lat_f && cps2grid )  grid_lat_f = Umu_f;
     unsigned long vol;
-    const char *fname = "ImpexGauge()";
     Grid::GridBase * grid = grid_lat->Grid();
     if (grid_lat->Grid()->lSites () != (vol = GJP.VolNodeSites ()))
       ERR.General (cname, fname,
@@ -370,6 +375,7 @@ CPS_END_NAMESPACE
 #define GFCLASS(class) EVALUATOR(class, FGRID )
 #define XSTR(s) STR(s)
 #define STR(s) #s
+
 // Match to Fbfm twisted wilson instead of FwilsonTM
 #undef USE_F_CLASS_WILSON_TM
 #undef TWOKAPPA
@@ -387,7 +393,11 @@ CPS_END_NAMESPACE
 #define SITE_FERMION_F Grid::iGparitySpinColourVector<Grid::ComplexF>
 #define PARAMS	,params
 #define GP gp
+#define MOB_ASYM
+#undef MOB_SYM2
 #include "fgrid.h.inc"
+
+
 #undef GRID_GPARITY
 #undef IF_FIVE_D
 #undef IF_TM
@@ -415,7 +425,11 @@ CPS_END_NAMESPACE
 #define SITE_FERMION_F Grid::iGparitySpinColourVector<Grid::ComplexF>
 #define PARAMS	,params
 #define GP gp
+#define MOB_ASYM
+#undef MOB_SYM2
 #include "fgrid.h.inc"
+
+
 #undef GRID_GPARITY
 #undef IF_FIVE_D
 #undef IF_TM
@@ -447,6 +461,8 @@ CPS_END_NAMESPACE
 #define GP
 #undef TWOKAPPA
 #include "fgrid.h.inc"
+
+
 #undef GRID_GPARITY
 #undef IF_FIVE_D
 #undef IF_TM
@@ -461,7 +477,6 @@ CPS_END_NAMESPACE
 #undef PARAMS
 #undef GP
 #undef GRID_GPARITY
-#undef MOB_ASYM
 #define IF_FIVE_D
 #undef IF_TM
 #define FGRID FgridMobiusSYM2
@@ -479,6 +494,8 @@ CPS_END_NAMESPACE
 #define GP
 #undef TWOKAPPA
 #include "fgrid.h.inc"
+
+
 #undef GRID_GPARITY
 #undef IF_FIVE_D
 #undef FGRID
@@ -491,7 +508,6 @@ CPS_END_NAMESPACE
 #undef IMPL
 #undef PARAMS
 #undef GP
-#undef MOB_SYM2
 #define IF_FIVE_D
 #define GRID_ZMOB
 #define FGRID FgridZmobius
@@ -505,10 +521,14 @@ CPS_END_NAMESPACE
 #define IMPL_F Grid::ZWilsonImplF
 #define PARAMS
 #define GP
+#define MOB_ASYM   //Do we really want ASYM here?
+#undef MOB_SYM2
 // Using TwoKappa only for zMobius for now, really SYM2
 //#define TWOKAPPA
 //#define GRID_MADWF
 #include "fgrid.h.inc"
+
+
 #undef GRID_GPARITY
 #undef IF_FIVE_D
 #undef GRID_ZMOB
@@ -539,7 +559,11 @@ CPS_END_NAMESPACE
 #define SITE_FERMION_F Grid::iSpinColourVector<Grid::ComplexF>
 #define PARAMS
 #define GP
+#define MOB_ASYM
+#undef MOB_SYM2
 #include "fgrid.h.inc"
+
+
 #undef GRID_GPARITY
 #undef IF_FIVE_D
 #undef IF_TM
@@ -565,7 +589,11 @@ CPS_END_NAMESPACE
 #define PARAMS
 #define GP
 #undef NONHERMSOLVE
+#define MOB_ASYM
+#undef MOB_SYM2
 #include "fgrid.h.inc"
+
+
 #undef GRID_GPARITY
 #undef IF_FIVE_D
 #undef IF_TM
@@ -592,6 +620,8 @@ CPS_END_NAMESPACE
 #define PARAMS
 #define GP
 #undef NONHERMSOLVE
+#define MOB_ASYM
+#undef MOB_SYM2
 #include "fgrid.h.inc"
 #undef GRID_GPARITY
 #undef IF_FIVE_D

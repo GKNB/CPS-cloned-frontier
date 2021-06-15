@@ -22,7 +22,9 @@ CPS_START_NAMESPACE
 Error ERR;
 
 static inline void Exit(int status){
-  fflush(stdout); fflush(stderr);
+  //Ensure the output streams are flushed
+  fflush(stdout);
+  fflush(stderr);
 #if 1
    Float  *tmp = (Float *)0;
    *tmp = 1.;
