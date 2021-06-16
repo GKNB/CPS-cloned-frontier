@@ -489,11 +489,13 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 //    Grid::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
     Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
     Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
-#else
+#elif defined(MOB_SYM2)
 //    Grid::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
 //    Grid::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
     Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
     Grid::SchurDiagTwoOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
+#else
+    #error "Must specify a preconditioning scheme"
 #endif
     VRB.Result (cname, fname, "MultiShiftController.getMode()=%d\n",
 		MultiShiftController.getMode ());
@@ -839,7 +841,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 //      CGcontrols cg_controls;
 #endif
       SchurSolver (DdwfD, grid_in, grid_out);
-      VRB.Result(cname,fname,"after SchurSolver()");
+      VRB.Result(cname,fname,"after SchurSolver()\n");
     }
 
     if (true_res) {

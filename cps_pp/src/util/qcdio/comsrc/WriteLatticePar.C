@@ -41,7 +41,6 @@ void WriteLatticeParallel::write(Lattice & lat, const QioArg & wt_arg)
   Matrix * lpoint = lat.GaugeField();
 
   Float plaq = lat.SumReTrPlaq()/(18.*(Float)wt_arg.VolSites()) ;
-  if(GJP.Gparity()) plaq/=2.;
   VRB.Result(cname,fname, "Writing Gauge Field at Lattice::GaugeField() = %p SumReTrPlaq()=%0.10e wt_arg.VolSites()=%0.10e plaq = %g\n", lpoint,lat.SumReTrPlaq(),(Float)wt_arg.VolSites(),plaq);
   
   Float ltrace(0.0);
@@ -50,8 +49,6 @@ void WriteLatticeParallel::write(Lattice & lat, const QioArg & wt_arg)
       ltrace += (lpoint+i)->ReTr();
     }
     ltrace = globalSumFloat(ltrace) / (4*3*wt_arg.VolSites());
-    //CK: would give same result for G-parity as ReTr(U*) = ReTr(U) hence a factor of 2 in the volume sum, 
-    //but we take volume avg, which is twice as big for G-parity, cancelling the aforementioned factor
   }
   else
     globalSumFloat(0.0);  // everyone has to participate in global ops

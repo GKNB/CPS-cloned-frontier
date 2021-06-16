@@ -277,7 +277,8 @@ public:
   
 #undef CONDITION
 #endif
-  
+
+  //Global modulus^2
   double norm2() const;
   double norm2(const IncludeSite<MappingPolicy::EuclideanDimension> & restrictsites) const;
   
@@ -359,6 +360,8 @@ public:
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion: public CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>{
 protected:
+  //Obtain the basic unit of momentum given the boundary conditions
+  //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
   static void getMomentumUnits(double punits[3]);
 
 public:
@@ -438,10 +441,10 @@ public:
 };
 
 template< typename mf_Complex, typename MappingPolicy = FiveDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion5D: public CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>{
+class CPSfermion5D: public CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 5> check;
 public:  
-  typedef CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy> BaseType;
+  typedef CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> BaseType;
   INHERIT_TYPEDEFS(BaseType);
   CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion5D);
     
@@ -549,9 +552,9 @@ public:
 
 ////////Checkerboarded types/////////////
 template< typename mf_Complex, typename CBpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion5Dprec: public CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy>{
+class CPSfermion5Dprec: public CPSfermion<mf_Complex,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy>{
 public:
-  typedef CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy> BaseType;
+  typedef CPSfermion<mf_Complex,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy> BaseType;
   INHERIT_TYPEDEFS(BaseType);
   CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion5Dprec);
   DEFINE_ADDSUB_DERIVED(CPSfermion5Dprec);
@@ -575,6 +578,21 @@ public:
   DEFINE_ADDSUB_DERIVED(CPSfermion5Dcb4Dodd);
 };
 
+
+
+define_test_has_enum(FieldSiteSize);
+template<class T>
+using isCPSfieldType = has_enum_FieldSiteSize<T>;
+
+template<typename CPSfieldType, typename std::enable_if<isCPSfieldType<CPSfieldType>::value, int>::type = 0>
+CPSfieldType operator*(const CPSfieldType &f, const typename CPSfieldType::FieldSiteType &c){
+  CPSfieldType out(f);
+#pragma omp parallel for
+  for(size_t fi=0;fi< f.size();fi++){
+    out.ptr()[fi] = out.ptr()[fi] * c;
+  }
+  return out;
+}
 
 
 

@@ -476,7 +476,7 @@ public:
 
   //! mult the prop by gamma_dir*gamma_5 on the left, and return the new matrix
     WilsonMatrix glA(int dir)const;
-  //! glA another version. result = gamma_dir*gamma_5*from
+  //! glA another version. result = gamma_dir*gamma_5*from   (WARNING: 'from' must not be equal to 'to' [this is not checked!!] )
     WilsonMatrix& glA(const WilsonMatrix & from, int dir);
 #else
 WilsonMatrix& gl(int dir)
@@ -975,12 +975,12 @@ WilsonMatrix glV(int dir) const
 #endif
 
 #ifndef INLINE_WILSON_MATRIX
-    //! mult the prop by gamma_dir*gamma_5 on the left
+    //! mult the prop by gamma_dir*gamma_5 on the right
     WilsonMatrix& grA(const WilsonMatrix & from, int dir);
-    //! mult the prop by gamma_dir on the left
+    //! mult the prop by gamma_dir on the right
     WilsonMatrix& grV(const WilsonMatrix & from, int dir);
 
-  //! mult the prop by gamma_dir on the left
+  //! mult the prop by gamma_dir on the right
   WilsonMatrix& gr(int dir); 
 
 #else

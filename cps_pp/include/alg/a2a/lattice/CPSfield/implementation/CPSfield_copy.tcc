@@ -24,7 +24,7 @@ public:
 #pragma omp parallel for
     for(size_t fs=0;fs<into.nfsites();fs++){
       int x[5], f; into.fsiteUnmap(fs,x,f); //doesn't matter if the linearization differs between the two
-      if(fromsitemask == NULL || fromsitemask->query(x,f)){
+      if(from.contains(x,f) && (fromsitemask == NULL || fromsitemask->query(x,f)) ){
 	TypeA* toptr = into.fsite_ptr(fs);
 	TypeB const* fromptr = from.site_ptr(x,f);
 	for(int i=0;i<SiteSize;i++) toptr[i] = fromptr[i];
@@ -73,7 +73,7 @@ public:
       for(int lane=0;lane<nsimd;lane++){
 	for(int d=0;d<ndim;d++) xx[d] = x[d] + packed_offsets[lane][d];  //xx = x + offset
 
-	if(fromsitemask == NULL || fromsitemask->query(xx,f)){
+	if(from.contains(xx,f) && (fromsitemask == NULL || fromsitemask->query(xx,f)) ){
 	  TypeB const* fromptr = from.site_ptr(xx,f);
 	
 	  for(int s=0;s<SiteSize;s++)
@@ -106,7 +106,7 @@ public:
       int x[ndim], f; into.fsiteUnmap(fs,x,f);
       TypeA* toptr = into.fsite_ptr(fs);
       
-      if(fromsitemask == NULL || fromsitemask->query(x,f)){
+      if(from.contains(x,f) && (fromsitemask == NULL || fromsitemask->query(x,f)) ){
 	int lane = from.SIMDmap(x);
 	GridSIMDTypeB const* fromptr = from.site_ptr(x,f);
 	for(int s=0;s<SiteSize;s++)

@@ -46,7 +46,7 @@ class  ReadLatticeParallel : public QioControl
     }
 
   // ctor invoking loading behavior
- ReadLatticeParallel(Lattice & lat, const char * filename, const Float chkprec = 0.01): QioControl(), cname("ReadLatticeParallel")
+  ReadLatticeParallel(Lattice & lat, const char * filename, const Float chkprec = 0.01): QioControl(), cname("ReadLatticeParallel")
     {
     //CK set architecture-dependent default IO style rather than hardcoding it.
     QioArg rd_arg(filename,chkprec);
@@ -77,7 +77,7 @@ class  ReadLatticeParallel : public QioControl
   std::string getEnsembleId(){ return hd.ensemble_id; } // CAREFULL: only on MasterNode!!
   std::string getEnsembleLabel(){ return hd.ensemble_label; } // CAREFULL: only on MasterNode!!
   int getSequenceNumber();// same on all nodes!
-
+  
  protected:
   bool CheckPlaqLinktrace(Lattice & lat, const QioArg & rd_arg,
 			  const Float plaq_inheader, const Float linktrace_inheader);

@@ -272,10 +272,6 @@ bool ReadLatticeParallel::CheckPlaqLinktrace (Lattice & lat,
 
   Float plaq = lat.SumReTrPlaq () / 18.0 / rd_arg.VolSites ();
 
-  //some old lattices that did not use the reconstruct option also did not divide the plaquette by 2
-  if (GJP.Gparity () && doGparityReconstructUstarField ())
-    plaq /= 2;
-
   Float devplaq (0.0);
   if (isRoot ()) {
     devplaq = fabs ((plaq - plaq_inheader) / plaq);
@@ -283,11 +279,7 @@ bool ReadLatticeParallel::CheckPlaqLinktrace (Lattice & lat,
       ("%s::%s: plaquette::\n  calc: %0.8e  header: %0.8e   rel.dev.: %0.8e\n",
        cname, fname, plaq, plaq_inheader, devplaq);
   }
-  //CK: G-parity; ReTr should be the same for U and U*
-  //int nstacked = 1;
-  //if(GJP.Gparity()) nstacked = 2;
 
-  //for(int stk=0;stk<nstacked;stk++){ //after 1 iteration, m will point to second stacked field
   Float linktrace (0);
   int is;
   Matrix *m = lat.GaugeField ();

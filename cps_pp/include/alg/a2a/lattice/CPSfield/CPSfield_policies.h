@@ -132,19 +132,25 @@ class ManualAligned128AllocPolicy{
 
 
 //The FlavorPolicy allows the number of flavors to be fixed or 2/1 if Gparity/noGparity 
-template<int Nf>
+//Note if Nf==1 the flavor should be set using the second template parameter
+template<int Nf, int f=0>
 class FixedFlavorPolicy{
 protected:
   inline void writeParams(std::ostream &file) const{
-    std::ostringstream os; os << "FixedFlavorPolicy<" << Nf << ">";
+    std::ostringstream os; os << "FixedFlavorPolicy<" << Nf;
+    if(Nf == 1) os << "," << f;
+    os << '>';
     writePolicyName(file, "FLAVORPOLICY", os.str());
   }
   inline void readParams(std::istream &file){
-    std::ostringstream os; os << "FixedFlavorPolicy<" << Nf << ">";
+    std::ostringstream os; os << "FixedFlavorPolicy<" << Nf;
+    if(Nf == 1) os << "," << f;
+    os << '>';
     checkPolicyName(file, "FLAVORPOLICY", os.str());
   }
 public:
   accelerator_inline int nflavors() const{ return Nf; }
+  accelerator_inline bool hasFlavor(int flav) const{ return Nf == 2 || flav == f; }
 };
 typedef FixedFlavorPolicy<1> OneFlavorPolicy;
 
@@ -161,6 +167,7 @@ protected:
 public:
   DynamicFlavorPolicy(): nf(GJP.Gparity() + 1){}
   accelerator_inline int nflavors() const{ return nf; }
+  accelerator_inline bool hasFlavor(int flav) const{ return flav == 0 || nf == 2; }
 };
 
 #define _DEF_REBASE(P) \
@@ -205,6 +212,8 @@ public:
   accelerator_inline size_t siteFsiteConvert(const size_t site, const int f) const{ return site + vol4d*f; } //convert a site-flavor pair to an fsite
 
   accelerator_inline int nodeSites(const int dir) const{ return node_sites[dir]; }
+
+  accelerator_inline bool contains(const int x[], int flav = 0) const { return this->hasFlavor(flav); }
   
   typedef NullObject ParamType;
   FourDpolicy(){
@@ -270,6 +279,8 @@ public:
 
   accelerator_inline int nodeSites(const int dir) const{ return node_sites[dir]; }
   
+  accelerator_inline bool contains(const int x[], int flav = 0) const { return this->hasFlavor(flav); }
+
   typedef NullObject ParamType;
   FiveDpolicy(){
     vol4d = GJP.VolNodeSites();
@@ -338,6 +349,8 @@ public:
     return site + dvol * f;
   }
 
+  accelerator_inline bool contains(const int x[], int flav = 0) const { return this->hasFlavor(flav); }
+
   typedef int ParamType;
 
   accelerator_inline int getDir() const{ return dir; }
@@ -403,6 +416,8 @@ public:
 
   accelerator_inline int nodeSites(const int dir) const{ return node_sites[dir]; }
   
+  accelerator_inline bool contains(const int x[], int flav = 0) const { return this->hasFlavor(flav); }
+
   typedef NullObject ParamType;
   SpatialPolicy():  threevol(GJP.VolNodeSites()/GJP.TnodeSites()){
     for(int i=0;i<3;i++) node_sites[i] = GJP.NodeSites(i);
@@ -457,6 +472,8 @@ public:
   accelerator_inline size_t fsiteFlavorOffset() const{ return glb_vol; }
 
   accelerator_inline size_t nodeSites(const int dir) const{ return glb_size[dir]; }
+
+  accelerator_inline bool contains(const int x[], int flav = 0) const { return this->hasFlavor(flav); }
 
   typedef NullObject ParamType;
   GlobalSpatialPolicy(){
@@ -523,6 +540,8 @@ public:
   accelerator_inline size_t siteFsiteConvert(const size_t site, const int f) const{ 
     return site + dvol * f;
   }
+
+  accelerator_inline bool contains(const int x[], int flav = 0) const { return this->hasFlavor(flav); }
 
   typedef int ParamType;
 
@@ -640,6 +659,8 @@ public:
     size_t s = site / (vol4d/2);
     return x4d + vol4d*(f + this->nflavors()*s)/2;
   }
+
+  accelerator_inline bool contains(const int x[], int flav = 0) const { return this->onCb(x) && this->hasFlavor(flav); }
 
   typedef NullObject ParamType;
   FiveDevenOddpolicy(){
@@ -792,6 +813,8 @@ public:
   }
 
   accelerator_inline int nodeSites(const int dir) const{ return logical_dim[dir]; }
+
+  accelerator_inline bool contains(const int x[], int flav = 0) const { return this->hasFlavor(flav); }
   
   typedef SIMDpolicyBase<4>::ParamType ParamType;
 
@@ -898,6 +921,8 @@ public:
   }
 
   accelerator_inline int nodeSites(const int dir) const{ return logical_dim[dir]; }
+
+  accelerator_inline bool contains(const int x[], int flav = 0) const { return this->hasFlavor(flav); }
 
   typedef SIMDpolicyBase<3>::ParamType ParamType;
 
