@@ -9,16 +9,24 @@
 //MULT_IMPL_GRID         :using Grid library SIMD intrinsics with a hand-crafted wrapper
 //MULT_IMPL_ESSL:        :using BG/Q ESSL library
 //MULT_IMPL_CUBLASXT     :using CUDA CUBLASXT library
+//MULT_IMPL_ONEMKL       :using Intel oneMKL
 
 #if defined(ARCH_BGQ) && defined(USE_ESSL_A2A)
 //Requires linking to essl_interface and fortran libraries
 #define MULT_IMPL_ESSL
+
 #elif defined(GRID_CUDA)
 //Use cuda version
 #define MULT_IMPL_CUBLASXT
+
+#elif defined(GRID_SYCL)
+//Use oneMKL version
+#define MULT_IMPL_ONEMKL
+
 #else
 //Default to GSL version
 #define MULT_IMPL_GSL
+
 #endif
 
 #if defined(MULT_IMPL_BASIC)
@@ -33,6 +41,8 @@
 #  include "mesonfield_mult_impl_essl.tcc"
 #elif defined(MULT_IMPL_CUBLASXT)
 #  include "mesonfield_mult_impl_cublasxt.tcc"
+#elif defined(MULT_IMPL_ONEMKL)
+#  include "mesonfield_mult_impl_onemkl.tcc"
 #else
 #  error Must specify a MULT_IMPL_* in mesonfield_mult_impl.tcc
 #endif

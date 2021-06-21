@@ -93,6 +93,8 @@ public:
   }
 
   bool equals(const A2AmesonField &r, const double tolerance = 1e-10, bool verbose = false) const{
+    if(r.nmodes_l != nmodes_l || r.nmodes_r != nmodes_r) return false;
+    
     for(int i=0;i<nmodes_l;i++){
       for(int j=0;j<nmodes_r;j++){
 	const ScalarComplexType &lval = (*this)(i,j);

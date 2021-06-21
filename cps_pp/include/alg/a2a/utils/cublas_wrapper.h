@@ -225,7 +225,8 @@ public:
 
 
 
-
+//Multiply matrices C = A*B
+//m = A.rows()  n=B.cols()  k=A.cols()
 inline void mult_offload_cuBLASxt(cuDoubleComplex* C,
 			   cuDoubleComplex const* A,
 			   cuDoubleComplex const* B,

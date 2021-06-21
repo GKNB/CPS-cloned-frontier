@@ -2,11 +2,19 @@
 #ifndef BLOCK_SIZE
 #define BLOCK_SIZE ((int) 4)
 #endif
+
+//CK 4/21 "register" does not compile with c++17 onwards
+#if (__cplusplus - 0) >= 201703L
+  #define __REGISTER
+#else
+  #define __REGISTER                             register
+#endif
+
 void basic_dgemm (const int KB, const int M, const int N, const int K, const double **A, const double *B, double *C, const int NB)
 {
 	int i, j, k;
-	register const double *Bp;
-	register const double **pA=A;
+	__REGISTER const double *Bp;
+	__REGISTER const double **pA=A;
 	switch(K)
 	{
 		case 1:
@@ -25,7 +33,7 @@ void basic_dgemm (const int KB, const int M, const int N, const int K, const dou
 				Bp=B;
 				for (j = 0; j < N; ++j) 
 				{
-					register double cij = *(C + i*NB + j);
+					__REGISTER double cij = *(C + i*NB + j);
 					cij += pA[0][i]*(*(Bp++));
 					cij += pA[1][i]*(*(Bp++));
 					*(C + i*NB + j) = cij;
@@ -38,7 +46,7 @@ void basic_dgemm (const int KB, const int M, const int N, const int K, const dou
 				Bp=B;
 				for (j = 0; j < N; ++j) 
 				{
-					register double cij = *(C + i*NB + j);
+					__REGISTER double cij = *(C + i*NB + j);
 					cij += pA[0][i]*(*(Bp++));
 					cij += pA[1][i]*(*(Bp++));
 					cij += pA[3][i]*(*(Bp++));
@@ -52,7 +60,7 @@ void basic_dgemm (const int KB, const int M, const int N, const int K, const dou
 				Bp=B;
 				for (j = 0; j < N; ++j) 
 				{
-					register double cij = *(C + i*NB + j);
+					__REGISTER double cij = *(C + i*NB + j);
 					cij += pA[0][i]*(*(Bp++));
 					cij += pA[1][i]*(*(Bp++));
 					cij += pA[2][i]*(*(Bp++));
@@ -69,55 +77,55 @@ void basic_dgemm (const int KB, const int M, const int N, const int K, const dou
 void unrolled_dgemm (const int lda, const double **A, const double *B, double *C, const int N)
 {
 	const double * pB=B;
-	register const double A0_0 = A[0][0];
-	register const double B0_0 = *(pB++);
-	register const double A0_1 = A[1][0];
-	register const double B1_0 = *(pB++);
-	register const double A0_2 = A[2][0];
-	register const double B2_0 = *(pB++);
-	register const double A0_3 = A[3][0];
-	register const double B3_0 = *(pB++);
-	register const double A1_0 = A[0][1];
-	register const double B0_1 = *(pB++);
-	register const double A1_1 = A[1][1];
-	register const double B1_1 = *(pB++);
-	register const double A1_2 = A[2][1];
-	register const double B2_1 = *(pB++);
-	register const double A1_3 = A[3][1];
-	register const double B3_1 = *(pB++);
-	register const double A2_0 = A[0][2];
-	register const double B0_2 = *(pB++);
-	register const double A2_1 = A[1][2];
-	register const double B1_2 = *(pB++);
-	register const double A2_2 = A[2][2];
-	register const double B2_2 = *(pB++);
-	register const double A2_3 = A[3][2];
-	register const double B3_2 = *(pB++);
-	register const double A3_0 = A[0][3];
-	register const double B0_3 = *(pB++);
-	register const double A3_1 = A[1][3];
-	register const double B1_3 = *(pB++);
-	register const double A3_2 = A[2][3];
-	register const double B2_3 = *(pB++);
-	register const double A3_3 = A[3][3];
-	register const double B3_3 = *(pB++);
+	__REGISTER const double A0_0 = A[0][0];
+	__REGISTER const double B0_0 = *(pB++);
+	__REGISTER const double A0_1 = A[1][0];
+	__REGISTER const double B1_0 = *(pB++);
+	__REGISTER const double A0_2 = A[2][0];
+	__REGISTER const double B2_0 = *(pB++);
+	__REGISTER const double A0_3 = A[3][0];
+	__REGISTER const double B3_0 = *(pB++);
+	__REGISTER const double A1_0 = A[0][1];
+	__REGISTER const double B0_1 = *(pB++);
+	__REGISTER const double A1_1 = A[1][1];
+	__REGISTER const double B1_1 = *(pB++);
+	__REGISTER const double A1_2 = A[2][1];
+	__REGISTER const double B2_1 = *(pB++);
+	__REGISTER const double A1_3 = A[3][1];
+	__REGISTER const double B3_1 = *(pB++);
+	__REGISTER const double A2_0 = A[0][2];
+	__REGISTER const double B0_2 = *(pB++);
+	__REGISTER const double A2_1 = A[1][2];
+	__REGISTER const double B1_2 = *(pB++);
+	__REGISTER const double A2_2 = A[2][2];
+	__REGISTER const double B2_2 = *(pB++);
+	__REGISTER const double A2_3 = A[3][2];
+	__REGISTER const double B3_2 = *(pB++);
+	__REGISTER const double A3_0 = A[0][3];
+	__REGISTER const double B0_3 = *(pB++);
+	__REGISTER const double A3_1 = A[1][3];
+	__REGISTER const double B1_3 = *(pB++);
+	__REGISTER const double A3_2 = A[2][3];
+	__REGISTER const double B2_3 = *(pB++);
+	__REGISTER const double A3_3 = A[3][3];
+	__REGISTER const double B3_3 = *(pB++);
 
-	register double c0_0 = *(C + 0*N + 0);
-	register double c0_1 = *(C + 0*N + 1);
-	register double c0_2 = *(C + 0*N + 2);
-	register double c0_3 = *(C + 0*N + 3);
-	register double c1_0 = *(C + 1*N + 0);
-	register double c1_1 = *(C + 1*N + 1);
-	register double c1_2 = *(C + 1*N + 2);
-	register double c1_3 = *(C + 1*N + 3);
-	register double c2_0 = *(C + 2*N + 0);
-	register double c2_1 = *(C + 2*N + 1);
-	register double c2_2 = *(C + 2*N + 2);
-	register double c2_3 = *(C + 2*N + 3);
-	register double c3_0 = *(C + 3*N + 0);
-	register double c3_1 = *(C + 3*N + 1);
-	register double c3_2 = *(C + 3*N + 2);
-	register double c3_3 = *(C + 3*N + 3);
+	__REGISTER double c0_0 = *(C + 0*N + 0);
+	__REGISTER double c0_1 = *(C + 0*N + 1);
+	__REGISTER double c0_2 = *(C + 0*N + 2);
+	__REGISTER double c0_3 = *(C + 0*N + 3);
+	__REGISTER double c1_0 = *(C + 1*N + 0);
+	__REGISTER double c1_1 = *(C + 1*N + 1);
+	__REGISTER double c1_2 = *(C + 1*N + 2);
+	__REGISTER double c1_3 = *(C + 1*N + 3);
+	__REGISTER double c2_0 = *(C + 2*N + 0);
+	__REGISTER double c2_1 = *(C + 2*N + 1);
+	__REGISTER double c2_2 = *(C + 2*N + 2);
+	__REGISTER double c2_3 = *(C + 2*N + 3);
+	__REGISTER double c3_0 = *(C + 3*N + 0);
+	__REGISTER double c3_1 = *(C + 3*N + 1);
+	__REGISTER double c3_2 = *(C + 3*N + 2);
+	__REGISTER double c3_3 = *(C + 3*N + 3);
 
 	c0_0 += A0_0 * B0_0;
 	c0_0 += A0_1 * B1_0;

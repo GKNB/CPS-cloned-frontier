@@ -84,11 +84,16 @@ class fMatrix{
 public:
   fMatrix(): rows(0),cols(0),fsize(0),tt(NULL){ }
 
-  fMatrix(const int &_rows, const int &_cols): rows(0), cols(0), fsize(0),tt(NULL){ 
+  fMatrix(const int _rows, const int _cols): rows(0), cols(0), fsize(0),tt(NULL){ 
     alloc_matrix(_rows,_cols);
   }
   fMatrix(const fMatrix<mf_Complex> &r): rows(0), cols(0), fsize(0),tt(NULL){
     alloc_matrix(r.rows,r.cols,r.tt);
+  }
+
+  fMatrix(fMatrix<mf_Complex> &&r): rows(r.rows), cols(r.cols), fsize(r.fsize),tt(r.tt){
+    r.tt = nullptr;
+    r.fsize = r.rows = r.cols = 0;
   }
   
   mf_Complex *ptr(){ return tt;}
@@ -101,6 +106,37 @@ public:
   fMatrix & operator*=(const typename mf_Complex::value_type &r){ for(int i=0;i<fsize*2;i++) ((typename mf_Complex::value_type*)tt)[i] *= r;  return *this; }
 
   fMatrix & operator+=(const fMatrix<mf_Complex> &r){ for(int i=0;i<fsize;i++) tt[i] += r.tt[i];  return *this; }
+
+  bool equals(const fMatrix<mf_Complex> &r, double tol = 1e-10){
+    if(this->nRows() != r.nRows()) return false;
+    if(this->nCols() != r.nCols()) return false;
+    for(int i=0;i<this->nRows();i++){
+      for(int j=0;j<this->nCols();j++){
+	const mf_Complex &aa = (*this)(i,j);
+	const mf_Complex &bb = r(i,j);	
+	if(fabs(aa.real() - bb.real()) > tol)
+	  return false;
+	if(fabs(aa.imag() - bb.imag()) > tol)
+	  return false;
+      }
+    }
+    return true;
+  }
+  
+  fMatrix operator*(const fMatrix<mf_Complex> &r) const{
+    assert(this->nCols() == r.nRows());
+    fMatrix<mf_Complex> out(this->nRows(), r.nCols());
+    out.zero();
+    
+    for(int i=0;i<this->nRows();i++){
+      for(int j=0;j<r.nCols();j++){
+	for(int k=0;k<this->nCols();k++){
+	  out(i,j) += (*this)(i,k) * r(k,j);
+	}
+      }
+    }
+    return out;
+  }
   
   inline const mf_Complex & operator()(const int i, const int j) const{ return tt[j + cols*i]; }
   inline mf_Complex & operator()(const int i, const int j){ return tt[j + cols*i]; }

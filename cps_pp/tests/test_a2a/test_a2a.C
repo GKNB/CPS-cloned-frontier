@@ -147,6 +147,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
 
+#if 0
   if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
   if(0) testAutoView();
   if(0) testViewArray();
@@ -160,9 +161,17 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testCPSspinColorMatrix();
 
   if(0) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
+#endif
+  
+#ifdef USE_GRID
+#ifdef GRID_SYCL
+  if(1) testOneMKLwrapper();
+#endif
+#endif
+  
+  if(1) testMFmult<A2Apolicies_std>(a2a_arg,tol);
 
-  if(0) testMFmult<A2Apolicies_std>(a2a_arg,tol);
-
+#if 0
   if(0) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
 
   
@@ -195,17 +204,17 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 #ifdef USE_GRID
   if(0) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
-  if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
+  if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
 
-  if(1) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
-  if(1) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
+  if(0) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-  if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 #endif
 
   if(0) testModeMappingTranspose(a2a_arg);
@@ -223,12 +232,16 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
 #endif
 
+#endif
+  
 }
 
 
 
 
 void testPeriodic(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_arg, LancArg &lanc_arg, int ntests, int nthreads, double tol){
+#if 0
+  
   //Setup types
   typedef A2ApoliciesSIMDdoubleAutoAlloc A2Apolicies_grid;
   typedef A2ApoliciesDoubleAutoAlloc A2Apolicies_std; 
@@ -296,6 +309,8 @@ void testPeriodic(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge
 #ifdef USE_GRID
   if(0) testvMvGridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testVVgridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+#endif
+
 #endif
 }
 
