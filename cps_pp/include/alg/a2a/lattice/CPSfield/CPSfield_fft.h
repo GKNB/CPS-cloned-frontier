@@ -145,6 +145,7 @@ struct fft_opt_mu_timings{
 
 #include "implementation/CPSfield_dofft_fftw.tcc"
 #include "implementation/CPSfield_dofft_cufft.tcc"
+#include "implementation/CPSfield_dofft_onemkl.tcc"
 
 template<typename CPSfieldType>
 void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, const std::vector<int> &node_map, const bool inverse_transform,
@@ -261,6 +262,8 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 
 #ifdef GRID_CUDA
   CPSfield_do_fft_cufft<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf, bufsz);
+#elif defined(GRID_SYCL)
+  CPSfield_do_fft_onemkl<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf, bufsz);
 #else //GRID_CUDA
   CPSfield_do_fft_fftw<FloatType>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf);
 #endif //!GRID_CUDA
@@ -330,6 +333,7 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, grid_vector_complex_mark>::value, const int>::type = 0
 	     ){ //we can avoid the copies below but with some effort - do at some point
 # ifndef USE_MPI
+#error "Not using MPI"
   fft(into,from,do_dirs,inverse_transform);
 # else
   //if(!UniqueID()) printf("fft_opt converting Grid SIMD field to scalar field\n");

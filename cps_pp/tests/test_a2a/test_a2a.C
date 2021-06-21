@@ -147,7 +147,6 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
 
-#if 0
   if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
   if(0) testAutoView();
   if(0) testViewArray();
@@ -161,17 +160,15 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testCPSspinColorMatrix();
 
   if(0) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
-#endif
   
 #ifdef USE_GRID
 #ifdef GRID_SYCL
-  if(1) testOneMKLwrapper();
+  if(0) testOneMKLwrapper();
 #endif
 #endif
   
-  if(1) testMFmult<A2Apolicies_std>(a2a_arg,tol);
+  if(0) testMFmult<A2Apolicies_std>(a2a_arg,tol);
 
-#if 0
   if(0) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
 
   
@@ -223,15 +220,13 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
 #endif
 
-  if(0) testFFTopt<A2Apolicies_std>();
+  if(1) testFFTopt<A2Apolicies_std>();
 #ifdef USE_GRID
-  if(0) testFFTopt<A2Apolicies_grid>();
+  if(1) testFFTopt<A2Apolicies_grid>();
 #endif
 
 #ifdef USE_GRID
   if(0) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
-#endif
-
 #endif
   
 }
