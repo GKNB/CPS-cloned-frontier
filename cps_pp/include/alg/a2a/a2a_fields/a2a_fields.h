@@ -81,12 +81,14 @@ public:
   inline FermionFieldType & getVh(const int ih){ return *v[nl+ih]; }
   inline const FermionFieldType & getVh(const int ih) const{ return *v[nl+ih]; }
 
-  //Get a particular site/spin/color element of a given mode 
+  //Get a particular site/spin/color element of a given mode
+  //Note: x3d is the local (on-node) 3d site and t is the local time
   inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
     int x4d = v[mode]->threeToFour(x3d,t);
     return  *(v[mode]->site_ptr(x4d,flavor) + spin_color);
   }
   //Get a particular site/spin/color element of a given *native* (packed) mode. For V this does the same as the above
+  //Note: site is the local 4d site offset
   inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
     return *(v[i]->site_ptr(site,flavor)+spin_color);
   }
@@ -193,6 +195,11 @@ public:
     return *(v[i]->site_ptr(site,flavor)+spin_color);
   }
 
+  //Create a regular fermion field for a given full mode by unpacking the dilution
+  void unpackMode(FermionFieldType &into, const int mode) const{
+    into = getMode(mode);
+  }
+  
   class View: public StandardIndexDilution{
     typename CPSfieldArray<FermionFieldType>::View av;
   public:
@@ -423,6 +430,10 @@ public:
 };
 
 
+//General w_FFT^(i)_{sc,f}(p,t) = \rho^(i_sc,i_h)_{sc}(p) \delta_{t,i_t} \delta_{f,i_f}
+//Only non-zero elements are    w_FFT^(i)_{sc,i_f}(p,i_t) = w_FFT^(i_sc,i_h,i_f,i_t)_{sc,i_f}(p,i_t)
+//Utilize fermion field's flavor and time coordinates for i_f, i_t  leaving only i_sc, i_h to index the new fields
+//Store in packed format:   i'=(i_sc,i_h)   t'=i_t f'=i_f    w'_FFT^(i')_{sc,f'}(p,t') = w_FFT^(i'_sc,i'_h,f',t')_{sc,f'}(p,t')
 template< typename mf_Policies>
 class A2AvectorWfftw: public TimeFlavorPackedIndexDilution, public mf_Policies::A2AvectorWfftwPolicies{
 public:
@@ -517,6 +528,37 @@ public:
       *(wh[i-nl]->site_ptr(site,flavor)+spin_color); //spin_color index diluted out.
   }
 
+  //Create a regular fermion field for a given full mode by unpacking the dilution
+  void unpackMode(FermionFieldType &into, const int mode) const{
+    if(mode < nl){
+      into = getWl(mode);
+    }else{
+      //Data is a delta function in time-block, hit and flavor but not in spin_color     
+      into.zero();
+      
+      int mode_hit, mode_tblock, mode_spin_color,mode_flavor;
+      const StandardIndexDilution &dilfull = static_cast<StandardIndexDilution const&>(*this);
+      dilfull.indexUnmap(mode-nl,mode_hit,mode_tblock,mode_spin_color,mode_flavor);
+
+      const FermionFieldType &mode_packed = getWh(mode_hit,mode_spin_color);
+      size_t size_3d = mode_packed.nodeSites(0)*mode_packed.nodeSites(1)*mode_packed.nodeSites(2);
+      assert(mode_packed.nodeSites(3) == GJP.TnodeSites());
+
+      for(int t=0;t<GJP.TnodeSites();t++){
+	int tblock = (t+GJP.TnodeSites()*GJP.TnodeCoor())/args.src_width;
+	if(tblock != mode_tblock) continue;
+
+#pragma omp parallel for
+	for(size_t x3d=0;x3d<size_3d;x3d++){
+	  size_t x4d = mode_packed.threeToFour(x3d,t);
+	  FieldSiteType const* from_data = mode_packed.site_ptr(x4d,mode_flavor);
+	  FieldSiteType *to_data = into.site_ptr(x4d,mode_flavor);
+	  memcpy(to_data,from_data,12*sizeof(FieldSiteType));
+	}
+      }
+    }
+  }
+  
   class View: public TimeFlavorPackedIndexDilution{
     typename CPSfieldArray<FermionFieldType>::View awl;
     typename CPSfieldArray<FermionFieldType>::View awh;
@@ -588,15 +630,13 @@ public:
     for(int i=0;i<nl;i++) wl[i]->testRandom(hi,lo);
     for(int i=0;i<12*nhits;i++) wh[i]->testRandom(hi,lo);
   }
-
+ 
   //BELOW are for use by the meson field
-  //Meson field W-type indices are described in terms of the timePacked dilution index , where flavor has been diluted out in the process of computing the meson fields
-  //Wfftw is packed in flavor, such that each packed 2f high mode field contains the data for 2 actual high modes
-  //This method performs the flavor dilution 'in-place' (i.e. without actually unpacking into another object). 
-  //'site' is a local canonical-ordered, packed four-vector
-  //i_high_unmapped is the index i unmapped to its high mode sub-indices (if it is a high mode of course!)
-
+  //For high modes it returns   wFFTP^(j_h,j_sc)_{sc',f'}(p,t) \delta_{f',j_f}   [cf a2a_dilutions.h]
+  //i is only used for low mode indices. If i>=nl  the appropriate data is picked using i_high_unmapped
+  //t is the local time
   inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
+    if(i >= nl) assert(i_high_unmapped.hit != -1 && i_high_unmapped.flavor != -1 && i_high_unmapped.spin_color != -1);
     const FermionFieldType &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
     bool zero_hint[2] = {false,false};
     if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;

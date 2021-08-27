@@ -36,70 +36,75 @@ FullyPackedIndexDilution -        packed: spin_color, flavor, time    diluted: (
 *************
 Vectors of fields
 *************
-Let us now consider a more complex object, a vector of nf*Lt (flavor) fields v^(f',t')_{f}(x,t)
-where the superscript in parentheses indexes the fields
+Let us now consider a more complex object, a vector of nf*Lt (flavor) fields indexed by i=(i_f,i_t)   where the parentheses indicates i is a lexicographic combination
+of i_f (flavor) and i_t (time)
+
+v^(i)_{f}(x,t)    where the free indices are the set (i_f,i_t,x,f,t)
 
 If v satisfies the following form:
 
-v^(f',t')_{f}(x,t) = c^(f',t')_f(x) \delta{t', t}
+v^(i)_{f}(x,t) = c^(i_f,i_t)_f(x) \delta{t,i_t}
 
-the only information we are required to store are  c^(f',t')_f(x), again reducing the memory requirement by  a factor of Lt
+the non-zero entries can be described entirely by the set of free indices (i_f,i_t,x,f). Thus we can reduce storage space by a factor of Lt by defining a new object
 
-Note that rather than reducing the dimension of the fields, for convenience we will instead reduce the *number of fields*
-as follows:
+A^(i_f,i_t)_f(x) = c^(i_f,i_t)_f(x)
 
-w^(f')_{f}(x,t') = c^(f',t')_f(x)
+which is an array of nf*Lt  3D fields.
 
-where t' is now the time coordinate of the fields. Thus for vectors of fields, the superscript becomes a packed index.
+However for convenience of storage on a distributed system we can choose to rearrange this data into an array of  nf  *4D* fields thus:
+
+B^(i_f)_f(x,t) = c^(i_f,t)_f(x)
 
 In this library we will typically combine the multi-dimensional superscript indices lexicographically 
-A compound index for a fully unpacked vector coordinate is referred to as a "full" or perhaps "unpacked" index
+A compound index for a fully unpacked vector coordinate (i_h,i_sc,i_f,i_t) is referred to as a "full" or perhaps "unpacked" index
 A compound index corresponding to a coordinate of a packed vector is referred to as a "packed" index
 
 **************
-V and W vectors
+W vector
 **************
 We use these packing strategies to reduce the number of "high mode" fields that need to be stored for the A2A vectors.
 
 Start with the W-vector high mode fields,   w^(i)_j(x)
 Here the superscript (i) is the high mode index,  j is the spin/color/flavor index and x the space/time index of the field element
 
-The superscript high-mode index implicitly contains the index of the non-zero row for each dimension, the equivalent of t' in our flavor-time example above
+We have
+w^(i)_{sc,f}(x,t) = \eta^{i_h}(x) \delta_{i_f,f}\delta_{i_sc, sc}\delta_{i_t, t}
 
-Let the indices 'unmap' as follows (i) -> (i_sc, i_f, i_t, i_h)   and   j -> {j_sc, j_f}   x->{x_3d, x_t}     where 'sc'=spin_color,  'f'=flavor,  't'=time   'h'=hit
+where \eta^{i_h}(x) is a 3d complex field. While not strictly necessary, for convenience we use a different 3d complex field for each i_t and i_f, thus in practise
 
-This library assumes full dilution, i.e. that the high modes are delta functions in all indices (although the "time block" size can be changed to Lt to dynamically remove the time dilution).
+w^(i)_{sc,f}(x,t) = \eta^{i_h,i_f,i_t}(x) \delta_{i_f,f}\delta_{i_sc, sc}\delta_{i_t, t}
 
-Thus:
-w^(i)_j(x) = \eta^{i_h}(x_3d) \delta_{i_f,j_f}\delta_{i_sc, j_sc}\delta_{i_t, x_t}
+The non-zero elements are described entirely by the index set  (i_h,i_f,i_t,x)   [note the same fields are used for each sc]
 
-where \eta^{i_h}(x_3d) is a 3d complex field
+We map the non-zero elements to an array of 4D flavored complex fields
 
-Thus we need only store n_hit 3d complex fields \eta^{i_h}(x_3d)  to reconstruct this entire massive object, which we store as above as 4d fields
+wP^(i_h)_f(x,t) = \eta^{i_h,f,t}(x)
 
-w'^(i_h)(x_3d, i_t) =  \eta^{i_h}(x_3d)
+where the array index is a FullyPackedIndexDilution
 
-The packed index is just the hit index, therefore the "dilution" strategy is FullyPackedIndexDilution
+***************
+W_FFT vector
+***************
 
-Note that this object has no spin,color or flavor indices; it is just a complex field. 
+For W_FFT we have to apply the gauge fixing matrix V, hence removing the delta function in spin-color (for convenience we continue to treat these as a single index)
 
-Note also that in principle this results in a copy of the same complex field on each timeslice. However for convenience in implementation 
-we actually allow \eta to vary between timeslices (and also between flavors)
+wFFT^(i)_{sc,f}(p,t) = FFT[  \eta^(i_h,i_f,i_t)(x) \delta_{i_f,f} V_{sc,i_sc}(x,t)\delta_{i_t, t}  ]
+                     = \rho^(i_h,i_f,i_t,i_sc)_sc(p,t) \delta_{i_f,f}\delta_{i_t, t}
+                     = \rho^(i_h,i_f,i_t,i_sc)_sc(p,i_t) \delta_{i_f,f}\delta_{i_t, t}
 
+where \phi are 4D unflavored fermion fields
 
+The non-zero elements are described entirely by the set  (i_h,i_f,i_t,i_sc,p,sc). We map these to an array of 4D *flavored* fermion fields as
+
+wFFTP^(i_h,i_sc)_{sc,f} (p,t) = \rho^(i_h,f,t,i_sc)_sc(p,t)
+
+where the array index is a TimeFlavorPackedIndexDilution
+
+****************
+V and V_FFT vector
+*******************
 
 The V-vector high mode fields are solution vectors and therefore do not have a delta-function structure. Therefore both V and Vfftw are indexed as StandardIndexDilution 
-
-Finally when constructing the Wfftw fields we must first unpack the spin_color index and multiply by the gauge-fixing matrices prior to performing the FFT. Thus 
-
-w_FFT^(i)_{sc,f}(p,t) = \rho^(i_sc,i_h)_{sc}(p) \delta_{t,i_t} \delta_{f,i_f}
-
-which can be stored as
-
-w_FFT'^(i_sc,i_h)_{sc}(p,i_t) = \rho^(i_sc,i_h)_{sc}(p)
-
-where the superscript has TimeFlavorPackedIndexDilution.  Again in implementation we make a rho also a function of i_t (and i_f)
-
 
 **************
 Meson fields
@@ -108,16 +113,22 @@ Meson fields
 Meson fields are matrices formed (in the typical case) as
 
 M^(i,j)(t) = \sum_{p,sc,f,sc',f'} v_FFT^(i)_{sc,f}(p,t) F_{sc,f; sc', f'}(p)  w_FFT^\dagger (j)_{sc',f'}(p,t)   for some 3d spin-color-flavor matrix field  F_{sc,f; sc', f'}(p)
-           = \sum_{p,sc,f,sc',f'} v_FFT^(i)_{sc,f}(p,t) F_{sc,f; sc', f'}(p)  \rho^(j_sc,j_h)_{sc'}(p) \delta_{t,j_t} \delta_{f',j_f}
-           = \sum_{p,sc,f,sc'} v_FFT^(i)_{sc,f}(p,t) F_{sc,f; sc', j_f}(p) \rho^(j_sc,j_h)_{sc'}(p)  \delta_{t,j_t}
+           = \sum_{p,sc,f,sc',f'} v_FFT^(i)_{sc,f}(p,t) F_{sc,f; sc', f'}(p)  \rho^\dagger(j_h,j_f,j_t,j_sc)_sc'(p,j_t) \delta_{j_f,f'}\delta_{j_t, t}
+           = \sum_{p,sc,f,sc'} v_FFT^(i)_{sc,f}(p,t) F_{sc,f; sc', j_f}(p)  \rho^\dagger(j_h,j_f,j_t,j_sc)_sc'(p,j_t) \delta_{j_t, t}
+          
+where the indices of the result are (i,j,t)
 
-The non-zero terms have t==j_t hence we can store all the non-zero matrix elements in a compact form
+The non-zero terms have t==j_t and so are described by the index set (i, j), a single field. However we choose to maintain the meson fields as an array in time by packing as follows
 
-M'^(i, j_sc,j_h)(j_t) = \sum_{p,sc,f,sc'} v_FFT^(i)_{sc,f}(p,t) F_{sc,f; sc', j_f}(p) \rho^(j_sc,j_h)_{sc'}(p)
-                      = \sum_{p,sc,f,sc'} v_FFT^(i)_{sc,f}(p,t) F_{sc,f; sc', j_f}(p) w_FFT'^(j_sc,j_h)_{sc}(p,j_t)
+MP^(i, (j_h,j_sc,j_f))(t) = M^(i, (j_h,j_sc,j_f,t))(t)
 
-we see that by storing the meson fields and w_FFT as specified above, we can in practise largely forget about the fact that the indices are compressed
+where the right index of the packed meson field is a TimePackIndexDilution
 
+Note
+MP^(i, (j_h,j_sc,j_f))(t) = \sum_{p,sc,f,sc'} v_FFT^(i)_{sc,f}(p,t) F_{sc,f; sc', j_f}(p)  \rho^\dagger(j_h,j_f,t,j_sc)_sc'(p,t)
+                          = \sum_{p,sc,f,sc'} v_FFT^(i)_{sc,f}(p,t) F_{sc,f; sc', j_f}(p)  wFFTP^\dagger(j_h,j_sc)_{sc',j_f}(p,t)
+			  = \sum_{p,sc,f,sc',f'} v_FFT^(i)_{sc,f}(p,t) F_{sc,f; sc', f'}(p)  wFFTP^\dagger(j_h,j_sc)_{sc',f'}(p,t) \delta_{f',j_f}
+which looks like an ordinary contraction 
 
 ----------------------------------------------------------------------------------------------------------------------------------
 

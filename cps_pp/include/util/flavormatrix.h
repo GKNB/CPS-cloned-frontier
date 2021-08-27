@@ -69,6 +69,12 @@ public:
 	fmat[i][j] = 0.0;
   }
 
+  accelerator_inline void unit(){
+    for(int i = 0 ; i < 2; i++)
+      for(int j = 0 ; j < 2; j++)
+	fmat[i][j] = i==j ? 1.0 : 0.0;
+  }
+
   accelerator_inline FlavorMatrixGeneral<T>& operator=(const FlavorMatrixGeneral<T> &from){
     for(int i = 0 ; i < 2; i++)
       for(int j = 0 ; j < 2; j++)

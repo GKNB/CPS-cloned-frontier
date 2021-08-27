@@ -476,8 +476,9 @@ class GparityNoSourceInnerProduct: public SpinColorContractPolicy{
     FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr; //scalar on GPU, vector otherwise
     this->spinColorContract(lMr,l,r);
     
-    //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
+    //Compute   lMr[f1,f3] sigma[f1,f3]  =   lMr^T[f3,f1] sigma[f1,f3]
     FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
+    phi.unit();
     phi.pl(sigma);
 
     //Do the sum over the SIMD vectorized sites

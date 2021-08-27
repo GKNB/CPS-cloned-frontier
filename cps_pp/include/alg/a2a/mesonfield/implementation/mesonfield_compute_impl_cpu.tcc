@@ -62,6 +62,104 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
   print_time("A2AmesonField","nodeSum",time + dclock());
 }
 
+
+
+
+//A reference implementation of the single timeslice meson field computation using unpacked data structures for testing
+template<typename ComplexType, typename FermionFieldType, typename InnerProduct>
+void compute_simple(fMatrix<ComplexType> &into, const std::vector<FermionFieldType> &l, const InnerProduct &M, const std::vector<FermionFieldType> &r, const int t){
+  int nv = l.size(); assert(r.size() == nv);
+  into.resize(nv,nv);
+  
+  if(!UniqueID()) printf("Starting simple unpacked meson field compute for timeslice %d with %d threads\n",t, omp_get_max_threads());
+
+  const FermionFieldType &mode0 = l[0];
+  const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+  if(mode0.nodeSites(3) != GJP.TnodeSites()) ERR.General("","compute_simple","Not implemented for fields where node time dimension != GJP.TnodeSites()\n");
+
+  int nf = GJP.Gparity() + 1;
+  
+  int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+  if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
+
+#pragma omp parallel for
+    for(int i = 0; i < nv; i++){
+      for(int j = 0; j < nv; j++) {
+	ComplexType &into_ij = into(i,j);
+	into_ij = 0.;
+	
+	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
+	  size_t x4d = mode0.threeToFour(p_3d,t_lcl);
+	  SCFvectorPtr<ComplexType> lscf(l[i].site_ptr(x4d,0), nf==1 ? NULL : l[i].site_ptr(x4d,1),false,false);
+	  SCFvectorPtr<ComplexType> rscf(r[j].site_ptr(x4d,0), nf==1 ? NULL : r[j].site_ptr(x4d,1),false,false);
+	  
+	  M(into_ij,lscf,rscf,p_3d,t);
+	}
+      }
+    }
+  }
+  sync();
+  into.nodeSum();
+}
+
+
+
+
+
+//A reference implementation of the single timeslice meson field computation using the packed data structures for testing
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct>
+void compute_simple(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, const int t){
+  into.setup(l,r,t,t); //both vectors have same timeslice
+  
+  if(!UniqueID()) printf("Starting simple meson field compute for timeslice %d with %d threads\n",t, omp_get_max_threads());
+
+  typedef typename mf_Policies::FermionFieldType::FieldSiteType ComplexType;
+  
+  const typename mf_Policies::FermionFieldType &mode0 = l.getMode(0);
+  const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+  if(mode0.nodeSites(3) != GJP.TnodeSites()) ERR.General("","compute_simple","Not implemented for fields where node time dimension != GJP.TnodeSites()\n");
+
+  int nv = l.getNv(); assert(r.getNv() == nv);
+  int nf = l.getNflavors();
+  
+  int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+  if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
+
+#pragma omp parallel for
+    for(int i = 0; i < nv; i++){
+      typename mf_Policies::ComplexType mf_accum;
+
+      for(int j = 0; j < nv; j++) {
+
+	typename mf_Policies::ScalarComplexType *into_ij = into.elem_ptr(i,j); //will be null for implicitly zero elements
+	if(into_ij != NULL){	
+	  mf_accum = 0.;
+	  
+	  for(int p_3d = 0; p_3d < size_3d; p_3d++) {
+	    ComplexType ll[nf*12], rr[nf*12];
+	    for(int f=0;f<nf;f++){
+	      for(int sc=0;sc<12;sc++){
+		ll[sc + 12*f] = l.elem(i,p_3d,t_lcl,sc,f);
+		rr[sc + 12*f] = r.elem(j,p_3d,t_lcl,sc,f);
+	      }
+	    }
+	    SCFvectorPtr<ComplexType> lscf(ll,nf==1 ? NULL : (ll+12),false,false);
+	    SCFvectorPtr<ComplexType> rscf(rr,nf==1 ? NULL : (rr+12),false,false);
+	    M(mf_accum,lscf,rscf,p_3d,t);
+	  }
+	  *into_ij = mf_accum; //reduce?
+	}
+      }
+    }
+  }
+  sync();
+  into.nodeSum();
+}
+
+
+
+
+
 template<typename T>
 struct InPlaceMatrixSingle{
   char* p;
@@ -433,7 +531,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
     this->setupPolicy(mf_t,l,M,r);
     
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    if(!UniqueID()) printf("Starting A2AmesonField::compute (blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
+    if(!UniqueID()) printf("Starting A2AmesonField::compute (CPU,blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
 #ifdef KNL_OPTIMIZATIONS
     if(!UniqueID()) printf("Using KNL optimizations\n");
 #else

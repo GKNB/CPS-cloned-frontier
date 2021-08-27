@@ -70,8 +70,8 @@ auto unop_v(const CPSmatrixField<T> &in, const Functor &l)-> CPSmatrixField<type
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
   CPSmatrixField<typename Functor::OutputType> out(in.getDimPolParams());
-  auto ov(out.view());
-  auto iv(in.view());
+  auto ov = out.view();
+  auto iv = in.view();
   accelerator_for(x4d, iv.size(), nsimd,
 		    {
 		      int lane = Grid::acceleratorSIMTlane(nsimd);
@@ -313,8 +313,8 @@ auto binop_v(const CPSmatrixField<T> &a, const CPSmatrixField<T> &b, const Funct
   assert(a.size() == b.size());
   constexpr int nsimd = getScalarType<T, typename MatrixTypeClassify<T>::type>::type::Nsimd();
   CPSmatrixField<typename Functor::OutputType> out(a.getDimPolParams());
-  auto ov(out.view());
-  auto av(a.view()), bv(b.view());
+  auto ov = out.view();
+  auto av = a.view(), bv = b.view();
   
   accelerator_for(x4d, av.size(), nsimd,
 		    {
@@ -397,7 +397,7 @@ template<typename T, typename Functor>
 CPSmatrixField<T> & unop_self_v(CPSmatrixField<T> &m, const Functor &l){
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
-  auto mv(m.view());
+  auto mv = m.view();
   accelerator_for(x4d, m.size(), nsimd,
 		    {
 		      int lane = Grid::acceleratorSIMTlane(nsimd);
@@ -655,8 +655,8 @@ CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixFiel
 #endif  
 
   static const int nsimd = VectorMatrixType::scalar_type::Nsimd();
-  auto av(a.view());
-  auto ov(out.view());
+  auto av = a.view();
+  auto ov = out.view();
   accelerator_for(x4d, a.size(), nsimd,
   		  {
 		    int lane = Grid::acceleratorSIMTlane(nsimd);
@@ -704,7 +704,7 @@ VectorMatrixType localNodeSum(const CPSmatrixField<VectorMatrixType> &a){
 
   ScalarType *into = tmp;
 
-  auto av(a.view());
+  auto av = a.view();
   accelerator_for(offset, nscalar * field_size/2, nsimd,
 		  {
 		    typedef SIMT<ScalarType> ACC;
@@ -826,7 +826,7 @@ ManagedVector<VectorMatrixType> localNodeSpatialSum(const CPSmatrixField<VectorM
 
   ScalarType *into = tmp;
 
-  auto av(a.view());
+  auto av = a.view();
   accelerator_for(offset, nscalar * Lt_loc * field_size_3d/2, nsimd,
 		  {
 		    typedef SIMT<ScalarType> ACC;
@@ -907,8 +907,8 @@ auto unop(const CPSmatrixField<T> &in, const Lambda &l)-> CPSmatrixField<typenam
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
   CPSmatrixField<outMatrixType> out(in.getDimPolParams());
-  auto ov(out.view());
-  auto iv(in.view());
+  auto ov = out.view();
+  auto iv = in.view();
   accelerator_for(x4d, in.size(), nsimd,
 		    {
 		      typedef SIMT<T> ACCr;
@@ -928,9 +928,9 @@ auto binop(const CPSmatrixField<T> &a, const CPSmatrixField<U> &b, const Lambda 
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
   CPSmatrixField<outMatrixType> out(a.getDimPolParams());
-  auto ov(out.view());
-  auto av(a.view());
-  auto bv(b.view());
+  auto ov = out.view();
+  auto av = a.view();
+  auto bv = b.view();
   
   accelerator_for(x4d, av.size(), nsimd,
 		    {

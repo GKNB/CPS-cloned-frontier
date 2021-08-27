@@ -152,6 +152,11 @@ public:
     }    
  
     accelerator_inline size_t flav_offset() const{ return SiteSize*this->fsiteFlavorOffset(); } //pointer offset between flavors
+
+    accelerator_inline std::size_t byte_size() const{
+      return this->nfsites() * SiteSize * sizeof(SiteType);
+    }
+
   };
 
   //Return a view object for use on the accelerator

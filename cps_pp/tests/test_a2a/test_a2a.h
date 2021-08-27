@@ -21,7 +21,6 @@ bool equals(const fMatrix<cps::ComplexD> &l, const oneMKLmatrix<cps::ComplexD> &
   return true;
 }
 
-
 void testOneMKLwrapper(){
   std::cout << "Testing oneMKLwrapper" << std::endl; 
    
@@ -247,32 +246,305 @@ void testCPSspinColorMatrix(){
   std::cout << "Passed CPSspinColorMatrix tests" << std::endl;
 }
 
-//This test will ensure the scalar version of the general (multi-timeslice) optimized MF compute gives the same result as the basic, single timeslice CPU implementation
-template<typename A2Apolicies_std>
-void testMesonFieldCompute(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A2Apolicies_std> &W_std,
-			   const A2AArg &a2a_args, typename A2Apolicies_std::FgridGFclass &lattice,double tol){
 
+template<typename T>
+bool equals(const FlavorMatrixGeneral<T> &l, const FlavorMatrixGeneral<T> &r, double tol = 1e-10){
+  for(int i=0;i<2;i++){
+    for(int j=0;j<2;j++){
+      const T &aa = l(i,j);
+      const T &bb = r(i,j);	
+      if(fabs(aa.real() - bb.real()) > tol)
+	return false;
+      if(fabs(aa.imag() - bb.imag()) > tol)
+	return false;
+    }
+  }
+  return true;
+}
+
+
+//Test the spin-color contraction with specific spin structure producting a flavor matrix for MF computation
+template<typename A2Apolicies_std>
+void testFlavorMatrixSCcontractStd(double tol){
+  std::cout << "Testing flavormatrix spin color contraction" << std::endl;
+  typedef typename A2Apolicies_std::ScalarComplexType T;
+  typedef flavorMatrixSpinColorContract<15,true,false> conj_g5;
+  FlavorMatrixGeneral<T> out, expect;
+  T lf0[12], lf1[12], rf0[12], rf1[12];
+  for(int i=0;i<12;i++){
+    _testRandom<T>::rand(lf0,12,0.5,-0.5);
+    _testRandom<T>::rand(lf1,12,0.5,-0.5);
+    _testRandom<T>::rand(rf0,12,0.5,-0.5);
+    _testRandom<T>::rand(rf1,12,0.5,-0.5);
+  }
+  SCFvectorPtr<T> l(lf0,lf1,false,false), r(rf0,rf1,false,false);
+  assert(l.getPtr(0)==lf0);
+  assert(l.getPtr(1)==lf1);
+  assert(l.isZero(0)==false);
+  assert(l.isZero(1)==false);
+  
+  conj_g5::spinColorContract(out, l, r);
+
+  //out(f1,f2) = \sum_c \sum_{s1,s2} l*(s1,c,f1) g5(s1,s2) r(s2,c,f2)
+  CPSspinMatrix<T> g5; g5.unit(); g5.gl(-5);
+  for(int f1=0;f1<2;f1++){
+    for(int f2=0;f2<2;f2++){
+      expect(f1,f2) = 0;
+      for(int c=0;c<3;c++){
+	for(int s1=0;s1<4;s1++){
+	  for(int s2=0;s2<4;s2++){
+	    expect(f1,f2) += conj(l(s1,c,f1))*g5(s1,s2)*r(s2,c,f2);
+	  }
+	}
+      }
+    }
+  }
+
+  assert(equals(out,expect,tol));
+  
+  std::cout << "Flavormatrix spin color contraction test passed" << std::endl;
+}
+	  
+template<typename A2Apolicies_std>
+void testGparityInnerProduct(double tol){
+  std::cout << "Testing Gparity inner product" << std::endl;
+  typedef typename A2Apolicies_std::ComplexType T;
+  typedef flavorMatrixSpinColorContract<15,true,false> conj_g5;
+  typedef GparityNoSourceInnerProduct<T, conj_g5> InnerProductType;
+  InnerProductType inner(sigma3);
+
+  T expect=0, out=0;
+  
+  T lf0[12], lf1[12], rf0[12], rf1[12];
+  for(int i=0;i<12;i++){
+    _testRandom<T>::rand(lf0,12,0.5,-0.5);
+    _testRandom<T>::rand(lf1,12,0.5,-0.5);
+    _testRandom<T>::rand(rf0,12,0.5,-0.5);
+    _testRandom<T>::rand(rf1,12,0.5,-0.5);
+  }
+  SCFvectorPtr<T> l(lf0,lf1,false,false), r(rf0,rf1,false,false);
+
+  //Compute   (l g5 r)[f1,f3] sigma[f1,f3]  =   (l g5 r)^T[f3,f1] sigma[f1,f3]
+  //(l g5 r)(f1,f2) = \sum_c \sum_{s1,s2} l*(s1,c,f1) g5(s1,s2) r(s2,c,f2)
+  FlavorMatrixGeneral<T> lg5r;
+  CPSspinMatrix<T> g5; g5.unit(); g5.gl(-5);
+  for(int f1=0;f1<2;f1++){
+    for(int f2=0;f2<2;f2++){
+      lg5r(f1,f2) = 0;
+      for(int c=0;c<3;c++){
+	for(int s1=0;s1<4;s1++){
+	  for(int s2=0;s2<4;s2++){
+	    lg5r(f1,f2) += conj(l(s1,c,f1))*g5(s1,s2)*r(s2,c,f2);
+	  }
+	}
+      }
+    }
+  }
+
+  lg5r = lg5r.transpose();
+  FlavorMatrixGeneral<T> s3; s3.unit(); s3.pl(sigma3);
+  
+  FlavorMatrixGeneral<T> prod = lg5r*s3;
+  expect = prod.Trace();
+
+  inner(out,l,r,0,0);
+
+  std::cout << "Got (" << out.real() <<"," << out.imag() << ") expect (" << expect.real() <<"," << expect.imag() << ")  diff (" << out.real()-expect.real() << "," << out.imag()-expect.imag() << ")" << std::endl;
+  
+  assert( fabs(out.real() - expect.real()) < tol );
+  assert( fabs(out.imag() - expect.imag()) < tol );
+  std::cout << "Gparity inner product test passed" << std::endl;
+}
+
+
+//Test the getFlavorDilutedVect methods
+template<typename A2Apolicies_std>
+void testA2AfieldGetFlavorDilutedVect(const A2AArg &a2a_args, double tol){
+  assert(a2a_args.src_width == 1);
+  std::cout << "Running testA2AfieldGetFlavorDilutedVect" << std::endl;
+  assert(GJP.Gparity());
+  A2AvectorWfftw<A2Apolicies_std> Wf_p(a2a_args);
+  Wf_p.testRandom();
+  typedef typename A2Apolicies_std::FermionFieldType::FieldSiteType FieldSiteType;
+  typedef typename A2Apolicies_std::ComplexType ComplexType;
+
+  //wFFT^(i)_{sc,f}(p,t) = \rho^(i_h,i_f,i_t,i_sc)_sc(p,i_t) \delta_{i_f,f}\delta_{i_t, t}
+  //wFFTP^(i_h,i_sc)_{sc,f} (p,t) = \rho^(i_h,f,t,i_sc)_sc(p,t)
+  
+  //For high modes getFlavorDilutedVect returns   wFFTP^(j_h,j_sc)_{sc',f'}(p,t) \delta_{f',j_f}   [cf a2a_dilutions.h]
+  //i is only used for low mode indices. If i>=nl  the appropriate data is picked using i_high_unmapped
+  //t is the local time
+
+  int p3d=0;
+
+  TimePackedIndexDilution dil_tp(a2a_args);
+  StandardIndexDilution dil_full(a2a_args);
+  
+  int nl = Wf_p.getNl();
+  int nh = dil_tp.getNmodes() - nl;
+    
+  for(int tpmode=nl+1;tpmode<nl+nh;tpmode++){
+    std::cout << "Checking timepacked mode " << tpmode << std::endl;
+    //Unmap mode index
+    modeIndexSet u; dil_tp.indexUnmap(tpmode-nl,u);
+
+    //u should contain all indices but time
+    assert(u.spin_color != -1 && u.flavor != -1 && u.hit != -1 && u.time == -1);
+
+    for(int tlcl=0;tlcl<GJP.TnodeSites();tlcl++){
+      int tglb = tlcl+GJP.TnodeCoor()*GJP.TnodeSites();
+      std::cout << "Mode flavor is " << u.flavor << std::endl;
+      //Check it is a delta function flavor
+      //note the first arg, the mode index, is ignored for mode>=nl
+      SCFvectorPtr<FieldSiteType> ptr = Wf_p.getFlavorDilutedVect(nl, u, p3d, tlcl);
+
+      //Should be non-zero for the f = u.flavor
+      ComplexType const *dfa = ptr.getPtr(u.flavor);
+      ComplexType const *dfb = ptr.getPtr(!u.flavor);
+      
+      for(int sc=0;sc<12;sc++){
+	
+	std::cout << "For sc=" << sc << " t=" << tglb << "  f=" << u.flavor << " : (" << dfa->real() << "," << dfa->imag() << ") f=" << !u.flavor << " (" << dfb->real() << "," << dfb->imag() << ")" << std::endl; 
+    
+	assert(!ptr.isZero(u.flavor));
+	assert(dfa->real() != 0.0 && dfa->imag() != 0.0);    
+	assert(ptr.isZero(!u.flavor));
+	assert(dfb->real() == 0.0 && dfb->imag() == 0.0);    
+     
+	//Get elem directly
+	//We have  wFFTP^(j_h,j_sc)_{sc,f}(p,t) \delta_{f,j_f}
+	//         = \rho^(j_h,f,t,j_sc)_sc(p,t) \delta_{f,j_f}
+	//         = wFFT(j_h,f,t,j_sc)_{sc,f}(p,t) \delta_{f,j_f}
+	//Full mode (j_h,j_f,t,j_sc):
+	int full_mode = nl + dil_full.indexMap(u.hit, tglb, u.spin_color, u.flavor);
+
+	FieldSiteType ea = Wf_p.elem(full_mode, p3d, tlcl, sc, u.flavor);
+
+	std::cout << "Using elem function : (" << ea.real() << "," << ea.imag() << ")" << std::endl; 
+	
+	assert(*dfa == ea);
+	++dfa;
+	++dfb;
+      }
+    }
+    
+  }
+  std::cout << "testA2AfieldGetFlavorDilutedVect passed" << std::endl;
+}
+
+  
+
+
+//This test will test the reference implementation for packed data against expectation
+template<typename A2Apolicies_std>
+void testMesonFieldComputeReference(const A2AArg &a2a_args, double tol){
+
+  std::cout << "Starting test of reference implementation" << std::endl;
   typedef flavorMatrixSpinColorContract<15,true,false> SCconPol;
   typedef GparityNoSourceInnerProduct<typename A2Apolicies_std::ComplexType, SCconPol> InnerProductType;
   InnerProductType inner(sigma3);
 
-  ThreeMomentum pp(1,1,1);
-  A2AvectorWfftw<A2Apolicies_std> Wfftw_pp(a2a_args);
-  Wfftw_pp.gaugeFixTwistFFT(W_std,pp.ptr(),lattice);
+  A2AvectorWfftw<A2Apolicies_std> Wf_p(a2a_args);
+  A2AvectorVfftw<A2Apolicies_std> Vf_p(a2a_args);
+  Wf_p.testRandom();
+  Vf_p.testRandom();
 
+  //Build Wf and Vf as unpacked fields
+  typedef typename A2Apolicies_std::FermionFieldType FermionFieldType;
+  int nv = Wf_p.getNv();
+  std::vector<FermionFieldType> Wf_u(nv), Vf_u(nv);
+  for(int i=0;i<nv;i++){
+    Wf_p.unpackMode(Wf_u[i],i);
+    Vf_p.unpackMode(Vf_u[i],i);
+  }
+
+  typedef typename A2Apolicies_std::ScalarComplexType ScalarComplexType;
+
+  std::cout << "Computing MF using unpacked reference implementation" << std::endl;
+  fMatrix<ScalarComplexType> mf_u;
+  compute_simple(mf_u,Wf_u,inner,Vf_u,0);
+
+  typedef A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> MFtype;    
+  MFtype mf_p;
+  std::cout << "Computing MF using packed reference implementation" << std::endl;
+  compute_simple(mf_p,Wf_p,inner,Vf_p,0);
+
+  bool err = false;
+  for(int i=0;i<nv;i++){
+    for(int j=0;j<nv;j++){
+      const ScalarComplexType &elem_u = mf_u(i,j);
+      const ScalarComplexType &elem_p = mf_p.elem(i,j);
+      if( fabs(elem_u.real() - elem_p.real()) > tol || fabs(elem_u.imag() - elem_p.imag()) > tol){
+	std::cout << "Fail " << i << " " << j << " unpacked (" << elem_u.real() << "," << elem_u.imag() << ") packed (" << elem_p.real() << "," << elem_p.imag() << ") diff ("
+		  << elem_u.real()-elem_p.real() << "," << elem_u.imag()-elem_p.imag() << ")" << std::endl;
+	err = true;
+      }else{
+	//std::cout << "Success " << i << " " << j << " unpacked (" << elem_u.real() << "," << elem_u.imag() << ") packed (" << elem_p.real() << "," << elem_p.imag() << ") diff ("
+	//	  << elem_u.real()-elem_p.real() << "," << elem_u.imag()-elem_p.imag() << ")" << std::endl;
+      }	
+    }
+  }  
+  assert(err == false);
+
+  std::cout << "Passed testMesonFieldComputeSingleReference tests" << std::endl;
+}
+
+
+
+//This test will ensure the basic, single timeslice CPU implementation gives the same result as the reference implementation
+template<typename A2Apolicies_std>
+void testMesonFieldComputeSingleReference(const A2AArg &a2a_args, double tol){
+
+  std::cout << "Starting test of single timeslice CPU implementation vs reference implementation" << std::endl;
+  typedef flavorMatrixSpinColorContract<15,true,false> SCconPol;
+  typedef GparityNoSourceInnerProduct<typename A2Apolicies_std::ComplexType, SCconPol> InnerProductType;
+  InnerProductType inner(sigma3);
+
+  A2AvectorWfftw<A2Apolicies_std> Wfftw_pp(a2a_args);
   A2AvectorVfftw<A2Apolicies_std> Vfftw_pp(a2a_args);
-  Vfftw_pp.gaugeFixTwistFFT(V_std,pp.ptr(),lattice);
-  
+  Wfftw_pp.testRandom();
+  Vfftw_pp.testRandom();
+   
   typedef A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> MFtype;
   MFtype mf; //(W^dag V) mesonfield
+  std::cout << "Computing MF using single-timeslice implementation" << std::endl;
+  mf.compute(Wfftw_pp, inner, Vfftw_pp, 0);
+
+  MFtype mf_ref;
+  std::cout << "Computing MF using reference implementation" << std::endl;
+  compute_simple(mf_ref,Wfftw_pp,inner,Vfftw_pp,0);
+ 
+  assert(mf.equals(mf_ref, tol, true));
+
+  std::cout << "Passed testMesonFieldComputeSingleReference tests" << std::endl;
+}
+
+//This test will ensure the scalar version of the general (multi-timeslice) optimized MF compute gives the same result as the basic, single timeslice CPU implementation
+template<typename A2Apolicies_std>
+void testMesonFieldComputeSingleMulti(const A2AArg &a2a_args, double tol){
+
+  std::cout << "Starting test of multi-timeslice optimized MF compute vs basic single timeslice CPU implementation" << std::endl;
+  typedef flavorMatrixSpinColorContract<15,true,false> SCconPol;
+  typedef GparityNoSourceInnerProduct<typename A2Apolicies_std::ComplexType, SCconPol> InnerProductType;
+  InnerProductType inner(sigma3);
+
+  A2AvectorWfftw<A2Apolicies_std> Wfftw_pp(a2a_args);
+  A2AvectorVfftw<A2Apolicies_std> Vfftw_pp(a2a_args);
+  Wfftw_pp.testRandom();
+  Vfftw_pp.testRandom();
+   
+  typedef A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> MFtype;
+  MFtype mf; //(W^dag V) mesonfield
+  std::cout << "Computing MF using single-timeslice implementation" << std::endl;
   mf.compute(Wfftw_pp, inner, Vfftw_pp, 0);
 
   std::vector<MFtype > mf_t;
+  std::cout << "Computing MF using multi-timeslice implementation" << std::endl;
   MFtype::compute(mf_t, Wfftw_pp, inner, Vfftw_pp);
   
-  assert(mf_t[0].equals(mf, tol));
+  assert(mf_t[0].equals(mf, tol, true));
 
-  std::cout << "Passed testMesonFieldCompute tests" << std::endl;
+  std::cout << "Passed testMesonFieldComputeSingleMulti tests" << std::endl;
 }
 
 //This test checks the Grid (SIMD) general MF compute against the non-SIMD
@@ -621,7 +893,8 @@ void checkCPSfieldGridImpex5Dcb(typename A2Apolicies_grid::FgridGFclass &lattice
 
 template<typename A2Apolicies_std, typename A2Apolicies_grid>
 void compareVgridstd(A2AvectorV<A2Apolicies_std> &V_std,
-		     A2AvectorV<A2Apolicies_grid> &V_grid){
+		     A2AvectorV<A2Apolicies_grid> &V_grid,
+		     double tol){
 
   int nl = V_std.getNl();
   int nh = V_std.getNh();
@@ -631,18 +904,14 @@ void compareVgridstd(A2AvectorV<A2Apolicies_std> &V_std,
     double nrm_std = V_std.getVl(i).norm2();
     double diff = nrm_grid - nrm_std;
     std::cout << "vl " << i << " grid " << nrm_grid << " std " << nrm_std << " diff " << diff << std::endl;
-    if(fabs(diff) > 1e-10){
-      assert(false);
-    }
+    assert(fabs(diff) < tol);
   }
   for(int i=0;i<nh;i++){
     double nrm_grid = V_grid.getVh(i).norm2();
     double nrm_std = V_std.getVh(i).norm2();
     double diff = nrm_grid - nrm_std;
     std::cout << "vh " << i << " grid " << nrm_grid << " std " << nrm_std << " diff " << diff << std::endl;
-    if(fabs(diff) > 1e-10){
-      assert(false);
-    }
+    assert(fabs(diff) < tol);
   }
 }
 
@@ -1636,6 +1905,7 @@ void testCPSfieldArray(){
 
 #ifdef GRID_CUDA  
   using Grid::LambdaApply;
+  using Grid::acceleratorAbortOnGpuError;  
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
@@ -1698,6 +1968,7 @@ void testA2AfieldAccess(){
 
 #ifdef GRID_CUDA  
   using Grid::LambdaApply;
+  using Grid::acceleratorAbortOnGpuError;
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
@@ -1791,9 +2062,11 @@ void testViewArray(){
 
 #ifdef GRID_CUDA  
   using Grid::LambdaApply;
+  using Grid::acceleratorAbortOnGpuError;
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
+  
   
   accelerator_for(x, 100, 1,
 		  {
@@ -1860,6 +2133,7 @@ void testCPSfieldDeviceCopy(){
 
 #ifdef GRID_CUDA  
   using Grid::LambdaApply;
+  using Grid::acceleratorAbortOnGpuError;
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
@@ -1934,6 +2208,7 @@ void testMultiSourceDeviceCopy(){
 
 #ifdef GRID_CUDA  
   using Grid::LambdaApply;
+  using Grid::acceleratorAbortOnGpuError;
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
