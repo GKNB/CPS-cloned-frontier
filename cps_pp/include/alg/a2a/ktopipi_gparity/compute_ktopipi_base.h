@@ -15,9 +15,9 @@ CPS_START_NAMESPACE
 template<typename ComplexType, typename AllocPolicy>
 struct _resultsContainerBase{
 #ifdef KTOPIPI_RESULTSCONTAINER_BIG_ALLOC
-  typedef basicComplexArray<ComplexType,AllocPolicy> type;
+  typedef basicComplexArray<ComplexType,AllocPolicy> type; //data region for each thread is part of a single allocation
 #else
-  typedef basicComplexArraySplitAlloc<ComplexType,AllocPolicy> type;
+  typedef basicComplexArraySplitAlloc<ComplexType,AllocPolicy> type; //data region for each thread is allocated independently
 #endif
 };
 

@@ -277,7 +277,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_omp(ResultsContainerType result[]
 
   std::vector<mf_WV > &mf_pi1 = mf_pions.get(p_pi_1); //*mf_pi1_ptr;
   std::vector<mf_WV > &mf_pi2 = mf_pions.get(p_pi_2); //*mf_pi2_ptr;
-
+ 
   //Compute which pion timeslices are involved in the calculation on this node
   std::vector<bool> pi1_tslice_mask(Lt,false);
   std::vector<bool> pi2_tslice_mask(Lt,false);
@@ -301,7 +301,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_omp(ResultsContainerType result[]
   std::vector<std::vector< mf_WW > > con_pi2_K(Lt);
     
   type1_compute_mfproducts(con_pi1_K,con_pi2_K,mf_pi1,mf_pi2,mf_kaon,mf_pions,tsep_k_pi,tsep_pion,Lt,ntsep_k_pi,pi1_tslice_mask,pi2_tslice_mask);
-
+  
   if(!UniqueID()) printf("Memory after computing mfproducts type1 K->pipi:\n");
   printMem();
 

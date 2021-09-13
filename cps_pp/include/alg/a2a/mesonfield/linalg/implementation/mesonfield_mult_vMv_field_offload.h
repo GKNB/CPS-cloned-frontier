@@ -131,7 +131,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     thread_for(x4d, vol4d,
 		    {
 		      VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
-		      size_t xop, top;
+		      size_t xop; int top;
 		      into.fourToThree(xop, top, x4d);
 
 		      for(int sl=0;sl<4;sl++){
@@ -492,7 +492,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			     const MesonFieldType &M,
 			     const rA2AfieldType &r,
 			     bool conj_l, bool conj_r){
-    return optimized(into, l, M, r, conj_l, conj_r);
+    optimized(into, l, M, r, conj_l, conj_r);
+    //simple(into, l, M, r, conj_l, conj_r);
   }
 
 };

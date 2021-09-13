@@ -101,6 +101,7 @@ struct SingleSrcVectorPoliciesSIMDoffload{
 			    const int t, const size_t size_3d){
 //CUDA only currently
 #ifdef GRID_CUDA
+    std::cout << "CUDA GPU reduce (single src)" << std::endl; fflush(stdout);
     double talloc_free = 0;
     double tkernel = 0;
     double tpoke = 0;
@@ -131,9 +132,9 @@ struct SingleSrcVectorPoliciesSIMDoffload{
     managed_free(tmp);
     talloc_free += dclock() - time;
 
-    print_time("GPU reduce","alloc_free",talloc_free);
-    print_time("GPU reduce","kernel",tkernel);
-    print_time("GPU reduce","poke",tpoke);
+    print_time("CUDA GPU reduce","alloc_free",talloc_free);
+    print_time("CUDA GPU reduce","kernel",tkernel);
+    print_time("CUDA GPU reduce","poke",tpoke);
 #else
     //Reduce over size_3d
     //Paralllelize me!
@@ -202,6 +203,8 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 
     //CUDA only currently
 #ifdef GRID_CUDA
+    std::cout << "CUDA GPU reduce (multi src)" << std::endl;
+
     double talloc_free = 0;
     double tkernel = 0;
     double tpoke = 0;
@@ -234,9 +237,9 @@ struct MultiSrcVectorPoliciesSIMDoffload{
     managed_free(tmp);
     talloc_free += dclock() - time;
 
-    print_time("GPU reduce","alloc_free",talloc_free);
-    print_time("GPU reduce","kernel",tkernel);
-    print_time("GPU reduce","poke",tpoke);
+    print_time("CUDA GPU reduce","alloc_free",talloc_free);
+    print_time("CUDA GPU reduce","kernel",tkernel);
+    print_time("CUDA GPU reduce","poke",tpoke);
 #else
     //Reduce over size_3d
     //(Do this on host for now) //GENERALIZE ME
@@ -289,6 +292,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 
     cps::sync();
 
+    if(!UniqueID()){ printf("Initializing meson fields\n"); fflush(stdout); }
     double time = -dclock();
     this->initializeMesonFields(mf_t,l,r,Lt,do_setup);
     print_time("A2AmesonField","setup",time + dclock());
@@ -353,9 +357,9 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     const size_t naccum = bi * bj * bx * multiplicity;
     accumType *accum = Alloc<accumType>(naccum);
 
-    if(!UniqueID()){ printf("Using block sizes %d %d %d, temp memory requirement is %f MB\n", bi, bj, bx, byte_to_MB(naccum * sizeof(accumType))); }
+    if(!UniqueID()){ printf("Using block sizes %d %d %d, temp memory requirement is %f MB\n", bi, bj, bx, byte_to_MB(naccum * sizeof(accumType))); fflush(stdout); }
 #ifdef MF_OFFLOAD_INNER_BLOCKING
-    if(!UniqueID()) printf("Using subblock sizes %d %d %d\n", sbi, sbj, sbx);
+    if(!UniqueID()){ printf("Using subblock sizes %d %d %d\n", sbi, sbj, sbx); fflush(stdout); }
 #endif
     double reduce_time = 0;
     double ptr_setup_time = 0;
@@ -383,7 +387,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 		 });
             
       ptr_setup_time += dclock()+ttime;
-
+      if(!UniqueID()){ printf("Generated tables for t=%d\n",t); fflush(stdout); }
+      
       for(size_t i0 = 0; i0 < nmodes_l; i0+=bi){
 	size_t iup = std::min(i0+bi,nmodes_l);
 	size_t bi_true = iup - i0;
@@ -411,7 +416,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    int nxblk = bx_true / sbx_use;
 	    //int_fastdiv sbx_use_div(sbx_use);
 	    //int_fastdiv nxblk_div(nxblk);
-	    if(!UniqueID()) printf("Kernel execute with true outer block sizes %d %d %d and inner %d %d %d\n", bi_true, bj_true, bx_true, sbi_use, sbj_use, sbx_use);
+	    if(!UniqueID()){ printf("Kernel execute with true outer block sizes %d %d %d and inner %d %d %d\n", bi_true, bj_true, bx_true, sbi_use, sbj_use, sbx_use); fflush(stdout); }
 #endif
 
 #ifdef GRID_CUDA
@@ -421,7 +426,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    size_t nwork = bi_true * bj_true * bx_true;	  
 	    
 	    kernel_time -= dclock();
-	    auto M_v = M.view();
+	    CPSautoView(M_v,M); //auto M_v = M.view();
 	    
 	    using namespace Grid;
 	    {

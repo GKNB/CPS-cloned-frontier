@@ -371,7 +371,7 @@ public:
     Entries[v].bytes  =bytes;
     Entries[v].valid  =1;
 
-    if(ret != NULL) assert( cudaFree(ret) == cudaSuccess );
+    if(ret != NULL) assert( cudaFreeHost(ret) == cudaSuccess );
   }
 
   static void * alloc(size_t bytes){

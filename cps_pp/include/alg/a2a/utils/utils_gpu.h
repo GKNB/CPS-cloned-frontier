@@ -21,8 +21,8 @@
   auto lambda = [=] __device__ (Iterator iterator, Iterator ignored, Iterator lane) mutable { \
     __VA_ARGS__;\
   };\
-  int nt=acceleratorThreads();						\
-  dim3 cu_threads(nt,1,nsimd);			\
+  int nt=acceleratorThreads();					\
+  dim3 cu_threads(nsimd, nt,1);					\
   dim3 cu_blocks ((num+nt-1)/nt,1,1);				\
   LambdaApply<<<cu_blocks,cu_threads,shmem_size>>>(num,1,nsimd,lambda); \
   }
@@ -154,7 +154,7 @@ private:
   size_t sz;
 public:
   
-  size_t size() const{ return sz; }
+  accelerator_inline size_t size() const{ return sz; }
   
   ViewArray(): v(nullptr), sz(0){}
 

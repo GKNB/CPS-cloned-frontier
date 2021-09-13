@@ -1,7 +1,7 @@
 #ifndef _INNER_PRODUCT_GRID
 #define _INNER_PRODUCT_GRID
 
-//Grid implementations of performance critical components of inner_mult
+//Grid SIMD implementations of performance critical components of inner_mult for non-SIMD complex types
 #ifdef USE_GRID
 #include<util/flavormatrix.h>
 #include<alg/a2a/utils/scfvectorptr.h>
@@ -185,6 +185,8 @@ struct grid_scf_contract{
     const int mid_subidx = sc_size / 2 - mid_block * nsimd;
     const int nblocks = sc_size / nsimd;
     const int nblocks_inc_overspill = nblocks + (overspill_amnt > 0 ? 1:0);
+
+    lMr.zero();
     
     Vtype l_0[nblocks_inc_overspill];
     Vtype l_1[nblocks_inc_overspill];
@@ -244,6 +246,8 @@ struct grid_scf_contract{
     const int mid_subidx = sc_size / 2 - mid_block * nsimd;
     const int nblocks = sc_size / nsimd;
     const int nblocks_inc_overspill = nblocks + (overspill_amnt > 0 ? 1:0);
+
+    lMr.zero();
     
     Vtype l_0[nblocks_inc_overspill];
     Vtype l_1[nblocks_inc_overspill];

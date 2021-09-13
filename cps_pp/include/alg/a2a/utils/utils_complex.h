@@ -80,7 +80,7 @@ struct _mult_sgn_times_i_impl{};
 
 template<typename T>
 struct _mult_sgn_times_i_impl<T,complex_double_or_float_mark>{
-  inline static T doit(const int sgn, const T &val){
+  accelerator_inline static T doit(const int sgn, const T &val){
     return T( -sgn * val.imag(), sgn * val.real() ); // sign * i * val
   }
 };
@@ -88,14 +88,14 @@ struct _mult_sgn_times_i_impl<T,complex_double_or_float_mark>{
 #ifdef USE_GRID
 template<typename T>
 struct _mult_sgn_times_i_impl<T,grid_vector_complex_mark>{
-  inline static T doit(const int sgn, const T &val){
+  accelerator_inline static T doit(const int sgn, const T &val){
     return sgn == -1 ? timesMinusI(val) : timesI(val);
   }
 };
 
 template<typename T>
 struct _mult_sgn_times_i_impl<T,grid_iscalar_complex_double_or_float_mark>{
-  inline static T doit(const int sgn, const T &val){
+  accelerator_inline static T doit(const int sgn, const T &val){
     return sgn == -1 ? timesMinusI(val) : timesI(val);
   }
 };
@@ -104,7 +104,7 @@ struct _mult_sgn_times_i_impl<T,grid_iscalar_complex_double_or_float_mark>{
 
 
 template<typename T>
-inline T multiplySignTimesI(const int sgn, const T &val){
+accelerator_inline T multiplySignTimesI(const int sgn, const T &val){
   return _mult_sgn_times_i_impl<T,typename ComplexClassify<T>::type>::doit(sgn,val);
 }
 
@@ -115,7 +115,7 @@ struct _cconj{};
 
 template<typename T>
 struct _cconj<std::complex<T>,complex_double_or_float_mark>{
-  static inline std::complex<T> doit(const std::complex<T> &in){ return std::conj(in); }
+  static accelerator_inline std::complex<T> doit(const std::complex<T> &in){ return std::conj(in); }
 };
 
 #ifdef USE_GRID
@@ -124,18 +124,18 @@ struct _cconj<std::complex<T>,complex_double_or_float_mark>{
 //Grid's complex uses thrust
 template<typename T>
 struct _cconj<Grid::complex<T>,complex_double_or_float_mark>{
-  static inline Grid::complex<T> doit(const Grid::complex<T> &in){ return Grid::conjugate(in); }
+  static accelerator_inline Grid::complex<T> doit(const Grid::complex<T> &in){ return Grid::conjugate(in); }
 };
 #endif
 
 template<typename T>
 struct _cconj<T,grid_vector_complex_mark>{
-  static inline T doit(const T &in){ return Grid::conjugate(in); }
+  static accelerator_inline T doit(const T &in){ return Grid::conjugate(in); }
 };
 #endif
 
 template<typename T>
-inline T cconj(const T& in){
+accelerator_inline T cconj(const T& in){
   return _cconj<T,typename ComplexClassify<T>::type>::doit(in);
 }
 
@@ -159,16 +159,28 @@ inline bool equals(const Grid::vComplexF &a, const Grid::vComplexF &b){
 #endif
 
 //Convert Grid or std complex number to double precision std::complex
+//For vectorized types it will be reduced prior to conversion
 template<typename T>
-std::complex<double> convertComplexD(const std::complex<T> &what){
+inline std::complex<double> convertComplexD(const std::complex<T> &what){
   return what;
 }
+#ifdef GRID_CUDA
+//Need explicit versions for thrust complex otherwise it will implicitly convert to vComplex and then reduce the result,
+//resulting in an overall multiplicative factor of Nsimd being applied!
+inline std::complex<double> convertComplexD(const Grid::ComplexD &what){
+  return std::complex<double>(what.real(), what.imag());
+}
+inline std::complex<double> convertComplexD(const Grid::ComplexF &what){
+  return std::complex<double>(what.real(), what.imag());
+}
+#endif
+
 #ifdef USE_GRID
-inline std::complex<double> convertComplexD(const Grid::vComplexD &what){  
+inline std::complex<double> convertComplexD(const Grid::vComplexD &what){
   auto v = Reduce(what);
   return std::complex<double>(v.real(),v.imag());
 }
-inline std::complex<double> convertComplexD(const Grid::vComplexF &what){  
+inline std::complex<double> convertComplexD(const Grid::vComplexF &what){
   auto v = Reduce(what);
   return std::complex<double>(v.real(),v.imag());
 }

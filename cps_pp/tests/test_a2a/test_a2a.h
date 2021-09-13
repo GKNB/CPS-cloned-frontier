@@ -247,19 +247,46 @@ void testCPSspinColorMatrix(){
 }
 
 
+template<typename T, typename ComplexClass>
+struct _fmatequals{};
+
 template<typename T>
-bool equals(const FlavorMatrixGeneral<T> &l, const FlavorMatrixGeneral<T> &r, double tol = 1e-10){
-  for(int i=0;i<2;i++){
-    for(int j=0;j<2;j++){
-      const T &aa = l(i,j);
-      const T &bb = r(i,j);	
-      if(fabs(aa.real() - bb.real()) > tol)
-	return false;
-      if(fabs(aa.imag() - bb.imag()) > tol)
-	return false;
+struct _fmatequals<T,complex_double_or_float_mark>{
+  static bool equals(const FlavorMatrixGeneral<T> &l, const FlavorMatrixGeneral<T> &r, double tol = 1e-10){
+    for(int i=0;i<2;i++){
+      for(int j=0;j<2;j++){
+	const T &aa = l(i,j);
+	const T &bb = r(i,j);	
+	if(fabs(aa.real() - bb.real()) > tol)
+	  return false;
+	if(fabs(aa.imag() - bb.imag()) > tol)
+	  return false;
+      }
     }
+    return true;
   }
-  return true;
+};
+
+template<typename T>
+struct _fmatequals<T,grid_vector_complex_mark>{
+  static bool equals(const FlavorMatrixGeneral<T> &l, const FlavorMatrixGeneral<T> &r, double tol = 1e-10){
+    for(int i=0;i<2;i++){
+      for(int j=0;j<2;j++){
+	auto aa = Reduce(l(i,j));
+	auto bb = Reduce(r(i,j));	
+	if(fabs(aa.real() - bb.real()) > tol)
+	  return false;
+	if(fabs(aa.imag() - bb.imag()) > tol)
+	  return false;
+      }
+    }
+    return true;
+  }
+};
+
+template<typename T>
+inline bool equals(const FlavorMatrixGeneral<T> &l, const FlavorMatrixGeneral<T> &r, double tol = 1e-10){
+  return _fmatequals<T,typename ComplexClassify<T>::type>::equals(l,r,tol);
 }
 
 
@@ -491,6 +518,106 @@ void testMesonFieldComputeReference(const A2AArg &a2a_args, double tol){
 
 
 
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void compute_test_g5s3(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int t){
+  into.setup(l,r,t,t);
+  
+  if(!UniqueID()) printf("Starting TEST compute timeslice %d with %d threads\n",t, omp_get_max_threads());
+
+  const typename mf_Policies::FermionFieldType &mode0 = l.getMode(0);
+  const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+  if(mode0.nodeSites(3) != GJP.TnodeSites()) ERR.General("A2AmesonField","compute","Not implemented for fields where node time dimension != GJP.TnodeSites()\n");
+
+  int nl_l = into.getRowParams().getNl();
+  int nl_r = into.getColParams().getNl();
+
+  int nmodes_l = into.getNrows();
+  int nmodes_r = into.getNcols();
+
+  typedef typename mf_Policies::ComplexType T;
+  CPSspinMatrix<T> g5; g5.unit(); g5.gl(-5);
+  FlavorMatrixGeneral<T> s3; s3.unit(); s3.pl(sigma3);
+
+  typedef flavorMatrixSpinColorContract<15,true,false> SCconPol;
+  typedef GparityNoSourceInnerProduct<T, SCconPol> InnerProductType;
+  InnerProductType inner(sigma3);
+  
+  int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+  if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
+
+#pragma omp parallel for
+    for(int i = 0; i < nmodes_l; i++){
+      T mf_accum;
+
+      modeIndexSet i_high_unmapped; if(i>=nl_l) into.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
+
+      for(int j = 0; j < nmodes_r; j++) {
+	modeIndexSet j_high_unmapped; if(j>=nl_r) into.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
+
+	mf_accum = 0.;
+
+	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
+	  SCFvectorPtr<T> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
+	  SCFvectorPtr<T> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,p_3d,t_lcl);
+
+	  FlavorMatrixGeneral<T> lg5r; lg5r.zero();
+	  inner.spinColorContract(lg5r,lscf,rscf);
+	  doAccum(mf_accum, TransLeftTrace(lg5r, s3) ); //still agrees
+	}
+	into(i,j) = mf_accum; //downcast after accumulate      
+      }
+    }
+  }
+  cps::sync();
+  into.nodeSum();
+}
+
+
+
+
+
+//This test will ensure the implementation above gives the same result as the reference implementation
+template<typename A2Apolicies_std>
+void testMesonFieldComputePackedReference(const A2AArg &a2a_args, double tol){
+
+  std::cout << "Starting testMesonFieldComputePackedReference: test of test_a2a implementation vs reference implementation" << std::endl;
+  typedef flavorMatrixSpinColorContract<15,true,false> SCconPol;
+  typedef GparityNoSourceInnerProduct<typename A2Apolicies_std::ComplexType, SCconPol> InnerProductType;
+  InnerProductType inner(sigma3);
+
+  A2AvectorWfftw<A2Apolicies_std> Wfftw_pp(a2a_args);
+  A2AvectorVfftw<A2Apolicies_std> Vfftw_pp(a2a_args);
+  Wfftw_pp.testRandom();
+  Vfftw_pp.testRandom();
+   
+  typedef A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> MFtype;
+
+  MFtype mf_test;
+  std::cout << "Computing MF using packed test implementation" << std::endl;
+  compute_test_g5s3(mf_test,Wfftw_pp, Vfftw_pp, 0);
+
+  MFtype mf_lib; 
+  std::cout << "Computing MF using library implementation" << std::endl;
+  mf_lib.compute(Wfftw_pp, inner, Vfftw_pp, 0);
+
+  std::cout << "Test whether test implementation agrees with library implementation" << std::endl;
+  bool val = mf_test.equals(mf_lib,tol,true);
+  std::cout << "Result: " << val << std::endl;
+  
+  MFtype mf_ref;
+  std::cout << "Computing MF using reference implementation" << std::endl;
+  compute_simple(mf_ref,Wfftw_pp,inner,Vfftw_pp,0);
+
+  std::cout << "Test whether test implementation agrees with reference implementation" << std::endl;
+  assert(mf_test.equals(mf_ref, tol, true));
+
+  std::cout << "Passed testMesonFieldComputePackedReference tests" << std::endl;
+}
+
+
+
+
+
 //This test will ensure the basic, single timeslice CPU implementation gives the same result as the reference implementation
 template<typename A2Apolicies_std>
 void testMesonFieldComputeSingleReference(const A2AArg &a2a_args, double tol){
@@ -552,7 +679,7 @@ template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void testGridMesonFieldCompute(const A2AArg &a2a_args, const int nthreads, const double tol){
  
 #ifdef USE_GRID
-  std::cout << "Starting MF contraction test\n";
+  std::cout << "Starting MF contraction test comparing Grid SIMD vs non-SIMD multi-timeslice implementations\n";
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -779,7 +906,7 @@ void testGridShiftMultiSourceMesonFieldCompute(const A2AArg &a2a_args, const int
   std::vector< std::vector<MFtype>* > mf_m = { &mf_exp_m, &mf_pnt_m };
     
   if(!UniqueID()){ printf("Exp source computation\n"); fflush(stdout); }
-  MFtype::compute(mf_exp_a, W, inner_product_exp, V);
+  MFtype::compute(mf_exp_a, W, inner_product_exp, V); 
   if(!UniqueID()){ printf("Point source computation\n"); fflush(stdout); }
   MFtype::compute(mf_pnt_a, W, inner_product_pnt, V);
   if(!UniqueID()){ printf("Multi source computation\n"); fflush(stdout); }    
@@ -797,9 +924,128 @@ void testGridShiftMultiSourceMesonFieldCompute(const A2AArg &a2a_args, const int
 }
 
 
+template<typename GridA2Apolicies>
+void testGridGetTwistedFFT(const A2AArg &a2a_args, const int nthreads, const double tol){
+#ifdef USE_GRID
+  std::cout << "Starting testGridGetTwistedFFT\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AvectorWfftw<GridA2Apolicies> W1(a2a_args, simd_dims);
+  A2AvectorWfftw<GridA2Apolicies> W2(a2a_args, simd_dims);
+  
+  W1.testRandom();
+  W2.testRandom();
+  
+  int pbase[3];
+  for(int i=0;i<3;i++) pbase[i] = GJP.Bc(i) == BND_CND_GPARITY ? 1 : 0;
+
+  ThreeMomentum pp(pbase);
+  ThreeMomentum pm = -pp;
+
+  A2AvectorWfftw<GridA2Apolicies> Wtmp(a2a_args, simd_dims);
+
+  //Does copy work?
+  std::cout << "Testing mode copy" << std::endl;
+  for(int i=0;i<W1.getNmodes();i++)
+    Wtmp.getMode(i) = W1.getMode(i);
+      
+  for(int i=0;i<W1.getNmodes();i++){
+    assert(Wtmp.getMode(i).equals(W1.getMode(i),1e-12,true));
+  }
+ 
+  std::cout << "Testing copy" << std::endl;
+  Wtmp = W1;
+  for(int i=0;i<W1.getNmodes();i++){
+    assert(Wtmp.getMode(i).equals(W1.getMode(i),1e-12,true));
+  }
+
+  std::cout << "Testing getTwistedFFT" << std::endl;
+  
+  Wtmp.getTwistedFFT(pp.ptr(), &W1, &W2);  //base_p, base_m
+
+  //Should be same as W1 without a shift
+  for(int i=0;i<W1.getNmodes();i++){
+    assert(Wtmp.getMode(i).equals(W1.getMode(i),1e-12,true));
+  }
+  std::cout << "testGridGetTwistedFFT passed" << std::endl;
+#endif
+}
+  
+
+  
+
+template<typename GridA2Apolicies>
+void testGridMesonFieldComputeManySimple(A2AvectorV<GridA2Apolicies> &V, A2AvectorW<GridA2Apolicies> &W,
+					 const A2AArg &a2a_args,
+					 typename GridA2Apolicies::FgridGFclass &lattice,
+					 typename SIMDpolicyBase<3>::ParamType simd_dims_3d,
+					 typename SIMDpolicyBase<4>::ParamType simd_dims,
+					 const double tol){
+#ifdef USE_GRID
+  std::cout << "Starting testGridMesonFieldComputeManySimple" << std::endl;
+
+  //Define the inner product
+  int p[3] = {1,1,1};
+  typedef typename GridA2Apolicies::SourcePolicies SrcPolicy;
+  typedef A2AflavorProjectedExpSource<SrcPolicy> SrcType;
+  SrcType src(2.0,p,simd_dims_3d); //note at present the value of p is unimportant
+  typedef SCFspinflavorInnerProduct<15,typename GridA2Apolicies::ComplexType,SrcType> InnerProductType;
+  InnerProductType inner(sigma3, src);
+  
+  //Define the storage type for ComputeMany
+  typedef GparityFlavorProjectedBasicSourceStorage<GridA2Apolicies, InnerProductType> StorageType;
+  StorageType storage(inner);
+  
+  //We want a pion with momentum +2 in each G-parity direction
+  int pbase[3];
+  for(int i=0;i<3;i++) pbase[i] = GJP.Bc(i) == BND_CND_GPARITY ? 1 : 0;
+  
+  ThreeMomentum p_v(pbase), p_wdag(pbase);
+  ThreeMomentum p_w = -p_wdag; //computemany takes the momentum of the W, not Wdag
+  
+  storage.addCompute(0,0,p_w,p_v);
+
+  //Compute externally
+  std::cout << "Starting hand computation" << std::endl;
+  A2AvectorWfftw<GridA2Apolicies> Wfft(a2a_args,simd_dims);
+  A2AvectorVfftw<GridA2Apolicies> Vfft(a2a_args,simd_dims);
+  
+  Wfft.gaugeFixTwistFFT(W,p_w.ptr(),lattice);
+  Vfft.gaugeFixTwistFFT(V,p_v.ptr(),lattice);
+  inner.getSource()->setMomentum(p_v.ptr());
+
+  typedef A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> MFType;
+  typedef std::vector<MFType> MFVec;
+  MFVec mf_ref;
+  MFType::compute(mf_ref, Wfft, inner, Vfft);
+ 
+  //Use computemany
+  std::cout << "Starting ComputeMany computation" << std::endl;
+  typedef ComputeMesonFields<GridA2Apolicies,StorageType> ComputeType;
+  typename ComputeType::WspeciesVector Wv = {&W};
+  typename ComputeType::VspeciesVector Vv = {&V};
+  ComputeType::compute(storage, Wv,Vv, lattice);
+  const MFVec &mf = storage.getMf(0);  
+
+
+  int Lt=GJP.Tnodes()*GJP.TnodeSites();
+  for(int t=0;t<Lt;t++){
+    std::cout << "Checking t=" << t << std::endl;
+    assert(mf[t].equals(mf_ref[t], tol, true));
+  }
+
+  std::cout << "testGridMesonFieldComputeManySimple passeed" << std::endl;
+#endif
+}
 
 
 
+
+  
 
 template<typename A2Apolicies_grid>
 void checkCPSfieldGridImpex5Dcb(typename A2Apolicies_grid::FgridGFclass &lattice){
@@ -974,16 +1220,21 @@ void testPionContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A
 			 typename A2Apolicies_grid::FgridGFclass &lattice,
 			 typename SIMDpolicyBase<3>::ParamType simd_dims_3d,
 			 double tol){
+  std::cout << "Starting testPionContractionGridStd" << std::endl;
   StandardPionMomentaPolicy momenta;
   MesonFieldMomentumContainer<A2Apolicies_std> mf_ll_con_std;
   MesonFieldMomentumContainer<A2Apolicies_grid> mf_ll_con_grid;
-  
+
+  std::cout << "Computing non-SIMD meson fields" << std::endl;
   computeGparityLLmesonFields1s<A2Apolicies_std,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con_std,momenta,W_std,V_std,2.0,lattice);
+  std::cout << "Computing SIMD meson fields" << std::endl;
   computeGparityLLmesonFields1s<A2Apolicies_grid,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con_grid,momenta,W_grid,V_grid,2.0,lattice,simd_dims_3d);
 
+  std::cout << "Computing non-SIMD pion 2pt" << std::endl;
   fMatrix<typename A2Apolicies_std::ScalarComplexType> fmat_std;
   ComputePion<A2Apolicies_std>::compute(fmat_std, mf_ll_con_std, momenta, 0);
 
+  std::cout << "Computing SIMD pion 2pt" << std::endl;
   fMatrix<typename A2Apolicies_grid::ScalarComplexType> fmat_grid;
   ComputePion<A2Apolicies_grid>::compute(fmat_grid, mf_ll_con_grid, momenta, 0);
 
@@ -999,17 +1250,17 @@ void testPionContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A
     }
   }
   if(fail)ERR.General("","","Standard vs Grid implementation pion test failed\n");
-  printf("Pion pass\n");
+  std::cout << "testPionContractionGridStd passed" << std::endl;
 }
 
 
 template<typename A2Apolicies_std, typename A2Apolicies_grid>
 void testKaonContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A2Apolicies_std> &W_std,
-			 A2AvectorV<A2Apolicies_grid> &V_grid, A2AvectorW<A2Apolicies_grid> &W_grid,
-			 typename A2Apolicies_grid::FgridGFclass &lattice,
-			 typename SIMDpolicyBase<3>::ParamType simd_dims_3d,
-			 double tol){
-
+				A2AvectorV<A2Apolicies_grid> &V_grid, A2AvectorW<A2Apolicies_grid> &W_grid,
+				typename A2Apolicies_grid::FgridGFclass &lattice,
+				typename SIMDpolicyBase<3>::ParamType simd_dims_3d,
+				double tol){
+  std::cout << "Starting testKaonContractionGridStd" << std::endl;
 
   StationaryKaonMomentaPolicy kaon_mom;
 
@@ -1047,7 +1298,7 @@ void testKaonContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A
     }
   }
   if(fail)ERR.General("","","Standard vs Grid implementation kaon test failed\n");
-  printf("Kaon pass\n");
+  std::cout << "testKaonContractionGridStd passed" << std::endl;
 }
 
 
@@ -1058,6 +1309,8 @@ void testPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A
 				typename A2Apolicies_grid::FgridGFclass &lattice,
 				typename SIMDpolicyBase<3>::ParamType simd_dims_3d,
 				double tol){
+  std::cout << "Starting testPiPiContractionGridStd" << std::endl;
+  
   ThreeMomentum p_plus( GJP.Bc(0)==BND_CND_GPARITY? 1 : 0,
 			GJP.Bc(1)==BND_CND_GPARITY? 1 : 0,
 			GJP.Bc(2)==BND_CND_GPARITY? 1 : 0 );
@@ -1115,12 +1368,88 @@ void testPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A
       }      
     }
     if(fail)ERR.General("","","Standard vs Grid implementation pipi fig V test failed\n");
-    printf("Pipi fig V pass\n");    
+    printf("Pipi fig V pass\n");
+
+    std::cout << "testPiPiContractionGridStd passed" << std::endl;
   }
 }
 
 
+//Both should be scalar matrices
+template<typename A2Apolicies_1, typename A2Apolicies_2, template<typename> class L, template<typename> class R>
+bool compare(const std::vector<A2AmesonField<A2Apolicies_1,L,R> > &M1, const std::vector<A2AmesonField<A2Apolicies_2,L,R> > &M2, double tol){
+  if(M1.size() != M2.size()){
+    std::cout << "Fail: time vector size mismatch" << std::endl;
+    return false;
+  }
+  for(int t=0;t<M1.size();t++){
+    if(M1[t].getNrows() != M2[t].getNrows() ||
+       M1[t].getNcols() != M2[t].getNcols() ){
+      std::cout << "Fail: matrix size mismatch" << std::endl;
+      return false;
+    }
+    if(M1[t].getRowTimeslice() != M2[t].getRowTimeslice() || 
+       M1[t].getColTimeslice() != M2[t].getColTimeslice() ){
+      std::cout << "Fail: matrix timeslice mismatch" << std::endl;
+      return false;      
+    }
+      
+    for(int i=0;i<M1[t].getNrows();i++){
+      for(int j=0;j<M1[t].getNcols();j++){
+	auto v1 = M1[t](i,j);
+	auto v2 = M2[t](i,j);
+	if(fabs(v1.real() - v2.real()) > tol ||
+	   fabs(v1.imag() - v2.imag()) > tol){
+	  std::cout << "Fail " << i << " " << j << " :  (" << v1.real() << "," << v1.imag() << ")  (" << v2.real() << "," << v2.imag() << ")  diff (" << v1.real()-v2.real() << "," << v1.imag()-v2.imag() << ")" << std::endl;
+	  return false;
+	}
+      }
+    }
+  }
+  return true;
+}
 
+//Both should be scalar matrices
+template<typename A2Apolicies_1, typename A2Apolicies_2, template<typename> class L, template<typename> class R>
+void copy(std::vector<A2AmesonField<A2Apolicies_1,L,R> > &Mout, const std::vector<A2AmesonField<A2Apolicies_2,L,R> > &Min){
+  assert(Mout.size() == Min.size());
+  for(int t=0;t<Min.size();t++){
+    assert(Mout[t].getNrows() == Min[t].getNrows() && Min[t].getNcols() == Min[t].getNcols());
+    assert(Mout[t].getRowTimeslice() == Min[t].getRowTimeslice() && Mout[t].getColTimeslice() == Min[t].getColTimeslice());
+    for(int i=0;i<Min[t].getNrows();i++){
+      for(int j=0;j<Min[t].getNcols();j++){
+	Mout[t](i,j) = Min[t](i,j);
+      }
+    }
+  }
+}
+
+template<typename ResultsTypeA, typename ResultsTypeB>
+bool compareKtoPiPi(const ResultsTypeA &result_A, const std::string &Adescr,
+		    const ResultsTypeB &result_B, const std::string &Bdescr,
+		    const std::string &descr, double tol){
+  if(result_A.nElementsTotal() != result_B.nElementsTotal()){
+    std::cout << descr << " fail: size mismatch " << result_A.nElementsTotal() << " " << result_B.nElementsTotal() << std::endl;
+    return false;
+  }
+    
+  bool fail = false;
+  for(int i=0;i<result_A.nElementsTotal();i++){
+    std::complex<double> val_A = convertComplexD(result_A[i]);
+    std::complex<double> val_B = convertComplexD(result_B[i]);
+    
+    double rdiff = fabs(val_A.real()-val_B.real());
+    double idiff = fabs(val_A.imag()-val_B.imag());
+    if(rdiff > tol|| idiff > tol){
+      printf("!!!Fail: %s elem %d %s (%g,%g) %s (%g,%g) Diff (%g,%g)\n", descr.c_str(), i,
+	     Adescr.c_str(), val_A.real(),val_A.imag(),
+	     Bdescr.c_str(), val_B.real(),val_B.imag(),
+	     val_A.real()-val_B.real(), val_A.imag()-val_B.imag());
+      fail = true;
+    }//else printf("Pass: Type1 elem %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",i, val_grid.real(),val_grid.imag(), val_std.real(),val_std.imag(), val_std.real()-val_grid.real(), val_std.imag()-val_grid.imag());
+  }
+  return !fail;
+}
 
 
 template<typename A2Apolicies_std, typename A2Apolicies_grid>
@@ -1129,6 +1458,9 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
 				   typename A2Apolicies_grid::FgridGFclass &lattice,
 				   typename SIMDpolicyBase<3>::ParamType simd_dims_3d,
 				   double tol){
+  std::cout << "Starting testKtoPiPiContractionGridStd" << std::endl;
+
+#if 0
   ThreeMomentum p_plus( GJP.Bc(0)==BND_CND_GPARITY? 1 : 0,
 			GJP.Bc(1)==BND_CND_GPARITY? 1 : 0,
 			GJP.Bc(2)==BND_CND_GPARITY? 1 : 0 );
@@ -1139,114 +1471,193 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
   StandardPionMomentaPolicy momenta;
   MesonFieldMomentumContainer<A2Apolicies_std> mf_ll_con_std;
   MesonFieldMomentumContainer<A2Apolicies_grid> mf_ll_con_grid;
-  
+
+  std::cout << "testKtoPiPiContractionGridStd computing LL meson fields standard calc" << std::endl;
   computeGparityLLmesonFields1s<A2Apolicies_std,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con_std,momenta,W_std,V_std,2.0,lattice);
+
+  std::cout << "testKtoPiPiContractionGridStd computing LL meson fields Grid calc" << std::endl;
   computeGparityLLmesonFields1s<A2Apolicies_grid,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con_grid,momenta,W_grid,V_grid,2.0,lattice,simd_dims_3d);
 
-  StandardLSWWmomentaPolicy ww_mom;  
+  std::cout << "testKtoPiPiContractionGridStd comparing LL MF momenta" << std::endl;
+  std::vector<ThreeMomentum> mom_std; mf_ll_con_std.getMomenta(mom_std);
+  std::vector<ThreeMomentum> mom_grid; mf_ll_con_grid.getMomenta(mom_grid);
+
+  assert(mom_std.size() == mom_grid.size());
+  for(int pp=0;pp<mom_std.size();pp++)
+    assert(mom_std[pp] == mom_grid[pp]);
+
+  std::cout << "testKtoPiPiContractionGridStd comparison of LL MF momenta passed" << std::endl;
+
+  std::cout << "testKtoPiPiContractionGridStd comparing LL meson fields between standard and Grid implementations" << std::endl;
+  for(int pp=0;pp<mom_std.size();pp++){
+    const auto &MFvec_std = mf_ll_con_std.get(mom_std[pp]);
+    const auto &MFvec_grid = mf_ll_con_grid.get(mom_grid[pp]);
+    std::cout << "Comparing meson fields for momentum " << mom_std[pp] << std::endl;
+    assert(compare(MFvec_std, MFvec_grid, tol));
+  }
+  std::cout << "testKtoPiPiContractionGridStd comparison of LL meson fields between standard and Grid implementations passed" << std::endl;
+ 
+  StandardLSWWmomentaPolicy ww_mom;
+
+  std::cout << "testKtoPiPiContractionGridStd computing WW fields standard calc" << std::endl;
+  std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww_std;
+  ComputeKtoPiPiGparity<A2Apolicies_std>::generatelsWWmesonfields(mf_ls_ww_std,W_std,W_std, ww_mom, 2.0,lattice);
+  
+  std::cout << "testKtoPiPiContractionGridStd computing WW fields Grid calc" << std::endl;
   std::vector<A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww_grid;
   ComputeKtoPiPiGparity<A2Apolicies_grid>::generatelsWWmesonfields(mf_ls_ww_grid,W_grid,W_grid, ww_mom, 2.0,lattice, simd_dims_3d);
 
-  std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww_std;
-  ComputeKtoPiPiGparity<A2Apolicies_std>::generatelsWWmesonfields(mf_ls_ww_std,W_std,W_std, ww_mom, 2.0,lattice);
-
+  assert(mf_ls_ww_std.size() == mf_ls_ww_grid.size());
+  
+  std::cout << "testKtoPiPiContractionGridStd comparing WW fields" << std::endl;
+  assert(compare(mf_ls_ww_std, mf_ls_ww_grid, tol));
+  
+  std::cout << "testKtoPiPiContractionGridStd comparison of WW fields passed" << std::endl;
+  
   mf_ll_con_grid.printMomenta(std::cout);
+#else
 
+  const int nsimd = A2Apolicies_grid::ComplexType::Nsimd();      
+ 
+  int Lt = GJP.TnodeSites()*GJP.Tnodes();
+  std::vector<A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww_grid(Lt);
+  std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww_std(Lt);
+  
+  for(int t=0;t<Lt;t++){
+    mf_ls_ww_grid[t].setup(W_grid,W_grid,t,t);
+    mf_ls_ww_grid[t].testRandom();
+
+    mf_ls_ww_std[t].setup(W_std,W_std,t,t);
+  }
+  copy(mf_ls_ww_std, mf_ls_ww_grid);
+  assert(compare(mf_ls_ww_std, mf_ls_ww_grid, 1e-12));
+  
+  ThreeMomentum p_pi_plus(2,2,2);
+  ThreeMomentum p_pi_minus = -p_pi_plus;
+
+  MesonFieldMomentumContainer<A2Apolicies_grid> mf_ll_con_grid;
+  std::vector<A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_grid_tmp(Lt);
+
+  MesonFieldMomentumContainer<A2Apolicies_std> mf_ll_con_std;
+  std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_std_tmp(Lt);
+
+  for(int t=0;t<Lt;t++){
+    mf_pion_grid_tmp[t].setup(W_grid,V_grid,t,t);
+    mf_pion_grid_tmp[t].testRandom();
+
+    mf_pion_std_tmp[t].setup(W_std,V_std,t,t);
+  }
+  copy(mf_pion_std_tmp, mf_pion_grid_tmp);
+  
+  mf_ll_con_grid.copyAdd(p_pi_plus, mf_pion_grid_tmp);
+  mf_ll_con_std.copyAdd(p_pi_plus, mf_pion_std_tmp);
+  
+  for(int t=0;t<Lt;t++){
+    mf_pion_grid_tmp[t].testRandom();
+  }
+  copy(mf_pion_std_tmp, mf_pion_grid_tmp);
+  
+  mf_ll_con_grid.copyAdd(p_pi_minus, mf_pion_grid_tmp);
+  mf_ll_con_std.copyAdd(p_pi_minus, mf_pion_std_tmp);
+
+  assert(mf_ll_con_grid.get(p_pi_plus).size() ==  Lt);
+  assert(mf_ll_con_grid.get(p_pi_minus).size() ==  Lt);
+  assert(mf_ll_con_std.get(p_pi_plus).size() ==  Lt);
+  assert(mf_ll_con_std.get(p_pi_minus).size() ==  Lt);
+    
+  assert(compare(mf_ll_con_grid.get(p_pi_plus), mf_ll_con_std.get(p_pi_plus),1e-12));
+  assert(compare(mf_ll_con_grid.get(p_pi_minus), mf_ll_con_std.get(p_pi_minus),1e-12));
+#endif
+ 
   if(1){
-    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type1_grid;
-    ComputeKtoPiPiGparity<A2Apolicies_grid>::type1(type1_grid, 4, 2, 1, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
-
+    std::cout << "testKtoPiPiContractionGridStd computing type1 standard calc" << std::endl;
     typename ComputeKtoPiPiGparity<A2Apolicies_std>::ResultsContainerType type1_std;
+    //const int tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep,
     ComputeKtoPiPiGparity<A2Apolicies_std>::type1(type1_std, 4, 2, 1, 1, p_pi_plus, mf_ls_ww_std, mf_ll_con_std, V_std, V_std, W_std, W_std);
 
+#ifdef GPU_VEC
+    //Test the SIMD CPU version agrees with the non-SIMD CPU version first
+    std::cout << "testKtoPiPiContractionGridStd computing type1 standard calc with SIMD" << std::endl;    
+    std::vector<int> tsep_k_pi(1,4);
+    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type1_grid_cpu;
+    ComputeKtoPiPiGparity<A2Apolicies_grid>::type1_omp(&type1_grid_cpu, tsep_k_pi, 2, 1, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
+
+    if(!compareKtoPiPi(type1_std, "non-SIMD", type1_grid_cpu, "SIMD",  "type1", tol))
+      ERR.General("","testKtoPiPiContractionGridStd","non-SIMD vs Grid SIMD implementation type1 test failed\n");
+    std::cout << "testKtoPiPiContractionGridStd non-SIMD vs Grid SIMD type1 comparison passed" << std::endl;
+#endif
+       
+    std::cout << "testKtoPiPiContractionGridStd computing type1 Grid calc" << std::endl;
+    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type1_grid;
+    ComputeKtoPiPiGparity<A2Apolicies_grid>::type1(type1_grid, 4, 2, 1, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
   
-    bool fail = false;
-    for(int i=0;i<type1_std.nElementsTotal();i++){
-      std::complex<double> val_std = convertComplexD(type1_std[i]);
-      std::complex<double> val_grid = convertComplexD(type1_grid[i]);
-    
-      double rdiff = fabs(val_grid.real()-val_std.real());
-      double idiff = fabs(val_grid.imag()-val_std.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("!!!Fail: Type1 elem %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",i, val_grid.real(),val_grid.imag(), val_std.real(),val_std.imag(), val_std.real()-val_grid.real(), val_std.imag()-val_grid.imag());
-	fail = true;
-      }//else printf("Pass: Type1 elem %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",i, val_grid.real(),val_grid.imag(), val_std.real(),val_std.imag(), val_std.real()-val_grid.real(), val_std.imag()-val_grid.imag());
-    }
-    if(fail) ERR.General("","","Standard vs Grid implementation type1 test failed\n");
-    printf("Type 1 pass\n");
+    std::cout << "testKtoPiPiContractionGridStd comparing type1" << std::endl;
+    if(!compareKtoPiPi(type1_std, "CPS", type1_grid, "Grid",  "type1", tol))
+      ERR.General("","testKtoPiPiContractionGridStd","Standard vs Grid implementation type1 test failed\n");
+    std::cout << "testKtoPiPiContractionGridStd type1 comparison passed" << std::endl;
   }
   if(1){
-    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type2_grid;
-    ComputeKtoPiPiGparity<A2Apolicies_grid>::type2(type2_grid, 4, 2, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
-
+    std::cout << "testKtoPiPiContractionGridStd computing type2 standard calc" << std::endl;
     typename ComputeKtoPiPiGparity<A2Apolicies_std>::ResultsContainerType type2_std;
     ComputeKtoPiPiGparity<A2Apolicies_std>::type2(type2_std, 4, 2, 1, p_pi_plus, mf_ls_ww_std, mf_ll_con_std, V_std, V_std, W_std, W_std);
 
-  
-    bool fail = false;
-    for(int i=0;i<type2_std.nElementsTotal();i++){
-      std::complex<double> val_std = convertComplexD(type2_std[i]);
-      std::complex<double> val_grid = convertComplexD(type2_grid[i]);
+#ifdef GPU_VEC
+    //Test the SIMD CPU version agrees with the non-SIMD CPU version first
+    std::cout << "testKtoPiPiContractionGridStd computing type2 standard calc with SIMD" << std::endl;    
+    std::vector<int> tsep_k_pi(1,4);
+    std::vector<ThreeMomentum> p(1, p_pi_plus);
+    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type2_grid_cpu;
+    ComputeKtoPiPiGparity<A2Apolicies_grid>::type2_omp_v2(&type2_grid_cpu, tsep_k_pi, 2, 1, p, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
+
+    if(!compareKtoPiPi(type2_std, "non-SIMD", type2_grid_cpu, "SIMD",  "type2", tol))
+      ERR.General("","testKtoPiPiContractionGridStd","non-SIMD vs Grid SIMD implementation type2 test failed\n");
+    std::cout << "testKtoPiPiContractionGridStd non-SIMD vs Grid SIMD type2 comparison passed" << std::endl;
+#endif
     
-      double rdiff = fabs(val_grid.real()-val_std.real());
-      double idiff = fabs(val_grid.imag()-val_std.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("!!!Fail: Type2 elem %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",i, val_grid.real(),val_grid.imag(), val_std.real(),val_std.imag(), val_std.real()-val_grid.real(), val_std.imag()-val_grid.imag());
-	fail = true;
-      }//else printf("Pass: Type2 elem %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",i, val_grid.real(),val_grid.imag(), val_std.real(),val_std.imag(), val_std.real()-val_grid.real(), val_std.imag()-val_grid.imag());
-    }
-    if(fail) ERR.General("","","Standard vs Grid implementation type2 test failed\n");
-    printf("Type 2 pass\n");
+    std::cout << "testKtoPiPiContractionGridStd computing type2 Grid calc" << std::endl;
+    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type2_grid;
+    ComputeKtoPiPiGparity<A2Apolicies_grid>::type2(type2_grid, 4, 2, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
+
+    std::cout << "testKtoPiPiContractionGridStd comparing type2" << std::endl;
+    if(!compareKtoPiPi(type2_std, "CPS", type2_grid, "Grid",  "type2", tol))
+      ERR.General("","testKtoPiPiContractionGridStd","Standard vs Grid implementation type2 test failed\n");
+
+    std::cout << "testKtoPiPiContractionGridStd type2 comparison passed" << std::endl;
   }
   if(1){
-    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type3_grid;
-    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::MixDiagResultsContainerType type3_mix_grid;
-    ComputeKtoPiPiGparity<A2Apolicies_grid>::type3(type3_grid, type3_mix_grid, 4, 2, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
-
+    std::cout << "testKtoPiPiContractionGridStd computing type3 standard calc" << std::endl;
     typename ComputeKtoPiPiGparity<A2Apolicies_std>::ResultsContainerType type3_std;
     typename ComputeKtoPiPiGparity<A2Apolicies_std>::MixDiagResultsContainerType type3_mix_std;
     ComputeKtoPiPiGparity<A2Apolicies_std>::type3(type3_std, type3_mix_std, 4, 2, 1, p_pi_plus, mf_ls_ww_std, mf_ll_con_std, V_std, V_std, W_std, W_std);
 
-  
-    bool fail = false;
-    for(int i=0;i<type3_std.nElementsTotal();i++){
-      std::complex<double> val_std = convertComplexD(type3_std[i]);
-      std::complex<double> val_grid = convertComplexD(type3_grid[i]);
+    std::cout << "testKtoPiPiContractionGridStd computing type3 Grid calc" << std::endl;
+    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type3_grid;
+    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::MixDiagResultsContainerType type3_mix_grid;
+    ComputeKtoPiPiGparity<A2Apolicies_grid>::type3(type3_grid, type3_mix_grid, 4, 2, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
+
+    std::cout << "testKtoPiPiContractionGridStd comparing type3" << std::endl;
+    if(!compareKtoPiPi(type3_std, "CPS", type3_grid, "Grid",  "type3", tol))
+      ERR.General("","testKtoPiPiContractionGridStd","Standard vs Grid implementation type3 test failed\n");
     
-      double rdiff = fabs(val_grid.real()-val_std.real());
-      double idiff = fabs(val_grid.imag()-val_std.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("!!!Fail: Type3 elem %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",i, val_grid.real(),val_grid.imag(), val_std.real(),val_std.imag(), val_std.real()-val_grid.real(), val_std.imag()-val_grid.imag());
-	fail = true;
-      }//else printf("Pass: Type3 elem %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",i, val_grid.real(),val_grid.imag(), val_std.real(),val_std.imag(), val_std.real()-val_grid.real(), val_std.imag()-val_grid.imag());
-    }
-    if(fail) ERR.General("","","Standard vs Grid implementation type3 test failed\n");
-    printf("Type 3 pass\n");
+    std::cout << "testKtoPiPiContractionGridStd type3 comparison passed" << std::endl;
   }
   if(1){
+    std::cout << "testKtoPiPiContractionGridStd computing type4 Grid calc" << std::endl;
     typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type4_grid;
     typename ComputeKtoPiPiGparity<A2Apolicies_grid>::MixDiagResultsContainerType type4_mix_grid;
     ComputeKtoPiPiGparity<A2Apolicies_grid>::type4(type4_grid, type4_mix_grid, 1, mf_ls_ww_grid, V_grid, V_grid, W_grid, W_grid);
 
+    std::cout << "testKtoPiPiContractionGridStd computing type4 standard calc" << std::endl;
     typename ComputeKtoPiPiGparity<A2Apolicies_std>::ResultsContainerType type4_std;
     typename ComputeKtoPiPiGparity<A2Apolicies_std>::MixDiagResultsContainerType type4_mix_std;
     ComputeKtoPiPiGparity<A2Apolicies_std>::type4(type4_std, type4_mix_std, 1, mf_ls_ww_std, V_std, V_std, W_std, W_std);
-  
-    bool fail = false;
-    for(int i=0;i<type4_std.nElementsTotal();i++){
-      std::complex<double> val_std = convertComplexD(type4_std[i]);
-      std::complex<double> val_grid = convertComplexD(type4_grid[i]);
-    
-      double rdiff = fabs(val_grid.real()-val_std.real());
-      double idiff = fabs(val_grid.imag()-val_std.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("!!!Fail: Type4 elem %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",i, val_grid.real(),val_grid.imag(), val_std.real(),val_std.imag(), val_std.real()-val_grid.real(), val_std.imag()-val_grid.imag());
-	fail = true;
-      }//else printf("Pass: Type4 elem %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",i, val_grid.real(),val_grid.imag(), val_std.real(),val_std.imag(), val_std.real()-val_grid.real(), val_std.imag()-val_grid.imag());
-    }
-    if(fail) ERR.General("","","Standard vs Grid implementation type4 test failed\n");
-    printf("Type 4 pass\n");
+
+    std::cout << "testKtoPiPiContractionGridStd comparing type4" << std::endl;
+    if(!compareKtoPiPi(type4_std, "CPS", type4_grid, "Grid",  "type4", tol))
+      ERR.General("","testKtoPiPiContractionGridStd","Standard vs Grid implementation type4 test failed\n");
+    std::cout << "testKtoPiPiContractionGridStd type4 comparison passed" << std::endl;
   }
+  std::cout << "Passed testKtoPiPiContractionGridStd" << std::endl;
 }
 
 
@@ -1446,7 +1857,7 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
 #define GRID_VMV
 #define GRID_SPLIT_LITE_VMV;
 
-  std::cout << "Starting vMv tests\n";
+  std::cout << "Starting testvMvGridOrigGparity : vMv tests\n";
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -1554,10 +1965,12 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
   }
   
   //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
-  typedef typename mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw>::PropagatorField PropagatorField;
+  typedef mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vMvFieldImpl;
+  typedef typename vMvFieldImpl::PropagatorField PropagatorField;
   PropagatorField pfield(simd_dims);
-  
-  mult(pfield, Vgrid, mf_grid, Wgrid, false, true);
+
+  //mult(pfield, Vgrid, mf_grid, Wgrid, false, true);
+  vMvFieldImpl::optimized(pfield, Vgrid, mf_grid, Wgrid, false, true);
 
   CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
   vmv_offload_sum4.zero();
@@ -1565,6 +1978,16 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
     vmv_offload_sum4 += *pfield.fsite_ptr(i);
   }
 
+  //Same for simple field version
+  vMvFieldImpl::simple(pfield, Vgrid, mf_grid, Wgrid, false, true);
+
+  CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_simple_sum4;
+  vmv_offload_simple_sum4.zero();
+  for(size_t i=0;i<pfield.size();i++){
+    vmv_offload_simple_sum4 += *pfield.fsite_ptr(i);
+  }
+  
+  
 #ifdef BASIC_VMV
   if(!compare(orig_sum[0],basic_sum[0],tol)) ERR.General("","","Standard vs Basic implementation test failed\n");
   else if(!UniqueID()) printf("Standard vs Basic implementation test pass\n");
@@ -1585,14 +2008,22 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
   else if(!UniqueID()) printf("Standard vs Grid Split Lite implementation test pass\n");
 #endif
 
-  if(!compare(orig_sum[0],vmv_offload_sum4,tol)) ERR.General("","","Standard vs Grid field offload implementation test failed\n");
-  else if(!UniqueID()) printf("Standard vs Grid field offload implementation test pass\n");
+  if(!compare(orig_sum[0],vmv_offload_sum4,tol)) ERR.General("","","Standard vs Grid field offload optimized implementation test failed\n");
+  else if(!UniqueID()) printf("Standard vs Grid field offload optimized implementation test pass\n");
+
+  if(!compare(orig_sum[0],vmv_offload_simple_sum4,tol)) ERR.General("","","Standard vs Grid field offload simple implementation test failed\n");
+  else if(!UniqueID()) printf("Standard vs Grid field offload simple implementation test pass\n");
+  
+  std::cout << "testvMvGridOrigGparity passed" << std::endl;
 }
+
+
 
 
 
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const double tol){
+  std::cout << "Starting testvMvGridOrigPeriodic" << std::endl;
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
   typename FourDSIMDPolicy<typename ScalarA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::ParamType simd_dims;
@@ -1749,6 +2180,8 @@ void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const d
   if(!compare(orig_sum[0],basic_grid_sum[0],tol)) ERR.General("","","Standard vs Basic Grid implementation test failed\n");
   else if(!UniqueID()) printf("Standard vs Basic Grid implementation test pass\n");
 #endif
+
+  std::cout << "testvMvGridOrigPeriodic passed" << std::endl;
 }
 
 
@@ -1875,6 +2308,36 @@ void testComputeLowModeMADWF(const A2AArg &a2a_args, const LancArg &lanc_arg,
 #endif
 
 
+template<typename T>
+class ArrayArray{
+public:
+  typedef T FermionFieldType;
+  typedef typename FermionFieldType::FieldSiteType FieldSiteType;
+  typedef typename FermionFieldType::InputParamType FieldInputParamType;
+
+  CPSfieldArray<FermionFieldType> a;
+  CPSfieldArray<FermionFieldType> b; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
+
+  ArrayArray(int na, int nb, const FieldInputParamType &simd_dims){
+#if 0
+    a.resize(na); for(int i=0;i<na;i++) a[i].emplace(simd_dims);
+    b.resize(nb); for(int i=0;i<nb;i++) b[i].emplace(simd_dims);
+#else
+    a.resize(na); for(int i=0;i<na;i++) a[i].set(new FermionFieldType(simd_dims)); //  emplace(simd_dims);
+    b.resize(nb); for(int i=0;i<nb;i++) b[i].set(new FermionFieldType(simd_dims)); //  emplace(simd_dims);
+#endif
+    
+  }
+
+  inline PtrWrapper<FermionFieldType> & getA(size_t i){ return a[i]; }
+  inline PtrWrapper<FermionFieldType> & getB(size_t i){ return b[i]; }
+
+};
+
+
+  
+
+
 template<typename GridA2Apolicies>
 void testCPSfieldArray(){
   std::cout << "Starting testCPSfieldArray" << std::endl;
@@ -1929,6 +2392,45 @@ void testCPSfieldArray(){
   assert( Reduce(expect == *into) );
   
   managed_free(into);
+
+  //Test copy
+  std::cout << "Testing copy assignment" << std::endl;
+  CPSfieldArray<FermionFieldType> farray2= farray;
+  assert(farray2.size() == farray.size());
+  for(int i=0;i<farray2.size();i++){
+    assert( farray2[i]->equals( *farray[i] ) );
+  }
+
+  std::cout << "Testing copy" << std::endl;
+  CPSfieldArray<FermionFieldType> farray3;
+  farray3 = farray;
+  assert(farray2.size() == farray.size());
+  for(int i=0;i<farray3.size();i++){
+    assert( farray3[i]->equals( *farray[i] ) );
+  }
+
+  //Test ptrwrapper
+  PtrWrapper<FermionFieldType> p; p.set(new FermionFieldType(field));
+  PtrWrapper<FermionFieldType> p2; p2.set(new FermionFieldType(field));
+
+  std::cout << "Testing PtrWrapper copy" << std::endl;
+  p2 = p;
+  assert(p->equals(*p2));
+  
+  //Test array of arrays   
+  std::cout << "Testing array of arrays mode copy" << std::endl;
+  ArrayArray<FermionFieldType> a2(1,1,simd_dims);
+ 
+  a2.getA(0) = p; //.set(new FermionFieldType(field)); //farray[0];
+  a2.getB(0) = p; //.set(new FermionFieldType(field)); //farray[0]; 
+
+  std::cout << "Testing array of arrays copy" << std::endl;
+  ArrayArray<FermionFieldType> a2_cp(0,0,simd_dims);
+  a2_cp = a2;
+
+  assert( a2_cp.getA(0)->equals(field) );
+  assert( a2_cp.getB(0)->equals(field) );
+
   
   std::cout << "Passed testCPSfieldArray" << std::endl;
 }
@@ -2241,11 +2743,90 @@ void testMultiSourceDeviceCopy(){
 
 
 
+template<typename GridA2Apolicies>
+void testFlavorProjectedSourceView(){
+#ifdef GPU_VEC  
+  std::cout << "Starting testFlavorProjectedSourceView" << std::endl;
+  
+  typedef typename GridA2Apolicies::ComplexType ComplexType;
+  size_t nsimd = ComplexType::Nsimd();
+
+  typedef typename GridA2Apolicies::SourceFieldType SourceFieldType;
+  typename SourceFieldType::InputParamType simd_dims_3d;
+  setupFieldParams<SourceFieldType>(simd_dims_3d);
+
+  typedef typename GridA2Apolicies::SourcePolicies SourcePolicies;
+
+  int pbase[3] = {1,1,1};
+  
+  typedef A2AflavorProjectedExpSource<SourcePolicies> SrcType;
+  SrcType src(2.0, pbase, simd_dims_3d);
+
+  typedef typename ComplexType::scalar_type ScalarComplexType;
+  typedef FlavorMatrixGeneral<ComplexType> vFmatType;
+  typedef FlavorMatrixGeneral<ScalarComplexType> sFmatType;
+  
+  vFmatType* into = (vFmatType*)managed_alloc_check(sizeof(vFmatType));
+
+  auto src_v = src.view();
+  
+  typedef SIMT<ComplexType> ACC;
+
+  //Check we can access the source sites
+  {
+    std::cout << "Checking site access" << std::endl;
+    using namespace Grid;
+    ComplexType *into_c = (ComplexType*)into;
+    
+    accelerator_for(x, 100, nsimd,
+		  {
+		    if(x==0){
+		      typename ACC::value_type tmp = ACC::read(src_v.siteComplex(0));
+		      ACC::write(*into_c,tmp);  
+		    }
+		  });
+    ComplexType expect = src.siteComplex(0);
+
+    ScalarComplexType got_c = Reduce(*into_c);
+    ScalarComplexType expect_c = Reduce(expect);
+    assert(got_c == expect_c);
+    std::cout << "Checked site access" << std::endl;
+  }
+    
+   
+  {
+    std::cout << "Checking Fmat access" << std::endl;
+    using namespace Grid;
+ 
+    accelerator_for(x, 100, nsimd,
+		  {
+		    if(x==0){
+		      FlavorMatrixGeneral<typename ACC::value_type> tmp;
+		      //sFmatType tmp;
+		      src_v.siteFmat(tmp, 0);
+		      for(int f1=0;f1<2;f1++)
+			for(int f2=0;f2<2;f2++)
+			  ACC::write( (*into)(f1,f2), tmp(f1,f2) );
+		    }
+		  });
+
+    
+    vFmatType expect;
+    src.siteFmat(expect,0);
+    
+    assert(equals(*into,expect,1e-12));
+  }
+
+  managed_free(into);
+  std::cout << "Passed testFlavorProjectedSourceView" << std::endl;
+#endif
+}
+  
 
 
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
-void testVVgridOrigGparity(const A2AArg &a2a_args, const int ntests, const int nthreads, const double tol){
-  std::cout << "Starting vv test/timing\n";
+void testVVgridOrigGparity(const A2AArg &a2a_args, const int nthreads, const double tol){
+  std::cout << "Starting testVVgridOrigGparity\n";
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -2266,88 +2847,73 @@ void testVVgridOrigGparity(const A2AArg &a2a_args, const int ntests, const int n
   typedef typename GridA2Apolicies::ComplexType grid_Complex;
   typedef typename ScalarA2Apolicies::ComplexType mf_Complex;
       
-  Float total_time = 0.;
-  Float total_time_orig = 0.;
-  Float total_time_field_offload = 0;
-  CPSspinColorFlavorMatrix<mf_Complex> orig_slow_sum[nthreads], orig_sum[nthreads], orig_tmp[nthreads];
-  CPSspinColorFlavorMatrix<grid_Complex> grid_sum[nthreads], grid_tmp[nthreads];
-
+  //Temporaries
+  CPSspinColorFlavorMatrix<mf_Complex> orig_tmp[nthreads];
+  CPSspinColorFlavorMatrix<grid_Complex> grid_tmp[nthreads];
+  
+  //Accumulation output
+  CPSspinColorFlavorMatrix<mf_Complex> orig_slow_sum[nthreads], orig_sum[nthreads];
+  CPSspinColorFlavorMatrix<grid_Complex> grid_sum[nthreads];
+  for(int i=0;i<nthreads;i++){
+    orig_sum[i].zero(); orig_slow_sum[i].zero(); grid_sum[i].zero();
+  }
+  
   int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
   int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
       
-  for(int iter=0;iter<ntests;iter++){
-    for(int i=0;i<nthreads;i++){
-      orig_sum[i].zero(); orig_slow_sum[i].zero(); grid_sum[i].zero();
-    }
-	
-    for(int top = 0; top < GJP.TnodeSites(); top++){
+  for(int top = 0; top < GJP.TnodeSites(); top++){
 #pragma omp parallel for
-      for(int xop=0;xop<orig_3vol;xop++){
-	int me = omp_get_thread_num();
-	mult_slow(orig_tmp[me], V, W, xop, top, false, true);
-	orig_slow_sum[me] += orig_tmp[me];
-      }
+    for(int xop=0;xop<orig_3vol;xop++){
+      int me = omp_get_thread_num();
+      //Slow
+      mult_slow(orig_tmp[me], V, W, xop, top, false, true);
+      orig_slow_sum[me] += orig_tmp[me];
 
-      total_time_orig -= dclock();	  
-#pragma omp parallel for
-      for(int xop=0;xop<orig_3vol;xop++){
-	int me = omp_get_thread_num();
-	mult(orig_tmp[me], V, W, xop, top, false, true);
-	orig_sum[me] += orig_tmp[me];
-      }
-      total_time_orig += dclock();
-
-      total_time -= dclock();
-#pragma omp parallel for
-      for(int xop=0;xop<grid_3vol;xop++){
-	int me = omp_get_thread_num();
-	mult(grid_tmp[me], Vgrid, Wgrid, xop, top, false, true);
-	grid_sum[me] += grid_tmp[me];
-      }
-      total_time += dclock();	  
-    }
-    
-    for(int i=1;i<nthreads;i++){
-      orig_sum[0] += orig_sum[i];
-      orig_slow_sum[0] += orig_slow_sum[i];
-      grid_sum[0] += grid_sum[i];
+      //Non-SIMD
+      mult(orig_tmp[me], V, W, xop, top, false, true);
+      orig_sum[me] += orig_tmp[me];
     }
 
-    //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
-    total_time_field_offload -= dclock();
-    typedef typename mult_vv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw>::PropagatorField PropagatorField;
-    PropagatorField pfield(simd_dims);
-    
-    mult(pfield, Vgrid, Wgrid, false, true);
-    total_time_field_offload += dclock();
+#pragma omp parallel for   
+    for(int xop=0;xop<grid_3vol;xop++){
+      int me = omp_get_thread_num();
 
-    if(iter == 0){
-      CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
-      vmv_offload_sum4.zero();
-      for(size_t i=0;i<pfield.size();i++){
-	vmv_offload_sum4 += *pfield.fsite_ptr(i);
-      }
-      
-      if(!compare(orig_sum[0],orig_slow_sum[0],tol)) ERR.General("","","Standard vs Slow implementation test failed\n");
-      else if(!UniqueID()) printf("Standard vs Slow implementation test pass\n");
-      
-      if(!compare(orig_sum[0], grid_sum[0],tol)) ERR.General("","","Standard vs Grid implementation test failed\n");
-      else if(!UniqueID()) printf("Standard vs Grid implementation test pass\n");
-      
-      if(!compare(orig_sum[0], vmv_offload_sum4,tol)) ERR.General("","","Standard vs Field Offload implementation test failed\n");
-      else if(!UniqueID()) printf("Standard vs Field Offload implementation test pass\n");
+      //SIMD
+      mult(grid_tmp[me], Vgrid, Wgrid, xop, top, false, true);
+      grid_sum[me] += grid_tmp[me];
     }
   }
 
-  printf("vv: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
-  printf("vv: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
-  printf("vv: Avg time field offload code %d iters: %g secs\n",ntests,total_time_field_offload/ntests);
+  //Combine sums from threads > 1 into thread 0 output
+  for(int i=1;i<nthreads;i++){
+    orig_sum[0] += orig_sum[i];
+    orig_slow_sum[0] += orig_slow_sum[i];
+    grid_sum[0] += grid_sum[i];
+  }
+  
+  //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
+  typedef typename mult_vv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw>::PropagatorField PropagatorField;
+  PropagatorField pfield(simd_dims);
+  
+  mult(pfield, Vgrid, Wgrid, false, true);
 
-  if(!UniqueID()){
-    printf("vv offload timings:\n");
-    mult_vv_field_offload_timers::get().print();
+  CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
+  vmv_offload_sum4.zero();
+  for(size_t i=0;i<pfield.size();i++){
+    vmv_offload_sum4 += *pfield.fsite_ptr(i);
   }
 
+  //Do the comparison
+  if(!compare(orig_sum[0],orig_slow_sum[0],tol)) ERR.General("","","Standard vs Slow implementation test failed\n");
+  else if(!UniqueID()) printf("Standard vs Slow implementation test pass\n");
+  
+  if(!compare(orig_sum[0], grid_sum[0],tol)) ERR.General("","","Standard vs Grid implementation test failed\n");
+  else if(!UniqueID()) printf("Standard vs Grid implementation test pass\n");
+  
+  if(!compare(orig_sum[0], vmv_offload_sum4,tol)) ERR.General("","","Standard vs Field Offload implementation test failed\n");
+  else if(!UniqueID()) printf("Standard vs Field Offload implementation test pass\n");
+
+  std::cout << "testVVgridOrigGparity passed" << std::endl;
 }
 
 
@@ -2496,6 +3062,7 @@ struct _trtrV{
 
 template<typename GridA2Apolicies>
 void testCPSmatrixField(const double tol){
+  std::cout << "Starting testCPSmatrixField" << std::endl;
   //Test type conversion
   {
       typedef CPSspinColorFlavorMatrix<typename GridA2Apolicies::ComplexType> VectorMatrixType;
@@ -3502,9 +4069,6 @@ void testCPSmatrixField(const double tol){
     if(fail) ERR.General("","","CPSmatrixField global 4d reduction failed\n");
   }
 
-  
-
-
   if(!UniqueID()){ printf("testCPSmatrixField tests passed\n"); fflush(stdout); }
 }
 
@@ -3782,13 +4346,151 @@ void testKtoPiPiType4FieldFull(const A2AArg &a2a_args, const double tol){
   if(fail) ERR.General("","","KtoPiPi mix4 contract full failed\n");
 }
 
+template<typename StandardA2Apolicies, typename GridA2Apolicies>
+void testMesonFieldNormGridStd(const A2AArg &a2a_args, const double tol){
+  std::cout << "Running testMesonFieldNorm" << std::endl;
+  A2Aparams params(a2a_args);
+  std::vector<A2AmesonField<StandardA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_std(1);
+  mf_std[0].setup(params,params,0,0);
+  mf_std[0].testRandom();
+
+  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>  > mf_grid(1);
+  mf_grid[0].setup(params,params,0,0);
+  copy(mf_grid,mf_std);
+
+  assert(compare(mf_grid,mf_std,tol));
+
+  double n1 = mf_grid[0].norm2(), n2 = mf_std[0].norm2();
+  if(fabs(n1-n2) > tol){
+    std::cout << "testMesonFieldNorm failed: " << n1 << " " << n2 << " diff " << n1 - n2 << std::endl;
+    exit(1);
+  }
+  
+
+  std::cout << "testMesonFieldNorm passed" << std::endl;
+}
+
+void testConvertComplexD(){
+  std::cout << "Starting testConvertComplexD" << std::endl;
+  std::complex<double> std(3.14, 2.22);
+  Grid::ComplexD grid(3.14,2.22);
+
+  std::complex<double> grid_conv = convertComplexD(grid);
+
+  std::cout << "Std (" << std.real() << "," << std.imag() << ")  Grid (" << grid_conv.real() << "," << grid_conv.imag() << ")" << std::endl;
+  
+  assert( fabs( grid_conv.real() - std.real() ) < 1e-12 && fabs( grid_conv.imag() - std.imag() ) < 1e-12 );
+  
+  std::cout << "testConvertComplexD passed" << std::endl;
+}
+
+
+
+//Test the openmp Grid implementation vs the non-Grid implementation of type 1
+template<typename StandardA2Apolicies, typename GridA2Apolicies>
+void testKtoPiPiType1GridOmpStd(const A2AArg &a2a_args,
+				const A2AvectorW<GridA2Apolicies> &Wgrid, A2AvectorV<GridA2Apolicies> &Vgrid,
+				const A2AvectorW<GridA2Apolicies> &Whgrid, A2AvectorV<GridA2Apolicies> &Vhgrid,
+				const A2AvectorW<StandardA2Apolicies> &Wstd, A2AvectorV<StandardA2Apolicies> &Vstd,
+				const A2AvectorW<StandardA2Apolicies> &Whstd, A2AvectorV<StandardA2Apolicies> &Vhstd,
+				const double tol){
+  std::cout << "Starting testKtoPiPiType1GridOmpStd type1 full test\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+ 
+  int Lt = GJP.TnodeSites()*GJP.Tnodes();
+  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW_grid;
+  typedef typename ComputeKtoPiPiGparity<StandardA2Apolicies>::mf_WW mf_WW_std;
+  std::vector<mf_WW_grid> mf_kaon_grid(Lt);
+  std::vector<mf_WW_std> mf_kaon_std(Lt);
+  
+  for(int t=0;t<Lt;t++){
+    mf_kaon_grid[t].setup(Wgrid,Whgrid,t,t);
+    mf_kaon_grid[t].testRandom();
+
+    mf_kaon_std[t].setup(Wstd,Whstd,t,t);
+  }
+  copy(mf_kaon_std, mf_kaon_grid);
+  assert(compare(mf_kaon_std, mf_kaon_grid, 1e-12));
+
+  
+  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType_grid;
+  typedef typename ComputeKtoPiPiGparity<StandardA2Apolicies>::ResultsContainerType ResultsContainerType_std;
+  
+  std::vector<int> tsep_k_pi = {3,4};
+  std::vector<ResultsContainerType_std> std_r(2);
+  std::vector<ResultsContainerType_grid> grid_r(2);
+
+  //int tstep = 2;
+  int tstep = 1;
+  int tsep_pion = 1;
+  ThreeMomentum p_pi1(1,1,1);
+  ThreeMomentum p_pi2 = -p_pi1;
+
+  MesonFieldMomentumContainer<GridA2Apolicies> mf_pion_grid;
+  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_grid_tmp(Lt);
+
+  MesonFieldMomentumContainer<StandardA2Apolicies> mf_pion_std;
+  std::vector<A2AmesonField<StandardA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_std_tmp(Lt);
+
+  for(int t=0;t<Lt;t++){
+    mf_pion_grid_tmp[t].setup(Wgrid,Vgrid,t,t);
+    mf_pion_grid_tmp[t].testRandom();
+
+    mf_pion_std_tmp[t].setup(Wstd,Vstd,t,t);
+  }
+  copy(mf_pion_std_tmp, mf_pion_grid_tmp);
+  
+  mf_pion_grid.copyAdd(p_pi1, mf_pion_grid_tmp);
+  mf_pion_std.copyAdd(p_pi1, mf_pion_std_tmp);
+  
+  for(int t=0;t<Lt;t++){
+    mf_pion_grid_tmp[t].testRandom();
+  }
+  copy(mf_pion_std_tmp, mf_pion_grid_tmp);
+  
+  mf_pion_grid.copyAdd(p_pi2, mf_pion_grid_tmp);
+  mf_pion_std.copyAdd(p_pi2, mf_pion_std_tmp);
+
+  assert(mf_pion_grid.get(p_pi1).size() ==  Lt);
+  assert(mf_pion_grid.get(p_pi2).size() ==  Lt);
+  assert(mf_pion_std.get(p_pi1).size() ==  Lt);
+  assert(mf_pion_std.get(p_pi2).size() ==  Lt);
+    
+  assert(compare(mf_pion_grid.get(p_pi1), mf_pion_std.get(p_pi1),1e-12));
+  assert(compare(mf_pion_grid.get(p_pi2), mf_pion_std.get(p_pi2),1e-12));
+
+  for(int t=0;t<Lt;t++)
+    std::cout << "TEST pi1 " << mf_pion_grid.get(p_pi1)[t].norm2() << " " << mf_pion_std.get(p_pi1)[t].norm2() << std::endl;
+  
+  for(int t=0;t<Lt;t++)
+    std::cout << "TEST pi2 " << mf_pion_grid.get(p_pi2)[t].norm2() << " " << mf_pion_std.get(p_pi2)[t].norm2() << std::endl;
+
+  
+  std::cout << "testKtoPiPiType1GridOmpStd computing using SIMD implementation" << std::endl;
+  ComputeKtoPiPiGparity<GridA2Apolicies>::type1_omp(grid_r.data(), tsep_k_pi, tsep_pion, tstep, 1,  p_pi1, mf_kaon_grid, mf_pion_grid, Vgrid, Vhgrid, Wgrid, Whgrid);
+
+  std::cout << "testKtoPiPiType1GridOmpStd computing using non-SIMD implementation" << std::endl;
+  ComputeKtoPiPiGparity<StandardA2Apolicies>::type1_omp(std_r.data(), tsep_k_pi, tsep_pion, tstep, 1,  p_pi1, mf_kaon_std, mf_pion_std, Vstd, Vhstd, Wstd, Whstd);
+
+  for(int tsep_k_pi_idx=0; tsep_k_pi_idx<2; tsep_k_pi_idx++){
+    std::cout << "testKtoPiPiType1GridOmpStd comparing results for tsep_k_pi idx " << tsep_k_pi_idx << std::endl;
+      
+    if(!compareKtoPiPi(std_r[tsep_k_pi_idx], "std",
+  		       grid_r[tsep_k_pi_idx], "grid",
+  		       "KtoPiPi type1", tol)){
+      ERR.General("","testKtoPiPiType1GridOmpStd","KtoPiPi type1 contract full failed\n");
+    }
+  }	  
+  std::cout << "testKtoPiPiType1GridOmpStd passed" << std::endl;
+}
 
 
 
 
 template<typename GridA2Apolicies>
 void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
-  std::cout << "Starting type1 full test\n";
+  std::cout << "Starting testKtoPiPiType1FieldFull type1 full test\n";
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -3862,8 +4564,8 @@ void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
       }
     }
   }
-  if(fail) ERR.General("","","KtoPiPi type1 contract full failed\n");
-
+  if(fail) ERR.General("","testKtoPiPiType1FieldFull","KtoPiPi type1 contract full failed\n");
+  std::cout << "testKtoPiPiType1FieldFull passed" << std::endl;
 }
 
 
@@ -4249,7 +4951,7 @@ void testKtoSigmaType3FieldFull(const A2AArg &a2a_args, const double tol){
 
 template<typename GridA2Apolicies>
 void testKtoSigmaType4FieldFull(const A2AArg &a2a_args, const double tol){
-  std::cout << "Starting K->sigma type4 full test\n";
+  std::cout << "Starting testKtoSigmaType4FieldFull: K->sigma type4 full test\n";
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -4331,6 +5033,7 @@ void testKtoSigmaType4FieldFull(const A2AArg &a2a_args, const double tol){
   }
 
   if(fail) ERR.General("","","KtoSigma mix4 contract full failed node %d\n", UniqueID());
+  std::cout << "testKtoSigmaType4FieldFull passed" << std::endl;
 }
 
 

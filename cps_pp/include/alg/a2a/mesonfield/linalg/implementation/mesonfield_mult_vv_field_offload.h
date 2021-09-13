@@ -162,7 +162,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			  typedef typename ACC::value_type SIMTcomplexType; //=ScalarComplexType on GPU
 
 			  extern __shared__ ScalarComplexType shared_all[];
-			  ScalarComplexType* shared_t = shared_all + (threadIdx.z + nsimd * threadIdx.x)*2*3*shmem_iblock_size;
+			  //ScalarComplexType* shared_t = shared_all + (threadIdx.z + nsimd * threadIdx.x)*2*3*shmem_iblock_size; //OLD MAPPING IN GRID
+			  ScalarComplexType* shared_t = shared_all + (threadIdx.x + nsimd * threadIdx.y)*2*3*shmem_iblock_size; //New mapping uses threadIdx.x for simd lane
 
 			  SIMTcomplexType *matA = shared_t;
 			  SIMTcomplexType *matB = shared_t + 3*shmem_iblock_size;

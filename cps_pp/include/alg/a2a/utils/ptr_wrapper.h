@@ -38,11 +38,22 @@ public:
     if(r.t != NULL) t = new T(*r.t);
   }
 
+  inline PtrWrapper(PtrWrapper &&r){
+    t = r.t; r.t = NULL;
+  }
+  
   inline PtrWrapper & operator=(const PtrWrapper &r){
     if(t!=NULL){ delete t; t = NULL; }
     if(r.t!=NULL) t = new T(*r.t);
+    return *this;
   }
 
+  inline PtrWrapper & operator=(PtrWrapper &&r){
+    if(t!=NULL){ delete t; t = NULL; }
+    t = r.t; r.t = NULL;
+    return *this;
+  }
+  
   //Construct the object in-place using memory assigned internally
   template<typename... ConstructArgs>
   inline void emplace(ConstructArgs&&... construct_args){

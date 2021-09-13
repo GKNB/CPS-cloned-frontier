@@ -51,7 +51,7 @@ public:
     setup(l,r,-1,-1);
   }
 
- A2AmesonField(const A2AmesonField &r): nmodes_l(r.nmodes_l), nmodes_r(r.nmodes_r),
+  A2AmesonField(const A2AmesonField &r): nmodes_l(r.nmodes_l), nmodes_r(r.nmodes_r),
 					 fsize(r.fsize), lindexdilution(r.lindexdilution), rindexdilution(r.rindexdilution),
 					 tl(r.tl), tr(r.tr), MesonFieldDistributedStorageType(r){ }
 
@@ -146,7 +146,6 @@ public:
   inline double norm2() const{
     double out = 0.;
     for(int i=0;i<size();i++) out += norm(ptr()[i]);
-    cps::globalSum(&out, 1);
     return out;
   }
   

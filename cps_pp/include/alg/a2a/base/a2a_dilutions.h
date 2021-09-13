@@ -318,7 +318,7 @@ public:
     return indexUnmap(idx,mset.hit);
   }
 
-  inline int getNmodes() const{ return nl + nhits*nspincolor; }
+  inline int getNmodes() const{ return nl + nhits; }
 
   //Compute the mapping between a full (unpacked) index and the packed index. Only the elements map[i] for which non_zeroes[i]==true are meaningful
   //sc_delta, f_delta, t_delta are defined above

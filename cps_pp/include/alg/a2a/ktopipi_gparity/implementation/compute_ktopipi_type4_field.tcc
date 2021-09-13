@@ -114,10 +114,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_field_SIMD(ResultsContainerType &
   
   static const int n_contract = 10; //ten type4 diagrams
   static const int con_off = 23; //index of first contraction in set
-  int nthread = omp_get_max_threads();
 
-  result.resize(n_contract,nthread); //it will be thread-reduced before this method ends
-  mix4.resize(nthread);
+  result.resize(n_contract); //it will be thread-reduced before this method ends
+  mix4.resize(1);
 
   auto field_params = vL.getMode(0).getDimPolParams();
 

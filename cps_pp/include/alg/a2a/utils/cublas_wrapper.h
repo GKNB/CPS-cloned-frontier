@@ -210,7 +210,7 @@ public:
 #ifdef GPU_HOST_PINNED_MATRIX_USE_CACHE
       PinnedHostMemoryCache::free(d,m_rows*m_cols*sizeof(complexD));
 #else
-      cudaFree(d);
+      assert( cudaFreeHost(d) == cudaSuccess );
 #endif
     }
   }
@@ -224,6 +224,22 @@ public:
 
 
 
+inline const char* cublasGetErrorString(cublasStatus_t status){
+    switch(status)
+      {
+      case CUBLAS_STATUS_SUCCESS: return "CUBLAS_STATUS_SUCCESS";
+      case CUBLAS_STATUS_NOT_INITIALIZED: return "CUBLAS_STATUS_NOT_INITIALIZED";
+      case CUBLAS_STATUS_ALLOC_FAILED: return "CUBLAS_STATUS_ALLOC_FAILED";
+      case CUBLAS_STATUS_INVALID_VALUE: return "CUBLAS_STATUS_INVALID_VALUE"; 
+      case CUBLAS_STATUS_ARCH_MISMATCH: return "CUBLAS_STATUS_ARCH_MISMATCH"; 
+      case CUBLAS_STATUS_MAPPING_ERROR: return "CUBLAS_STATUS_MAPPING_ERROR";
+      case CUBLAS_STATUS_EXECUTION_FAILED: return "CUBLAS_STATUS_EXECUTION_FAILED"; 
+      case CUBLAS_STATUS_INTERNAL_ERROR: return "CUBLAS_STATUS_INTERNAL_ERROR";
+      case CUBLAS_STATUS_NOT_SUPPORTED: return "CUBLAS_STATUS_NOT_SUPPORTED";
+      case CUBLAS_STATUS_LICENSE_ERROR: return "CUBLAS_STATUS_LICENSE_ERROR";
+      }
+    return "unknown error";
+}
 
 //Multiply matrices C = A*B
 //m = A.rows()  n=B.cols()  k=A.cols()
@@ -247,14 +263,16 @@ inline void mult_offload_cuBLASxt(cuDoubleComplex* C,
   gpuMatrix::complexD one(1.0,0.0);
   gpuMatrix::complexD zero(0.0,0.0);
 
-  assert( cublasXtZgemm(handle_xt,
-  			CUBLAS_OP_N,CUBLAS_OP_N,
-  			n,m,k,
-  			(cuDoubleComplex*)&one,
-  			B, n,
-  			A, k,
-  			(cuDoubleComplex*)&zero,
-  			C, n) == CUBLAS_STATUS_SUCCESS );
+  cublasStatus_t err = cublasXtZgemm(handle_xt,
+				     CUBLAS_OP_N,CUBLAS_OP_N,
+				     n,m,k,
+				     (cuDoubleComplex*)&one,
+				     B, n,
+				     A, k,
+				     (cuDoubleComplex*)&zero,
+				     C, n);
+  if(err!=CUBLAS_STATUS_SUCCESS)
+    ERR.General("","mult_offload_cuBLASxt","cublasXtZgemm call failed with error: %s", cublasGetErrorString(err));
 
   assert( cublasXtDestroy(handle_xt) == CUBLAS_STATUS_SUCCESS );
 }
