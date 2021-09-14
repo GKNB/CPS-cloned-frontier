@@ -104,7 +104,7 @@ struct CommandLineArgs{
 					       "--dslash-asm", "--shm", "--lebesgue",
 					       "--cacheblocking", "--comms-concurrent", "--comms-sequential",
 					       "--comms-overlap", "--log", "--comms-threads",
-					       "--shm-hugepages", "--gpu-threads" };
+					       "--shm-hugepages", "--accelerator-threads" };
     const int grid_args_skip[ngrid_arg] =    { 1  , 1 , 1,
 					       1  , 2 , 1,
 					       2  , 1 , 1,
