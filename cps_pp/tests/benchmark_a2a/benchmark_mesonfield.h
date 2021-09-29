@@ -2404,51 +2404,55 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   GridInnerProduct mf_struct_grid(sigma3,src_grid);
   
   std::cout << "Starting all-time mesonfield contract benchmark\n";
-  if(!UniqueID()) printf("Using outer blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bi,BlockedMesonFieldArgs::bj,BlockedMesonFieldArgs::bp);
-  if(!UniqueID()) printf("Using inner blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bii,BlockedMesonFieldArgs::bjj,BlockedMesonFieldArgs::bpp);
+  if(!UniqueID()){ printf("Using outer blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bi,BlockedMesonFieldArgs::bj,BlockedMesonFieldArgs::bp); fflush(stdout); }
+  if(!UniqueID()){ printf("Using inner blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bii,BlockedMesonFieldArgs::bjj,BlockedMesonFieldArgs::bpp); fflush(stdout); }
 
   Float total_time = 0.;
   std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_grid_t;
 
+#if 0
+  std::cout << "Generating random fields" << std::endl;
   W.testRandom();
   V.testRandom();
+  std::cout << "Importing random fields into Grid A2A vectors" << std::endl;
   Wgrid.importFields(W);
   Vgrid.importFields(V);
-      
-  CALLGRIND_START_INSTRUMENTATION ;
-  CALLGRIND_TOGGLE_COLLECT ;
+#else
+  //Just zero the data, makes no difference
+  Wgrid.zero();
+  Vgrid.zero();
+#endif
   
   typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
 
-#ifndef GRID_CUDA
-    typedef SingleSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
+#ifndef GPU_VEC
+  std::cout << "Using CPU implementation" << std::endl;
+  typedef SingleSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
   //typedef SingleSrcVectorPolicies<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
-    mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
+  mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
 #else
+  std::cout << "Using Grid offloaded implementation" << std::endl;
   typedef SingleSrcVectorPoliciesSIMDoffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
   mfComputeGeneralOffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
 #endif
 
   BlockedMesonFieldArgs::enable_profiling = false; 
-  
-  ProfilerStart("SingleSrcProfile.prof");
-  for(int iter=0;iter<ntests;iter++){
-    total_time -= dclock();
+
+  std::cout << "Starting benchmark test loop" << std::endl; std::cout.flush();
+  //ProfilerStart("SingleSrcProfile.prof");  
+  for(int iter=0;iter<ntests+1;iter++){
+    if(iter > 0) total_time -= dclock();
 
     //__itt_resume();
-    if(iter == ntests-1) BlockedMesonFieldArgs::enable_profiling = true;
+    if(iter == ntests) BlockedMesonFieldArgs::enable_profiling = true;
     cg.compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid, true);
-    if(iter == ntests-1) BlockedMesonFieldArgs::enable_profiling = false;
+    if(iter == ntests) BlockedMesonFieldArgs::enable_profiling = false;
     //__itt_pause();
 
-    //A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid);
-    total_time += dclock();
+    if(iter > 0) total_time += dclock();
   }
-  __itt_detach();
-  ProfilerStop();  
-
-  CALLGRIND_TOGGLE_COLLECT ;
-  CALLGRIND_STOP_INSTRUMENTATION ;
+  //  __itt_detach();
+//ProfilerStop();  
 
   const typename GridA2Apolicies::FermionFieldType &mode0 = Wgrid.getMode(0);
   size_t g5_FLOPs = 12*6*nsimd + 12*2*nsimd;//12 vectorized conj(a)*b  + 12 vectorized += or -=         

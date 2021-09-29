@@ -1,15 +1,15 @@
-#include<alg/a2a/lattice/fermion/grid_gparity_ZMobius.h>
+// #include<alg/a2a/lattice/fermion/grid_gparity_ZMobius.h>
 
-#ifdef USE_GRID
+// #ifdef USE_GRID
 
-#include <Grid/qcd/action/fermion/FermionCore.h>
-#include <Grid/qcd/action/fermion/implementation/CayleyFermion5DImplementation.h>
-#include <Grid/qcd/action/fermion/implementation/CayleyFermion5Dcache.h>
+// #include <Grid/qcd/action/fermion/FermionCore.h>
+// #include <Grid/qcd/action/fermion/implementation/CayleyFermion5DImplementation.h>
+// #include <Grid/qcd/action/fermion/implementation/CayleyFermion5Dcache.h>
 
-NAMESPACE_BEGIN(Grid);
+// NAMESPACE_BEGIN(Grid);
 
-template class CayleyFermion5D<ZGparityWilsonImplDF>;
+// template class CayleyFermion5D<ZGparityWilsonImplDF>;
 
-NAMESPACE_END(Grid);
+// NAMESPACE_END(Grid);
 
-#endif
+// #endif

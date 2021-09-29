@@ -137,6 +137,9 @@ public:
     for(int i=0;i<nv;i++) v[i]->testRandom(hi,lo);
   }
 
+  //Set all fields to zero
+  void zero(){ for(int i=0;i<nv;i++) v[i]->zero(); }
+  
   void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumCRC32) const; //node id will be appended
   void readParallel(const std::string &file_stub);
 
@@ -275,6 +278,9 @@ public:
     for(int i=0;i<nv;i++) v[i]->testRandom(hi,lo);
   }
 
+  //Set all fields to zero
+  void zero(){ for(int i=0;i<nv;i++) v[i]->zero(); }
+  
   template<typename extPolicies>
   void importFields(const A2AvectorVfftw<extPolicies> &r){
     if( !paramsEqual(r) ) ERR.General("A2AvectorVfftw","importFields","External field-vector must share the same underlying parameters\n");
@@ -415,6 +421,12 @@ public:
   void testRandom(const Float &hi = 0.5, const Float &lo = -0.5){
     for(int i=0;i<nl;i++) wl[i]->testRandom(hi,lo);
     for(int i=0;i<nhits;i++) wh[i]->testRandom(hi,lo);
+  }
+
+  //Set all fields to zero
+  void zero(){
+    for(int i=0;i<nl;i++) wl[i]->zero();
+    for(int i=0;i<nhits;i++) wh[i]->zero();
   }
 
   void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumCRC32) const; //node id will be appended
@@ -630,7 +642,13 @@ public:
     for(int i=0;i<nl;i++) wl[i]->testRandom(hi,lo);
     for(int i=0;i<12*nhits;i++) wh[i]->testRandom(hi,lo);
   }
- 
+
+  //Set all fields to zero
+  void zero(){ 
+    for(int i=0;i<nl;i++) wl[i]->zero();
+    for(int i=0;i<12*nhits;i++) wh[i]->zero();
+  }
+  
   //BELOW are for use by the meson field
   //For high modes it returns   wFFTP^(j_h,j_sc)_{sc',f'}(p,t) \delta_{f',j_f}   [cf a2a_dilutions.h]
   //i is only used for low mode indices. If i>=nl  the appropriate data is picked using i_high_unmapped

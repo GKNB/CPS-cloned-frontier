@@ -13,13 +13,13 @@ NAMESPACE_BEGIN(Grid);
 typedef GparityWilsonImpl<vComplexF, FundamentalRepresentation,CoeffComplex> ZGparityWilsonImplF;  // Float
 typedef GparityWilsonImpl<vComplexD, FundamentalRepresentation,CoeffComplex> ZGparityWilsonImplD;  // Double
  
-typedef GparityWilsonImpl<vComplexF, FundamentalRepresentation,CoeffComplexHalfComms> ZGparityWilsonImplFH;  // Float
-typedef GparityWilsonImpl<vComplexD, FundamentalRepresentation,CoeffComplexHalfComms> ZGparityWilsonImplDF;  // Double
+//typedef GparityWilsonImpl<vComplexF, FundamentalRepresentation,CoeffComplexHalfComms> ZGparityWilsonImplFH;  // Float
+//typedef GparityWilsonImpl<vComplexD, FundamentalRepresentation,CoeffComplexHalfComms> ZGparityWilsonImplDF;  // Double
 
 typedef ZMobiusFermion<ZGparityWilsonImplF> ZGparityMobiusFermionF;
 typedef ZMobiusFermion<ZGparityWilsonImplD> ZGparityMobiusFermionD;                                                                                                                                 
-typedef ZMobiusFermion<ZGparityWilsonImplFH> ZGparityMobiusFermionFH;
-typedef ZMobiusFermion<ZGparityWilsonImplDF> ZGparityMobiusFermionDF;
+//typedef ZMobiusFermion<ZGparityWilsonImplFH> ZGparityMobiusFermionFH;
+//typedef ZMobiusFermion<ZGparityWilsonImplDF> ZGparityMobiusFermionDF;
 
 NAMESPACE_END(Grid);
 #endif

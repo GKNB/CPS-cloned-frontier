@@ -460,6 +460,7 @@ if (!UniqueID())
 int GlobalJobParameter::SetNthreads(const int &n){ 
   if (n>0) threads = n; 
   omp_set_num_threads(threads);
+  if(!UniqueID()) printf("Set nthreads=%d, omp_get_max_threads=%d\n", threads, omp_get_max_threads()); 
   return threads;
 }
 

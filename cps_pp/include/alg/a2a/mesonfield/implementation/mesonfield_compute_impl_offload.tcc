@@ -101,7 +101,7 @@ struct SingleSrcVectorPoliciesSIMDoffload{
 			    const int t, const size_t size_3d){
 //CUDA only currently
 #ifdef GRID_CUDA
-    std::cout << "CUDA GPU reduce (single src)" << std::endl; fflush(stdout);
+    //std::cout << "CUDA GPU reduce (single src)" << std::endl; fflush(stdout);
     double talloc_free = 0;
     double tkernel = 0;
     double tpoke = 0;
@@ -132,9 +132,9 @@ struct SingleSrcVectorPoliciesSIMDoffload{
     managed_free(tmp);
     talloc_free += dclock() - time;
 
-    print_time("CUDA GPU reduce","alloc_free",talloc_free);
-    print_time("CUDA GPU reduce","kernel",tkernel);
-    print_time("CUDA GPU reduce","poke",tpoke);
+    //print_time("CUDA GPU reduce","alloc_free",talloc_free);
+    //print_time("CUDA GPU reduce","kernel",tkernel);
+    //print_time("CUDA GPU reduce","poke",tpoke);
 #else
     //Reduce over size_3d
     //Paralllelize me!
@@ -259,6 +259,7 @@ struct MultiSrcVectorPoliciesSIMDoffload{
   
 };
 
+//Starting at 'init', sucessively reduce the value 'out' until it is an integer divisor of 'of'
 inline int nearestDivisor(const int of, const int init){
   int out = init;
   while(of % out != 0) --out;
@@ -296,7 +297,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     double time = -dclock();
     this->initializeMesonFields(mf_t,l,r,Lt,do_setup);
     print_time("A2AmesonField","setup",time + dclock());
-
+   
     time = -dclock();
     //For W vectors we dilute out the flavor index in-place while performing this contraction
     const typename mf_Policies::FermionFieldType &mode0 = l.getMode(0);
@@ -319,6 +320,11 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     if(bj > nmodes_r || bj == 0) bj = nmodes_r;
     if(bx > size_3d || bx == 0) bx = size_3d; //optional disable of x blocking
 
+#ifdef GRID_CUDA
+    int device;
+    cudaGetDevice(&device);
+#endif
+    
 #define MF_OFFLOAD_INNER_BLOCKING
 #ifdef MF_OFFLOAD_INNER_BLOCKING
     //Note these will be shrunk if necessary to be an exact divisor of the true block size, which can be smaller for the last block if the block size is not a divisor
@@ -327,7 +333,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     if(sbj == 0 || sbj > bj) sbj = bj;
     if(sbx == 0 || sbx > bx) sbx = bx;
 #endif
-    
+   
     //Make a table of p base pointers and site offsets (stride between 3d sites) for each i,j
     //These need to be in managed memory so they can be accessed on the device
     typedef SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> vPtr;
@@ -357,10 +363,18 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     const size_t naccum = bi * bj * bx * multiplicity;
     accumType *accum = Alloc<accumType>(naccum);
 
-    if(!UniqueID()){ printf("Using block sizes %d %d %d, temp memory requirement is %f MB\n", bi, bj, bx, byte_to_MB(naccum * sizeof(accumType))); fflush(stdout); }
+    std::cout << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
+    
+
 #ifdef MF_OFFLOAD_INNER_BLOCKING
-    if(!UniqueID()){ printf("Using subblock sizes %d %d %d\n", sbi, sbj, sbx); fflush(stdout); }
+    std::cout << "Using inner block sizes " << sbi << " " << sbj << " " << sbx << std::endl;
 #endif
+    size_t nioblocks = (nmodes_l + bi-1)/bi,  njoblocks = (nmodes_r + bj-1)/bj,  nxoblocks = (size_3d + bx-1)/bx;
+    size_t kernel_execs = nioblocks * njoblocks * nxoblocks;
+    
+    std::cout << "Number of outer blocks " << nioblocks << " " << njoblocks << " " << nxoblocks << " for " << kernel_execs << " kernel executions per timeslice" << std::endl;
+
+    
     double reduce_time = 0;
     double ptr_setup_time = 0;
     double kernel_time = 0;
@@ -387,7 +401,9 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 		 });
             
       ptr_setup_time += dclock()+ttime;
-      if(!UniqueID()){ printf("Generated tables for t=%d\n",t); fflush(stdout); }
+      //if(!UniqueID()){ printf("Generated tables for t=%d\n",t); fflush(stdout); }
+
+      size_t kernel_exec_it = 0;
       
       for(size_t i0 = 0; i0 < nmodes_l; i0+=bi){
 	size_t iup = std::min(i0+bi,nmodes_l);
@@ -416,14 +432,29 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    int nxblk = bx_true / sbx_use;
 	    //int_fastdiv sbx_use_div(sbx_use);
 	    //int_fastdiv nxblk_div(nxblk);
-	    if(!UniqueID()){ printf("Kernel execute with true outer block sizes %d %d %d and inner %d %d %d\n", bi_true, bj_true, bx_true, sbi_use, sbj_use, sbx_use); fflush(stdout); }
+	    //if(!UniqueID()){ printf("Kernel execute with true outer block sizes %d %d %d and inner %d %d %d. Number of blocks %d %d %d\n",
+	    //			    bi_true, bj_true, bx_true, sbi_use, sbj_use, sbx_use, niblk, njblk, nxblk); fflush(stdout); }
 #endif
 
 #ifdef GRID_CUDA
 	    if(t_lcl == 0 && x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStart();
 #endif
-	    	    
 	    size_t nwork = bi_true * bj_true * bx_true;	  
+
+// #ifdef GRID_CUDA
+// 	    for(int ii=0;ii<bi_true;ii++){
+// 	      int i = ii+i0;
+// 	      vPtr lptr = base_ptrs_i[i]; lptr.incrementPointers(site_offsets_i[i], x0);
+// 	      if(!lptr.isZero(0)) cudaMemPrefetchAsync(lptr.getPtr(0), site_offsets_i[i].first*bx_true*sizeof(typename mf_Policies::FermionFieldType::FieldSiteType), device, NULL);
+// 	      if(!lptr.isZero(1)) cudaMemPrefetchAsync(lptr.getPtr(1), site_offsets_i[i].second*bx_true*sizeof(typename mf_Policies::FermionFieldType::FieldSiteType), device, NULL);
+// 	    }
+// 	    for(int jj=0;jj<bj_true;jj++){
+// 	      int j = jj+j0;
+// 	      vPtr rptr = base_ptrs_j[j]; rptr.incrementPointers(site_offsets_j[j], x0);
+// 	      if(!rptr.isZero(0)) cudaMemPrefetchAsync(rptr.getPtr(0), site_offsets_j[j].first*bx_true*sizeof(typename mf_Policies::FermionFieldType::FieldSiteType), device, NULL);
+// 	      if(!rptr.isZero(1)) cudaMemPrefetchAsync(rptr.getPtr(1), site_offsets_j[j].second*bx_true*sizeof(typename mf_Policies::FermionFieldType::FieldSiteType), device, NULL);
+// 	    }
+// #endif
 	    
 	    kernel_time -= dclock();
 	    CPSautoView(M_v,M); //auto M_v = M.view();
@@ -465,7 +496,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 				typename SIMT<accumType>::value_type zero; Grid::zeroit(zero);
 				for(int m=0;m<multiplicity;m++)			      
 				  SIMT<accumType>::write(into[m], zero);
-			    
+				
 				vPtr lptr = base_ptrs_i[i]; lptr.incrementPointers(site_offsets_i[i], x);
 				vPtr rptr = base_ptrs_j[j]; rptr.incrementPointers(site_offsets_j[j], x);
 
@@ -473,9 +504,12 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 				
 				M_v(acc,lptr,rptr,x,t);
 			      });
-	    }	  
+	    };
 	    kernel_time += dclock();
 
+	    ++kernel_exec_it;
+	    if(kernel_exec_it % 50 == 0 && !UniqueID()){ printf("Kernel iteration %zu / %zu\n", kernel_exec_it, kernel_execs ); fflush(stdout); }	    
+	    
 	    reduce_time -= dclock();
 	    this->reduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, bx_true);
 	    reduce_time += dclock();
@@ -485,11 +519,11 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 #endif
 	  }
 	}
-      }
- 
+      } 
+      
 #endif //memtest mode
-      std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << nmodes_l << "*" <<  nmodes_r << " modes and inner p loop of size " <<  size_3d << std::endl;
-      print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
+      //std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << nmodes_l << "*" <<  nmodes_r << " modes and inner p loop of size " <<  size_3d << std::endl;
+      //print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
     }
 
     print_time("A2AmesonField","local compute",time + dclock());
@@ -507,7 +541,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     this->nodeSum(mf_t,Lt);
 #endif
     print_time("A2AmesonField","nodeSum",time + dclock());
-
+    
     Free(base_ptrs_i);
     Free(base_ptrs_j);
     Free(site_offsets_i);

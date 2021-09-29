@@ -79,9 +79,13 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
     LRG.Write(opt.save_lrg_file.c_str(),32);
   }					       
   if(!opt.load_config){
-    printf("Creating gauge field\n");
-    if(!opt.unit_gauge) lattice.SetGfieldDisOrd();
-    else lattice.SetGfieldOrd();
+    if(!opt.unit_gauge){
+      std::cout << "Creating random gauge field" << std::endl;
+      lattice.SetGfieldDisOrd();
+    }else{
+      std::cout << "Creating unit gauge field" << std::endl;      
+      lattice.SetGfieldOrd();
+    }
   }else{
     ReadLatticeParallel readLat;
     if(UniqueID()==0) printf("Reading: %s (NERSC-format)\n",opt.load_config_file.c_str());
@@ -138,7 +142,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) testA2AallocFree(a2a_args,lattice);
 
 #ifdef USE_GRID
-  if(1) benchmarkMFcontractKernel<GridA2ApoliciesType>(ntests,nthreads);
+  if(0) benchmarkMFcontractKernel<GridA2ApoliciesType>(ntests,nthreads);
 #endif
 
 #ifdef USE_GRID
@@ -158,7 +162,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
   
 #ifdef USE_GRID
-  if(0) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 #endif
 
