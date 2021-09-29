@@ -3,6 +3,7 @@
 
 #include<config.h>
 #include "template_wizardry.h"
+#include "utils_malloc.h"
 
 #ifdef USE_GRID
 #include<Grid/Grid.h>
@@ -263,7 +264,77 @@ public:
 };
 
 
+//A class that contains a pair of pointers, one on the device and one on the host, and facilities to sync between them
+//For non-GPU applications it retains the same semantics but the pointer remains the same
+template<typename T>
+class hostDeviceMirroredContainer{
+  T* host;
+  T* device;
+  bool host_in_sync;
+  bool device_in_sync;  
+  size_t n; //number of elements
+public:
+  size_t byte_size() const{ return n*sizeof(T); }
 
+  hostDeviceMirroredContainer(size_t n): n(n), device_in_sync(true), host_in_sync(true){
+    //host = (T*)memalign_check(128,byte_size());
+    host = (T*)pinned_alloc_check(128,byte_size()); //pinned memory faster as it avoids a host-side copy in Cuda
+#ifdef GPU_VEC
+    device = (T*)device_alloc_check(byte_size());
+#else
+    host = device;
+#endif
+  }
+
+  T* getHostWritePtr(){
+    host_in_sync = true;
+    device_in_sync = false;
+    return host;
+  }
+  T* getDeviceWritePtr(){
+    device_in_sync = true;
+    host_in_sync = false;
+    return device;
+  }
+  
+  //Get the host pointer for read access. Will copy from the GPU if host not in sync
+  T const* getHostReadPtr(){
+    if(!host_in_sync){
+#ifdef GPU_VEC            
+      copy_device_to_host(host,device,byte_size());
+#endif
+      host_in_sync = true;
+    }
+    return host;
+  }
+  T const* getDeviceReadPtr(){
+    if(!device_in_sync){
+#ifdef GPU_VEC      
+      copy_host_to_device(device,host,byte_size());
+#endif
+      device_in_sync = true;
+    }
+    return device;
+  }
+
+
+  
+  ~hostDeviceMirroredContainer(){
+    pinned_free(host);
+    //free(host);
+#ifdef GPU_VEC
+    device_free(device);
+#endif
+  }
+};
+  
+
+    
+    
+    
+
+
+  
 
 
 CPS_END_NAMESPACE

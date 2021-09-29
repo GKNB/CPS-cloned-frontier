@@ -207,11 +207,11 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   
   if(0) testMesonFieldComputeSingleMulti<A2Apolicies_std>(a2a_arg, tol);
 
-  if(0) testGridMesonFieldCompute<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testGridMesonFieldCompute<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
 
-  if(0) testGridMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testGridMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
 
-  if(0) testGridShiftMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testGridShiftMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
 
   if(0) testFFTopt<A2Apolicies_std>();
 #ifdef USE_GRID
@@ -223,7 +223,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 #endif
   
 #ifdef USE_GRID
-  if(0) testGridMesonFieldComputeManySimple<A2Apolicies_grid>(V_grid,W_grid,a2a_arg,lattice,simd_dims_3d,simd_dims,tol);
+  if(1) testGridMesonFieldComputeManySimple<A2Apolicies_grid>(V_grid,W_grid,a2a_arg,lattice,simd_dims_3d,simd_dims,tol);
 #endif
   
   if(0) testPionContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
@@ -261,20 +261,20 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-  if(1) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+  if(0) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
 									 V_grid, W_grid,
 									 lattice, simd_dims_3d, tol);
 
 #endif
 
-  if(1) testModeMappingTranspose(a2a_arg);
+  if(0) testModeMappingTranspose(a2a_arg);
 
 #ifdef USE_GRID
-  if(1) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
+  if(0) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
 #endif
 
 #ifdef USE_GRID
-  if(1) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
+  if(0) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
 #endif
   
 }
