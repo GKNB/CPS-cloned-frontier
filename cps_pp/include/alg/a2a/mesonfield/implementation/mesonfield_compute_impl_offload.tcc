@@ -136,6 +136,8 @@ struct SingleSrcVectorPoliciesSIMDoffload{
     //print_time("CUDA GPU reduce","kernel",tkernel);
     //print_time("CUDA GPU reduce","poke",tpoke);
 #else
+    assert(0); //NEEDS DEVICE -> HOST COPY OF ACCUM
+    
     //Reduce over size_3d
     //Paralllelize me!
     for(int ii=0;ii<bi_true;ii++)
@@ -241,6 +243,7 @@ struct MultiSrcVectorPoliciesSIMDoffload{
     // print_time("CUDA GPU reduce","kernel",tkernel);
     // print_time("CUDA GPU reduce","poke",tpoke);
 #else
+    assert(0); //NEEDS DEVICE -> HOST COPY OF ACCUM
     //Reduce over size_3d
     //(Do this on host for now) //GENERALIZE ME
     for(int ii=0;ii<bi_true;ii++)
@@ -361,7 +364,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     //Allocate work item temp memory
     const size_t multiplicity = this->accumMultiplicity();
     const size_t naccum = bi * bj * bx * multiplicity;
-    accumType *accum = Alloc<accumType>(naccum);
+    accumType *accum = (accumType*)device_alloc_check(naccum*sizeof(accumType));
 
     std::cout << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
     
@@ -546,9 +549,71 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     Free(base_ptrs_j);
     Free(site_offsets_i);
     Free(site_offsets_j);
-    Free(accum);
+    device_free(accum);
   }
 
+
+  //Gather chunks of l,r fields
+  void gatherLRchunks(hostDeviceMirroredContainer<typename mf_Policies::FermionFieldType::FieldSiteType> &iblock_data,
+		      hostDeviceMirroredContainer<typename mf_Policies::FermionFieldType::FieldSiteType> &jblock_data,
+		      hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero,
+		      hostDeviceMirroredContainer<std::pair<bool,bool> > &jblock_flav_is_zero,
+		      int t_lcl,
+		      size_t i0, size_t j0, size_t x0,
+		      size_t bi_true, size_t bj_true, size_t bx_true,
+		      size_t bx, int nf, size_t nl_l, size_t nl_r,
+		      const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & mf_ref){
+    typedef typename mf_Policies::FermionFieldType::FieldSiteType FieldSiteType;
+    typedef SCFvectorPtr<FieldSiteType> vPtr;
+    typedef std::pair<int,int> offsetT;
+    
+    FieldSiteType *iblock_data_host = iblock_data.getHostWritePtr(),  *jblock_data_host = jblock_data.getHostWritePtr();
+    std::pair<bool,bool> *iblock_flav_is_zero_host = iblock_flav_is_zero.getHostWritePtr(), *jblock_flav_is_zero_host = jblock_flav_is_zero.getHostWritePtr();
+    
+    thread_for(ii, bi_true, {
+	size_t i = i0 + ii;
+	modeIndexSet i_high_unmapped; if(i>=nl_l) mf_ref.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
+	vPtr in_base_ptr = l.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //here we take advantage of the fact that the 3d timeslices are contiguous
+	offsetT in_site_offset( l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) ); //for some modes one or the other flavor is zero due to delta function
+	if( (in_site_offset.first != 0 && in_site_offset.first != 12) ||
+	    (in_site_offset.second != 0 && in_site_offset.second != 12)) {
+	  ERR.General("mfComputeGeneralOffload", "compute_v2", "Expect l site offsets of 12 or 0!");
+	}
+	in_base_ptr.incrementPointers(in_site_offset, x0);
+	      
+	//use mapping  scf + 12*( x3d_blk + bx*(f + nf*i))
+	for(int f=0;f<nf;f++){	      
+	  FieldSiteType *to_base = iblock_data_host + (0 + 12*(0 + bx*(f + nf*ii)));
+		  if(!in_base_ptr.isZero(f)) memcpy(to_base, in_base_ptr.getPtr(f), 12*bx_true*sizeof(FieldSiteType));
+	}
+	
+	iblock_flav_is_zero_host[ii] = std::pair<bool,bool>(in_base_ptr.isZero(0), in_base_ptr.isZero(1));			
+      });
+
+    thread_for(jj, bj_true, {
+	size_t j = j0 + jj;
+	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_ref.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
+	vPtr in_base_ptr = r.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+	offsetT in_site_offset( r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) );
+	if( (in_site_offset.first != 0 && in_site_offset.first != 12) ||
+	    (in_site_offset.second != 0 && in_site_offset.second != 12)) {
+	  ERR.General("mfComputeGeneralOffload", "compute_v2", "Expect r site offsets of 12 or 0!");
+	}
+	in_base_ptr.incrementPointers(in_site_offset, x0);
+	      
+	//use mapping  scf + 12*( x3d_blk + bx*(f + nf*j))
+	for(int f=0;f<nf;f++){	      
+	  FieldSiteType *to_base = jblock_data_host + (0 + 12*(0 + bx*(f + nf*jj)));
+	  if(!in_base_ptr.isZero(f)) memcpy(to_base, in_base_ptr.getPtr(f), 12*bx_true*sizeof(FieldSiteType));
+	}
+	
+	jblock_flav_is_zero_host[jj] = std::pair<bool,bool>(in_base_ptr.isZero(0), in_base_ptr.isZero(1));
+      });    
+  }
+
+
+
+  
   //This version does an explicit copy of chunks of the a2a fields to the device
   void compute_v2(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
     this->setupPolicy(mf_t,l,M,r);
@@ -604,10 +669,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     //These need to be in managed memory so they can be accessed on the device
     typedef typename mf_Policies::FermionFieldType::FieldSiteType FieldSiteType;
     typedef SCFvectorPtr<FieldSiteType> vPtr;
-    std::vector<vPtr> base_ptrs_i(nmodes_l), base_ptrs_j(nmodes_r);
-
     typedef std::pair<int,int> offsetT;
-    hostDeviceMirroredContainer<offsetT> site_offsets_i(nmodes_l), site_offsets_j(nmodes_r);
     
     //Total number of work items is nmodes_l * nmodes_r * size_3d, and kernel is M
     //A reduction is performed over the 3d site
@@ -626,7 +688,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     //Allocate work item temp memory
     const size_t multiplicity = this->accumMultiplicity();
     const size_t naccum = bi * bj * bx * multiplicity;
-    accumType *accum = Alloc<accumType>(naccum);
+    accumType *accum = (accumType*)device_alloc_check(naccum*sizeof(accumType));
 
     std::cout << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement for block MF accumulation is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
 
@@ -638,7 +700,13 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     std::cout << "Require " << byte_to_MB(iblock_data_size*sizeof(FieldSiteType)) << "MB and " << byte_to_MB(jblock_data_size*sizeof(FieldSiteType)) << "MB for i and j chunk data, respectively" << std::endl;
 
     hostDeviceMirroredContainer<FieldSiteType> iblock_data(iblock_data_size), jblock_data(jblock_data_size);  
+    hostDeviceMirroredContainer<std::pair<bool,bool> > iblock_flav_is_zero(bi), jblock_flav_is_zero(bj);
 
+    //Swapping between two buffers allows us to overlap compute and gather
+    hostDeviceMirroredContainer<FieldSiteType> iblock_data2(iblock_data_size), jblock_data2(jblock_data_size);  
+    hostDeviceMirroredContainer<std::pair<bool,bool> > iblock_flav_is_zero2(bi), jblock_flav_is_zero2(bj);
+
+    
 #ifdef MF_OFFLOAD_INNER_BLOCKING
     std::cout << "Using inner block sizes " << sbi << " " << sbj << " " << sbx << std::endl;
 #endif
@@ -648,37 +716,18 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     std::cout << "Number of outer blocks " << nioblocks << " " << njoblocks << " " << nxoblocks << " for " << kernel_execs << " kernel executions per timeslice" << std::endl;
     
     double reduce_time = 0;
-    double ptr_setup_time = 0;
     double kernel_time = 0;
     double gather_chunk_time = 0;
     double device_copy_chunk_time = 0;
     
     //Each node only works on its time block
+    size_t iter = 0;
+    
     for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){   
       double ttime = -dclock();
       const int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
 
 #ifndef MEMTEST_MODE
-
-      //Generate the offset and pointer tables on the host
-      {
-	offsetT *site_offsets_i_host = site_offsets_i.getHostWritePtr(), *site_offsets_j_host = site_offsets_j.getHostWritePtr();
-      
-	thread_for(i, nmodes_l, 
-		   {
-		     modeIndexSet i_high_unmapped; if(i>=nl_l) mf_ref.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
-		     base_ptrs_i[i] = l.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //here we take advantage of the fact that the 3d timeslices are contiguous
-		     site_offsets_i_host[i] = offsetT( l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) ); //for some modes one or the other flavor is zero due to delta function
-		   });
-	thread_for(j, nmodes_r, 
-		   {
-		     modeIndexSet j_high_unmapped; if(j>=nl_r) mf_ref.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
-		     base_ptrs_j[j] = r.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
-		     site_offsets_j_host[j] = offsetT( r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) );
-		   });
-      }
-      
-      ptr_setup_time += dclock()+ttime;
 
       size_t kernel_exec_it = 0;
       
@@ -709,65 +758,65 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 #ifdef GRID_CUDA
 	    if(t_lcl == 0 && x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStart();
 #endif
-   
-	    //Gather chunks of l,r fields
-	    {
-	      gather_chunk_time -= dclock();
-	      FieldSiteType *iblock_data_host = iblock_data.getHostWritePtr(),  *jblock_data_host = jblock_data.getHostWritePtr();
-	      offsetT const *site_offsets_i_host = site_offsets_i.getHostReadPtr(), *site_offsets_j_host = site_offsets_j.getHostReadPtr();
-	      
-	      //for(size_t ii=0;ii<bi_true;ii++){
-	      thread_for(ii, bi_true, {
-		size_t i = i0 + ii;
-		vPtr in_base_ptr = base_ptrs_i[i];
-		const offsetT & in_site_offset = site_offsets_i_host[i];
-		if( (in_site_offset.first != 0 && in_site_offset.first != 12) ||
-		    (in_site_offset.second != 0 && in_site_offset.second != 12)) {
-		  ERR.General("mfComputeGeneralOffload", "compute_v2", "Expect l site offsets of 12 or 0!");
-		}
-		in_base_ptr.incrementPointers(in_site_offset, x0);
-	      
-		//use mapping  scf + 12*( x3d_blk + bx*(f + nf*i))
-		for(int f=0;f<nf;f++){	      
-		  FieldSiteType *to_base = iblock_data_host + (0 + 12*(0 + bx*(f + nf*ii)));
-		  if(!in_base_ptr.isZero(f)) memcpy(to_base, in_base_ptr.getPtr(f), 12*bx*sizeof(FieldSiteType));
-		}
-	      }
-	      );
-	      //for(size_t jj=0;jj<bj_true;jj++){
-	      thread_for(jj, bj_true, {
-		size_t j = j0 + jj;
-		vPtr in_base_ptr = base_ptrs_j[j];
-		const offsetT & in_site_offset = site_offsets_j_host[j];
-		if( (in_site_offset.first != 0 && in_site_offset.first != 12) ||
-		    (in_site_offset.second != 0 && in_site_offset.second != 12)) {
-		  ERR.General("mfComputeGeneralOffload", "compute_v2", "Expect r site offsets of 12 or 0!");
-		}
-		in_base_ptr.incrementPointers(in_site_offset, x0);
-	      
-		//use mapping  scf + 12*( x3d_blk + bx*(f + nf*j))
-		for(int f=0;f<nf;f++){	      
-		  FieldSiteType *to_base = jblock_data_host + (0 + 12*(0 + bx*(f + nf*jj)));
-		  if(!in_base_ptr.isZero(f)) memcpy(to_base, in_base_ptr.getPtr(f), 12*bx*sizeof(FieldSiteType));
+	    size_t swp = iter % 2;
+
+	    //Get the data containers we read from this iteratiopn
+	    hostDeviceMirroredContainer<FieldSiteType> &iblock_data_read = swp == 0 ? iblock_data : iblock_data2;
+	    hostDeviceMirroredContainer<FieldSiteType> &jblock_data_read = swp == 0 ? jblock_data : jblock_data2;
+	    hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero_read = swp == 0 ? iblock_flav_is_zero : iblock_flav_is_zero2;
+	    hostDeviceMirroredContainer<std::pair<bool,bool> > &jblock_flav_is_zero_read = swp == 0 ? jblock_flav_is_zero : jblock_flav_is_zero2;
+
+	    //Get the offsets of the next iter
+	    bool fetch_next_iter = true;
+	    int x0_next = x0, t_lcl_next = t_lcl;
+	    size_t j0_next = j0, i0_next = i0;	    
+	    
+	    x0_next += bx;
+	    if(x0_next >= size_3d){
+	      x0_next = 0; j0_next += bj;
+	      if(j0_next >= nmodes_r){
+		j0_next = 0; i0_next += bi;
+		if(i0_next >= nmodes_l){
+		  i0_next = 0; t_lcl_next++;
+		  if(t_lcl_next >= GJP.TnodeSites() ){
+		    fetch_next_iter = false;
+		  }
 		}
 	      }
-	      );
-	      gather_chunk_time += dclock();
 	    }
-	            
+	    int bx_true_next = std::min(x0_next+bx, size_3d) - x0_next;
+	    size_t bj_true_next = std::min(j0_next+bj,nmodes_r) - j0_next;
+	    size_t bi_true_next = std::min(i0_next+bi,nmodes_l) - i0_next;
+	    
+	    //Get the data containers we are going to prefetch to
+	    hostDeviceMirroredContainer<FieldSiteType> &iblock_data_write = swp == 0 ? iblock_data2 : iblock_data;
+	    hostDeviceMirroredContainer<FieldSiteType> &jblock_data_write = swp == 0 ? jblock_data2 : jblock_data;
+	    hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero_write = swp == 0 ? iblock_flav_is_zero2 : iblock_flav_is_zero;
+	    hostDeviceMirroredContainer<std::pair<bool,bool> > &jblock_flav_is_zero_write = swp == 0 ? jblock_flav_is_zero2 : jblock_flav_is_zero;
+
+	    
+	    //iter 0 doesn't have data prefetched, do blocking gather
+	    if(iter == 0){
+	      gather_chunk_time -= dclock();
+	      gatherLRchunks(iblock_data_read, jblock_data_read, iblock_flav_is_zero_read, jblock_flav_is_zero_read, t_lcl, i0, j0, x0, bi_true, bj_true, bx_true, bx, nf, nl_l, nl_r, l, r, mf_ref);
+	      gather_chunk_time += dclock();	    
+	    }
+	    
 	    using namespace Grid;
 	    {
+	      //Copy data to device
 	      device_copy_chunk_time -= dclock();
-	      FieldSiteType const *iblock_data_device = iblock_data.getDeviceReadPtr(),  *jblock_data_device = jblock_data.getDeviceReadPtr();
-	      offsetT const *site_offsets_i_device = site_offsets_i.getDeviceReadPtr(), *site_offsets_j_device = site_offsets_j.getDeviceReadPtr();
+	      FieldSiteType const *iblock_data_device = iblock_data_read.getDeviceReadPtr(),  *jblock_data_device = jblock_data_read.getDeviceReadPtr();
+	      std::pair<bool,bool> const *iblock_flav_is_zero_device = iblock_flav_is_zero_read.getDeviceReadPtr(), *jblock_flav_is_zero_device = jblock_flav_is_zero_read.getDeviceReadPtr();
 	      device_copy_chunk_time += dclock();
-	      
+
+	      //Launch kernel asynchronously
 	      size_t nwork = bi_true * bj_true * bx_true;	  
 	      
 	      kernel_time -= dclock();
 	      CPSautoView(M_v,M);
 	      
-	      accelerator_for(elem, nwork, Nsimd, 
+	      accelerator_forNB(elem, nwork, Nsimd, 
 			      {
 #ifdef MF_OFFLOAD_INNER_BLOCKING
 				//item = xs + sbx_use*( js + sbj_use * ( is + sbi_use * ( xblk + nxblk * (jblk + njblk * iblk))))
@@ -797,7 +846,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 				int j = jj+j0;
 				int x = xx+x0;
 #endif
-				
+      
 				accumType *into = accum + multiplicity*(xx + bx*(jj + bj*ii));
 				typename SIMT<accumType>::value_type zero; Grid::zeroit(zero);
 				for(int m=0;m<multiplicity;m++)			      
@@ -805,22 +854,30 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 				
 				//use mapping  scf + 12*( x3d_blk + bx*(f + nf*i))
 				FieldSiteType const* l_f0_ptr = iblock_data_device + 12*(xx + bx*nf*ii);
-				FieldSiteType const* l_f1_ptr = nf==1 ? nullptr : l_f0_ptr + ijblock_data_flav_offset;
-				bool l_zero_f0 = site_offsets_i_device[i].first == 0;
-				bool l_zero_f1 = site_offsets_i_device[i].second == 0;
-				vPtr lptr(l_f0_ptr, l_f1_ptr, l_zero_f0, l_zero_f1);
+				FieldSiteType const* l_f1_ptr = l_f0_ptr + ijblock_data_flav_offset; //should still be fine for nf=1 as we simply won't access the pointer
+				const std::pair<bool,bool> &l_zero = iblock_flav_is_zero_device[ii];
+				
+				vPtr lptr(l_f0_ptr, l_f1_ptr, l_zero.first, l_zero.second);
 
 				FieldSiteType const* r_f0_ptr = jblock_data_device + 12*(xx + bx*nf*jj);
-				FieldSiteType const* r_f1_ptr = nf==1 ? nullptr : r_f0_ptr + ijblock_data_flav_offset;
-				bool r_zero_f0 = site_offsets_j_device[j].first == 0;
-				bool r_zero_f1 = site_offsets_j_device[j].second == 0;
-				vPtr rptr(r_f0_ptr, r_f1_ptr, r_zero_f0, r_zero_f1);
+				FieldSiteType const* r_f1_ptr = r_f0_ptr + ijblock_data_flav_offset;
+				const std::pair<bool,bool> &r_zero = jblock_flav_is_zero_device[jj];
+
+				vPtr rptr(r_f0_ptr, r_f1_ptr, r_zero.first, r_zero.second);
 
 				typename mfVectorPolicies::accessType acc = mfVectorPolicies::getAccessor(into);
 				
 				M_v(acc,lptr,rptr,x,t);
 			      });
 	    };
+
+	    //Overlap gather and kernel	    
+	    if(fetch_next_iter){
+	      gatherLRchunks(iblock_data_write, jblock_data_write, iblock_flav_is_zero_write, jblock_flav_is_zero_write, t_lcl_next, i0_next, j0_next, x0_next, bi_true_next, bj_true_next, bx_true_next, bx, nf, nl_l, nl_r, l, r, mf_ref);
+	    }
+
+	    //Wait for kernel to finish
+	    accelerator_barrier(dummy);	    
 	    kernel_time += dclock();
 
 	    ++kernel_exec_it;
@@ -833,6 +890,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 #ifdef GRID_CUDA
 	    if(x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStop();
 #endif
+	    ++iter;
 	  }
 	}
       } 
@@ -844,7 +902,6 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 
     print_time("A2AmesonField","local compute",time + dclock());
     print_time("A2AmesonField","kernel time in local compute",kernel_time);
-    print_time("A2AmesonField","ptr setup time in local compute",ptr_setup_time);
     print_time("A2AmesonField","chunk gather time in local compute",gather_chunk_time);
     print_time("A2AmesonField","chunk device copy time in local compute",device_copy_chunk_time);    
     print_time("A2AmesonField","reduce time in local compute",reduce_time);
@@ -860,7 +917,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 #endif
     print_time("A2AmesonField","nodeSum",time + dclock());
     
-    Free(accum);
+    device_free(accum);
   }
 
     
