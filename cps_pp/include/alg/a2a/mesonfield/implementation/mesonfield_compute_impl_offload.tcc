@@ -263,8 +263,8 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 };
 
 //Starting at 'init', sucessively reduce the value 'out' until it is an integer divisor of 'of'
-inline int nearestDivisor(const int of, const int init){
-  int out = init;
+inline size_t nearestDivisor(const size_t of, const size_t init){
+  size_t out = init;
   while(of % out != 0) --out;
   return out;
 }
@@ -611,7 +611,52 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
       });    
   }
 
+  //Work out offsets and extents for future loop iterations
+  struct next_iter_info{
+    bool fetch_iter; //true if fetch is valid
 
+    //Loop start offsets
+    int t_lcl;
+    size_t x0, j0, i0;	    
+
+    //Loop extents
+    size_t bx_true, bj_true, bi_true;
+    
+    next_iter_info(size_t x0_in, size_t i0_in, size_t j0_in, int t_lcl_in,
+		   size_t bx, size_t bi, size_t bj,
+		   size_t size_3d, size_t nmodes_l, size_t nmodes_r,
+		   size_t incr = 1){
+      fetch_iter = true;
+      
+      x0 = x0_in;
+      t_lcl = t_lcl_in;
+      j0 = j0_in;
+      i0 = i0_in;	    
+
+      for(int c=0;c<incr;c++){      
+	x0 += bx;
+	if(x0 >= size_3d){
+	  x0 = 0; j0 += bj;
+	  if(j0 >= nmodes_r){
+	    j0 = 0; i0 += bi;
+	    if(i0 >= nmodes_l){
+	      i0 = 0; t_lcl++;
+	      if(t_lcl >= GJP.TnodeSites() ){
+		fetch_iter = false;
+		break;
+	      }
+	    }
+	  }
+	}
+      }
+	
+      bx_true = std::min(x0+bx, size_3d) - x0;
+      bj_true = std::min(j0+bj,nmodes_r) - j0;
+      bi_true = std::min(i0+bi,nmodes_l) - i0;
+    }
+  };
+
+  
 
   
   //This version does an explicit copy of chunks of the a2a fields to the device
@@ -702,11 +747,18 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     hostDeviceMirroredContainer<FieldSiteType> iblock_data(iblock_data_size), jblock_data(jblock_data_size);  
     hostDeviceMirroredContainer<std::pair<bool,bool> > iblock_flav_is_zero(bi), jblock_flav_is_zero(bj);
 
-    //Swapping between two buffers allows us to overlap compute and gather
+    //Swapping between three buffers allows us to overlap compute, gather and device copy
     hostDeviceMirroredContainer<FieldSiteType> iblock_data2(iblock_data_size), jblock_data2(jblock_data_size);  
     hostDeviceMirroredContainer<std::pair<bool,bool> > iblock_flav_is_zero2(bi), jblock_flav_is_zero2(bj);
 
+    hostDeviceMirroredContainer<FieldSiteType> iblock_data3(iblock_data_size), jblock_data3(jblock_data_size);  
+    hostDeviceMirroredContainer<std::pair<bool,bool> > iblock_flav_is_zero3(bi), jblock_flav_is_zero3(bj);
     
+    hostDeviceMirroredContainer<FieldSiteType>* iblock_data_ptrs[3] = {&iblock_data,&iblock_data2,&iblock_data3};
+    hostDeviceMirroredContainer<FieldSiteType>* jblock_data_ptrs[3] = {&jblock_data,&jblock_data2,&jblock_data3};
+    hostDeviceMirroredContainer<std::pair<bool,bool> >* iblock_flav_is_zero_ptrs[3] = {&iblock_flav_is_zero,&iblock_flav_is_zero2,&iblock_flav_is_zero3};
+    hostDeviceMirroredContainer<std::pair<bool,bool> >* jblock_flav_is_zero_ptrs[3] = {&jblock_flav_is_zero,&jblock_flav_is_zero2,&jblock_flav_is_zero3};
+      
 #ifdef MF_OFFLOAD_INNER_BLOCKING
     std::cout << "Using inner block sizes " << sbi << " " << sbj << " " << sbx << std::endl;
 #endif
@@ -735,80 +787,94 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	size_t iup = std::min(i0+bi,nmodes_l);
 	size_t bi_true = iup - i0;
 #ifdef MF_OFFLOAD_INNER_BLOCKING
-	int sbi_use = nearestDivisor(bi_true, sbi);
-	int niblk = bi_true / sbi_use;
+	size_t sbi_use = nearestDivisor(bi_true, sbi);
+	size_t niblk = bi_true / sbi_use;
 #endif
 	
 	for(size_t j0 = 0; j0< nmodes_r; j0+=bj) {
 	  size_t jup = std::min(j0+bj,nmodes_r);
 	  size_t bj_true = jup - j0;
 #ifdef MF_OFFLOAD_INNER_BLOCKING
-	  int sbj_use = nearestDivisor(bj_true, sbj);
-	  int njblk = bj_true / sbj_use;
+	  size_t sbj_use = nearestDivisor(bj_true, sbj);
+	  size_t njblk = bj_true / sbj_use;
 #endif
 	  
-	  for(int x0 = 0; x0<size_3d; x0+=bx){
-	    int xup = std::min(x0+bx, size_3d);
-	    int bx_true = xup - x0;
+	  for(size_t x0 = 0; x0<size_3d; x0+=bx){
+	    size_t xup = std::min(x0+bx, size_3d);
+	    size_t bx_true = xup - x0;
 #ifdef MF_OFFLOAD_INNER_BLOCKING
-	    int sbx_use = nearestDivisor(bx_true, sbx);
-	    int nxblk = bx_true / sbx_use;
+	    size_t sbx_use = nearestDivisor(bx_true, sbx);
+	    size_t nxblk = bx_true / sbx_use;
 #endif
 
 #ifdef GRID_CUDA
 	    if(t_lcl == 0 && x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStart();
 #endif
-	    size_t swp = iter % 2;
+	    //read copy gather
+	    //0      1     2
+	    //1      2     0
+	    //2      0     1
+	    //left cyclic permutation
+	    size_t which_read = iter % 3;
+	    size_t which_copy = (iter+1) % 3;
+	    size_t which_gather = (iter+2) % 3;
+	    
 
 	    //Get the data containers we read from this iteratiopn
-	    hostDeviceMirroredContainer<FieldSiteType> &iblock_data_read = swp == 0 ? iblock_data : iblock_data2;
-	    hostDeviceMirroredContainer<FieldSiteType> &jblock_data_read = swp == 0 ? jblock_data : jblock_data2;
-	    hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero_read = swp == 0 ? iblock_flav_is_zero : iblock_flav_is_zero2;
-	    hostDeviceMirroredContainer<std::pair<bool,bool> > &jblock_flav_is_zero_read = swp == 0 ? jblock_flav_is_zero : jblock_flav_is_zero2;
+	    hostDeviceMirroredContainer<FieldSiteType> &iblock_data_read = *iblock_data_ptrs[which_read];
+	    hostDeviceMirroredContainer<FieldSiteType> &jblock_data_read = *jblock_data_ptrs[which_read];
+	    hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero_read = *iblock_flav_is_zero_ptrs[which_read];
+	    hostDeviceMirroredContainer<std::pair<bool,bool> > &jblock_flav_is_zero_read = *jblock_flav_is_zero_ptrs[which_read];
 
-	    //Get the offsets of the next iter
-	    bool fetch_next_iter = true;
-	    int x0_next = x0, t_lcl_next = t_lcl;
-	    size_t j0_next = j0, i0_next = i0;	    
+	    //Get the offsets of the next iter for copy
+	    next_iter_info copy_iter(x0, i0, j0, t_lcl, bx, bi, bj, size_3d, nmodes_l, nmodes_r, 1);
 	    
-	    x0_next += bx;
-	    if(x0_next >= size_3d){
-	      x0_next = 0; j0_next += bj;
-	      if(j0_next >= nmodes_r){
-		j0_next = 0; i0_next += bi;
-		if(i0_next >= nmodes_l){
-		  i0_next = 0; t_lcl_next++;
-		  if(t_lcl_next >= GJP.TnodeSites() ){
-		    fetch_next_iter = false;
-		  }
-		}
-	      }
-	    }
-	    int bx_true_next = std::min(x0_next+bx, size_3d) - x0_next;
-	    size_t bj_true_next = std::min(j0_next+bj,nmodes_r) - j0_next;
-	    size_t bi_true_next = std::min(i0_next+bi,nmodes_l) - i0_next;
-	    
-	    //Get the data containers we are going to prefetch to
-	    hostDeviceMirroredContainer<FieldSiteType> &iblock_data_write = swp == 0 ? iblock_data2 : iblock_data;
-	    hostDeviceMirroredContainer<FieldSiteType> &jblock_data_write = swp == 0 ? jblock_data2 : jblock_data;
-	    hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero_write = swp == 0 ? iblock_flav_is_zero2 : iblock_flav_is_zero;
-	    hostDeviceMirroredContainer<std::pair<bool,bool> > &jblock_flav_is_zero_write = swp == 0 ? jblock_flav_is_zero2 : jblock_flav_is_zero;
+	    //Get the data containers we are going to copy from
+	    hostDeviceMirroredContainer<FieldSiteType> &iblock_data_copy = *iblock_data_ptrs[which_copy];
+	    hostDeviceMirroredContainer<FieldSiteType> &jblock_data_copy = *jblock_data_ptrs[which_copy];
+	    hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero_copy = *iblock_flav_is_zero_ptrs[which_copy];
+	    hostDeviceMirroredContainer<std::pair<bool,bool> > &jblock_flav_is_zero_copy = *jblock_flav_is_zero_ptrs[which_copy];
 
+	    //Get the offsets of the second-next iter for gather
+	    next_iter_info gather_iter(x0, i0, j0, t_lcl, bx, bi, bj, size_3d, nmodes_l, nmodes_r, 2);
+
+	    //Get the data containers we are going to gather to    
+	    hostDeviceMirroredContainer<FieldSiteType> &iblock_data_gather = *iblock_data_ptrs[which_gather];
+	    hostDeviceMirroredContainer<FieldSiteType> &jblock_data_gather = *jblock_data_ptrs[which_gather];
+	    hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero_gather = *iblock_flav_is_zero_ptrs[which_gather];
+	    hostDeviceMirroredContainer<std::pair<bool,bool> > &jblock_flav_is_zero_gather = *jblock_flav_is_zero_ptrs[which_gather];
 	    
-	    //iter 0 doesn't have data prefetched, do blocking gather
+	    //On iter 0 we need to prepopulate the device-read side of the read buffer, and the host-write side of the copy buffer
 	    if(iter == 0){
+	      //Gather to host side of read buffer
 	      gather_chunk_time -= dclock();
 	      gatherLRchunks(iblock_data_read, jblock_data_read, iblock_flav_is_zero_read, jblock_flav_is_zero_read, t_lcl, i0, j0, x0, bi_true, bj_true, bx_true, bx, nf, nl_l, nl_r, l, r, mf_ref);
-	      gather_chunk_time += dclock();	    
+	      gather_chunk_time += dclock();
+
+	      //Copy to device side of read buffer. We can overlap this with a gather
+	      iblock_data_copy.asyncHostDeviceSync();
+	      jblock_data_copy.asyncHostDeviceSync();
+	      iblock_flav_is_zero_copy.asyncHostDeviceSync();
+	      jblock_flav_is_zero_copy.asyncHostDeviceSync();
+
+	      //Gather to host side of copy buffer
+	      if(copy_iter.fetch_iter){
+		gather_chunk_time -= dclock();
+		gatherLRchunks(iblock_data_copy, jblock_data_copy, iblock_flav_is_zero_copy, jblock_flav_is_zero_copy, copy_iter.t_lcl, copy_iter.i0, copy_iter.j0, copy_iter.x0, copy_iter.bi_true, copy_iter.bj_true, copy_iter.bx_true,
+			       bx, nf, nl_l, nl_r, l, r, mf_ref);
+		gather_chunk_time += dclock();
+	      }
+	      {
+		using namespace Grid;			    
+		accelerator_barrier(dummy);
+	      }
 	    }
 	    
 	    using namespace Grid;
 	    {
-	      //Copy data to device
-	      device_copy_chunk_time -= dclock();
+	      //These are already on the device
 	      FieldSiteType const *iblock_data_device = iblock_data_read.getDeviceReadPtr(),  *jblock_data_device = jblock_data_read.getDeviceReadPtr();
 	      std::pair<bool,bool> const *iblock_flav_is_zero_device = iblock_flav_is_zero_read.getDeviceReadPtr(), *jblock_flav_is_zero_device = jblock_flav_is_zero_read.getDeviceReadPtr();
-	      device_copy_chunk_time += dclock();
 
 	      //Launch kernel asynchronously
 	      size_t nwork = bi_true * bj_true * bx_true;	  
@@ -820,31 +886,31 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 			      {
 #ifdef MF_OFFLOAD_INNER_BLOCKING
 				//item = xs + sbx_use*( js + sbj_use * ( is + sbi_use * ( xblk + nxblk * (jblk + njblk * iblk))))
-				int rem = elem;
-				int xs = rem % sbx_use; rem /= sbx_use;
-				int js = rem % sbj_use; rem /= sbj_use;
-				int is = rem % sbi_use; rem /= sbi_use;
-				int xblk = rem % nxblk; rem /= nxblk;
-				int jblk = rem % njblk; rem /= njblk;
-				int iblk = rem;
+				size_t rem = elem;
+				size_t xs = rem % sbx_use; rem /= sbx_use;
+				size_t js = rem % sbj_use; rem /= sbj_use;
+				size_t is = rem % sbi_use; rem /= sbi_use;
+				size_t xblk = rem % nxblk; rem /= nxblk;
+				size_t jblk = rem % njblk; rem /= njblk;
+				size_t iblk = rem;
 
-				int ii = is + sbi_use*iblk;
-				int jj = js + sbj_use*jblk;
-				int xx = xs + sbx_use*xblk;
+				size_t ii = is + sbi_use*iblk;
+				size_t jj = js + sbj_use*jblk;
+				size_t xx = xs + sbx_use*xblk;
 				
-				int i = ii + i0;
-				int j = jj + j0;
-				int x = xx + x0;
+				size_t i = ii + i0;
+				size_t j = jj + j0;
+				size_t x = xx + x0;
 								
 #else
-				int rem = item;
-				int xx = rem % bx_true; rem /= bx_true;
-				int jj = rem % bj_true; rem /= bj_true;
-				int ii = rem;			    
+				size_t rem = item;
+				size_t xx = rem % bx_true; rem /= bx_true;
+				size_t jj = rem % bj_true; rem /= bj_true;
+				size_t ii = rem;			    
 				
-				int i = ii+i0;
-				int j = jj+j0;
-				int x = xx+x0;
+				size_t i = ii+i0;
+				size_t j = jj+j0;
+				size_t x = xx+x0;
 #endif
       
 				accumType *into = accum + multiplicity*(xx + bx*(jj + bj*ii));
@@ -871,12 +937,23 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 			      });
 	    };
 
+	    //Overlap copy and kernel
+	    if(copy_iter.fetch_iter){
+	      iblock_data_copy.asyncHostDeviceSync();
+	      jblock_data_copy.asyncHostDeviceSync();
+	      iblock_flav_is_zero_copy.asyncHostDeviceSync();
+	      jblock_flav_is_zero_copy.asyncHostDeviceSync();
+	    }
+	    
 	    //Overlap gather and kernel	    
-	    if(fetch_next_iter){
-	      gatherLRchunks(iblock_data_write, jblock_data_write, iblock_flav_is_zero_write, jblock_flav_is_zero_write, t_lcl_next, i0_next, j0_next, x0_next, bi_true_next, bj_true_next, bx_true_next, bx, nf, nl_l, nl_r, l, r, mf_ref);
+	    if(gather_iter.fetch_iter){
+	      gatherLRchunks(iblock_data_gather, jblock_data_gather, iblock_flav_is_zero_gather, jblock_flav_is_zero_gather,
+			     gather_iter.t_lcl, gather_iter.i0, gather_iter.j0, gather_iter.x0,
+			     gather_iter.bi_true, gather_iter.bj_true, gather_iter.bx_true,
+			     bx, nf, nl_l, nl_r, l, r, mf_ref);
 	    }
 
-	    //Wait for kernel to finish
+	    //Wait for kernel and copy to finish
 	    accelerator_barrier(dummy);	    
 	    kernel_time += dclock();
 
