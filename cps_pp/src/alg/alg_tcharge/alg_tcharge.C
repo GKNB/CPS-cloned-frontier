@@ -18,7 +18,7 @@ CPS_START_NAMESPACE
 // measures a simple defintion of the
 // topological charge
 //  
-//  Using Clover Leaf   c.f   hep-lat/010610  Eq (6) -- (10)
+//  Using Clover Leaf   c.f   hep-lat/0106010  Eq (6) -- (10)
 //-----------------------------------------------------------
 
 
@@ -132,7 +132,7 @@ void CloverLeaf(GaugeField& gf, Matrix& pl,  int* pos, int mu, int nu)
 
 // Calculate Clover leaf (2x1, 1x2 size) SU(3) Matrix 
 // Sheikholeslami, Wohlert, NPB259, 572 (1985)  Eq. (2.9)
-// hep-lat/010610  Eq (8)
+// hep-lat/0106010  Eq (8)
 void CloverLeafRect(GaugeField& gf, Matrix& pl,  int* pos, int mu, int nu)
 {
    Matrix P0,P1,P2,P3;
@@ -389,7 +389,7 @@ const char* names[5] = { "1x1",
 			 "1x3" };
 
 
-void AlgTcharge::run()
+void AlgTcharge::run(std::vector<Float> &Qmn, std::vector<std::vector<Float> > &Qmn_slice)
 {
   const char fname[] = "run()";
   Lattice& lat( AlgLattice() );  
@@ -480,6 +480,23 @@ void AlgTcharge::run()
     initialized = true;
   }
 
+  //Copy data into output
+  Qmn.resize(nfunc);
+  Qmn_slice.resize(nfunc, std::vector<Float>(t_extent));
+  for(int f=0;f<nfunc;f++){
+    Qmn[f] = tmat[f];
+    for(int t=0;t<t_extent;t++){
+      Qmn_slice[f][t] = slice_sums[f][t];
+    }
+  }
+}
+
+
+void AlgTcharge::run(){
+  const char fname[] = "run()"; 
+  std::vector<Float> Qmn;
+  std::vector<std::vector<Float> > Qmn_slice;
+  run(Qmn, Qmn_slice);
 
   if(common_arg->filename != 0)
   {
@@ -491,12 +508,12 @@ void AlgTcharge::run()
     for(int f(0); f < nfunc; ++f)
       Fprintf(fp,"   %i : %s\n", f, names[f]);
     for (int f(0); f < nfunc; ++f)
-      Fprintf(fp, "%i %i : %15e\n", f, f, tmat[f]);
+      Fprintf(fp, "%i %i : %15e\n", f, f, Qmn[f]);
 
     for(int f = 0; f < nfunc; f++) {
       Fprintf(fp, "%i : ", f);
       for(int t = 0; t < GJP.Sites(3); t++) {
-        Fprintf(fp, "%15e ", slice_sums[f][t]);
+        Fprintf(fp, "%15e ", Qmn_slice[f][t]);
       }
       Fprintf(fp, "\n");
     }
@@ -504,7 +521,6 @@ void AlgTcharge::run()
     Fclose(fp);
   }
 }
-
 
 CPS_END_NAMESPACE
 

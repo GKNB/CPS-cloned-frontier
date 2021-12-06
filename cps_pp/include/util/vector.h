@@ -514,6 +514,9 @@ class Matrix
     void Conj(const Matrix& m)
         { Conj((const IFloat *)(m.u)); }
 
+    //! In-place complex conjugate
+    void Conj();
+
     //! Hermitian conjugate.
     void Dagger(const Matrix& m)
     	{ Dagger((const IFloat *)&m); }

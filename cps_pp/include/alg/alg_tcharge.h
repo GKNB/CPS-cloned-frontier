@@ -8,6 +8,7 @@
 #include <alg/alg_base.h>
 #include <alg/common_arg.h>
 #include <alg/no_arg.h>
+#include <vector>
 
 CPS_START_NAMESPACE
 
@@ -47,6 +48,12 @@ public:
   
   virtual ~AlgTcharge() {;}
   
+  //Qmn are the 1x1, 1x2, 2x2, 3x3 and 1x3 charged definitions
+  //cf https://arxiv.org/pdf/hep-lat/9701012.pdf Eq 6
+  //Qmn_slice are the same but decomposed over timeslices (inner index, length Lt)
+  void run(std::vector<Float> &Qmn, std::vector<std::vector<Float> > &Qmn_slice);
+
+  //Run and write result to disk
   void run();
   void smartrun();
 

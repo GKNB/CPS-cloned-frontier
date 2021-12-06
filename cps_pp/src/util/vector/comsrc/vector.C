@@ -67,6 +67,12 @@ void Matrix::Conj(const IFloat *m)
   u[17] = -m[17];
 }
 
+void Matrix::Conj(){
+  for(int i=1;i<2*COLORS*COLORS;i+=2)
+    u[i] = -u[i];
+}
+
+
 
 /*!
   \return <em>|U^dagger U - I|^2</em>, where the norm used is the L2 norm

@@ -134,6 +134,12 @@ getRecordedOffsets() {
   return offsets;
 }
 
+//Complex conjugate a vector of Matrix
+static void Conj(std::vector<Matrix> &vec){
+  for(int i=0;i<vec.size();i++)
+    vec[i].Conj();
+}
+
 void GaugeField::
 fetchLinks(GaugeField &gf, Offsets& offsets) {
   const char * fname = "fetchLinks(gf, offsets)";
@@ -180,12 +186,14 @@ fetchLinks(GaugeField &gf, Offsets& offsets) {
       if (dis < 0) {
         while (dis != 0) {
           getMinusData((IFloat *)recv, (IFloat *)send, size * sizeof(Matrix) / sizeof(IFloat), i);
+	  if(GJP.Bc(i) == BND_CND_GPARITY && GJP.NodeCoor(i) == 0) Conj(recv_vec); //Complex conjugate BCs
           memcpy(send, recv, size_bytes);
           dis++;
         }
       } else if (dis > 0) {
         while (dis != 0) {
           getPlusData((IFloat *)recv, (IFloat *)send, size * sizeof(Matrix) / sizeof(IFloat), i);
+	  if(GJP.Bc(i) == BND_CND_GPARITY && GJP.NodeCoor(i) == GJP.Nodes(i)-1) Conj(recv_vec); //Complex conjugate BCs
           memcpy(send, recv, size_bytes);
           dis--;
         }
@@ -299,12 +307,14 @@ fetchLinks(GaugeField &gf, bool fetch_local_links, bool fetch_neighbor_links) {
       if (dis < 0) {
         while (dis != 0) {
           getMinusData((IFloat *)recv, (IFloat *)send, size * sizeof(Matrix) / sizeof(IFloat) , i);
+	  if(GJP.Bc(i) == BND_CND_GPARITY && GJP.NodeCoor(i) == 0) Conj(recv_vec); //Complex conjugate BCs
           memcpy(send, recv, size_bytes);
           dis++;
         }
       } else if (dis > 0) {
         while (dis != 0) {
           getPlusData((IFloat *)recv, (IFloat *)send, size * sizeof(Matrix) / sizeof(IFloat), i);
+	  if(GJP.Bc(i) == BND_CND_GPARITY && GJP.NodeCoor(i) == GJP.Nodes(i)-1) Conj(recv_vec); //Complex conjugate BCs
           memcpy(send, recv, size_bytes);
           dis--;
         }
@@ -401,6 +411,8 @@ fetchLocalLinks(GaugeField &gf) {
 
 Matrix GaugeField::
 getLink(const int * site, int mu) const {
+  if(GJP.Gparity()) ERR.General("GaugeField","getLink","Not implemented for G-parity BCs");
+
   int on_node_site[4];
 #ifdef GAUGE_FIELD_COMM
   bool on_node = true;
