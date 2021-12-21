@@ -311,7 +311,7 @@ public:
     CPSfield out(*this); out += r;
     return out;
   }
-  CPSfield operator-(const CPSfield &r){
+  CPSfield operator-(const CPSfield &r) const{
     CPSfield out(*this); out -= r;
     return out;
   }
@@ -346,7 +346,7 @@ public:
     DerivedType out(*this); out += r; \
     return out; \
   } \
-  DerivedType operator-(const DerivedType &r){ \
+  DerivedType operator-(const DerivedType &r) const{ \
     DerivedType out(*this); out -= r; \
     return out; \
   }
