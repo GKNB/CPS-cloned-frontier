@@ -1,3 +1,11 @@
+#pragma once
+
+#ifdef USE_GRID
+
+#include<Grid.h>
+
+CPS_START_NAMESPACE
+
 //Apply 1/2(1+-g5) to field. In Grid conventions this just zeroes the lower/upper spin components
 template<typename FermionField>
 void chiralProject(FermionField &out, const FermionField &in, const char sgn){
@@ -56,3 +64,7 @@ void DomainWallFourToFive(FermionField &out, const FermionField &in, int s_u, in
   chiralProject(tmp1_4d, in, '-'); // 1/2(1-g5)  zeroes upper spin components
   InsertSlice(tmp1_4d, out,s_l, 0);
 }
+
+CPS_END_NAMESPACE
+
+#endif

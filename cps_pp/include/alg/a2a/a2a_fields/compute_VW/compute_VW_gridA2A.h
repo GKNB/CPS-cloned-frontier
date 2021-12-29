@@ -60,7 +60,6 @@ void computeVWlow(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat
 #endif
 
 
-#include "implementation/compute_VW_gridA2A_common.tcc"
 #include "implementation/compute_VWlow_gridA2A.tcc"
 #include "implementation/compute_VWhigh_gridA2A.tcc"
 #include "implementation/compute_VW_gridA2A.tcc"

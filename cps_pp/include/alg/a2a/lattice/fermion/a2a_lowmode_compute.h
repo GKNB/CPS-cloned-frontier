@@ -5,6 +5,7 @@
 #include<Grid/Grid.h>
 #include "evec_interface.h"
 #include "schur_operator.h"
+#include "grid_4d5d.h"
 
 CPS_START_NAMESPACE
 
@@ -17,16 +18,10 @@ public:
 
   virtual FermionOperatorTypeD & getOp() const = 0;
 
-  //In sections 1.2, 1.3 of https://rbc.phys.columbia.edu/rbc_ukqcd/individual_postings/ckelly/Gparity/note_a2a_v5.pdf
-  //we recognize that Vl and Wl for preconditioned and unpreconditioned Dirac operators differ only by transformations
-  //of the eigenvector. Thus we can form Vl as
-  //V_l^i = (1/lambda_i) V^45 evecTransformVl( evec_i )
-  //W_l^i = [U^54]^dag evecTransformWl( evec_i )
-
-  //Out is a field defined on the full, unpreconditioned Grid. evec resides on either a checkerboarded or full Grid
-  virtual void evecTransformVl(GridFermionFieldD &out, const GridFermionFieldD &evec) const = 0;
+  //Out is a *4D* field defined on the full, unpreconditioned Grid. evec resides on either a checkerboarded or full Grid in whatever space appropriate for the implementation
+  virtual void computeVl(GridFermionFieldD &out, const GridFermionFieldD &evec, const Grid::RealD eval) const = 0;
   
-  virtual void evecTransformWl(GridFermionFieldD &out, const GridFermionFieldD &evec) const = 0;
+  virtual void computeWl(GridFermionFieldD &out, const GridFermionFieldD &evec) const = 0;
 
   //The calculation of the low mode contribution to be subtracted from the high mode component is also dependent on the preconditioning scheme
   //Input and output are 4D fields
@@ -51,8 +46,8 @@ public:
 
   FermionOperatorTypeD & getOp() const override{ return OpD.getOp(); }
 
-  //Apply operations in Eqs 21 and 27 of the note, excluding multiplying by the eval and converting to 4D
-  void evecTransformVl(GridFermionFieldD &out, const GridFermionFieldD &evec) const override{
+  //Apply operations in Eqs 21 and 27 of https://rbc.phys.columbia.edu/rbc_ukqcd/individual_postings/ckelly/Gparity/note_a2a_v5.pdf
+  void computeVl(GridFermionFieldD &out, const GridFermionFieldD &evec, const Grid::RealD eval) const override{
     assert(evec.Checkerboard() == Grid::Odd);
     GridFermionFieldD tmp(evec.Grid()), tmp2(evec.Grid()), evecmul(evec.Grid());
     OpD.SchurEvecMulVl(evecmul, evec);
@@ -66,15 +61,25 @@ public:
     
     assert(tmp.Checkerboard() == Grid::Even);
     
-    setCheckerboard(out, tmp); //even checkerboard
-    setCheckerboard(out, evecmul); //odd checkerboard
+    GridFermionFieldD tmp_full(fermop.FermionGrid());
+    setCheckerboard(tmp_full, tmp); //even checkerboard
+    setCheckerboard(tmp_full, evecmul); //odd checkerboard
+
+    assert(fermop.FermionGrid()->Nd() == 5);
+    int Ls = fermop.FermionGrid()->GlobalDimensions()[0]; //5th dim is dimension 0!
+    
+    //Get 4D part and poke into a
+    //Recall that D^{-1} = <v w^\dagger> = <q \bar q>.  v therefore transforms like a spinor. For spinors \psi(x) = P_R \psi(x,Ls-1) + P_L \psi(x,0),  i.e. s_u=Ls-1 and s_l=0 for CPS gamma5
+    conformable(out.Grid(), fermop.GaugeGrid());
+
+    DomainWallFiveToFour(out, tmp_full, Ls-1,0);
+    out = Grid::RealD(1./eval) * out;
   }
 
   //No difference between SchurOriginal and SchurDiagTwo apart from the linop
-  void evecTransformWl(GridFermionFieldD &out, const GridFermionFieldD &evec) const override{
+  void computeWl(GridFermionFieldD &out, const GridFermionFieldD &evec) const override{
     assert(evec.Checkerboard() == Grid::Odd);
     GridFermionFieldD tmp(evec.Grid()), tmp2(evec.Grid()), tmp3(evec.Grid());
-    GridFermionFieldD tmp_full(out.Grid());
 
     //Do tmp = [ -[Mee^-1]^dag [Meo]^dag Doo bq_tmp,  Doo bq_tmp ]    (Note that for the Moe^dag in Daiqian's thesis, the dagger also implies a transpose of the spatial indices, hence the Meo^dag in the code)
     OpD.getSchurOp().Mpc(evec,tmp2);  //tmp2 = Doo bq_tmp
@@ -88,11 +93,19 @@ public:
     assert(tmp.Checkerboard() == Grid::Even);
     assert(tmp2.Checkerboard() == Grid::Odd);
 
+    GridFermionFieldD tmp_full(fermop.FermionGrid()), tmp_full2(fermop.FermionGrid());
     setCheckerboard(tmp_full, tmp);
     setCheckerboard(tmp_full, tmp2);
 
     //Left-multiply by D-^dag
-    fermop.DminusDag(tmp_full, out);
+    fermop.DminusDag(tmp_full, tmp_full2);
+
+    int Ls = fermop.FermionGrid()->GlobalDimensions()[0]; //5th dim is dimension 0!   
+    conformable(out.Grid(), fermop.GaugeGrid());    
+
+    //Get 4D part, poke onto a then copy into wl
+    //Recall that D^{-1} = <v w^\dagger> = <q \bar q>.  w (and w^\dagger) therefore transforms like a conjugate spinor. For spinors \bar\psi(x) =  \bar\psi(x,0) P_R +  \bar\psi(x,Ls-1) P_L,  i.e. s_u=0 and s_l=Ls-1 for CPS gamma5
+    DomainWallFiveToFour(out, tmp_full2, 0, Ls-1);
   }
 
   void lowModeContribution4D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in, 

@@ -198,6 +198,44 @@ public:
 };
 
 
+//Implementation of mixed prec container for array of double precision evecs
+template<typename _GridFermionFieldD, typename _GridFermionFieldF>
+class EvecInterfaceMixedDoublePrec : public EvecInterfaceMixedPrec<_GridFermionFieldD, _GridFermionFieldF>{
+public:
+  typedef _GridFermionFieldD GridFermionFieldD;
+  typedef _GridFermionFieldF GridFermionFieldF;
+
+private:
+  Grid::GridBase* m_evecGridD;
+  Grid::GridBase* m_evecGridF;
+  const std::vector<GridFermionFieldD> &m_evecsD;
+  const std::vector<double> &m_evals;
+
+public:
+  EvecInterfaceMixedDoublePrec(const std::vector<GridFermionFieldD> &evecsD, const std::vector<double> &evals, Grid::GridBase* evecGridD, Grid::GridBase* evecGridF): 
+    m_evecsD(evecsD), m_evals(evals), m_evecGridD(evecGridD), m_evecGridF(evecGridF){
+    assert(m_evecsD.size() == m_evals.size());
+  }
+  
+  Grid::GridBase* getEvecGridD() const override{ return m_evecGridD; }
+  Grid::GridBase* getEvecGridF() const override{ return m_evecGridF; }
+
+  //Get an eigenvector and eigenvalue
+  double getEvec(GridFermionFieldD &into, const int idx) const override{
+    into = m_evecsD[idx];
+    return m_evals[idx];
+  }
+
+  double getEvec(GridFermionFieldF &into, const int idx) const override{
+    precisionChange(into, m_evecsD[idx]);
+    return m_evals[idx];
+  }
+
+  int nEvecs() const override{ return m_evals.size(); }
+};
+
+
+
 CPS_END_NAMESPACE
 
 #endif

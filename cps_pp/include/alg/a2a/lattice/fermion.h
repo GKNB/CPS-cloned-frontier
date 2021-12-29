@@ -8,6 +8,7 @@
 #include "fermion/grid_split_cg.h"
 #include "fermion/grid_wrappers.h"
 #include "fermion/grid_gparity_ZMobius.h"
+#include "fermion/grid_4d5d.h"
 
 #include "fermion/evec_interface.h"
 #include "fermion/a2a_inverter_5d.h"

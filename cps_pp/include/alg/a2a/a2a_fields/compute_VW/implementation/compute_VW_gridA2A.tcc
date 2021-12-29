@@ -85,7 +85,7 @@ struct computeVW_impl{
     SOpF.reset(new GridDiracF(*SUmuF,*SFGridF,*SFrbGridF,*SUGridF,*SUrbGridF,mass,M5,mob_b,mob_c, params));
   }
 
-  computeVW_impl(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, const EvecInterface<typename Policies::GridFermionField> &evecs,
+  computeVW_impl(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, const EvecInterfaceMixedPrec<typename Policies::GridFermionField, typename Policies::GridFermionFieldF> &evecs,
 		 const double mass, const CGcontrols &cg):
     lattice(dynamic_cast<typename Policies::FgridGFclass &>(lat)),
     FrbGridD(lattice.getFrbGrid()), FrbGridF(lattice.getFrbGridF()), FGridD(lattice.getFGrid()), FGridF(lattice.getFGridF()), 
@@ -122,9 +122,9 @@ struct computeVW_impl{
       double c_inner = (bpc_inner - bmc_inner)/2.;
 
       Grid::GridCartesian* FGridInnerD = Grid::SpaceTimeGrid::makeFiveDimGrid(Ls_inner,UGridD);
-      Grid::GridBase* FrbGridInnerD = evecs.getEvecGridD();
+      Grid::GridRedBlackCartesian* FrbGridInnerD = dynamic_cast<Grid::GridRedBlackCartesian*>(evecs.getEvecGridD());
       Grid::GridCartesian* FGridInnerF = Grid::SpaceTimeGrid::makeFiveDimGrid(Ls_inner,UGridF);
-      Grid::GridBase* FrbGridInnerF = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls_inner, UGridF);
+      Grid::GridRedBlackCartesian* FrbGridInnerF = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls_inner, UGridF);
       
       std::vector<Grid::ComplexD> gamma_inner = getZMobiusGamma(bpc_inner, Ls_inner, cg.madwf_params);
       GridDiracZMobiusD ZopD(*UmuD, *FGridInnerD, *FrbGridInnerD, *UGridD, *UrbGridD, mass, M5, gamma_inner, b_inner, c_inner, params);
@@ -147,8 +147,11 @@ struct computeVW_impl{
       A2AlowModeComputeSchurPreconditioned<GridDiracZMobiusD> vwlowimpl_inner(*SchurOpD_inner);
       computeVWlow(V,W,evecs,vwlowimpl_inner);
 
+      //Currently fix to use single precision inner Dirac operator. This requires an EvecInterface object that supports single-prec deflation
+      //EvecInterfaceMixedPrec<GridFermionFieldD, GridFermionFieldF> const& evecs_mix = dynamic_cast<EvecInterfaceMixedPrec<GridFermionFieldD, GridFermionFieldF> const&>(evecs);
+
       //For the ZMADWF implementation, the 4d inversions must be done into the space of the outer Dirac operator (5 space), using the ZMobius operator with smaller Ls internally
-      A2Ainverter4dSchurPreconditionedMADWF<GridDiracD, GridDiracZMobiusF, GridFermionFieldD, GridFermionFieldF> inv4d(*OpD, SchurOpF_inner, evecs, *UmuD,  
+      A2Ainverter4dSchurPreconditionedMADWF<GridDiracD, GridDiracZMobiusF, GridFermionFieldD, GridFermionFieldF> inv4d(*OpD, *SchurOpF_inner, evecs, *UmuD,  
 														       cg.CG_tolerance, cg.mixedCG_init_inner_tolerance, cg.CG_max_iters);
 
       computeVWhigh(V,W,evecs,vwlowimpl_inner,inv4d, cg.multiCG_block_size);
@@ -195,7 +198,7 @@ struct computeVW_impl{
 
 template<typename Policies>
 void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, 
-	       const EvecInterface<typename Policies::GridFermionField> &evecs,
+	       const EvecInterfaceMixedPrec<typename Policies::GridFermionField, typename Policies::GridFermionFieldF> &evecs,
 	       const double mass, const CGcontrols &cg){
   computeVW_impl<Policies> c(V,W,lat,evecs,mass,cg);
 }	       
@@ -209,6 +212,10 @@ void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat,
   Grid::GridRedBlackCartesian *FrbGridD = lat_.getFrbGrid();
   Grid::GridRedBlackCartesian *FrbGridF = lat_.getFrbGridF();
 
+  //Note we currently assume the evecs are generated on the standard checkerboarded grids; this will not be true for ZMADWF or for non-checkerboarded evecs
+  //In those cases use the version that takes an EvecInterface object
+  if(evec.size()>0)  assert(evec[0].Grid() == FrbGridF);
+
   EvecInterfaceSinglePrec<typename Policies::GridFermionField, typename Policies::GridFermionFieldF> eveci(evec, eval, FrbGridD, FrbGridF);
   computeVW<Policies>(V,W,lat,eveci,mass,cg);
 }
@@ -219,7 +226,12 @@ void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat,
 	       const double mass, const CGcontrols &cg){
   typename Policies::FgridGFclass &lat_ =  dynamic_cast<typename Policies::FgridGFclass &>(lat);
   Grid::GridRedBlackCartesian *FrbGridD = lat_.getFrbGrid();
+  Grid::GridRedBlackCartesian *FrbGridF = lat_.getFrbGridF();
 
-  EvecInterfaceDoublePrec<typename Policies::GridFermionField> eveci(evec, eval, FrbGridD);
+  //Note we currently assume the evecs are generated on the standard checkerboarded grids; this will not be true for ZMADWF or for non-checkerboarded evecs
+  //In those cases use the version that takes an EvecInterface object
+  if(evec.size()>0)  assert(evec[0].Grid() == FrbGridD);
+
+  EvecInterfaceMixedDoublePrec<typename Policies::GridFermionField, typename Policies::GridFermionFieldF> eveci(evec, eval, FrbGridD, FrbGridF);
   computeVW<Policies>(V,W,lat,eveci,mass,cg);
 }
