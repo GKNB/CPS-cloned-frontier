@@ -56,10 +56,3 @@ void DomainWallFourToFive(FermionField &out, const FermionField &in, int s_u, in
   chiralProject(tmp1_4d, in, '-'); // 1/2(1-g5)  zeroes upper spin components
   InsertSlice(tmp1_4d, out,s_l, 0);
 }
-
-
-
-inline bool isMultiCG(const A2ACGalgorithm al){
-  if(al == AlgorithmMixedPrecisionReliableUpdateSplitCG) return true;
-  return false;
-}

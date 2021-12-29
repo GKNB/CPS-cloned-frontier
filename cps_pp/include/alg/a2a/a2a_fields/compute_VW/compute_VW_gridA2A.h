@@ -1,6 +1,7 @@
 #ifndef A2A_COMPUTE_VW_GRIDA2A_H_
 #define A2A_COMPUTE_VW_GRIDA2A_H_
 
+#include <memory>
 #include <alg/a2a/a2a_fields.h>
 
 #ifndef USE_GRID
@@ -11,66 +12,43 @@
 
 CPS_START_NAMESPACE
 
-//Compute the high mode parts of V and W using either standard CG or a multi-RHS CG variant, respectively
-template<typename Policies>
-void computeVWhighSingle(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
-template<typename Policies>
-void computeVWhighMulti(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
-template<typename Policies>
-void computeVWhighSingleMADWF(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
+//Compute the low mode V and W vectors using the abstract implementation classes provided
+template<typename A2Apolicies, typename FermionOperatorTypeD>
+void computeVWlow(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const EvecInterface<typename FermionOperatorTypeD::FermionField> &evecs,  const A2AlowModeCompute<FermionOperatorTypeD> &impl);
 
-//Chooses the appropriate function from the previous ones based on the cg_control
+//Allow the operator used for the high mode inversions (1) to differ from that used for the low mode contribution, (2) eg for MADWF
+//block_size is the number of sources deflated simultaneously, and if the inverter supports it, inverted concurrently
+template<typename A2Apolicies, typename FermionOperatorTypeD1, typename FermionOperatorTypeD2>
+void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, 
+		   const EvecInterface<typename FermionOperatorTypeD2::FermionField> &evecs,  
+		   const A2AlowModeCompute<FermionOperatorTypeD2> &impl,
+		   const A2Ainverter4dBase<FermionOperatorTypeD1> &inverter,
+		   size_t block_size = 1);
+
+//Compute both V and W with the internal inverter, operators and parameters are created internally controlled by CGcontrols 
+//thus matching the original interface
 template<typename Policies>
-void computeVWhigh(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
+void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, 
+	       const EvecInterface<typename Policies::GridFermionField> &evecs,
+	       const double mass, const CGcontrols &cg);
 
-
-//Implementation of VW low where the Dirac operator is the same as that used for the gauge fields (and FGrid)
-template< typename Policies>
-void computeVWlowStandard(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
-
-//When using MADWF the Dirac operator used for the eigenvectors is different from the Dirac operator associated with the gauge fields (and with FGrid)
-//A different preconditioning scheme is also typically used
-//We therefore use a different function to compute the low modes
-template< typename Policies>
-void computeVWlowMADWF(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
-
-//Compute the low mode part of the W and V vectors. Chooses between implementations based on cg_controls.CGalgorithm
-template<typename Policies>
-void computeVWlow(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
-
-template<typename Policies>
-void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls){
-  computeVWlow(V,W,lat,evecs,mass,cg_controls);
-  computeVWhigh(V,W,lat,evecs,mass,cg_controls);
-}
 
 
 #if defined(USE_GRID_LANCZOS)
-  //Pure Grid for both Lanczos and A2A
-template<typename Policies>
-void computeVWlow(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
 
-template<typename Policies>
-void computeVWhigh(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
+//Compute both V and W with the internal inverter, operators and parameters are created internally controlled by CGcontrols
+//Pure Grid for both Lanczos and A2A
 
+//Single precision eigenvectors
 template<typename Policies>
-void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls){
-  computeVWlow(V,W,lat,evec,eval,mass,cg_controls);
-  computeVWhigh(V,W,lat,evec,eval,mass,cg_controls);
-}
+void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, 
+	       const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
 
-  //Single-precision variants (use mixed_CG internally)
+//Double precision eigenvectors
 template<typename Policies>
-void computeVWlow(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
+void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, 
+	       const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
 
-template<typename Policies>
-void computeVWhigh(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
-
-template<typename Policies>
-void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls){
-  computeVWlow(V,W,lat,evec,eval,mass,cg_controls);
-  computeVWhigh(V,W,lat,evec,eval,mass,cg_controls);
-}
 #endif
 
 #ifdef USE_BFM_LANCZOS
@@ -78,12 +56,14 @@ void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, c
 //Set 'singleprec_evecs' if this has been done
 template< typename Policies>
 void computeVWlow(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs, const CGcontrols &cg_controls);
+
 #endif
 
 
 #include "implementation/compute_VW_gridA2A_common.tcc"
 #include "implementation/compute_VWlow_gridA2A.tcc"
 #include "implementation/compute_VWhigh_gridA2A.tcc"
+#include "implementation/compute_VW_gridA2A.tcc"
 
 CPS_END_NAMESPACE
 

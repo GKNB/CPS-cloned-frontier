@@ -1,0 +1,136 @@
+#pragma once
+#include<config.h>
+
+#if defined(USE_GRID) && defined(USE_GRID_A2A)
+#include<Grid/Grid.h>
+#include "evec_interface.h"
+#include "schur_operator.h"
+
+CPS_START_NAMESPACE
+
+//Class for abstracting computational elements required for the low-mode contributions
+template<typename _FermionOperatorTypeD>
+class A2AlowModeCompute{
+public:
+  typedef _FermionOperatorTypeD FermionOperatorTypeD; //Double precision operator
+  typedef typename _FermionOperatorTypeD::FermionField GridFermionFieldD;
+
+  virtual FermionOperatorTypeD & getOp() const = 0;
+
+  //In sections 1.2, 1.3 of https://rbc.phys.columbia.edu/rbc_ukqcd/individual_postings/ckelly/Gparity/note_a2a_v5.pdf
+  //we recognize that Vl and Wl for preconditioned and unpreconditioned Dirac operators differ only by transformations
+  //of the eigenvector. Thus we can form Vl as
+  //V_l^i = (1/lambda_i) V^45 evecTransformVl( evec_i )
+  //W_l^i = [U^54]^dag evecTransformWl( evec_i )
+
+  //Out is a field defined on the full, unpreconditioned Grid. evec resides on either a checkerboarded or full Grid
+  virtual void evecTransformVl(GridFermionFieldD &out, const GridFermionFieldD &evec) const = 0;
+  
+  virtual void evecTransformWl(GridFermionFieldD &out, const GridFermionFieldD &evec) const = 0;
+
+  //The calculation of the low mode contribution to be subtracted from the high mode component is also dependent on the preconditioning scheme
+  //Input and output are 4D fields
+  virtual void lowModeContribution4D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in, 
+				     const EvecInterface<GridFermionFieldD> &evecs, const int nl) const = 0;
+  
+  virtual ~A2AlowModeCompute(){}
+};
+
+//Common code for Schur preconditioned operators
+template<typename _FermionOperatorTypeD>
+class A2AlowModeComputeSchurPreconditioned: public A2AlowModeCompute<_FermionOperatorTypeD>{
+public:
+  typedef _FermionOperatorTypeD FermionOperatorTypeD; //Double precision operator
+  typedef typename _FermionOperatorTypeD::FermionField GridFermionFieldD;
+
+protected:
+  A2ASchurOperatorImpl<FermionOperatorTypeD> & OpD;
+
+public:
+  A2AlowModeComputeSchurPreconditioned(A2ASchurOperatorImpl<FermionOperatorTypeD> &OpD): OpD(OpD){}
+
+  FermionOperatorTypeD & getOp() const override{ return OpD.getOp(); }
+
+  //Apply operations in Eqs 21 and 27 of the note, excluding multiplying by the eval and converting to 4D
+  void evecTransformVl(GridFermionFieldD &out, const GridFermionFieldD &evec) const override{
+    assert(evec.Checkerboard() == Grid::Odd);
+    GridFermionFieldD tmp(evec.Grid()), tmp2(evec.Grid()), evecmul(evec.Grid());
+    OpD.SchurEvecMulVl(evecmul, evec);
+    
+    FermionOperatorTypeD &fermop = OpD.getOp();
+
+    //Compute even part [ -(Mee)^-1 Meo bq_tmp, bq_tmp ]
+    fermop.Meooe(evecmul,tmp2);	//tmp2 = Meo bq_tmp 
+    fermop.MooeeInv(tmp2,tmp);   //tmp = (Mee)^-1 Meo bq_tmp
+    tmp = -tmp; //even checkerboard
+    
+    assert(tmp.Checkerboard() == Grid::Even);
+    
+    setCheckerboard(out, tmp); //even checkerboard
+    setCheckerboard(out, evecmul); //odd checkerboard
+  }
+
+  //No difference between SchurOriginal and SchurDiagTwo apart from the linop
+  void evecTransformWl(GridFermionFieldD &out, const GridFermionFieldD &evec) const override{
+    assert(evec.Checkerboard() == Grid::Odd);
+    GridFermionFieldD tmp(evec.Grid()), tmp2(evec.Grid()), tmp3(evec.Grid());
+    GridFermionFieldD tmp_full(out.Grid());
+
+    //Do tmp = [ -[Mee^-1]^dag [Meo]^dag Doo bq_tmp,  Doo bq_tmp ]    (Note that for the Moe^dag in Daiqian's thesis, the dagger also implies a transpose of the spatial indices, hence the Meo^dag in the code)
+    OpD.getSchurOp().Mpc(evec,tmp2);  //tmp2 = Doo bq_tmp
+        
+    FermionOperatorTypeD &fermop = OpD.getOp();
+
+    fermop.MeooeDag(tmp2,tmp3); //tmp3 = Meo^dag Doo bq_tmp
+    fermop.MooeeInvDag(tmp3,tmp); //tmp = [Mee^-1]^dag Meo^dag Doo bq_tmp
+    tmp = -tmp;
+    
+    assert(tmp.Checkerboard() == Grid::Even);
+    assert(tmp2.Checkerboard() == Grid::Odd);
+
+    setCheckerboard(tmp_full, tmp);
+    setCheckerboard(tmp_full, tmp2);
+
+    //Left-multiply by D-^dag
+    fermop.DminusDag(tmp_full, out);
+  }
+
+  void lowModeContribution4D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in, 
+			     const EvecInterface<GridFermionFieldD> &evecs, const int nl) const override{
+    FermionOperatorTypeD &fermop = OpD.getOp();
+    Grid::SchurRedBlackBase<GridFermionFieldD> &solver = OpD.getSolver();
+    Grid::GridBase* FrbGrid = fermop.FermionRedBlackGrid();
+    Grid::GridBase* FGrid = fermop.FermionGrid();
+
+    int N = in.size();
+    assert(out.size() == N);
+    GridFermionFieldD source_5d(FGrid);
+    std::vector<GridFermionFieldD> source_5d_e(N,FrbGrid);
+    std::vector<GridFermionFieldD> source_5d_o(N,FrbGrid);
+    for(int s=0;s<N;s++){      
+      fermop.ImportPhysicalFermionSource(in[s], source_5d); //applies D- appropriately
+      solver.RedBlackSource(fermop, source_5d, source_5d_e[s], source_5d_o[s]);
+    }
+
+    std::vector<GridFermionFieldD> lowmode_contrib_5d_o(N,FrbGrid);    
+    evecs.deflatedGuess(lowmode_contrib_5d_o, source_5d_o, nl);
+    
+    //Because the low-mode part is computed only through the odd-checkerboard eigenvectors, the even component of the solution comes only through -Mee^-1 Meo applied to the odd solution.
+    //i.e. there is no M_ee^-1 src_e in the even part of the solution
+    //We can spoof that behavior by zeroing the even part of the source in RedBlackSolution such that M_ee^-1 src_e = 0
+    source_5d_e[0] = Grid::Zero();
+
+    GridFermionFieldD lowmode_contrib_5d(FGrid);
+    for(int s=0;s<N;s++){
+      solver.RedBlackSolution(fermop, lowmode_contrib_5d_o[s], source_5d_e[0], lowmode_contrib_5d);
+      fermop.ExportPhysicalFermionSolution(lowmode_contrib_5d, out[s]);
+    }
+  }
+
+};
+
+
+
+CPS_END_NAMESPACE
+
+#endif
