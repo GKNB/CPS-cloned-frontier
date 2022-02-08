@@ -126,7 +126,7 @@ public:
     }
 
     std::vector<GridFermionFieldD> lowmode_contrib_5d_o(N,FrbGrid);    
-    evecs.deflatedGuess(lowmode_contrib_5d_o, source_5d_o, nl);
+    evecs.deflatedGuessD(lowmode_contrib_5d_o, source_5d_o, nl);
     
     //Because the low-mode part is computed only through the odd-checkerboard eigenvectors, the even component of the solution comes only through -Mee^-1 Meo applied to the odd solution.
     //i.e. there is no M_ee^-1 src_e in the even part of the solution

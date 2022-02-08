@@ -19,7 +19,7 @@ void computeVWlow(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const 
 #ifndef MEMTEST_MODE
   for(size_t i = 0; i < nl; i++) {
     //Step 1) Compute Vl
-    Float eval = evecs.getEvec(evec,i);
+    Float eval = evecs.getEvecD(evec,i);
     impl.computeVl(tmp_full_4d, evec, eval);
     V.getVl(i).importGridField(tmp_full_4d);
         

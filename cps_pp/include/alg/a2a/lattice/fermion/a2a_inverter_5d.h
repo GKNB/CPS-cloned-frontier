@@ -34,7 +34,7 @@ public:
   //Invert 5D source -> 5D solution
   void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
     assert(out.size() == in.size());
-    evecs.deflatedGuess(out, in);
+    evecs.deflatedGuessD(out, in);
     Grid::ConjugateGradient<GridFermionFieldD> &cg_ = const_cast<Grid::ConjugateGradient<GridFermionFieldD> &>(cg); //grr
     Grid::LinearOperatorBase<GridFermionFieldD> &LinOp_ = const_cast<Grid::LinearOperatorBase<GridFermionFieldD> &>(LinOp); //grr
 
@@ -63,7 +63,7 @@ public:
   //Invert 5D source -> 5D solution
   void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
     assert(out.size() == in.size());
-    evecs.deflatedGuess(out, in);
+    evecs.deflatedGuessD(out, in);
     Grid::ConjugateGradientReliableUpdate<GridFermionFieldD,GridFermionFieldF> &cg_ = const_cast<Grid::ConjugateGradientReliableUpdate<GridFermionFieldD,GridFermionFieldF> &>(cg); //grr
     for(int i=0;i<in.size();i++)
       cg_(in[i], out[i]);
@@ -98,7 +98,7 @@ public:
   //Invert 5D source -> 5D solution
   void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
     assert(out.size() == in.size());
-    evecs.deflatedGuess(out, in);
+    evecs.deflatedGuessD(out, in);
     Grid::MixedPrecisionConjugateGradient<GridFermionFieldD,GridFermionFieldF> &mCG_ = const_cast<Grid::MixedPrecisionConjugateGradient<GridFermionFieldD,GridFermionFieldF> &>(mCG); //grr
     for(int i=0;i<in.size();i++)
       mCG_(in[i], out[i]);
@@ -135,7 +135,7 @@ public:
   void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
     assert(out.size() == in.size());
     assert(in.size() >= 1);
-    evecs_fullgrid.deflatedGuess(out, in);
+    evecs_fullgrid.deflatedGuessD(out, in);
 
     std::cout << Grid::GridLogMessage << "Doing split Grid solve with " << in.size() << " sources and " << Nsplit << " split grids" << std::endl;
 

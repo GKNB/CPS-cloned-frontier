@@ -42,22 +42,22 @@ public:
   virtual Grid::GridBase* getEvecGridD() const = 0;
 
   //Get the double precision evec and eval
-  virtual double getEvec(GridFermionFieldD &into, const int idx) const = 0;
+  virtual double getEvecD(GridFermionFieldD &into, const int idx) const = 0;
 
   //Get the number of evecs
   virtual int nEvecs() const = 0;
 
   //Get the deflated guess for a set of 5D source vectors
   //if use_Nevecs is set the number of evecs used will be constrained to that number
-  virtual void deflatedGuess(GridFermionFieldD *out, GridFermionFieldD const *in, int Nfield, int use_Nevecs = -1) const{
+  virtual void deflatedGuessD(GridFermionFieldD *out, GridFermionFieldD const *in, int Nfield, int use_Nevecs = -1) const{
     if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
     else assert(use_Nevecs <= this->nEvecs());    
-    basicDeflatedGuess(out, in, Nfield, use_Nevecs, [&](GridFermionFieldD &into, const int i){ return this->getEvec(into,i); });
+    basicDeflatedGuess(out, in, Nfield, use_Nevecs, [&](GridFermionFieldD &into, const int i){ return this->getEvecD(into,i); });
   }
 
-  void deflatedGuess(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in, int use_Nevecs = -1) const{
+  void deflatedGuessD(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in, int use_Nevecs = -1) const{
     assert(out.size() == in.size());
-    deflatedGuess(out.data(),in.data(),in.size(),use_Nevecs);
+    deflatedGuessD(out.data(),in.data(),in.size(),use_Nevecs);
   }
   
   virtual ~EvecInterface(){}
@@ -71,7 +71,7 @@ public:
   EvecInterfaceGuesser(const EvecInterface<FieldD> &interface): interface(interface){}
 
   void operator()(const FieldD &src,FieldD &guess) {
-    interface.deflatedGuess(&guess, &src, 1);
+    interface.deflatedGuessD(&guess, &src, 1);
   }
 };
 
@@ -87,7 +87,7 @@ public:
 
   void operator()(const FieldF &src,FieldF &guess) {
     precisionChange(tmp1D,src);
-    interface.deflatedGuess(&tmp2D, &tmp1D, 1);
+    interface.deflatedGuessD(&tmp2D, &tmp1D, 1);
     precisionChange(guess,tmp2D);
   }
 };
@@ -103,21 +103,39 @@ public:
   virtual Grid::GridBase* getEvecGridF() const = 0;
 
   //Get the single precision evec and eval
-  virtual double getEvec(GridFermionFieldF &into, const int idx) const = 0;
+  virtual double getEvecF(GridFermionFieldF &into, const int idx) const = 0;
 
-  virtual void deflatedGuess(GridFermionFieldF *out, GridFermionFieldF const *in, int Nfield, int use_Nevecs = -1) const{
+  virtual void deflatedGuessF(GridFermionFieldF *out, GridFermionFieldF const *in, int Nfield, int use_Nevecs = -1) const{
     if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
     else assert(use_Nevecs <= this->nEvecs());    
-    basicDeflatedGuess(out, in, Nfield, use_Nevecs, [&](GridFermionFieldF &into, const int i){ return this->getEvec(into,i); });
+    basicDeflatedGuess(out, in, Nfield, use_Nevecs, [&](GridFermionFieldF &into, const int i){ return this->getEvecF(into,i); });
   }
 
-  void deflatedGuess(std::vector<GridFermionFieldF> &out, const std::vector<GridFermionFieldF> &in, int use_Nevecs = -1) const{
+  void deflatedGuessF(std::vector<GridFermionFieldF> &out, const std::vector<GridFermionFieldF> &in, int use_Nevecs = -1) const{
     assert(out.size() == in.size());
-    deflatedGuess(out.data(),in.data(),in.size(),use_Nevecs);
+    deflatedGuessF(out.data(),in.data(),in.size(),use_Nevecs);
   }
   
   virtual ~EvecInterfaceMixedPrec(){}
 };
+
+template<typename Field, class FieldD, class FieldF>
+struct _choose_deflate{};
+
+template<class FieldD, class FieldF>
+struct _choose_deflate<FieldD,FieldD,FieldF>{
+  static void doit(const EvecInterfaceMixedPrec<FieldD,FieldF> &interface, const FieldD &src, FieldD &guess){
+    interface.deflatedGuessD(&guess, &src, 1);
+  }
+};
+
+template<class FieldD, class FieldF>
+struct _choose_deflate<FieldF,FieldD,FieldF>{
+  static void doit(const EvecInterfaceMixedPrec<FieldD,FieldF> &interface, const FieldF &src, FieldF &guess){
+    interface.deflatedGuessF(&guess, &src, 1);
+  }
+};
+
 
 //A Grid guesser, valid for both double and single precision fields
 template<class Field, class FieldD, class FieldF>
@@ -127,8 +145,9 @@ public:
   EvecInterfaceMixedPrecGuesser(const EvecInterfaceMixedPrec<FieldD,FieldF> &interface): interface(interface){}
 
   void operator()(const Field &src,Field &guess) {
-    interface.deflatedGuess(&guess, &src, 1);
+    _choose_deflate<Field,FieldD,FieldF>::doit(interface, src, guess);
   }
+
 };
 
 
@@ -152,7 +171,7 @@ public:
   Grid::GridBase* getEvecGridD() const override{ return m_evecGridD; }
 
   //Get an eigenvector and eigenvalue
-  double getEvec(GridFermionFieldD &into, const int idx) const override{
+  double getEvecD(GridFermionFieldD &into, const int idx) const override{
     into = m_evecs[idx];
     return m_evals[idx];
   }
@@ -184,12 +203,12 @@ public:
   Grid::GridBase* getEvecGridF() const override{ return m_evecGridF; }
 
   //Get an eigenvector and eigenvalue
-  double getEvec(GridFermionFieldD &into, const int idx) const override{
+  double getEvecD(GridFermionFieldD &into, const int idx) const override{
     precisionChange(into, m_evecsF[idx]);
     return m_evals[idx];
   }
 
-  double getEvec(GridFermionFieldF &into, const int idx) const override{
+  double getEvecF(GridFermionFieldF &into, const int idx) const override{
     into = m_evecsF[idx];
     return m_evals[idx];
   }
@@ -221,12 +240,12 @@ public:
   Grid::GridBase* getEvecGridF() const override{ return m_evecGridF; }
 
   //Get an eigenvector and eigenvalue
-  double getEvec(GridFermionFieldD &into, const int idx) const override{
+  double getEvecD(GridFermionFieldD &into, const int idx) const override{
     into = m_evecsD[idx];
     return m_evals[idx];
   }
 
-  double getEvec(GridFermionFieldF &into, const int idx) const override{
+  double getEvecF(GridFermionFieldF &into, const int idx) const override{
     precisionChange(into, m_evecsD[idx]);
     return m_evals[idx];
   }

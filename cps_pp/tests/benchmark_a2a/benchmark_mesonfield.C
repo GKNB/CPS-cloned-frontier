@@ -162,7 +162,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
   
 #ifdef USE_GRID
-  if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(0) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 #endif
 
@@ -182,10 +182,6 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
   if(0) testPointSource();
 
-#if defined(USE_GRID) && !defined(ARCH_BGQ)
-  if(0) testLMAprop<GridA2ApoliciesType>(lattice,argc,argv);
-#endif
-
   if(0) testSCFmat();
 
 #ifdef USE_GRID
@@ -200,10 +196,6 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) timeAllReduce(true);
 
 #ifdef USE_GRID
-  if(0) test4DlowmodeSubtraction<GridA2ApoliciesType>(a2a_args, ntests, nthreads, lattice);
-#endif
-
-#ifdef USE_GRID
   if(0) benchmarkvMvGridOrig<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 
   if(0) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
@@ -211,6 +203,8 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
   if(0) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice);
   if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice);
+
+  if(1) benchmarkDeflation<GridA2ApoliciesType>(lattice ,opt.nlowmodes);
 #endif
 }
 

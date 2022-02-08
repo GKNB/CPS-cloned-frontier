@@ -2206,7 +2206,7 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
 #pragma omp parallel //avoid thread creation overheads
   {
     int me = omp_get_thread_num();
-    int work, off;
+    size_t work, off;
     thread_work(work, off, aa.nfsites(), me, omp_get_num_threads());
 	
     GVtype *abase = aa.fsite_ptr(off);
@@ -2219,7 +2219,7 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
       GVtype *bi = bbase;
       GVtype *ci = cbase;
       __SSC_MARK(0x1);
-      for(int i=0;i<work;i++){
+      for(size_t i=0;i<work;i++){
 	*ci = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ai,bi);
 	ai += 12;
 	bi += 12;
@@ -2293,7 +2293,7 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
   std::cout << "Memory bandwidth " << bandwidth << " MB/s" << std::endl;
   std::cout << "FLOPS/byte " << FLOPS_per_byte << std::endl;
   std::cout << "Theoretical performance " << theor_perf/1e3 << " Gflops\n";    
-  std::cout << "Total work is " << work << " and Nsimd = " << Nsimd << std::endl;
+  std::cout << "Total work is " << aa.nfsites() << " and Nsimd = " << nsimd << std::endl;
 #endif
 }
 
@@ -3547,210 +3547,6 @@ void benchmarkTest(){
 }
 
 
-template<typename GridA2Apolicies>
-void testLMAprop(typename GridA2Apolicies::FgridGFclass &lattice, int argc, char* argv[]){
-#if defined(USE_GRID_LANCZOS) && defined(USE_GRID_A2A)
-
-  NullObject null_obj;
-  lattice.BondCond();
-  CPSfield<cps::ComplexD,4*9,FourDpolicy<OneFlavorPolicy> > cps_gauge((cps::ComplexD*)lattice.GaugeField(),null_obj);
-  cps_gauge.exportGridField(*lattice.getUmu());
-  lattice.BondCond();
-
-  if(lattice.FixGaugeKind() == FIX_GAUGE_NONE){
-    FixGaugeArg fix_gauge_arg;
-    fix_gauge_arg.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
-    fix_gauge_arg.hyperplane_start = 0;
-    fix_gauge_arg.hyperplane_step = 1;
-    fix_gauge_arg.hyperplane_num = GJP.Tnodes()*GJP.TnodeSites();
-    fix_gauge_arg.stop_cond = 1e-08;
-    fix_gauge_arg.max_iter_num = 10000;
-
-    CommonArg common_arg;
-  
-    AlgFixGauge fix_gauge(lattice,&common_arg,&fix_gauge_arg);
-    fix_gauge.run();
-  }
-
-  LancArg lanc_arg;
-  bool read_larg = false;
-  for(int i=1;i<argc;i++){
-    if(std::string(argv[i]) == "-lanc_arg"){
-      if(!lanc_arg.Decode(argv[i+1],"lanc_arg")){
-	ERR.General("Parameters","Parameters","Can't open %s!\n",argv[i+1]);
-      }
-      read_larg = true;
-      break;
-    }
-  }
-  if(!read_larg){
-    lanc_arg.mass = 0.01;
-    lanc_arg.stop_rsd = 1e-08;
-    lanc_arg.qr_rsd = 1e-13;
-    lanc_arg.N_true_get = 100;
-    lanc_arg.N_get = 100;
-    lanc_arg.N_use = 120;
-    lanc_arg.EigenOper = DDAGD;
-    lanc_arg.precon = 1;
-    lanc_arg.ch_ord = 80;
-    lanc_arg.ch_alpha = 6.6;
-    lanc_arg.ch_beta = 1;
-    lanc_arg.lock = 0;
-    lanc_arg.maxits = 10000;
-  }    
-
-  GridLanczosWrapper<GridA2Apolicies> lanc;
-
-  lanc.compute(lanc_arg, lattice);
-
-  A2AArg a2a_args;
-  a2a_args.nl = 100;
-  a2a_args.nhits = 0;
-  a2a_args.rand_type = UONE;
-  a2a_args.src_width = 1;
-  
-  const int nsimd = Grid::vComplexD::Nsimd();      
-  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
-  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd);
-
-  A2AvectorV<GridA2Apolicies> V(a2a_args, simd_dims);
-  A2AvectorW<GridA2Apolicies> W(a2a_args, simd_dims);
-
-  CGcontrols cg_controls;
-  cg_controls.CGalgorithm = AlgorithmCG;
-  computeVWlow(V,W, lattice, lanc.evec, lanc.eval, lanc.mass, cg_controls);
-  
-  //v_i^dag G v_i = (1/L_i)
-  //v_i^dag G^dag v_i = (1/L_i*)
-
-  //Let M be the number of eigenvectors of the matrix, and N < M
-
-  //LMA = \sum_{i=0}^N v_i (1/L_i) v_i^dag
-  //LMA^dag = \sum_{i=0}^N v_i (1/L_i*) v^dag_i
-  //        = \sum_{i=0}^N v_i v_i^dag G^dag v_i v^dag_i
-  //        = \sum_{i=0}^N v_i v_i^dag g5 G g5 v_i v^dag_i
-
-  //G = \sum_{i=0}^M v_i (1/L_i) v_i^dag   because  G v_j = (1/L_j) v_j    v_i^dag v_j = delta_ij   
-
-  //D G = 1 = \sum_{i=0}^M v_i v_i^dag
-
-  //thus for N=M
-  //LMA^dag
-  //        = g5 G g5 = g5 LMA g5
-  
-
-
-
-
-  //LMA - g5 LMA^dag g5 
-  //= \sum_{i=0}^N   [  v_i (1/L_i) v_i^dag  -  g5 v_i (1/L^*_i) v^dag_i g5 ]
-  //= 
-
-
-  //\sum_y D(x,y) v_i(y) = L_i v_i(x)
-  //\sum_xy G(z,x) D(x,y) v_i(y) = \sum_x G(z,x) L_i v_i(x)
-  //v_i(z) = \sum_x G(z,x) L_i v_i(x)
-
-  //v_i(z) = \sum_x g5 G^dag(x,z) g5 L_i v_i(x)
-  //       = [\sum_x v_i^dag(x) L_i g5 G(x,z) g5]^dag
-  
-  //v_i^dag(z) = \sum_x  v_i^dag(x) L_i g5 G(x,z) g5
-
-  //\sum_y G(x,y) v_i(y) = (1/L_i) v_i(x)
-  //\sum_y v_i^dag(y) G^dag(y,x) = (1/L_i) v_i^dag(x)
-  
-
-
-
-  //LMA(x) =  \sum_{i=0}^{N} v_i(x) (1/L_i) v_i^dag(x)
-  //       =  \sum_{i=0}^{N} v_i(x) (1/L_i) \sum_z v_i^dag(z) L_i g5 G(z,x) g5
-  //       =  \sum_z \sum_{i=0}^{N} v_i(x) v_i^dag(z) g5 G(z,x) g5
-  //       == \sum_z \sum_{i=0}^{N} 
-
-
-  //Make meson fields
-  //Test g5 hermiticity and cc reln exactness 
-
-  //g5-herm
-  //sum_{x,y}e^{-ip1x} e^{-ip2y}  tr( G^dag(x,y) ) == sum_{x,y}e^{-ip1x} e^{-ip2y} tr( G(y,x) )
-  //sum_{x,y}e^{-ip1x} e^{-ip2y} tr( [V_i(x)W_i^dag(y)]^dag )  = tr( [sum_{x,y}e^{+ip1x} e^{+ip2y}V_i(x)W_i^dag(y)] )^* = M_ii(-p2,-p1)^* 
-  //sum_{x,y}e^{-ip1x} e^{-ip2y} tr( G(y,x) ) = tr( [sum_{x,y}e^{-ip1x} e^{-ip2y} V(y)W^dag(x)] ) = M(p1,p2)
-  
-
-  //sum_{x,y}e^{-ip1x} e^{-ip2y}  tr( G^dag(x,y) O(x-y) A^dag(x) A(y) s3(1 + q(p1)s2) ) == sum_{x,y}e^{-ip1x} e^{-ip2y} tr( G(y,x) O(x-y) A^dag(x) A(y) s3(1 + q(p1)s2) )
-
-  //q(p) = exp(i n(p) \pi)   = +/- 1
-  //q^dag(p) = exp(-i n(p)\pi ) = q(p)
-
-  //sum_{x,y}e^{-ip1x} e^{-ip2y} tr(  G^dag(x,y) O(x-y) A^dag(x)  A(y) s3 (1 + q(p1)s2) )  
-  //[ sum_{x,y}e^{+ip1x} e^{+ip2y} tr(  (1 + q(p1)s2) )s3 A^dag(y) A(x) O(x-y) G(x,y)    ]^*
-  //[ sum_{x,y}e^{+ip1x} e^{+ip2y} tr( G(x,y) O(x-y) A^dag(y) A(x) s3(1 + q(-p1)s2) ) ]^*
-  //[ M_ii(-p2,-p1) ]^*
-
-  //sum_{x,y}e^{-ip1x} e^{-ip2y} tr( G(y,x) O(x-y) A^dag(x) A(y) s3(1 + q(p1)s2) )
-  //M_ii(p1,p2)
-
-  typedef typename A2AflavorProjectedExpSource<typename GridA2Apolicies::SourcePolicies>::FieldParamType SrcFieldParamType;
-  typedef typename A2AflavorProjectedExpSource<typename GridA2Apolicies::SourcePolicies>::ComplexType SrcComplexType;
-  SrcFieldParamType sfp; defaultFieldParams<SrcFieldParamType, SrcComplexType>::get(sfp);
-
-  typedef A2AflavorProjectedExpSource<typename GridA2Apolicies::SourcePolicies> ExpSrcType;
-  
-  int p1[3] = {1,1,1}; //n1 = (0,0,0)    exp(in1) = 1
-  int p2[3] = {-3,1,-3}; //n2 = (-2,0,-2)    exp(in2) = 1
-  int mp1[3] = {-1,-1,-1}; //nmp1 = (-1,-1,-1)   exp(imp1) = -1
-  int mp2[3] = {3,-1,3}; //nmp2 = (1,-1,1)  exp(inmp2) = -1
-
-  typedef typename GridA2Apolicies::ComplexType ComplexType;
-  typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
-
-  typedef SCFspinflavorInnerProduct<0,ComplexType,ExpSrcType,true,false> ExpInnerType;
-
-  int Lt = GJP.Tnodes()*GJP.TnodeSites();
-
-  std::vector< A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_mp2_mp1;
-  {
-    ExpSrcType src_mp2_mp1(2.0, mp1, sfp); //momentum associated with the V
-    ExpInnerType inner_mp2_mp1(sigma3, src_mp2_mp1);
-
-    A2AvectorVfftw<GridA2Apolicies> Vfftw(a2a_args,simd_dims);
-    Vfftw.gaugeFixTwistFFT(V,mp1,lattice);
-    
-    A2AvectorWfftw<GridA2Apolicies> Wfftw(a2a_args,simd_dims);
-    Wfftw.gaugeFixTwistFFT(W,p2,lattice);
-  
-    A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_mp2_mp1, Wfftw, inner_mp2_mp1, Vfftw);
-  }
-
-  std::vector< A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_p1_p2;
-  {
-    ExpSrcType src_p1_p2(2.0, p2, sfp);  
-    ExpInnerType inner_p1_p2(sigma3, src_p1_p2);
-
-    A2AvectorVfftw<GridA2Apolicies> Vfftw(a2a_args,simd_dims);
-    Vfftw.gaugeFixTwistFFT(V,p2,lattice);
-    
-    A2AvectorWfftw<GridA2Apolicies> Wfftw(a2a_args,simd_dims);
-    Wfftw.gaugeFixTwistFFT(W,mp1,lattice);
-  
-    A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_p1_p2, Wfftw, inner_p1_p2, Vfftw);
-  }
-
-  for(int t=0;t<Lt;t++){
-    ScalarComplexType a = cconj(trace(mf_mp2_mp1[t]));
-    ScalarComplexType b = trace(mf_p1_p2[t]);
-
-    std::cout << t << " " << a.real() << " " << a.imag() << " " << b.real() << " " << b.imag() << std::endl;
-  }
-
-
-
-  //g5-herm:
-  //Tr( G^dag(x,y) G^dag(y,x) ) = Tr ( G(y,x) G(x,y) )
-#endif
-}
-
-
 void testSCFmat(){
   typedef std::complex<double> ComplexType;
   typedef CPSspinMatrix<ComplexType> SpinMat;
@@ -3896,80 +3692,6 @@ void timeAllReduce(bool huge_pages){
 
 
 #ifdef USE_GRID
-template<typename GridA2Apolicies>
-void test4DlowmodeSubtraction(A2AArg a2a_args, const int ntests, const int nthreads, typename GridA2Apolicies::FgridGFclass &lattice){
-  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
-
-  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
-  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
-
-  a2a_args.nl = 10;
-
-  assert(GJP.Snodes() == 1);
-  int Ls = GJP.SnodeSites();
-  double b_minus_c_outer = lattice.get_mob_b() - lattice.get_mob_c();
-  assert(b_minus_c_outer == 1.0);
-  double b_plus_c_outer = lattice.get_mob_b() + lattice.get_mob_c();
-  double mass = 0.01;
-
-  if(!UniqueID()) printf("test4DlowmodeSubtraction outer b+c=%g\n", b_plus_c_outer);
-  
-  CGcontrols cg_controls_4dsub;
-  cg_controls_4dsub.CGalgorithm = AlgorithmMixedPrecisionMADWF; //currently only MADWF version supports 4d subtraction, but it will use regular CG internally if the inner and outer Dirac ops match
-  cg_controls_4dsub.CG_tolerance = 1e-8;
-  cg_controls_4dsub.CG_max_iters = 10000;
-  cg_controls_4dsub.mixedCG_init_inner_tolerance = 1e-4;
-  cg_controls_4dsub.madwf_params.Ls_inner = Ls;
-  cg_controls_4dsub.madwf_params.b_plus_c_inner = b_plus_c_outer;
-  cg_controls_4dsub.madwf_params.precond = SchurOriginal;
-  cg_controls_4dsub.madwf_params.use_ZMobius = false;
-  cg_controls_4dsub.madwf_params.ZMobius_params.compute_lambda_max = 1.42;
-  cg_controls_4dsub.madwf_params.ZMobius_params.gamma_src = A2A_ZMobiusGammaSourceCompute;
-
-  CGcontrols cg_controls_5dsub(cg_controls_4dsub);
-  cg_controls_5dsub.CGalgorithm = AlgorithmMixedPrecisionRestartedCG;
-
-  //Random evecs or evals
-  std::vector<typename GridA2Apolicies::GridFermionFieldF> evec(a2a_args.nl, typename GridA2Apolicies::GridFermionFieldF(lattice.getFrbGridF()) );
-  std::vector<Grid::RealD> eval(a2a_args.nl);
-  CPSfermion5D<typename GridA2Apolicies::ScalarComplexType> tmp;
-  for(int i=0;i<a2a_args.nl;i++){
-    eval[i] = fabs(LRG.Urand(FOUR_D));
-    tmp.testRandom();
-    tmp.exportGridField(evec[i]);
-    evec[i].Checkerboard() = Grid::Odd;
-  }
-
-  EvecInterfaceGridSinglePrec<GridA2Apolicies> eve_4dsub(evec, eval, lattice, lattice.get_mass(), cg_controls_4dsub);
-  EvecInterfaceGridSinglePrec<GridA2Apolicies> eve_5dsub(evec, eval, lattice, lattice.get_mass(), cg_controls_5dsub);
-
-  A2AvectorW<GridA2Apolicies> W_5dsub(a2a_args, simd_dims);
-  A2AvectorW<GridA2Apolicies> W_4dsub(a2a_args, simd_dims);
-  
-  LatRanGen LRGbak(LRG);
-  W_5dsub.setWhRandom();
-  LRG = LRGbak;
-  W_4dsub.setWhRandom();
-
-  assert( W_5dsub.getWh(0).equals( W_4dsub.getWh(0) ));
-
-
-  A2AvectorV<GridA2Apolicies> V_5dsub(a2a_args, simd_dims);
-  A2AvectorV<GridA2Apolicies> V_4dsub(a2a_args, simd_dims);
-
-  computeVWhigh(V_4dsub, W_4dsub, lattice, eve_4dsub, mass, cg_controls_4dsub);
-  computeVWhigh(V_5dsub, W_5dsub, lattice, eve_5dsub, mass, cg_controls_5dsub);
-  
-  std::cout << "V " << std::endl;
-  typename GridA2Apolicies::ScalarFermionFieldType v_scal1, v_scal2;
-
-  for(int i=0;i<V_5dsub.getNv();i++){
-    printf("Testing %d\n",i);
-    v_scal1.importField(V_5dsub.getMode(i));
-    v_scal2.importField(V_4dsub.getMode(i));
-    compareField(v_scal1, v_scal2, "Field", 1e-4, true);
-  }
-}
 
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthreads){
@@ -4666,10 +4388,55 @@ void benchmarkCPSmatrixField(const int ntests){
     printf("Trace(SCFmatrixField*SCFmatrix) %d iters: %g secs   %f Mflops\n",ntests,tavg,Mflops);
   }
 
+}
 
 
+//Use nl to control max number of eigenvectors in test
+template<typename GridA2Apolicies>
+void benchmarkDeflation(typename GridA2Apolicies::FgridGFclass &lattice, const int nl){
+  typedef typename GridA2Apolicies::GridFermionField GridFermionFieldD;
+  typedef typename GridA2Apolicies::GridFermionFieldF GridFermionFieldF;
+  
+  Grid::GridRedBlackCartesian *FrbGridD = lattice.getFrbGrid();
+  Grid::GridRedBlackCartesian *FrbGridF = lattice.getFrbGridF();
+  
+  std::vector<int> seeds5({5,6,7,8});
+  Grid::GridParallelRNG RNGD(FrbGridD);  RNGD.SeedFixedIntegers(seeds5);
+  Grid::GridParallelRNG RNGF(FrbGridF);  RNGF.SeedFixedIntegers(seeds5);
+  Grid::GridSerialRNG SRNG; SRNG.SeedFixedIntegers(seeds5);
+  
+  //Double precision benchmarks
+  {
+    std::vector<GridFermionFieldD> evecs(nl, FrbGridD);
+    std::vector<Grid::RealD> evals(nl);
+    for(int i=0;i<nl;i++){
+      random(RNGD, evecs[i]);
+      random(SRNG, evals[i]);
+    }
+    EvecInterfaceMixedDoublePrec<GridFermionFieldD, GridFermionFieldF>  eveci(evecs, evals, FrbGridD, FrbGridF);
+    
+    //Go up in powers of 2 until reach nl
+    std::vector<int> block_sizes;
+    int b = 2;
+    while(b <= nl){
+      block_sizes.push_back(b);
+      b*=2;
+    }
+    if(block_sizes.size() == 0 || block_sizes.back() < nl) block_sizes.push_back(nl);
+    
+    for(int b: block_sizes){
+      std::vector<GridFermionFieldD> srcs(b, evecs[0]); //doesn't matter what the fields are
+      std::vector<GridFermionFieldD> defl(b, FrbGridD);
+      double time = -dclock();
 
+      //EvecInterface<GridFermionFieldD> & evecid = dynamic_cast<EvecInterface<GridFermionFieldD> &>(eveci);
+      //evecid.deflatedGuess(defl, srcs, -1);
 
+      eveci.deflatedGuessD(defl, srcs, -1);
+      time += dclock();
+      std::cout << b << " " << time << "s" << std::endl;
+    }
+  }
 }
 
 
