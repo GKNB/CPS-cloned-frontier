@@ -13,6 +13,11 @@ CPS_START_NAMESPACE
 //in, out are arrays of length Nfield
 template<typename GridFermionField, typename EvecGetter>
 void basicDeflatedGuess(GridFermionField *out, GridFermionField const *in, int Nfield, int Nevecs, const EvecGetter &get){
+  double t_total = -dclock();
+  double t_get = 0;
+  double t_inner = 0;
+  double t_linalg = 0;
+
   for(int s=0;s<Nfield;s++){
     out[s] = Grid::Zero();
     out[s].Checkerboard() = in[0].Checkerboard();
@@ -21,15 +26,26 @@ void basicDeflatedGuess(GridFermionField *out, GridFermionField const *in, int N
 
   GridFermionField evec(grid);
   for(int i=0;i<Nevecs;i++){
+    t_get -= dclock();
     double eval = get(evec, i);
+    t_get += dclock();
 
     for(int s=0;s<Nfield;s++){
       assert(in[s].Checkerboard() == evec.Checkerboard());
+      t_inner -= dclock();
       Grid::ComplexD dot = innerProduct(evec, in[s]);
+      t_inner += dclock();
+
+      t_linalg -= dclock();
       dot = dot / eval;
       out[s] = out[s] + dot * evec;
+      t_linalg += dclock();
     }
   }
+  t_total += dclock();
+  std::cout << "Deflated " << Nfield << " fields with " << Nevecs << " evecs in " << t_total 
+	    << "s:  evec_load:" << t_get << "s, inner_product:" << t_inner << "s, linalg:" << t_linalg << "s" << std::endl;
+
 }
 
 //Base class of interfaces, expose double precision evecs and deflation

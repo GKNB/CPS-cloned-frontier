@@ -4404,7 +4404,17 @@ void benchmarkDeflation(typename GridA2Apolicies::FgridGFclass &lattice, const i
   Grid::GridParallelRNG RNGD(FrbGridD);  RNGD.SeedFixedIntegers(seeds5);
   Grid::GridParallelRNG RNGF(FrbGridF);  RNGF.SeedFixedIntegers(seeds5);
   Grid::GridSerialRNG SRNG; SRNG.SeedFixedIntegers(seeds5);
-  
+
+  //Go up in powers of 2 until reach nl
+  std::vector<int> block_sizes;
+  int b = 2;
+  while(b <= nl){
+    block_sizes.push_back(b);
+    b*=2;
+  }
+  if(block_sizes.size() == 0 || block_sizes.back() < nl) block_sizes.push_back(nl);
+
+ 
   //Double precision benchmarks
   {
     std::vector<GridFermionFieldD> evecs(nl, FrbGridD);
@@ -4415,28 +4425,71 @@ void benchmarkDeflation(typename GridA2Apolicies::FgridGFclass &lattice, const i
     }
     EvecInterfaceMixedDoublePrec<GridFermionFieldD, GridFermionFieldF>  eveci(evecs, evals, FrbGridD, FrbGridF);
     
-    //Go up in powers of 2 until reach nl
-    std::vector<int> block_sizes;
-    int b = 2;
-    while(b <= nl){
-      block_sizes.push_back(b);
-      b*=2;
-    }
-    if(block_sizes.size() == 0 || block_sizes.back() < nl) block_sizes.push_back(nl);
-    
+    std::cout << "Deflating double precision fields in blocks with double precision eigenvectors" << std::endl;
     for(int b: block_sizes){
       std::vector<GridFermionFieldD> srcs(b, evecs[0]); //doesn't matter what the fields are
       std::vector<GridFermionFieldD> defl(b, FrbGridD);
       double time = -dclock();
 
-      //EvecInterface<GridFermionFieldD> & evecid = dynamic_cast<EvecInterface<GridFermionFieldD> &>(eveci);
-      //evecid.deflatedGuess(defl, srcs, -1);
+      eveci.deflatedGuessD(defl, srcs, -1);
+      time += dclock();
+      std::cout << b << " " << time << "s " << b / time << "/s" << std::endl;
+    }
+
+    GridFermionFieldF src_f(FrbGridF);
+    random(RNGF, src_f);
+
+    std::cout << "Deflating single precision fields in blocks with double precision eigenvectors" << std::endl;
+    for(int b: block_sizes){
+      std::vector<GridFermionFieldF> srcs(b, src_f); //doesn't matter what the fields are
+      std::vector<GridFermionFieldF> defl(b, FrbGridF);
+      double time = -dclock();
+
+      eveci.deflatedGuessF(defl, srcs, -1);
+      time += dclock();
+      std::cout << b << " " << time << "s " << b / time << "/s" << std::endl;
+    }
+  }
+
+
+  //Single precision benchmarks
+  {
+    std::vector<GridFermionFieldF> evecs(nl, FrbGridF);
+    std::vector<Grid::RealD> evals(nl);
+    for(int i=0;i<nl;i++){
+      random(RNGF, evecs[i]);
+      random(SRNG, evals[i]);
+    }
+    EvecInterfaceSinglePrec<GridFermionFieldD, GridFermionFieldF>  eveci(evecs, evals, FrbGridD, FrbGridF);
+
+    GridFermionFieldD src_d(FrbGridD);
+    random(RNGD, src_d);
+    
+    std::cout << "Deflating double precision fields in blocks with single precision eigenvectors" << std::endl;
+    for(int b: block_sizes){
+      std::vector<GridFermionFieldD> srcs(b, src_d);
+      std::vector<GridFermionFieldD> defl(b, FrbGridD);
+      double time = -dclock();
 
       eveci.deflatedGuessD(defl, srcs, -1);
       time += dclock();
-      std::cout << b << " " << time << "s" << std::endl;
+      std::cout << b << " " << time << "s " << b / time << "/s" << std::endl;
+    }
+
+    std::cout << "Deflating single precision fields in blocks with single precision eigenvectors" << std::endl;
+    for(int b: block_sizes){
+      std::vector<GridFermionFieldF> srcs(b, evecs[0]);      
+      std::vector<GridFermionFieldF> defl(b, FrbGridF);
+      double time = -dclock();
+
+      eveci.deflatedGuessF(defl, srcs, -1);
+      time += dclock();
+      std::cout << b << " " << time << "s " << b / time << "/s" << std::endl;
     }
   }
+
+
+
 }
 
 
