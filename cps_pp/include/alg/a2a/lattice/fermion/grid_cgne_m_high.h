@@ -3,6 +3,7 @@
 
 #if defined(USE_GRID) && defined(USE_GRID_A2A)
 #include<util/lattice/fgrid.h>
+#include<alg/ktopipi_jobparams.h>
 #include "evec_interface.h"
 
 CPS_START_NAMESPACE
