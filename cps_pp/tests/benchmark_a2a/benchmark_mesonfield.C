@@ -204,7 +204,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice);
   if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice);
 
-  if(1) benchmarkDeflation<GridA2ApoliciesType>(lattice ,opt.nlowmodes);
+  if(1) benchmarkDeflation<GridA2ApoliciesType>(lattice ,opt.nlowmodes, argc, argv);
 #endif
 }
 
