@@ -107,86 +107,24 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
     if(UniqueID()==0) printf("Config written.\n");
   }
 
-  if(0) testCyclicPermute();
-  
-  if(0) demonstrateFFTreln<ScalarA2ApoliciesType>(a2a_args);
-
-
-  if(0) testA2AvectorFFTrelnGparity<ScalarA2ApoliciesType>(a2a_args,lattice);
-#ifdef USE_GRID
-  if(0) testA2AvectorFFTrelnGparity<GridA2ApoliciesType>(a2a_args,lattice);
-#endif
-  
-  if(0) testSumSource<ScalarA2ApoliciesType>(a2a_args,lattice);
-#ifdef USE_GRID
-  if(0) testSumSource<GridA2ApoliciesType>(a2a_args,lattice);
-#endif
-
-
-  if(0) testMfFFTreln<ScalarA2ApoliciesType>(a2a_args,lattice);
-#ifdef USE_GRID
-  if(0) testMfFFTreln<GridA2ApoliciesType>(a2a_args,lattice);
-#endif
-    
   if(0) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
-
-  if(0) testA2AFFTinv<ScalarA2ApoliciesType>(a2a_args,lattice);
-  
-  if(0) testVVdag<ScalarA2ApoliciesType>(lattice);
-#ifdef USE_GRID
-  if(0) testVVdag<GridA2ApoliciesType>(lattice);
-#endif
-  
-  if(0) testDestructiveFFT<ScalarA2ApoliciesManualAllocType>(a2a_args,lattice);
-  
-  if(0) testA2AallocFree(a2a_args,lattice);
 
 #ifdef USE_GRID
   if(0) benchmarkMFcontractKernel<GridA2ApoliciesType>(ntests,nthreads);
 #endif
-
-#ifdef USE_GRID
-  if(0) testGridg5Contract<Grid::vComplexD>();
-#endif
-  
+ 
   if(0) benchmarkTrace(ntests,tol);
   if(0) benchmarkSpinFlavorTrace(ntests,tol);
   if(0) benchmarkTraceProd(ntests,tol);
   if(0) benchmarkColorTranspose(ntests,tol);
   if(0) benchmarkmultGammaLeft(ntests, tol);
-
-  if(0) testMultiSource<ScalarA2ApoliciesType>(a2a_args,lattice);
-#ifdef USE_GRID
-  if(0) testMultiSource<GridA2ApoliciesType>(a2a_args,lattice);
-#endif
-
-  
+ 
 #ifdef USE_GRID
   if(0) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 #endif
 
-  if(0) testTraceSingle<ScalarA2ApoliciesType>(a2a_args,tol);
-
-  if(0) testCPSfieldImpex();
-#if defined(USE_GRID) && !defined(ARCH_BGQ)
-  if(0) testGridFieldImpex<GridA2ApoliciesType>(lattice);
-  if(0) testLanczosIO<GridA2ApoliciesType>(lattice);
-#endif
-  
-  if(0) testCPSfieldIO();
-  if(0) testA2AvectorIO<ScalarA2ApoliciesType>(a2a_args);
-  if(0) testA2AvectorIO<GridA2ApoliciesType>(a2a_args);
-
   if(0) benchmarkCPSfieldIO();
-
-  if(0) testPointSource();
-
-  if(0) testSCFmat();
-
-#ifdef USE_GRID
-  if(0) testKtoPiPiType3<GridA2ApoliciesType>(a2a_args,lattice);
-#endif
 
 #ifdef USE_GRID
   if(0) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
