@@ -176,76 +176,45 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::average(const CPSfie
   }
 }
 
-
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy, typename ComplexClass>
-struct _gauge_fix_site_op_impl;
-  
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
-struct _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,complex_double_or_float_mark>{
-  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field;
-
-  _gauge_fix_site_op_impl(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &f, const int num_threads): field(f){}
-
-  void gauge_fix_site_op(const int x4d[], const int f, Lattice &lat, const bool dagger, const int thread){
-    typedef typename mf_Complex::value_type mf_Float;
-    int i = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] ) );
-    mf_Complex tmp[3];
-    const Matrix* gfmat = lat.FixGaugeMatrix(i,f);
-    mf_Complex* sc_base = (mf_Complex*)field.site_ptr(x4d,f); //if Dimension < 4 the site_ptr method will ignore the remaining indices. Make sure this is what you want
-    for(int s=0;s<4;s++){
-      memcpy(tmp, sc_base + 3 * s, 3 * sizeof(mf_Complex));
-      if(!dagger)
-	colorMatrixMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);
-      else
-	colorMatrixDaggerMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);      
-    }
+//Implemenation objects for CPSfermion4d gauge fix
+template<typename mf_Complex, typename MappingPolicy>
+struct _gauge_fix_conv_gfix_mat{
+  static inline CPSfield<mf_Complex, 9, MappingPolicy> * convert(bool &delout, CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > &in, const typename MappingPolicy::ParamType &params){
+    CPSfield<mf_Complex, 9, MappingPolicy> * out = new CPSfield<mf_Complex, 9, MappingPolicy>(params);
+    out->importField(in);
+    delout = true;
+    return out;
+  }
+};
+template<>
+struct _gauge_fix_conv_gfix_mat<cps::ComplexD, FourDpolicy<DynamicFlavorPolicy> >{
+  static inline CPSfield<cps::ComplexD, 9, FourDpolicy<DynamicFlavorPolicy> > * convert(bool &delout, CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > &in, const NullObject &params){
+    delout = false;
+    return &in;    
   }
 };
 
-
-#ifdef USE_GRID
+//Apply gauge fixing matrices to the field
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
-struct _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,grid_vector_complex_mark>{
-  typedef typename mf_Complex::scalar_type stype;
-  int nsimd;
-  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field;
-
-  _gauge_fix_site_op_impl(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &f, const int num_threads): field(f){
-    nsimd = field.Nsimd();
-  }
+void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool dagger){
   
-  void gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat, const bool dagger, const int thread){
-    //x4d is an outer site index
-    int nsimd = field.Nsimd();
-    int ndim = MappingPolicy::EuclideanDimension;
-    assert(ndim == 4);
+  //Get the field of gauge fixing matrices in non-SIMD format
+  NullObject null;
+  CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > gfix_mat(null);
+#pragma omp parallel for
+  for(size_t xf = 0; xf < gfix_mat.nfsites(); xf++){
+    int x[4]; int f;
+    gfix_mat.fsiteUnmap(xf,x,f);
+    *( (Matrix*)gfix_mat.fsite_ptr(xf) ) = *lat.FixGaugeMatrix(x,f);
+  }
+  bool delete_conv;
+  CPSfield<mf_Complex, 9, MappingPolicy> * gfix_mat_conv = _gauge_fix_conv_gfix_mat<mf_Complex,MappingPolicy>::convert(delete_conv, gfix_mat, this->getDimPolParams());
 
-    //Assemble pointers to the GF matrices for each lane
-    std::vector<cps::Complex*> gf_base_ptrs(nsimd);
-    int x4d_lane[4];
-    int lane_off[4];
-    
-    for(int lane=0;lane<nsimd;lane++){
-      field.SIMDunmap(lane, lane_off);		      
-      for(int xx=0;xx<4;xx++) x4d_lane[xx] = x4d[xx] + lane_off[xx];
-      int gf_off = x4d_lane[0] + GJP.XnodeSites()*( x4d_lane[1] + GJP.YnodeSites()* ( x4d_lane[2] + GJP.ZnodeSites()*x4d_lane[3] ) );
-      gf_base_ptrs[lane] = (cps::Complex*)lat.FixGaugeMatrix(gf_off,f);
-    }
+#pragma omp parallel for
+  for(size_t xf = 0; xf < this->nfsites(); xf++){
+    mf_Complex *sc_base = this->fsite_ptr(xf);
+    CPScolorMatrix<mf_Complex> const &gfmat = * ((CPScolorMatrix<mf_Complex> const*) gfix_mat_conv->fsite_ptr(xf));
 
-
-    //Poke the GFmatrix elements into SIMD vector objects
-    stype buf[nsimd];
-    mf_Complex gfmat[3][3];
-    for(int i=0;i<3;i++){
-      for(int j=0;j<3;j++){
-	for(int lane=0;lane<nsimd;lane++)
-	  buf[lane] = *(gf_base_ptrs[lane] + j + 3*i);
-	vset(gfmat[i][j], buf);
-      }
-    }
-
-    //Do the matrix multiplication
-    mf_Complex* sc_base = field.site_ptr(x4d,f);
     mf_Complex tmp[3];
     
     for(int s=0;s<4;s++){
@@ -256,39 +225,16 @@ struct _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,grid_vector_
       
       if(!dagger)
 	for(int i=0;i<3;i++)
-	  s_base[i] = gfmat[i][0]*tmp[0] + gfmat[i][1]*tmp[1] + gfmat[i][2]*tmp[2];
+	  s_base[i] = gfmat(i,0)*tmp[0] + gfmat(i,1)*tmp[1] + gfmat(i,2)*tmp[2];
       else
 	for(int i=0;i<3;i++)
-	  s_base[i] = conjugate(gfmat[0][i])*tmp[0] + conjugate(gfmat[1][i])*tmp[1] + conjugate(gfmat[2][i])*tmp[2];
+	  s_base[i] = Grid::conjugate(gfmat(0,i))*tmp[0] + Grid::conjugate(gfmat(1,i))*tmp[1] + Grid::conjugate(gfmat(2,i))*tmp[2];
     }
   }
-};
-#endif
-
-
-
-
-
-
-//Apply gauge fixing matrices to the field
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool parallel, const bool dagger){
-  _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type> op(*this, parallel ? omp_get_max_threads() : 1);
   
-  if(parallel){
-#pragma omp parallel for
-    for(size_t fi=0;fi<this->nfsites();fi++){
-      int x4d[4]; int f; this->fsiteUnmap(fi,x4d,f);
-      op.gauge_fix_site_op(x4d, f, lat,dagger, omp_get_thread_num());
-    }
-  }else{
-    int x4d[4]; int f;
-    for(size_t fi=0;fi<this->nfsites();fi++){
-      this->fsiteUnmap(fi,x4d,f);
-      op.gauge_fix_site_op(x4d, f, lat,dagger, 0);
-    }
-  }
+  if(delete_conv) delete gfix_mat_conv;
 }
+
 
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(double punits[3]){

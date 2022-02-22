@@ -113,61 +113,11 @@ void gaugeFixOrig(CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy> &field,  La
 }
 
 
-template<typename mf_Complex, typename MappingPolicy>
-struct _gauge_fix_conv_gfix_mat{
-  static inline CPSfield<mf_Complex, 9, MappingPolicy> * convert(bool &delout, CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > &in, const typename MappingPolicy::ParamType &params){
-    CPSfield<mf_Complex, 9, MappingPolicy> * out = new CPSfield<mf_Complex, 9, MappingPolicy>(params);
-    out->importField(in);
-    delout = true;
-    return out;
-  }
-};
-template<>
-struct _gauge_fix_conv_gfix_mat<cps::ComplexD, FourDpolicy<DynamicFlavorPolicy> >{
-  static inline CPSfield<cps::ComplexD, 9, FourDpolicy<DynamicFlavorPolicy> > * convert(bool &delout, CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > &in, const NullObject &params){
-    delout = false;
-    return &in;    
-  }
-};
 
 
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void gaugeFixNew(CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy> &field,  Lattice &lat, const bool dagger){
-  //Get the field of gauge fixing matrices in non-SIMD format
-  NullObject null;
-  CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > gfix_mat(null);
-#pragma omp parallel for
-  for(size_t xf = 0; xf < gfix_mat.nfsites(); xf++){
-    int x[4]; int f;
-    gfix_mat.fsiteUnmap(xf,x,f);
-    *( (Matrix*)gfix_mat.fsite_ptr(xf) ) = *lat.FixGaugeMatrix(x,f);
-  }
-  bool delete_conv;
-  CPSfield<mf_Complex, 9, MappingPolicy> * gfix_mat_conv = _gauge_fix_conv_gfix_mat<mf_Complex,MappingPolicy>::convert(delete_conv, gfix_mat, field.getDimPolParams());
-
-#pragma omp parallel for
-  for(size_t xf = 0; xf < field.nfsites(); xf++){
-    mf_Complex *sc_base = field.fsite_ptr(xf);
-    CPScolorMatrix<mf_Complex> const &gfmat = * ((CPScolorMatrix<mf_Complex> const*) gfix_mat_conv->fsite_ptr(xf));
-
-    mf_Complex tmp[3];
-    
-    for(int s=0;s<4;s++){
-      mf_Complex* s_base = sc_base + 3 * s;
-      tmp[0] = *(s_base);
-      tmp[1] = *(s_base+1);
-      tmp[2] = *(s_base+2);
-      
-      if(!dagger)
-	for(int i=0;i<3;i++)
-	  s_base[i] = gfmat(i,0)*tmp[0] + gfmat(i,1)*tmp[1] + gfmat(i,2)*tmp[2];
-      else
-	for(int i=0;i<3;i++)
-	  s_base[i] = Grid::conjugate(gfmat(0,i))*tmp[0] + Grid::conjugate(gfmat(1,i))*tmp[1] + Grid::conjugate(gfmat(2,i))*tmp[2];
-    }
-  }
-  
-  if(delete_conv) delete gfix_mat_conv;
+  field.gaugeFix(lat,dagger);
 }
 
 
@@ -273,7 +223,7 @@ void testGaugeFixAndPhasingGridStd(typename SIMDpolicyBase<4>::ParamType &simd_d
 
 
 template<typename A2Apolicies>
-void testVVdag(Lattice &lat){
+void testGaugeFixInvertible(Lattice &lat){
 //Test Gauge fixing is reversible
   typedef typename A2Apolicies::FermionFieldType::FieldSiteType mf_Complex;
   typedef typename A2Apolicies::FermionFieldType::FieldMappingPolicy MappingPolicy;
@@ -305,13 +255,13 @@ void testVVdag(Lattice &lat){
   a.testRandom();
   
   FieldType Va(a);
-  Va.gaugeFix(lat,true,false); //parallel, no dagger
+  Va.gaugeFix(lat,false); //no dagger
 
   printRow(a,0,"a");
   printRow(Va,0,"Va");
   
   FieldType VdagVa(Va);
-  VdagVa.gaugeFix(lat,true,true);
+  VdagVa.gaugeFix(lat,true); //dagger
 
   printRow(VdagVa,0,"VdagVa");
 

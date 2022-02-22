@@ -42,7 +42,7 @@ public:
     //Gauge fix and apply phase in parallel (i.e. don't parallelize over modes)
     out = in;
 #ifndef MEMTEST_MODE
-    out.gaugeFix(*lat,true);
+    out.gaugeFix(*lat,false); //no dagger
     out.applyPhase(p,true);
 #endif
   }
@@ -62,7 +62,7 @@ public:
     out = in;
 #ifndef MEMTEST_MODE
     out.applyPhase(mp,true); //apply - the phase
-    out.gaugeFix(*lat,true,true); //last bool is optional dagger
+    out.gaugeFix(*lat,true); //dagger
 #endif
   }
 };
