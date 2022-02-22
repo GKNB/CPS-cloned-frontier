@@ -205,7 +205,9 @@ void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, 
   for(size_t xf = 0; xf < gfix_mat.nfsites(); xf++){
     int x[4]; int f;
     gfix_mat.fsiteUnmap(xf,x,f);
-    *( (Matrix*)gfix_mat.fsite_ptr(xf) ) = *lat.FixGaugeMatrix(x,f);
+    Matrix const* mp = lat.FixGaugeMatrix(x,f);
+    if(mp == NULL) ERR.General("CPSfermion4D","gaugeFix","Gauge fixing matrix for site x=(%d,%d,%d,%d) f=%d doesn't exist!",x[0],x[1],x[2],x[3],f);
+    *( (Matrix*)gfix_mat.fsite_ptr(xf) ) = *mp;
   }
   bool delete_conv;
   CPSfield<mf_Complex, 9, MappingPolicy> * gfix_mat_conv = _gauge_fix_conv_gfix_mat<mf_Complex,MappingPolicy>::convert(delete_conv, gfix_mat, this->getDimPolParams());
