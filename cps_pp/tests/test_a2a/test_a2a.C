@@ -275,24 +275,28 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
 #endif
   
-  if(1) testCyclicPermute();
-  if(1) demonstrateFFTreln<A2Apolicies_std>(a2a_arg);
-  if(1) testA2AvectorFFTrelnGparity<A2Apolicies_grid>(a2a_arg, lattice);
-  if(1) testMultiSource<A2Apolicies_grid>(a2a_arg, lattice);
-  if(1) testSumSource<A2Apolicies_grid>(a2a_arg, lattice);
-  if(1) testMfFFTreln<A2Apolicies_grid>(a2a_arg, lattice);
-  if(1) testA2AFFTinv<A2Apolicies_grid>(a2a_arg, lattice);
-  if(1) testGridg5Contract<grid_Complex>();
-  if(1) testVVdag<A2Apolicies_grid>(lattice);
-  if(1) testDestructiveFFT<A2ApoliciesSIMDdoubleManualAllocGparity>(a2a_arg, lattice);
-  if(1) testMesonFieldReadWrite<A2Apolicies_std>(a2a_arg);
-  if(1) testTraceSingle<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testCPSfieldImpex();
-  if(1) testGridFieldImpex<A2Apolicies_grid>(lattice);
-  if(1) testCPSfieldIO();
-  if(1) testA2AvectorIO<A2Apolicies_grid>(a2a_arg);
-  if(1) testLanczosIO<A2Apolicies_grid>(lattice);
-  if(1) testSCFmat();
+  if(0) testCyclicPermute();
+  if(0) demonstrateFFTreln<A2Apolicies_std>(a2a_arg);
+  if(0) testA2AvectorFFTrelnGparity<A2Apolicies_grid>(a2a_arg, lattice);
+  if(0) testMultiSource<A2Apolicies_grid>(a2a_arg, lattice);
+  if(0) testSumSource<A2Apolicies_grid>(a2a_arg, lattice);
+  if(0) testMfFFTreln<A2Apolicies_grid>(a2a_arg, lattice);
+  if(0) testA2AFFTinv<A2Apolicies_grid>(a2a_arg, lattice);
+  if(0) testGridg5Contract<grid_Complex>();
+  if(0) testVVdag<A2Apolicies_grid>(lattice);
+  if(0) testDestructiveFFT<A2ApoliciesSIMDdoubleManualAllocGparity>(a2a_arg, lattice);
+  if(0) testMesonFieldReadWrite<A2Apolicies_std>(a2a_arg);
+  if(0) testTraceSingle<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testCPSfieldImpex();
+  if(0) testGridFieldImpex<A2Apolicies_grid>(lattice);
+  if(0) testCPSfieldIO();
+  if(0) testA2AvectorIO<A2Apolicies_grid>(a2a_arg);
+  if(0) testLanczosIO<A2Apolicies_grid>(lattice);
+  if(0) testSCFmat();
+
+#ifdef USE_GRID
+  if(1) testGaugeFixOrigNew<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
+#endif
 }
 
 

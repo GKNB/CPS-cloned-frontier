@@ -2,6 +2,223 @@
 
 CPS_START_NAMESPACE
 
+
+
+//Original implementation
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy, typename ComplexClass>
+struct _gauge_fix_site_op_impl_test;
+
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+struct _gauge_fix_site_op_impl_test<mf_Complex,MappingPolicy,AllocPolicy,complex_double_or_float_mark>{
+  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field;
+
+  _gauge_fix_site_op_impl_test(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &f, const int num_threads): field(f){}
+
+  void gauge_fix_site_op(const int x4d[], const int f, Lattice &lat, const bool dagger, const int thread){
+    typedef typename mf_Complex::value_type mf_Float;
+    int i = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] ) );
+    mf_Complex tmp[3];
+    const Matrix* gfmat = lat.FixGaugeMatrix(i,f);
+    mf_Complex* sc_base = (mf_Complex*)field.site_ptr(x4d,f); //if Dimension < 4 the site_ptr method will ignore the remaining indices. Make sure this is what you want
+    for(int s=0;s<4;s++){
+      memcpy(tmp, sc_base + 3 * s, 3 * sizeof(mf_Complex));
+      if(!dagger)
+	colorMatrixMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);
+      else
+	colorMatrixDaggerMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);      
+    }
+  }
+};
+
+
+#ifdef USE_GRID
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+struct _gauge_fix_site_op_impl_test<mf_Complex,MappingPolicy,AllocPolicy,grid_vector_complex_mark>{
+  typedef typename mf_Complex::scalar_type stype;
+  int nsimd;
+  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field;
+
+  _gauge_fix_site_op_impl_test(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &f, const int num_threads): field(f){
+    nsimd = field.Nsimd();
+  }
+  
+  void gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat, const bool dagger, const int thread){
+    //x4d is an outer site index
+    int nsimd = field.Nsimd();
+    int ndim = MappingPolicy::EuclideanDimension;
+    assert(ndim == 4);
+
+    //Assemble pointers to the GF matrices for each lane
+    std::vector<cps::Complex*> gf_base_ptrs(nsimd);
+    int x4d_lane[4];
+    int lane_off[4];
+    
+    for(int lane=0;lane<nsimd;lane++){
+      field.SIMDunmap(lane, lane_off);		      
+      for(int xx=0;xx<4;xx++) x4d_lane[xx] = x4d[xx] + lane_off[xx];
+      int gf_off = x4d_lane[0] + GJP.XnodeSites()*( x4d_lane[1] + GJP.YnodeSites()* ( x4d_lane[2] + GJP.ZnodeSites()*x4d_lane[3] ) );
+      gf_base_ptrs[lane] = (cps::Complex*)lat.FixGaugeMatrix(gf_off,f);
+    }
+
+
+    //Poke the GFmatrix elements into SIMD vector objects
+    stype buf[nsimd];
+    mf_Complex gfmat[3][3];
+    for(int i=0;i<3;i++){
+      for(int j=0;j<3;j++){
+	for(int lane=0;lane<nsimd;lane++)
+	  buf[lane] = *(gf_base_ptrs[lane] + j + 3*i);
+	vset(gfmat[i][j], buf);
+      }
+    }
+
+    //Do the matrix multiplication
+    mf_Complex* sc_base = field.site_ptr(x4d,f);
+    mf_Complex tmp[3];
+    
+    for(int s=0;s<4;s++){
+      mf_Complex* s_base = sc_base + 3 * s;
+      tmp[0] = *(s_base);
+      tmp[1] = *(s_base+1);
+      tmp[2] = *(s_base+2);
+      
+      if(!dagger)
+	for(int i=0;i<3;i++)
+	  s_base[i] = gfmat[i][0]*tmp[0] + gfmat[i][1]*tmp[1] + gfmat[i][2]*tmp[2];
+      else
+	for(int i=0;i<3;i++)
+	  s_base[i] = conjugate(gfmat[0][i])*tmp[0] + conjugate(gfmat[1][i])*tmp[1] + conjugate(gfmat[2][i])*tmp[2];
+    }
+  }
+};
+#endif
+
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void gaugeFixOrig(CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy> &field,  Lattice &lat, const bool parallel, const bool dagger){
+  _gauge_fix_site_op_impl_test<mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type> op(field, parallel ? omp_get_max_threads() : 1);
+  
+  if(parallel){
+#pragma omp parallel for
+    for(size_t fi=0;fi<field.nfsites();fi++){
+      int x4d[4]; int f; field.fsiteUnmap(fi,x4d,f);
+      op.gauge_fix_site_op(x4d, f, lat,dagger, omp_get_thread_num());
+    }
+  }else{
+    int x4d[4]; int f;
+    for(size_t fi=0;fi<field.nfsites();fi++){
+      field.fsiteUnmap(fi,x4d,f);
+      op.gauge_fix_site_op(x4d, f, lat,dagger, 0);
+    }
+  }
+}
+
+
+template<typename mf_Complex, typename MappingPolicy>
+struct _gauge_fix_conv_gfix_mat{
+  static inline CPSfield<mf_Complex, 9, MappingPolicy> * convert(bool &delout, CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > &in, const typename MappingPolicy::ParamType &params){
+    CPSfield<mf_Complex, 9, MappingPolicy> * out = new CPSfield<mf_Complex, 9, MappingPolicy>(params);
+    out->importField(in);
+    delout = true;
+    return out;
+  }
+};
+template<>
+struct _gauge_fix_conv_gfix_mat<cps::ComplexD, FourDpolicy<DynamicFlavorPolicy> >{
+  static inline CPSfield<cps::ComplexD, 9, FourDpolicy<DynamicFlavorPolicy> > * convert(bool &delout, CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > &in, const NullObject &params){
+    delout = false;
+    return &in;    
+  }
+};
+
+
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void gaugeFixNew(CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy> &field,  Lattice &lat, const bool dagger){
+  //Get the field of gauge fixing matrices in non-SIMD format
+  NullObject null;
+  CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > gfix_mat(null);
+#pragma omp parallel for
+  for(size_t xf = 0; xf < gfix_mat.nfsites(); xf++){
+    int x[4]; int f;
+    gfix_mat.fsiteUnmap(xf,x,f);
+    *( (Matrix*)gfix_mat.fsite_ptr(xf) ) = *lat.FixGaugeMatrix(x,f);
+  }
+  bool delete_conv;
+  CPSfield<mf_Complex, 9, MappingPolicy> * gfix_mat_conv = _gauge_fix_conv_gfix_mat<mf_Complex,MappingPolicy>::convert(delete_conv, gfix_mat, field.getDimPolParams());
+
+#pragma omp parallel for
+  for(size_t xf = 0; xf < field.nfsites(); xf++){
+    mf_Complex *sc_base = field.fsite_ptr(xf);
+    CPScolorMatrix<mf_Complex> const &gfmat = * ((CPScolorMatrix<mf_Complex> const*) gfix_mat_conv->fsite_ptr(xf));
+
+    mf_Complex tmp[3];
+    
+    for(int s=0;s<4;s++){
+      mf_Complex* s_base = sc_base + 3 * s;
+      tmp[0] = *(s_base);
+      tmp[1] = *(s_base+1);
+      tmp[2] = *(s_base+2);
+      
+      if(!dagger)
+	for(int i=0;i<3;i++)
+	  s_base[i] = gfmat(i,0)*tmp[0] + gfmat(i,1)*tmp[1] + gfmat(i,2)*tmp[2];
+      else
+	for(int i=0;i<3;i++)
+	  s_base[i] = Grid::conjugate(gfmat(0,i))*tmp[0] + Grid::conjugate(gfmat(1,i))*tmp[1] + Grid::conjugate(gfmat(2,i))*tmp[2];
+    }
+  }
+  
+  if(delete_conv) delete gfix_mat_conv;
+}
+
+
+template<typename A2Apolicies_std, typename A2Apolicies_grid>
+void testGaugeFixOrigNew(typename SIMDpolicyBase<4>::ParamType &simd_dims,
+			    typename A2Apolicies_grid::FgridGFclass &lattice){
+  ThreeMomentum p_plus( GJP.Bc(0)==BND_CND_GPARITY? 1 : 0,
+			GJP.Bc(1)==BND_CND_GPARITY? 1 : 0,
+			GJP.Bc(2)==BND_CND_GPARITY? 1 : 0 );
+  ThreeMomentum p_minus = -p_plus;
+
+  typename A2Apolicies_std::FermionFieldType field_std;
+  field_std.testRandom();
+  typename A2Apolicies_grid::FermionFieldType field_grid(simd_dims);
+  field_grid.importField(field_std);
+
+  std::cout << "Import CPS->CPS/Grid " << field_std.norm2() << " " << field_grid.norm2() << std::endl;
+  
+  //Test non-SIMD old vs new
+  typename A2Apolicies_std::FermionFieldType field_std_gforig(field_std), field_std_gfnew(field_std);  
+  //non-dagger
+  gaugeFixOrig(field_std_gforig, lattice, true, false);
+  gaugeFixNew(field_std_gfnew, lattice, false);
+  compareField(field_std_gforig, field_std_gfnew, "Gauge fix test std non-dagger", 1e-10);
+  
+  field_std_gforig = field_std; field_std_gfnew = field_std;
+  gaugeFixOrig(field_std_gforig, lattice, true, true);
+  gaugeFixNew(field_std_gfnew, lattice, true);
+  compareField(field_std_gforig, field_std_gfnew, "Gauge fix test std dagger", 1e-10);
+
+  
+  //Test SIMD old vs new
+  typename A2Apolicies_grid::FermionFieldType field_grid_gforig(field_grid), field_grid_gfnew(field_grid);  
+  typename A2Apolicies_std::FermionFieldType field_std_tmp1, field_std_tmp2;
+
+  //non-dagger
+  gaugeFixOrig(field_grid_gforig, lattice, true, false);
+  gaugeFixNew(field_grid_gfnew, lattice, false);
+  field_std_tmp1.importField(field_grid_gforig); field_std_tmp2.importField(field_grid_gfnew);   
+  compareField(field_std_tmp1, field_std_tmp2, "Gauge fix test grid non-dagger", 1e-10);
+  
+  field_grid_gforig = field_grid; field_grid_gfnew = field_grid;
+  gaugeFixOrig(field_grid_gforig, lattice, true, true);
+  gaugeFixNew(field_grid_gfnew, lattice, true);
+  field_std_tmp1.importField(field_grid_gforig); field_std_tmp2.importField(field_grid_gfnew);   
+  compareField(field_std_tmp1, field_std_tmp2, "Gauge fix test grid dagger", 1e-10);
+}
+
+
+
+
 template<typename A2Apolicies_std, typename A2Apolicies_grid>
 void testGaugeFixAndPhasingGridStd(typename SIMDpolicyBase<4>::ParamType &simd_dims,
 			    typename A2Apolicies_grid::FgridGFclass &lattice){
