@@ -203,7 +203,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t vol4d = into.size();
     int t_off = GJP.TnodeSites() * GJP.TnodeCoor();
     size_t blocksize = BlockedvMvOffloadArgs::b;
-    size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
+    //size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
 
     typedef SIMT<VectorComplexType> ACC;
     typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
@@ -312,19 +312,20 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t vbprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
     size_t Mprime_bytes = blocksize * blocksize * sizeof(MFcomplexType);
 
-    VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
-    VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vbprime_bytes);
-    MFcomplexType* Mprime = (MFcomplexType*)managed_alloc_check(Mprime_bytes);
-    VectorComplexType* Mvbprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
-    
     if(!UniqueID()){
-      std::cout << "Outer block size " << blocksize << " inner blocksize " << inner_blocksize << std::endl;
+      std::cout << "Outer block size is blocksize=" << blocksize  << std::endl;  //<< " inner blocksize " << inner_blocksize << std::endl;
+      std::cout << "Field size is F=" << double(field_size * sizeof(VectorComplexType)) / 1024./1024. << " MB, for vector temporaries require (3 * blocksize * F) MB total" << std::endl;
       std::cout << "vaprime " << double(vaprime_bytes)/1024./1024. << " MB" << std::endl;
       std::cout << "vbprime " << double(vbprime_bytes)/1024./1024. << " MB" << std::endl;
       std::cout << "Mprime " << double(Mprime_bytes)/1024./1024. << " MB" << std::endl;
       std::cout << "Mvbprime " << double(vaprime_bytes)/1024./1024. << " MB" << std::endl;
     }
-
+    
+    VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
+    VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vbprime_bytes);
+    MFcomplexType* Mprime = (MFcomplexType*)managed_alloc_check(Mprime_bytes);
+    VectorComplexType* Mvbprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
+    
     //Do in blocks over i',j' to avoid taking too much space
     size_t niprime_blocks = (niprime + blocksize-1)/blocksize;
     size_t njprime_blocks = (njprime + blocksize-1)/blocksize;

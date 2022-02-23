@@ -165,6 +165,10 @@ struct CommandLineArgs{
 	int* b[3] = { &BlockedMesonFieldArgs::bii, &BlockedMesonFieldArgs::bjj, &BlockedMesonFieldArgs::bpp };
 	for(int a=0;a<3;a++) *b[a] = strToAny<int>(argv[arg+1+a]);
 	arg+=4;
+      }else if(cmdstr == "-vMv_blocking"){
+	BlockedvMvOffloadArgs::b = strToAny<int>(argv[arg+1]);
+	BlockedSplitvMvArgs::b = BlockedvMvOffloadArgs::b;
+	arg+=2;
       }else if( strncmp(cmd,"-do_split_job",30) == 0){
 	do_split_job = true;
 	split_job_part = strToAny<int>(argv[arg+1]);
