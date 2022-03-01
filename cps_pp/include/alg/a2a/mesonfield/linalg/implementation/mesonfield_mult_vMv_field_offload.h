@@ -339,7 +339,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       size_t iprimelessthan = std::min(iprimestart + blocksize, niprime);
       size_t niprime_block = iprimelessthan - iprimestart;
 
-      //std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
+      std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
       //std::cout << "Create va'" << std::endl;
 
       //Create va'
@@ -372,14 +372,14 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	size_t jprimelessthan = std::min(jprimestart + blocksize, njprime);
 	size_t njprime_block = jprimelessthan - jprimestart;	
 
-	//std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
-	//std::cout << "Create vb'" << std::endl;
+	std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
 
+	//std::cout << "Create vb' njprime_block=" << njprime_block << " xfsc_loop_size=" << 12*nf*vol4d << " nsimd=" << nsimd << std::endl;
 
 	//Create vb'
 	{
 	  using namespace Grid;
-	  accelerator_for2d(jprimeb, njprime_block, scf_x4d, 12*nf*vol4d, nsimd,
+	  accelerator_for2d(scf_x4d, 12*nf*vol4d, jprimeb, njprime_block, nsimd,
 			    {
 			      size_t rem = scf_x4d; //sc + 12*(f + nf*x4d)
 			      int sc = rem % 12; rem /= 12;
@@ -399,7 +399,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			    });
 	}
 
-	//std::cout << "Create Mprime" << std::endl;
+	std::cout << "Create Mprime" << std::endl;
 	//Create Mprime
 	{
 	  MFcomplexType *Mptr = Mprime;
@@ -422,7 +422,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	time.Mr -= dclock();
 	{
 	  using namespace Grid;
-	  accelerator_for2d(iprimeb, niprime_block, scf_x4d, 12*nf*vol4d, nsimd,
+	  accelerator_for2d(scf_x4d, 12*nf*vol4d, iprimeb, niprime_block, nsimd,
 			  {
 			    VectorComplexType *into = Mvbprime + iprimeb + niprime_block*scf_x4d;
 			    

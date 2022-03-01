@@ -16,6 +16,7 @@
 #include "include/mesonfield_mult.h"
 #include "include/mesonfield_vMv.h"
 #include "include/mesonfield_vv.h"
+#include "include/mesonfield_linalg_other.h"
 #include "include/io.h"
 #include "include/network.h"
 #include "include/cps_matrix_field.h"
