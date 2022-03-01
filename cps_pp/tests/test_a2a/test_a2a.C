@@ -245,7 +245,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								      W_std, V_std, Wh_std, Vh_std,
 								      tol);
   
-  if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
 
@@ -286,7 +286,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testGaugeFixInvertible<A2Apolicies_grid>(lattice);
   if(0) testDestructiveFFT<A2ApoliciesSIMDdoubleManualAllocGparity>(a2a_arg, lattice);
   if(0) testMesonFieldReadWrite<A2Apolicies_std>(a2a_arg);
-  if(0) testTraceSingle<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testMesonFieldTraceSingle<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testMesonFieldTraceProduct<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testCPSfieldImpex();
   if(0) testGridFieldImpex<A2Apolicies_grid>(lattice);
   if(0) testCPSfieldIO();

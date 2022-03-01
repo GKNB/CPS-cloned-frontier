@@ -29,6 +29,9 @@ void benchmarkMfTraceProd(const A2AArg &a2a_args, const int ntests){
 
   std::cout << "Cold trace time avg for " << ntests << " tests " << time << "s" << std::endl;
 
+  mesonfield_trace_prod_timings::data().report();
+  mesonfield_trace_prod_timings::data().reset();
+  
   time = 0;
   for(int test=0;test<ntests;test++){
     time -= dclock();
@@ -38,6 +41,9 @@ void benchmarkMfTraceProd(const A2AArg &a2a_args, const int ntests){
   time /= ntests;
 
   std::cout << "Hot trace time avg for " << ntests << " tests " << time << "s" << std::endl;
+
+  mesonfield_trace_prod_timings::data().report();
+  mesonfield_trace_prod_timings::data().reset();
 }
 
 
@@ -81,6 +87,9 @@ void benchmarkMfVectorTraceProd(const A2AArg &a2a_args, const int ntests){
 
   std::cout << "Cold trace time avg for " << ntests << " tests " << time << "s" << std::endl;
 
+  mesonfield_trace_prod_timings::data().report();
+  mesonfield_trace_prod_timings::data().reset();
+  
   time = 0;
   for(int test=0;test<ntests;test++){
     time -= dclock();
@@ -90,6 +99,9 @@ void benchmarkMfVectorTraceProd(const A2AArg &a2a_args, const int ntests){
   time /= ntests;
 
   std::cout << "Hot trace time avg for " << ntests << " tests " << time << "s" << std::endl;
+
+  mesonfield_trace_prod_timings::data().report();
+  mesonfield_trace_prod_timings::data().reset();
 }
 
 

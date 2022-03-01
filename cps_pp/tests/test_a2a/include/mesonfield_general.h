@@ -97,7 +97,7 @@ void testMesonFieldReadWrite(const A2AArg &a2a_args){
 
 
 template<typename A2Apolicies>
-void testTraceSingle(const A2AArg &a2a_args, const double tol){
+void testMesonFieldTraceSingle(const A2AArg &a2a_args, const double tol){
   A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
   mf_grid.setup(a2a_args,a2a_args,0,0);
 
@@ -136,6 +136,37 @@ void testTraceSingle(const A2AArg &a2a_args, const double tol){
     printf("\n");
   } 
 }
+
+
+
+
+template<typename A2Apolicies>
+void testMesonFieldTraceProduct(const A2AArg &a2a_args, const double tol){
+  std::cout << "Testing mesonfield trace-product" << std::endl;
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf1,mf2;
+  mf1.setup(a2a_args,a2a_args,0,0);
+  mf2.setup(a2a_args,a2a_args,0,0);
+
+  LRG.AssignGenerator(0); //always uses the RNG at coord 0 on node 0 - should always be the same one!
+  mf1.testRandom();
+  mf2.testRandom();
+
+  typedef typename A2Apolicies::ScalarComplexType mf_Complex;  
+  mf_Complex fast = trace(mf1,mf2);
+  mf_Complex slow = trace_slow(mf1,mf2);
+
+  bool fail = false;
+  if(!UniqueID()) printf("Trace Fast (%g,%g) Slow (%g,%g) Diff (%g,%g)\n",fast.real(),fast.imag(), slow.real(),slow.imag(), fast.real()-slow.real(), fast.imag()-slow.imag());
+  double rdiff = fabs(fast.real()-slow.real());
+  double idiff = fabs(fast.imag()-slow.imag());
+  if(rdiff > tol|| idiff > tol){
+    fail = true;
+  }
+  if(fail) ERR.General("","","MF trace-product test failed\n");
+  else if(!UniqueID()) printf("MF trace-product pass\n");
+}
+
+
 
 
 CPS_END_NAMESPACE

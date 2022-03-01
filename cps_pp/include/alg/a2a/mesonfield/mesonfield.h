@@ -10,6 +10,10 @@
 #include "mesonfield_controls.h"
 #include "mesonfield_distributed_storage.h"
 
+#ifdef USE_GRID
+#include<Grid/Grid.h>
+#endif
+
 CPS_START_NAMESPACE
 
 
@@ -55,6 +59,50 @@ public:
 					 fsize(r.fsize), lindexdilution(r.lindexdilution), rindexdilution(r.rindexdilution),
 					 tl(r.tl), tr(r.tr), MesonFieldDistributedStorageType(r){ }
 
+
+  //Read-only view class
+  class ReadView{
+    int nmodes_l, nmodes_r;
+    int fsize; //in units of ScalarComplexType
+    ScalarComplexType *data;
+
+  public:
+    //Size in complex
+    accelerator_inline int size() const{ return fsize; }
+
+    //Access elements with compressed mode index
+    accelerator_inline const ScalarComplexType & operator()(const int i, const int j) const{
+      return data[j + nmodes_r*i];
+    }
+
+    accelerator_inline int getRowTimeslice() const{ return tl; }
+    accelerator_inline int getColTimeslice() const{ return tr; }
+    
+    //These functions return the number of *packed* modes not the full number of modes
+    accelerator_inline int getNrows() const{ return nmodes_l; }
+    accelerator_inline int getNcols() const{ return nmodes_r; }
+
+    ReadView(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize){
+#ifdef GPU_VEC
+      data = (ScalarComplexType *)device_alloc_check(fsize * sizeof(ScalarComplexType));
+      copy_host_to_device(data, mf.ptr(), fsize * sizeof(ScalarComplexType));
+#else
+      data = mf.ptr();
+#endif
+    }
+    
+    void free(){
+#ifdef GPU_VEC
+      device_free(data);
+#endif
+    }
+  };
+
+  //Create a *READ ONLY* view of the mesonfield for device access
+  inline ReadView view() const{ return ReadView(*this); }
+
+
+  
   //Call this when you use the default constructor if not automatically called (it is called automatically in ::compute)
   void setup(const A2Aparams &lp, const A2Aparams &rp, const int _tl, const int _tr){
     tl = _tl; tr = _tr;
