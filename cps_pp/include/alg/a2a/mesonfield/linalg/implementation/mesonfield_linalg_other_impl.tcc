@@ -1,43 +1,10 @@
-struct mesonfield_trace_prod_timings{
-  struct _data{
-    size_t count;
-    double init;
-    double table;
-    double mf_copy;
-    double prod_tmp_alloc_free;
-    double prod;    
-    double reduction;
-
-    void reset(){
-      count = 0;
-      init = table = mf_copy = prod = reduction = prod_tmp_alloc_free = 0;
-    }
-    _data(){
-      reset();
-    }    
-    void report(){
-      std::cout << "Trace-prod " << count << " calls. Avg:  Init=" << init/count << "s Table=" << table/count << "s MF-copy=" << mf_copy/count << "s Prod-tmp-alloc-free=" << prod_tmp_alloc_free/count << "s Prod=" << prod/count << " Reduction=" << reduction/count << "s" << std::endl;
-    }
-  };
-  
-  static _data &data(){
-    static _data d;
-    return d;
-  }
-};
-    
-
 //Compute   l^ij(t1,t2) r^ji(t3,t4)
 //Threaded but *node local*
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
-typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r){
-  mesonfield_trace_prod_timings::_data &timings = mesonfield_trace_prod_timings::data();
-  ++timings.count;
-  timings.init -= dclock();
-  
+typename mf_Policies::ScalarComplexType trace_cpu(const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r){
   //Check the indices match
   if(! l.getRowParams().paramsEqual( r.getColParams() ) || ! l.getColParams().paramsEqual( r.getRowParams() ) )
     ERR.General("","trace(const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &)","Illegal matrix product: underlying vector parameters must match\n");
@@ -64,11 +31,111 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA
   const int ni = i_ind.getNindices(lip,rip); //how many indices to loop over
   const int nj = j_ind.getNindices(ljp,rjp);
 
+#ifndef MEMTEST_MODE
+  const int n_threads = omp_get_max_threads();
+  std::vector<ScalarComplexType, BasicAlignedAllocator<ScalarComplexType> > ret_vec(n_threads,ScalarComplexType(0.,0.));
+   
+#pragma omp parallel for schedule(static)
+  for(int i = 0; i < ni; i++){
+    const int id = omp_get_thread_num();
+    const int li = i_ind.getLeftIndex(i,lip,rip);
+    const int ri = i_ind.getRightIndex(i,lip,rip);
+
+    for(int j = 0; j < nj; j++){
+      const int lj = j_ind.getLeftIndex(j,ljp,rjp);
+      const int rj = j_ind.getRightIndex(j,ljp,rjp);
+      
+      ret_vec[id] += l(li,lj) *  r(rj,ri);
+    }
+  }
+
+  for(int i=0;i<n_threads;i++) into += ret_vec[i];
+#endif //MEMTEST_MODE
+  
+  return into;
+}
+   
+
+#ifdef GPU_VEC
+
+struct mesonfield_trace_prod_gpu_timings{
+  struct _data{
+    size_t count;
+    double init;
+    double table;
+    double mf_copy;
+    double prod_tmp_alloc_free;
+    double prod;    
+    double reduction;
+
+    void reset(){
+      count = 0;
+      init = table = mf_copy = prod = reduction = prod_tmp_alloc_free = 0;
+    }
+    _data(){
+      reset();
+    }    
+    void report(){
+      std::cout << "Trace-prod " << count << " calls. Avg:  Init=" << init/count << "s Table=" << table/count << "s MF-copy=" << mf_copy/count << "s Prod-tmp-alloc-free="
+		<< prod_tmp_alloc_free/count << "s Prod=" << prod/count << " Reduction=" << reduction/count << "s" << std::endl;
+    }
+  };
+  
+  static _data &data(){
+    static _data d;
+    return d;
+  }
+};
+
+//Compute   l^ij(t1,t2) r^ji(t3,t4)
+//Threaded but *node local*
+//If the views of the meson fields are provided the cost of the device copy can be ameliorated
+template<typename mf_Policies, 
+	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
+	 >
+typename mf_Policies::ScalarComplexType trace_gpu(const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r,
+						  const typename A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR>::ReadView *l_view = nullptr,
+						  const typename A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR>::ReadView *r_view = nullptr){
+  mesonfield_trace_prod_gpu_timings::_data &timings = mesonfield_trace_prod_gpu_timings::data();
+  ++timings.count;
+  timings.init -= dclock();
+  
+  //Check the indices match
+  if(! l.getRowParams().paramsEqual( r.getColParams() ) || ! l.getColParams().paramsEqual( r.getRowParams() ) )
+    ERR.General("","trace_gpu(const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &)","Illegal matrix product: underlying vector parameters must match\n");
+  typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+  ScalarComplexType into(0,0);
+
+  typedef A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> Ltype;
+  typedef A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> Rtype;
+  
+  typedef typename Ltype::LeftDilutionType DilType0;
+  typedef typename Ltype::RightDilutionType DilType1;
+  typedef typename Rtype::LeftDilutionType DilType2;
+  typedef typename Rtype::RightDilutionType DilType3;
+  typedef typename Ltype::ReadView LviewType;
+  typedef typename Rtype::ReadView RviewType;
+  
+  ModeContractionIndices<DilType0,DilType3> i_ind(l.getRowParams());
+  ModeContractionIndices<DilType1,DilType2> j_ind(r.getRowParams());
+
+  const int times[4] = { l.getRowTimeslice(), l.getColTimeslice(), r.getRowTimeslice(), r.getColTimeslice() };
+
+  //W * W is only non-zero when the timeslice upon which we evaluate them are equal
+  modeIndexSet lip; lip.time = times[0];
+  modeIndexSet rip; rip.time = times[3];
+
+  modeIndexSet ljp; ljp.time = times[1];
+  modeIndexSet rjp; rjp.time = times[2];
+
+  const int ni = i_ind.getNindices(lip,rip); //how many indices to loop over
+  const int nj = j_ind.getNindices(ljp,rjp);
+
   timings.init += dclock();
   
 #ifndef MEMTEST_MODE
 
-#ifdef GPU_VEC
   //std::cout << Grid::GridLogMessage << "Trace table create" << std::endl;
   timings.table -= dclock();
   
@@ -99,9 +166,25 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA
   timings.prod_tmp_alloc_free += dclock();
   {
     //std::cout << Grid::GridLogMessage << "Trace view create" << std::endl;
+
+    //Get the mesonfield views
     timings.mf_copy -= dclock();
-    CPSautoView(l_v,l);
-    CPSautoView(r_v,r);  
+    LviewType *l_v_p = const_cast<LviewType *>(l_view);
+    bool l_view_free = false;
+    if(l_v_p == nullptr){
+      l_v_p = new LviewType(l.view());
+      l_view_free = true;
+    }
+
+    RviewType *r_v_p = const_cast<RviewType *>(r_view);
+    bool r_view_free = false;
+    if(r_v_p == nullptr){
+      r_v_p = new RviewType(r.view());
+      r_view_free = true;
+    }
+
+    LviewType &l_v = *l_v_p;
+    RviewType &r_v = *r_v_p;
     timings.mf_copy += dclock();
 
     timings.prod -= dclock();
@@ -116,54 +199,39 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA
       });
     timings.prod += dclock();
 
-    timings.reduction -= dclock();
+    timings.reduction -= dclock();    
+
     //Reduce over j at fixed i
     //std::cout << GridLogMessage << "Trace step 2" << std::endl;
     accelerator_for(i,ni,1,{
       ScalarComplexType red = 0;
       for(int j=0;j<nj;j++)
     	red += tmp[j+nj*i];
-      tmp[i] = red; //each thread owns a different i so it's ok to write here
+      tmp[nj*i] = red; //each thread owns a different i so it's ok to write here
       });
     accelerator_for(i,1,1,{
     	ScalarComplexType red = 0;
-    	for(int ii=0;ii<ni;ii++) red += tmp[ii];
+    	for(int ii=0;ii<ni;ii++) red += tmp[nj*ii];
     	tmp[0] = red;
       });      
     //std::cout << GridLogMessage << "Trace copy back" << std::endl;
     copy_device_to_host(&into, tmp, sizeof(ScalarComplexType));
     timings.reduction += dclock();
+
+    timings.mf_copy -= dclock();
+    if(l_view_free) l_v.free();
+    if(r_view_free) r_v.free();
+    timings.mf_copy += dclock();	
   }
   timings.prod_tmp_alloc_free -= dclock();		
   device_free(tmp);
-  timings.prod_tmp_alloc_free += dclock();
-    
-#else
-  const int n_threads = omp_get_max_threads();
-  std::vector<ScalarComplexType, BasicAlignedAllocator<ScalarComplexType> > ret_vec(n_threads,ScalarComplexType(0.,0.));
-  
-  
-#pragma omp parallel for schedule(static)
-  for(int i = 0; i < ni; i++){
-    const int id = omp_get_thread_num();
-    const int li = i_ind.getLeftIndex(i,lip,rip);
-    const int ri = i_ind.getRightIndex(i,lip,rip);
-
-    for(int j = 0; j < nj; j++){
-      const int lj = j_ind.getLeftIndex(j,ljp,rjp);
-      const int rj = j_ind.getRightIndex(j,ljp,rjp);
-      
-      ret_vec[id] += l(li,lj) *  r(rj,ri);
-    }
-  }
-
-  for(int i=0;i<n_threads;i++) into += ret_vec[i];
-#endif //GRID_GPU
-  
+  timings.prod_tmp_alloc_free += dclock(); 
 #endif //MEMTEST_MODE
   
   return into;
 }
+
+#endif //GPU_VEC
 
 
 //Slow implementation for testing
@@ -185,7 +253,16 @@ typename mf_Policies::ScalarComplexType trace_slow(const A2AmesonField<mf_Polici
   return out;
 }
 
-  
+//Compute   l^ij(t1,t2) r^ji(t3,t4)
+//Threaded but *node local*
+template<typename mf_Policies, 
+	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
+	 >
+typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r){
+  return trace_cpu(l,r); //cost of copying meson field to device overweighs benefit of usage unless you can reuse the views
+}
+
 
 //Compute   l^ij(t1,t2) r^ji(t3,t4) for all t1, t4  and place into matrix element t1,t4
 //This is both threaded and distributed over nodes
@@ -198,7 +275,7 @@ void trace(fMatrix<typename mf_Policies::ScalarComplexType> &into, const std::ve
   int lsize = l.size();
   int rsize = r.size();
 
-  into.resize(lsize,rsize);
+  into.resize(lsize,rsize); //zeroes matrix
 
   const int work = lsize*rsize;
 
@@ -208,6 +285,24 @@ void trace(fMatrix<typename mf_Policies::ScalarComplexType> &into, const std::ve
 
 #ifndef MEMTEST_MODE
   if(do_work){
+#ifdef GPU_VEC
+    typedef typename A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR>::ReadView LviewType;
+    typedef typename A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR>::ReadView RviewType;
+    std::vector<LviewType*> l_views(l.size(),nullptr);
+    std::vector<RviewType*> r_views(r.size(),nullptr);
+    for(int tt=node_off; tt<node_off + node_work; tt++){ //tsnk + lsize*tsrc
+      int rem = tt;
+      int tsnk = rem % lsize; rem /= lsize; //sink time
+      int tsrc = rem; //source time
+
+      if(l_views[tsnk] == nullptr) l_views[tsnk] = new LviewType(l[tsnk].view());
+      if(r_views[tsrc] == nullptr) r_views[tsrc] = new RviewType(r[tsrc].view());
+      
+      into(tsnk,tsrc) = trace_gpu(l[tsnk],r[tsrc], l_views[tsnk], r_views[tsrc]);
+    }
+    for(auto &v : l_views) if(v!=nullptr){ v->free(); delete v; }
+    for(auto &v : r_views) if(v!=nullptr){ v->free(); delete v; }
+#else //GPU_VEC
     for(int tt=node_off; tt<node_off + node_work; tt++){
       int rem = tt;
       int tsnk = rem % lsize; rem /= lsize; //sink time
@@ -215,9 +310,11 @@ void trace(fMatrix<typename mf_Policies::ScalarComplexType> &into, const std::ve
 
       into(tsnk,tsrc) = trace(l[tsnk],r[tsrc]);
     }
-  }
+#endif //GPU_VEC
+  } //do_work
+    
   into.nodeSum(); //give all nodes a copy
-#endif
+#endif //MEMTEST_MODE
 }
 
 

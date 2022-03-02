@@ -152,7 +152,7 @@ void testMesonFieldTraceProduct(const A2AArg &a2a_args, const double tol){
   mf2.testRandom();
 
   typedef typename A2Apolicies::ScalarComplexType mf_Complex;  
-  mf_Complex fast = trace(mf1,mf2);
+  mf_Complex fast = trace_cpu(mf1,mf2); //cpu version is the same as the generic version
   mf_Complex slow = trace_slow(mf1,mf2);
 
   bool fail = false;
@@ -162,8 +162,92 @@ void testMesonFieldTraceProduct(const A2AArg &a2a_args, const double tol){
   if(rdiff > tol|| idiff > tol){
     fail = true;
   }
-  if(fail) ERR.General("","","MF trace-product test failed\n");
+  if(fail) ERR.General("","","MF trace-product test failed\n"); 
   else if(!UniqueID()) printf("MF trace-product pass\n");
+
+#ifdef GPU_VEC
+  //Test the GPU version
+  fast = 0;
+  fast = trace_gpu(mf1,mf2);
+
+  fail = false;
+  if(!UniqueID()) printf("GPU Trace Fast (%g,%g) Slow (%g,%g) Diff (%g,%g)\n",fast.real(),fast.imag(), slow.real(),slow.imag(), fast.real()-slow.real(), fast.imag()-slow.imag());
+  rdiff = fabs(fast.real()-slow.real());
+  idiff = fabs(fast.imag()-slow.imag());
+  if(rdiff > tol|| idiff > tol){
+    fail = true;
+  }
+  if(fail) ERR.General("","","MF GPU trace-product test failed\n"); 
+  else if(!UniqueID()) printf("MF GPU trace-product pass\n");
+
+  //Test the GPU version with precomputed views
+  {
+    CPSautoView(mf1_v, mf1);
+    CPSautoView(mf2_v, mf2);
+    
+    fast = 0;
+    fast = trace_gpu(mf1,mf2, &mf1_v, &mf2_v);
+
+    //Do it twice to test to ensure the view is maintained
+    fast = 0;
+    fast = trace_gpu(mf1,mf2, &mf1_v, &mf2_v);
+  }
+
+  fail = false;
+  if(!UniqueID()) printf("GPU Trace Fast (%g,%g) Slow (%g,%g) Diff (%g,%g)\n",fast.real(),fast.imag(), slow.real(),slow.imag(), fast.real()-slow.real(), fast.imag()-slow.imag());
+  rdiff = fabs(fast.real()-slow.real());
+  idiff = fabs(fast.imag()-slow.imag());
+  if(rdiff > tol|| idiff > tol){
+    fail = true;
+  }
+  if(fail) ERR.General("","","MF GPU view trace-product test failed\n"); 
+  else if(!UniqueID()) printf("MF GPU view trace-product pass\n");
+#endif
+}
+
+
+
+
+
+template<typename A2Apolicies>
+void testMesonFieldTraceProductAllTimes(const A2AArg &a2a_args, const double tol){
+  std::cout << "Testing mesonfield all-times trace-product" << std::endl;
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+  LRG.AssignGenerator(0); //always uses the RNG at coord 0 on node 0 - should always be the same one!
+  
+  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf1(Lt),mf2(Lt);
+  for(int t=0;t<Lt;t++){
+    mf1[t].setup(a2a_args,a2a_args,t,t);
+    mf2[t].setup(a2a_args,a2a_args,t,t);
+    mf1[t].testRandom();
+    mf2[t].testRandom();  
+  }
+
+  typedef typename A2Apolicies::ScalarComplexType mf_Complex;
+  fMatrix<mf_Complex> ref(Lt,Lt);
+  for(int t1=0;t1<Lt;t1++)
+    for(int t2=0;t2<Lt;t2++)
+      ref(t1,t2) = trace_slow(mf1[t1],mf2[t2]);
+    
+  fMatrix<mf_Complex> got;
+  trace(got, mf1,mf2);
+
+  bool fail = false;
+  for(int t1=0;t1<Lt;t1++)
+    for(int t2=0;t2<Lt;t2++){
+      const mf_Complex &r = ref(t1,t2);
+      const mf_Complex &g = got(t1,t2);
+      double rdiff = fabs(g.real()-r.real());
+      double idiff = fabs(g.imag()-r.imag());
+      std::cout << t1 << " " << t2 << " " << r << " " << g << " : " << rdiff << " " << idiff << std::endl;
+      
+      if(rdiff > tol|| idiff > tol){
+	fail = true;
+      }
+    }
+  if(fail) ERR.General("","","MF all-times trace-product test failed\n"); 
+  else if(!UniqueID()) printf("MF all-times trace-product pass\n");
 }
 
 
