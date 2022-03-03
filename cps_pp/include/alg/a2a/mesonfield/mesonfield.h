@@ -274,6 +274,13 @@ public:
   //Note: the left and right timeslices of "this" must be set to match the time row/column that is non zero (if appropriate)  
   void pack(ScalarComplexType const* from);
 
+  //Convert the meson field from the unpacked format into the packed format *on the device*
+  //The packing is performed on the device and the result is copied to the host
+  //(i,j) element of 'from' =  j + getNcolsFull() * i
+  //size of 'from' = getNrowsFull()*getNcolsFull()
+  //Note: the left and right timeslices of "this" must be set to match the time row/column that is non zero (if appropriate)
+  //** from must be allocated on the device! **
+  void pack_device(ScalarComplexType const* from);
   
   inline void zero(const bool parallel = true){
     memset(this->data(), 0, sizeof(ScalarComplexType) * fsize);      

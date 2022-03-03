@@ -278,7 +278,18 @@ void checkunpacked(const MFtype &mf, ScalarComplexType const* into, double tol, 
   }
   std::cout  << "MF unpack test " << descr << " passed" << std::endl;
 }
-  
+
+
+template<typename MFtype>
+void checkpacked(const MFtype &got, const MFtype &expect, double tol, const std::string &descr){
+  if(!expect.equals(got,tol,true)){
+    std::cout << "MF pack test " << descr << " failed" << std::endl;
+    assert(0);
+  }else{
+    std::cout << "MF pack test " << descr << " pass" << std::endl;
+  }
+}
+
 
 template<typename A2Apolicies>
 void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
@@ -323,16 +334,16 @@ void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
 
   
   A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf1_p;
-  mf1_p.setup(a2a_args,a2a_args,0,0);
-  
+  mf1_p.setup(a2a_args,a2a_args,0,0); 
   mf1_p.pack(into);
-  if(!mf1.equals(mf1_p,tol,true)){
-    ERR.General("","","MF WV pack test failed");
-  }else{
-    std::cout << "MF WV pack test pass" << std::endl;
-  }
+  checkpacked(mf1_p, mf1, tol, "WV");
+  
+  mf1_p.zero();
+  mf1_p.pack_device(device_into);
+  checkpacked(mf1_p, mf1, tol, "WV device");
+  
 
-
+  
   //Check a VV type
   memset(into,0,into_size);
   A2AmesonField<A2Apolicies,A2AvectorVfftw,A2AvectorVfftw> mf2;
@@ -347,15 +358,14 @@ void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
   checkunpacked(mf2, into, tol, "VV device");
   
   A2AmesonField<A2Apolicies,A2AvectorVfftw,A2AvectorVfftw> mf2_p;
-  mf2_p.setup(a2a_args,a2a_args,0,0);
-  
+  mf2_p.setup(a2a_args,a2a_args,0,0);  
   mf2_p.pack(into);
-  if(!mf2.equals(mf2_p,tol,true)){
-    ERR.General("","","MF VV pack test failed");
-  }else{
-    std::cout << "MF VV pack test pass" << std::endl;
-  }
+  checkpacked(mf2_p, mf2, tol, "VV");
 
+  mf2_p.zero();
+  mf2_p.pack_device(device_into);
+  checkpacked(mf2_p, mf2, tol, "VV device");
+  
 
   //Check a WW type
   memset(into,0,into_size);
@@ -371,14 +381,13 @@ void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
   checkunpacked(mf3, into, tol, "WW device");
   
   A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> mf3_p;
-  mf3_p.setup(a2a_args,a2a_args,0,0);
-  
+  mf3_p.setup(a2a_args,a2a_args,0,0); 
   mf3_p.pack(into);
-  if(!mf3.equals(mf3_p,tol,true)){
-    ERR.General("","","MF WW pack test failed");
-  }else{
-    std::cout << "MF WW pack test pass" << std::endl;
-  }
+  checkpacked(mf3_p, mf3, tol, "WW");
+  
+  mf3_p.zero();
+  mf3_p.pack_device(device_into);
+  checkpacked(mf3_p, mf3, tol, "WW device");
   
   free(into);
 }
