@@ -298,10 +298,30 @@ void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
 
   size_t into_size = rows_full * cols_full * sizeof(Complex);
   Complex* into = (Complex*)malloc(into_size);
+  Complex* device_into = (Complex*)device_alloc_check(into_size);
   
   mf1.unpack(into);
   checkunpacked(mf1, into, tol, "WV");
+  
+  mf1.unpack_device(device_into);
+  memset(into,0,into_size);  
+  copy_device_to_host(into, device_into, into_size);
+  
+  checkunpacked(mf1, into, tol, "WV device");
 
+  //Do a test once with the view precreated
+  {
+    device_memset(device_into,0,into_size);
+    CPSautoView(mf1_v,mf1);
+
+    mf1.unpack_device(device_into, &mf1_v);
+    memset(into,0,into_size);  
+    copy_device_to_host(into, device_into, into_size);
+    
+    checkunpacked(mf1, into, tol, "WV device with view");
+  }
+
+  
   A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf1_p;
   mf1_p.setup(a2a_args,a2a_args,0,0);
   
@@ -321,6 +341,11 @@ void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
   mf2.unpack(into);
   checkunpacked(mf2, into, tol, "VV");
 
+  mf2.unpack_device(device_into);
+  memset(into,0,into_size);  
+  copy_device_to_host(into, device_into, into_size);
+  checkunpacked(mf2, into, tol, "VV device");
+  
   A2AmesonField<A2Apolicies,A2AvectorVfftw,A2AvectorVfftw> mf2_p;
   mf2_p.setup(a2a_args,a2a_args,0,0);
   
@@ -340,6 +365,11 @@ void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
   mf3.unpack(into);
   checkunpacked(mf3, into, tol, "WW");
 
+  mf3.unpack_device(device_into);
+  memset(into,0,into_size);  
+  copy_device_to_host(into, device_into, into_size);
+  checkunpacked(mf3, into, tol, "WW device");
+  
   A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> mf3_p;
   mf3_p.setup(a2a_args,a2a_args,0,0);
   

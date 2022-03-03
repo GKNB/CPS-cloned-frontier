@@ -81,5 +81,51 @@ void benchmarkMesonFieldPack(const A2AArg &a2a_args,const int ntest){
 }
 
 
+template<typename A2Apolicies>
+void benchmarkMesonFieldUnpackDevice(const A2AArg &a2a_args,const int ntest){
+#ifdef GPU_VEC
+  std::cout << "Timing mesonfield pack device version" << std::endl;
+
+  LRG.AssignGenerator(0); //always uses the RNG at coord 0 on node 0 - should always be the same one!
+
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf1;
+  mf1.setup(a2a_args,a2a_args,0,0);
+
+  typedef typename A2Apolicies::ScalarComplexType Complex;
+
+  int rows_full = mf1.getNrowsFull();
+  int cols_full = mf1.getNcolsFull();
+
+  size_t into_size = rows_full * cols_full * sizeof(Complex);
+  Complex* into = (Complex*)device_alloc_check(into_size);  
+  
+  double time = 0;
+  for(int i=0;i<ntest;i++){
+    time -= dclock();
+    mf1.unpack_device(into); //involves device copy
+    time += dclock();
+  }
+
+  std::cout << "Cold " << ntest << " iterations, avg time " << time / ntest << "s" << std::endl;
+
+  CPSautoView(mf1_v,mf1);
+  
+  time = 0;
+  for(int i=0;i<ntest;i++){
+    time -= dclock();
+    mf1.unpack_device(into, &mf1_v);
+    time += dclock();
+  }
+
+  std::cout << "Hot " << ntest << " iterations, avg time " << time / ntest << "s" << std::endl;
+  device_free(into);
+#endif
+}
+
+
+
+
+
+
 
 CPS_END_NAMESPACE

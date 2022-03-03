@@ -296,6 +296,43 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack(typename mf_Policies
   
 }
 
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack_device(typename mf_Policies::ScalarComplexType* into, A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView const* view) const{
+#if !defined(USE_GRID) || !defined(GPU_VEC)
+  unpack(into, view); //into must be a host pointer here
+#else
+  A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView *vp = const_cast<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView *>(view);
+  bool delete_view = false;
+  if(vp == nullptr){
+    vp = new A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView(this->view()); //copies to device
+    delete_view = true;
+  }
+
+  A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView const& v = *vp;
+  
+  device_memset(into, 0, getNrowsFull()*getNcolsFull()*sizeof(ScalarComplexType));
+  int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
+  int rnl = getColParams().getNl(),  rnf = getColParams().getNflavors(), rnsc = getColParams().getNspinColor() , rnt = getColParams().getNtBlocks();
+  int ncolsfull = getNcolsFull();
+  int nrows= getNrows(), ncols = getNcols();
+  int tl = getRowTimeslice(), tr = getColTimeslice();
+  
+  {
+    using namespace Grid;
+    accelerator_for2d(j, ncols, i, nrows, 1, {
+	int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, tl, lnl, lnf, lnsc, lnt);
+	int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, tr, rnl, rnf, rnsc, rnt);
+
+	into[jinto + ncolsfull*iinto] = v(i,j);
+      });
+  }
+
+  if(delete_view) delete vp;
+#endif
+}
+
+
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack(typename mf_Policies::ScalarComplexType const* from){
   int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();

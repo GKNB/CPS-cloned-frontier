@@ -88,7 +88,14 @@ inline void copy_device_to_host(void* to, void const* from, size_t bytes){
 #endif
 }
 
-
+//memset for device memory
+inline void device_memset(void *ptr, int value, size_t count){
+#ifdef GPU_VEC
+  Grid::acceleratorMemSet(ptr, value, count);
+#else
+  memset(ptr, value, count);
+#endif
+}
 
 //Check if a class T has a method "free"
 template<typename T, typename U = void>

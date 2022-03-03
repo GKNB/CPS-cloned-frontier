@@ -261,6 +261,13 @@ public:
   //size of 'into' = getNrowsFull()*getNcolsFull()
   void unpack(ScalarComplexType* into) const;  
 
+  //Convert the meson field from the packed default format into an unpacked format *on the device*
+  //If a view is not provided it will be created internally and the host->device copy performed
+  //(i,j) element of 'into' =  j + getNcolsFull() * i
+  //size of 'into' = getNrowsFull()*getNcolsFull()
+  //** into must be allocated on the device! **
+  void unpack_device(ScalarComplexType* into, ReadView const* view = nullptr) const;
+  
   //Convert the meson field from the unpacked format into the packed format
   //(i,j) element of 'from' =  j + getNcolsFull() * i
   //size of 'from' = getNrowsFull()*getNcolsFull()

@@ -149,8 +149,9 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkMfVectorTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkPiPiContractions<GridA2ApoliciesType>(a2a_args);
 
-  if(1) benchmarkMesonFieldUnpack<GridA2ApoliciesType>(a2a_args, ntests);
+  if(0) benchmarkMesonFieldUnpack<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMesonFieldPack<GridA2ApoliciesType>(a2a_args, ntests);
+  if(1) benchmarkMesonFieldUnpackDevice<GridA2ApoliciesType>(a2a_args, ntests);
 #endif
 
 }
