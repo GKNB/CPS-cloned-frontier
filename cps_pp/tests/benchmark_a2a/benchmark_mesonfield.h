@@ -12,6 +12,7 @@
 #include "include/utils.h"
 #include "include/cpsmatrix.h"
 #include "include/ktopipi_contract.h"
+#include "include/pipi_contract.h"
 #include "include/mesonfield_contract.h"
 #include "include/mesonfield_mult.h"
 #include "include/mesonfield_vMv.h"

@@ -146,8 +146,10 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
   if(0) benchmarkMfTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMfTraceProdGPU<GridA2ApoliciesType>(a2a_args, ntests);
-  if(1) benchmarkMfVectorTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
+  if(0) benchmarkMfVectorTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
+  if(1) benchmarkPiPiContractions<GridA2ApoliciesType>(a2a_args);
 #endif
+
 }
 
 
