@@ -277,6 +277,46 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(bool require){
 }
 
 
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack(typename mf_Policies::ScalarComplexType* into) const{
+  memset(into, 0, getNrowsFull()*getNcolsFull()*sizeof(ScalarComplexType));
+  int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
+  int rnl = getColParams().getNl(),  rnf = getColParams().getNflavors(), rnsc = getColParams().getNspinColor() , rnt = getColParams().getNtBlocks();
+  int ncolsfull = getNcolsFull();
+
+#pragma omp parallel for
+  for(int i=0;i<getNrows();i++){
+    int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, getRowTimeslice(), lnl, lnf, lnsc, lnt);
+    for(int j=0;j<getNcols();j++){
+      int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, getColTimeslice(), rnl, rnf, rnsc, rnt);
+
+      into[jinto + ncolsfull*iinto] = (*this)(i,j);
+    }
+  }
+  
+}
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack(typename mf_Policies::ScalarComplexType const* from){
+  int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
+  int rnl = getColParams().getNl(),  rnf = getColParams().getNflavors(), rnsc = getColParams().getNspinColor() , rnt = getColParams().getNtBlocks();
+  int nrowsfull = getNrowsFull(), ncolsfull = getNcolsFull();
+
+#pragma omp parallel for  
+  for(int i=0;i<nrowsfull;i++){
+    auto iinto = mesonFieldConvertDilution<LeftDilutionType>::pack(i, getRowTimeslice(), lnl, lnf, lnsc, lnt);
+    if(iinto.second){
+      for(int j=0;j<getNcols();j++){
+	auto jinto = mesonFieldConvertDilution<RightDilutionType>::pack(j, getColTimeslice(), rnl, rnf, rnsc, rnt);
+	if(jinto.second){
+	  (*this)(iinto.first,jinto.first) = from[j + ncolsfull*i];
+	}
+      }
+    }
+  }
+}
+
+  
 
 #endif
 

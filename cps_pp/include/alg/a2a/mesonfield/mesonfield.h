@@ -256,6 +256,18 @@ public:
     return &this->operator()(packed_i,packed_j);
   }
 
+  //Convert the meson field from the packed default format into an unpacked format
+  //(i,j) element of 'into' =  j + getNcolsFull() * i
+  //size of 'into' = getNrowsFull()*getNcolsFull()
+  void unpack(ScalarComplexType* into) const;  
+
+  //Convert the meson field from the unpacked format into the packed format
+  //(i,j) element of 'from' =  j + getNcolsFull() * i
+  //size of 'from' = getNrowsFull()*getNcolsFull()
+  //Note: the left and right timeslices of "this" must be set to match the time row/column that is non zero (if appropriate)  
+  void pack(ScalarComplexType const* from);
+
+  
   inline void zero(const bool parallel = true){
     memset(this->data(), 0, sizeof(ScalarComplexType) * fsize);      
   }

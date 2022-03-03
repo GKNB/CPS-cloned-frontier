@@ -252,5 +252,106 @@ void testMesonFieldTraceProductAllTimes(const A2AArg &a2a_args, const double tol
 
 
 
+template<typename MFtype, typename ScalarComplexType>
+void checkunpacked(const MFtype &mf, ScalarComplexType const* into, double tol, const std::string &descr){
+  int rows_full = mf.getNrowsFull();
+  int cols_full = mf.getNcolsFull();
+   
+  bool fail = false;
+  for(int i=0;i<rows_full;i++){
+    for(int j=0;j<cols_full;j++){
+      Complex got = into[j+cols_full*i];
+      Complex expect = mf.elem(i,j);
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      
+      if(rdiff > tol|| idiff > tol){
+	std::cout << i << " " << j << " " << got << " " << expect << " : " << rdiff << " " << idiff << std::endl;
+	fail = true;
+      }
+    }
+  }
+  if(fail){    
+    std::cout  << "MF unpack test " << descr << " failed" << std::endl;
+    assert(0);
+  }
+  std::cout  << "MF unpack test " << descr << " passed" << std::endl;
+}
+  
+
+template<typename A2Apolicies>
+void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
+  std::cout << "Testing mesonfield unpack, pack" << std::endl;
+
+  LRG.AssignGenerator(0); //always uses the RNG at coord 0 on node 0 - should always be the same one!
+
+  //Check a WV type
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf1;
+  mf1.setup(a2a_args,a2a_args,0,0);
+  mf1.testRandom();
+  
+  typedef typename A2Apolicies::ScalarComplexType Complex;
+
+  int rows_full = mf1.getNrowsFull();
+  int cols_full = mf1.getNcolsFull();
+
+  size_t into_size = rows_full * cols_full * sizeof(Complex);
+  Complex* into = (Complex*)malloc(into_size);
+  
+  mf1.unpack(into);
+  checkunpacked(mf1, into, tol, "WV");
+
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf1_p;
+  mf1_p.setup(a2a_args,a2a_args,0,0);
+  
+  mf1_p.pack(into);
+  if(!mf1.equals(mf1_p,tol,true)){
+    ERR.General("","","MF WV pack test failed");
+  }else{
+    std::cout << "MF WV pack test pass" << std::endl;
+  }
+
+
+  //Check a VV type
+  memset(into,0,into_size);
+  A2AmesonField<A2Apolicies,A2AvectorVfftw,A2AvectorVfftw> mf2;
+  mf2.setup(a2a_args,a2a_args,0,0);
+  mf2.testRandom();
+  mf2.unpack(into);
+  checkunpacked(mf2, into, tol, "VV");
+
+  A2AmesonField<A2Apolicies,A2AvectorVfftw,A2AvectorVfftw> mf2_p;
+  mf2_p.setup(a2a_args,a2a_args,0,0);
+  
+  mf2_p.pack(into);
+  if(!mf2.equals(mf2_p,tol,true)){
+    ERR.General("","","MF VV pack test failed");
+  }else{
+    std::cout << "MF VV pack test pass" << std::endl;
+  }
+
+
+  //Check a WW type
+  memset(into,0,into_size);
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> mf3;
+  mf3.setup(a2a_args,a2a_args,0,0);
+  mf3.testRandom();
+  mf3.unpack(into);
+  checkunpacked(mf3, into, tol, "WW");
+
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> mf3_p;
+  mf3_p.setup(a2a_args,a2a_args,0,0);
+  
+  mf3_p.pack(into);
+  if(!mf3.equals(mf3_p,tol,true)){
+    ERR.General("","","MF WW pack test failed");
+  }else{
+    std::cout << "MF WW pack test pass" << std::endl;
+  }
+  
+  free(into);
+}
+  
 
 CPS_END_NAMESPACE
