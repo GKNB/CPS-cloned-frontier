@@ -9,6 +9,8 @@ CPS_END_NAMESPACE
 //#include<int_fastdiv.h>
 CPS_START_NAMESPACE
 
+#define MF_REDUCE_ON_DEVICE
+
 template<typename ComplexType>
 __global__ void reduceKernel(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t bi_true, const size_t bj_true, const size_t bj, const size_t size_3d, const size_t multiplicity){
   constexpr int nsimd = ComplexType::Nsimd();
@@ -94,13 +96,15 @@ struct SingleSrcVectorPoliciesSIMDoffload{
   }
 
   //Sum over x and SIMD reduce
+  //If MF_REDUCE_ON_DEVICE is defined then accum must be a device-accessible pointer, otherwise it should be a host pointer
   static inline void reduce(mfVectorType &mf_t, accumType const* accum,
 			    const size_t i0, const size_t j0, //block index
 			    const size_t bi_true, const size_t bj_true, //true size of this block
 			    const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 			    const int t, const size_t size_3d){
-//CUDA only currently
-#ifdef GRID_CUDA
+
+#ifdef MF_REDUCE_ON_DEVICE
+    //CUDA only currently
     //std::cout << "CUDA GPU reduce (single src)" << std::endl; fflush(stdout);
     double talloc_free = 0;
     double tkernel = 0;
@@ -136,8 +140,6 @@ struct SingleSrcVectorPoliciesSIMDoffload{
     //print_time("CUDA GPU reduce","kernel",tkernel);
     //print_time("CUDA GPU reduce","poke",tpoke);
 #else
-    assert(0); //NEEDS DEVICE -> HOST COPY OF ACCUM
-    
     //Reduce over size_3d
     //Paralllelize me!
     for(int ii=0;ii<bi_true;ii++)
@@ -197,14 +199,15 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 
   
   //Sum over x and SIMD reduce
+  //If MF_REDUCE_ON_DEVICE is defined then accum must be a device-accessible pointer, otherwise it should be a host pointer  
   inline void reduce(mfVectorType &mf_st, accumType const* accum,
 		     const size_t i0, const size_t j0, //block index
 		     const size_t bi_true, const size_t bj_true, //true size of this block
 		     const int bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 		     const int t, const size_t size_3d) const{
 
+#ifdef MF_REDUCE_ON_DEVICE
     //CUDA only currently
-#ifdef GRID_CUDA
     //std::cout << "CUDA GPU reduce (multi src)" << std::endl;
 
     double talloc_free = 0;
@@ -243,7 +246,6 @@ struct MultiSrcVectorPoliciesSIMDoffload{
     // print_time("CUDA GPU reduce","kernel",tkernel);
     // print_time("CUDA GPU reduce","poke",tpoke);
 #else
-    assert(0); //NEEDS DEVICE -> HOST COPY OF ACCUM
     //Reduce over size_3d
     //(Do this on host for now) //GENERALIZE ME
     for(int ii=0;ii<bi_true;ii++)
@@ -365,7 +367,11 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     const size_t multiplicity = this->accumMultiplicity();
     const size_t naccum = bi * bj * bx * multiplicity;
     accumType *accum = (accumType*)device_alloc_check(naccum*sizeof(accumType));
-
+#ifndef MF_REDUCE_ON_DEVICE
+    //Require host location to stage from
+    accumType *accum_host = (accumType*)malloc_check(naccum*sizeof(accumType));    
+#endif
+    
     std::cout << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
     
 
@@ -514,7 +520,12 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    if(kernel_exec_it % 50 == 0 && !UniqueID()){ printf("Kernel iteration %zu / %zu\n", kernel_exec_it, kernel_execs ); fflush(stdout); }	    
 	    
 	    reduce_time -= dclock();
+#ifndef MF_REDUCE_ON_DEVICE
+	    copy_device_to_host(accum_host, accum, naccum*sizeof(accumType));
+	    this->reduce(mf_t, accum_host, i0, j0, bi_true, bj_true, bj, t, bx_true);
+#else
 	    this->reduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, bx_true);
+#endif	    
 	    reduce_time += dclock();
 
 #ifdef GRID_CUDA
@@ -550,6 +561,11 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     Free(site_offsets_i);
     Free(site_offsets_j);
     device_free(accum);
+
+#ifndef MF_REDUCE_ON_DEVICE
+    free(accum_host);
+#endif
+
   }
 
 
@@ -696,11 +712,6 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     if(bj > nmodes_r || bj == 0) bj = nmodes_r;
     if(bx > size_3d || bx == 0) bx = size_3d; //optional disable of x blocking
 
-#ifdef GRID_CUDA
-    int device;
-    cudaGetDevice(&device);
-#endif
-    
 #define MF_OFFLOAD_INNER_BLOCKING
 #ifdef MF_OFFLOAD_INNER_BLOCKING
     //Note these will be shrunk if necessary to be an exact divisor of the true block size, which can be smaller for the last block if the block size is not a divisor
@@ -734,7 +745,11 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     const size_t multiplicity = this->accumMultiplicity();
     const size_t naccum = bi * bj * bx * multiplicity;
     accumType *accum = (accumType*)device_alloc_check(naccum*sizeof(accumType));
-
+#ifndef MF_REDUCE_ON_DEVICE
+    //Require host location to stage from
+    accumType *accum_host = (accumType*)malloc_check(naccum*sizeof(accumType));    
+#endif
+    
     std::cout << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement for block MF accumulation is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
 
     //Allocate temporary memory for chunks of a2a fields
@@ -744,20 +759,23 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     size_t ijblock_data_flav_offset = 12 * bx;
     std::cout << "Require " << byte_to_MB(iblock_data_size*sizeof(FieldSiteType)) << "MB and " << byte_to_MB(jblock_data_size*sizeof(FieldSiteType)) << "MB for i and j chunk data, respectively" << std::endl;
 
-    hostDeviceMirroredContainer<FieldSiteType> iblock_data(iblock_data_size), jblock_data(jblock_data_size);  
-    hostDeviceMirroredContainer<std::pair<bool,bool> > iblock_flav_is_zero(bi), jblock_flav_is_zero(bj);
+    typedef hostDeviceMirroredContainer<FieldSiteType> MirroredField;
+    typedef hostDeviceMirroredContainer<std::pair<bool,bool> > MirroredBoolPair;
+    
+    MirroredField iblock_data(iblock_data_size), jblock_data(jblock_data_size);  
+    MirroredBoolPair iblock_flav_is_zero(bi), jblock_flav_is_zero(bj);
 
     //Swapping between three buffers allows us to overlap compute, gather and device copy
-    hostDeviceMirroredContainer<FieldSiteType> iblock_data2(iblock_data_size), jblock_data2(jblock_data_size);  
-    hostDeviceMirroredContainer<std::pair<bool,bool> > iblock_flav_is_zero2(bi), jblock_flav_is_zero2(bj);
+    MirroredField iblock_data2(iblock_data_size), jblock_data2(jblock_data_size);  
+    MirroredBoolPair iblock_flav_is_zero2(bi), jblock_flav_is_zero2(bj);
 
-    hostDeviceMirroredContainer<FieldSiteType> iblock_data3(iblock_data_size), jblock_data3(jblock_data_size);  
-    hostDeviceMirroredContainer<std::pair<bool,bool> > iblock_flav_is_zero3(bi), jblock_flav_is_zero3(bj);
+    MirroredField iblock_data3(iblock_data_size), jblock_data3(jblock_data_size);  
+    MirroredBoolPair iblock_flav_is_zero3(bi), jblock_flav_is_zero3(bj);
     
-    hostDeviceMirroredContainer<FieldSiteType>* iblock_data_ptrs[3] = {&iblock_data,&iblock_data2,&iblock_data3};
-    hostDeviceMirroredContainer<FieldSiteType>* jblock_data_ptrs[3] = {&jblock_data,&jblock_data2,&jblock_data3};
-    hostDeviceMirroredContainer<std::pair<bool,bool> >* iblock_flav_is_zero_ptrs[3] = {&iblock_flav_is_zero,&iblock_flav_is_zero2,&iblock_flav_is_zero3};
-    hostDeviceMirroredContainer<std::pair<bool,bool> >* jblock_flav_is_zero_ptrs[3] = {&jblock_flav_is_zero,&jblock_flav_is_zero2,&jblock_flav_is_zero3};
+    MirroredField* iblock_data_ptrs[3] = {&iblock_data,&iblock_data2,&iblock_data3};
+    MirroredField* jblock_data_ptrs[3] = {&jblock_data,&jblock_data2,&jblock_data3};
+    MirroredBoolPair* iblock_flav_is_zero_ptrs[3] = {&iblock_flav_is_zero,&iblock_flav_is_zero2,&iblock_flav_is_zero3};
+    MirroredBoolPair* jblock_flav_is_zero_ptrs[3] = {&jblock_flav_is_zero,&jblock_flav_is_zero2,&jblock_flav_is_zero3};
       
 #ifdef MF_OFFLOAD_INNER_BLOCKING
     std::cout << "Using inner block sizes " << sbi << " " << sbj << " " << sbx << std::endl;
@@ -821,28 +839,28 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    
 
 	    //Get the data containers we read from this iteratiopn
-	    hostDeviceMirroredContainer<FieldSiteType> &iblock_data_read = *iblock_data_ptrs[which_read];
-	    hostDeviceMirroredContainer<FieldSiteType> &jblock_data_read = *jblock_data_ptrs[which_read];
-	    hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero_read = *iblock_flav_is_zero_ptrs[which_read];
-	    hostDeviceMirroredContainer<std::pair<bool,bool> > &jblock_flav_is_zero_read = *jblock_flav_is_zero_ptrs[which_read];
+	    MirroredField &iblock_data_read = *iblock_data_ptrs[which_read];
+	    MirroredField &jblock_data_read = *jblock_data_ptrs[which_read];
+	    MirroredBoolPair &iblock_flav_is_zero_read = *iblock_flav_is_zero_ptrs[which_read];
+	    MirroredBoolPair &jblock_flav_is_zero_read = *jblock_flav_is_zero_ptrs[which_read];
 
 	    //Get the offsets of the next iter for copy
 	    next_iter_info copy_iter(x0, i0, j0, t_lcl, bx, bi, bj, size_3d, nmodes_l, nmodes_r, 1);
 	    
 	    //Get the data containers we are going to copy from
-	    hostDeviceMirroredContainer<FieldSiteType> &iblock_data_copy = *iblock_data_ptrs[which_copy];
-	    hostDeviceMirroredContainer<FieldSiteType> &jblock_data_copy = *jblock_data_ptrs[which_copy];
-	    hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero_copy = *iblock_flav_is_zero_ptrs[which_copy];
-	    hostDeviceMirroredContainer<std::pair<bool,bool> > &jblock_flav_is_zero_copy = *jblock_flav_is_zero_ptrs[which_copy];
+	    MirroredField &iblock_data_copy = *iblock_data_ptrs[which_copy];
+	    MirroredField &jblock_data_copy = *jblock_data_ptrs[which_copy];
+	    MirroredBoolPair &iblock_flav_is_zero_copy = *iblock_flav_is_zero_ptrs[which_copy];
+	    MirroredBoolPair &jblock_flav_is_zero_copy = *jblock_flav_is_zero_ptrs[which_copy];
 
 	    //Get the offsets of the second-next iter for gather
 	    next_iter_info gather_iter(x0, i0, j0, t_lcl, bx, bi, bj, size_3d, nmodes_l, nmodes_r, 2);
 
 	    //Get the data containers we are going to gather to    
-	    hostDeviceMirroredContainer<FieldSiteType> &iblock_data_gather = *iblock_data_ptrs[which_gather];
-	    hostDeviceMirroredContainer<FieldSiteType> &jblock_data_gather = *jblock_data_ptrs[which_gather];
-	    hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero_gather = *iblock_flav_is_zero_ptrs[which_gather];
-	    hostDeviceMirroredContainer<std::pair<bool,bool> > &jblock_flav_is_zero_gather = *jblock_flav_is_zero_ptrs[which_gather];
+	    MirroredField &iblock_data_gather = *iblock_data_ptrs[which_gather];
+	    MirroredField &jblock_data_gather = *jblock_data_ptrs[which_gather];
+	    MirroredBoolPair &iblock_flav_is_zero_gather = *iblock_flav_is_zero_ptrs[which_gather];
+	    MirroredBoolPair &jblock_flav_is_zero_gather = *jblock_flav_is_zero_ptrs[which_gather];
 	    
 	    //On iter 0 we need to prepopulate the device-read side of the read buffer, and the host-write side of the copy buffer
 	    if(iter == 0){
@@ -961,9 +979,14 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    if(kernel_exec_it % 50 == 0 && !UniqueID()){ printf("Kernel iteration %zu / %zu\n", kernel_exec_it, kernel_execs ); fflush(stdout); }	    
 	    
 	    reduce_time -= dclock();
+#ifndef MF_REDUCE_ON_DEVICE
+	    copy_device_to_host(accum_host, accum, naccum*sizeof(accumType));
+	    this->reduce(mf_t, accum_host, i0, j0, bi_true, bj_true, bj, t, bx_true);
+#else
 	    this->reduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, bx_true);
+#endif
 	    reduce_time += dclock();
-
+	    
 #ifdef GRID_CUDA
 	    if(x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStop();
 #endif
@@ -995,11 +1018,15 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     print_time("A2AmesonField","nodeSum",time + dclock());
     
     device_free(accum);
+#ifndef MF_REDUCE_ON_DEVICE
+    free(accum_host);
+#endif
   }
 
     
 
   inline void compute(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
+    //compute_v1(mf_t,l,M,r,do_setup);
     compute_v2(mf_t,l,M,r,do_setup);
   }
 
