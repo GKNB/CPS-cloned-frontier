@@ -127,7 +127,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkCPSfieldIO();
 
 #ifdef USE_GRID
-  if(0) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
+  if(1) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
 #endif
 
   if(0) timeAllReduce(false);
@@ -152,7 +152,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkMesonFieldUnpack<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMesonFieldPack<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMesonFieldUnpackDevice<GridA2ApoliciesType>(a2a_args, ntests);
-  if(1) benchmarkMesonFieldPackDevice<GridA2ApoliciesType>(a2a_args, ntests);
+  if(0) benchmarkMesonFieldPackDevice<GridA2ApoliciesType>(a2a_args, ntests);
 #endif
 
 }

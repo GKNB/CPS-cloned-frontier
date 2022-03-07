@@ -39,15 +39,32 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
 
   A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> c;
 
+  //First call has setup overheads, separate out
+  time = -dclock();    
+  mult(c, l, r, true); //NODE LOCAL, used in pipi
+  time += dclock();
+
+  Mflops = double(Flops)/time/double(1.e6);
+  
+  if(!UniqueID()) printf("MF mult node local first call (ni=%d nj=%d nk=%d) avg time %f s, %f Mflops\n",ni,nj,nk,time,Mflops);
+
+#ifdef MULT_IMPL_CUBLASXT
+  if(!UniqueID()) _mult_impl_base::getTimers().print();
+  _mult_impl_base::getTimers().reset();
+#endif
+
+  
   time = -dclock();
   for(int i=0;i<ntests;i++){
     mult(c, l, r, true); //NODE LOCAL, used in pipi
   }
   time += dclock();
 
-  Mflops = double(Flops)/time*double(ntests)/double(1.e6);
+  time /= double(ntests);
 
-  if(!UniqueID()) printf("MF mult node local (ni=%d nj=%d nk=%d) %f Mflops\n",ni,nj,nk,Mflops);
+  Mflops = double(Flops)/time/double(1.e6);
+
+  if(!UniqueID()) printf("MF mult node local (ni=%d nj=%d nk=%d) calls %d, avg time %f s, %f Mflops\n",ni,nj,nk,ntests,time,Mflops);
 
 #ifdef MULT_IMPL_CUBLASXT
   if(!UniqueID()) _mult_impl_base::getTimers().print();
@@ -60,10 +77,12 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   }
   time += dclock();
 
-  Mflops = double(Flops)/time*double(ntests)/double(1.e6);
+  time /= double(ntests); 
+  
+  Mflops = double(Flops)/time/double(1.e6);
   Mflops_per_node = Mflops/nodes;
   
-  if(!UniqueID()) printf("MF mult node distributed (ni=%d nj=%d nk=%d) %f Mflops,  %f Mflops/node\n",ni,nj,nk,Mflops, Mflops_per_node);
+  if(!UniqueID()) printf("MF mult node distributed (ni=%d nj=%d nk=%d) calls %d, avg time %f s, %f Mflops,  %f Mflops/node\n",ni,nj,nk,ntests,time,Mflops, Mflops_per_node);
 
 #ifdef MULT_IMPL_CUBLASXT
   if(!UniqueID()) _mult_impl_base::getTimers().print();
