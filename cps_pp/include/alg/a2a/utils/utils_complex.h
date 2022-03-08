@@ -61,7 +61,7 @@ public:
   }
 };
 
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA) || defined(GRID_HIP)
 template<typename T>
 class RandomComplex<thrust::complex<T> > : public RandomComplexBase<T>{
 public:
@@ -120,7 +120,7 @@ struct _cconj<std::complex<T>,complex_double_or_float_mark>{
 
 #ifdef USE_GRID
 
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA) || defined(GRID_HIP)
 //Grid's complex uses thrust
 template<typename T>
 struct _cconj<Grid::complex<T>,complex_double_or_float_mark>{
@@ -164,7 +164,7 @@ template<typename T>
 inline std::complex<double> convertComplexD(const std::complex<T> &what){
   return what;
 }
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA) || defined(GRID_HIP)
 //Need explicit versions for thrust complex otherwise it will implicitly convert to vComplex and then reduce the result,
 //resulting in an overall multiplicative factor of Nsimd being applied!
 inline std::complex<double> convertComplexD(const Grid::ComplexD &what){

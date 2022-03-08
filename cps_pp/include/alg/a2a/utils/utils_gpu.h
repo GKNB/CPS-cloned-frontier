@@ -11,7 +11,7 @@
 #define accelerator_inline inline
 #endif //USE_GRID
 
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA) || defined(GRID_HIP)
 
 //Duplicates of Grid's wrappers but allowing for shared memory
 //Shared memory size is *per block*. The number of threads in a block is nsimd*gpu_threads where gpu_threads is a Grid global variable set by the user on the command line (default 8)
@@ -45,7 +45,7 @@
 #define accelerator_for_shmem(iterator,num,nsimd, shmem_size, ... )   thread_for(iterator, num, { __VA_ARGS__ });
 #define accelerator_forNB_shmem(iterator,num,nsimd, shmem_size, ... ) thread_for(iterator, num, { __VA_ARGS__ });
 
-#endif //GRID_CUDA
+#endif //GRID_CUDA || GRID_HIP
 
 
 CPS_START_NAMESPACE

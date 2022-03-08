@@ -44,7 +44,7 @@ inline void globalSum(std::complex<float> *result, size_t len = 1){
 
 #ifdef USE_GRID
 
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA) || defined(GRID_HIP)
 inline void globalSum(thrust::complex<double>* v, const size_t n = 1){
   globalSum( (double*)v,2*n);
 }

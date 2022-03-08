@@ -45,7 +45,7 @@ inline std::complex<T> complexAvg(const std::complex<T>&a, const std::complex<T>
   return (a+b)/T(2.0);
 }
 
-#if defined(USE_GRID) && defined(GRID_CUDA)
+#if defined(USE_GRID) && (defined(GRID_CUDA) || defined(GRID_HIP))
 template<typename T>
 inline Grid::complex<T> complexAvg(const Grid::complex<T>&a, const Grid::complex<T> &b){
   return (a+b)/T(2.0);

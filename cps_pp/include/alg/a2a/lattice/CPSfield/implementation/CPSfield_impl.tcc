@@ -25,7 +25,7 @@ struct normdefs<std::complex<T> >{
 };
 #ifdef USE_GRID
 
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA) || defined(GRID_HIP)
 template<typename T>
 struct normdefs<Grid::complex<T> >{
   inline static double real_reduce(const Grid::complex<T> in){ return in.real(); }
@@ -117,7 +117,7 @@ public:
   }
 };
 
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA) || defined(GRID_HIP)
 template<>
 class _testRandom<Grid::ComplexD>{
 public:
