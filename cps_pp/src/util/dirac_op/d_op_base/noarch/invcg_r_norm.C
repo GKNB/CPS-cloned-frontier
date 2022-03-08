@@ -1,3 +1,8 @@
+#include <config.h>
+
+
+CPS_START_NAMESPACE
+
 void invcg_r_norm(double *resa, double *scale, double *mult, double *add, int ncvec, double *norm)
 {
 	//resa=scale*mult+add;
@@ -54,3 +59,5 @@ void invcg_r_norm(double *resa, double *scale, double *mult, double *add, int nc
 		pb+=12;
 	}
 }
+
+CPS_END_NAMESPACE

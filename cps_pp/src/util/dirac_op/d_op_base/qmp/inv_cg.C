@@ -54,12 +54,12 @@ CPS_END_NAMESPACE
 #include <comms/sysfunc_cps.h>
 CPS_START_NAMESPACE
 
-extern "C" { 
+//extern "C" { 
   void invcg_r_norm(IFloat *resa, IFloat *scale, IFloat *mult, IFloat *add, 
 		      int ncvec, IFloat *norm);
   void invcg_xp_update(IFloat *out1, IFloat *out2, IFloat *A, IFloat *B, 
 		       IFloat *mult, IFloat *add, int size);
-}
+//}
 
 // The granularity used in the interleaving
 #define GRAN 12

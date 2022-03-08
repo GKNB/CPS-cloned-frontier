@@ -1,4 +1,10 @@
 //89 seconds. 82Mflops
+
+#include <config.h>
+
+CPS_START_NAMESPACE
+
+
 #ifndef BLOCK_SIZE
 #define BLOCK_SIZE ((int) 4)
 #endif
@@ -262,3 +268,4 @@ void matrix_dgemm (const int M,const int N, const int K, double **A, const doubl
 	}
 }
 
+CPS_END_NAMESPACE

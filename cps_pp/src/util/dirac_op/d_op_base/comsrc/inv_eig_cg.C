@@ -22,14 +22,16 @@
 #include <comms/sysfunc_cps.h>
 #include <cstring>
 #include <util/vector_template_func.h>
+
 CPS_START_NAMESPACE
 
-extern "C" { 
+//extern "C" { 
 	void invcg_r_norm(IFloat *resa, IFloat *scale, IFloat *mult, IFloat *add, int ncvec, IFloat *norm);
 	void invcg_xp_update(IFloat *out1, IFloat *out2, IFloat *A, IFloat *B, IFloat *mult, IFloat *add, int size);
 	void matrix_dgemm (const int M,const int N, const int K, double **A, const double *B, double *C);
 //	void matrix_dgemm (const int M,const int N, const int K, double *A, const double *B, double **C);
-}
+//}
+
 
 	void eigen_solver(IFloat *A, IFloat *EV, IFloat *E, int n);
 // The granularity used in the interleaving

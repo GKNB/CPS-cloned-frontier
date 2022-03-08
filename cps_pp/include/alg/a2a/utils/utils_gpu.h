@@ -320,7 +320,7 @@ public:
   //Synchronize the host and device with an asynchronous copy
   //NOTE: While the sync flag will be set, the state is undefined until the copy stream has been synchronized
   void asyncHostDeviceSync(){
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
     if(!device_in_sync && !host_in_sync) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Invalid state");
     if(!device_in_sync){
       cudaMemcpyAsync(device,host,byte_size(), cudaMemcpyHostToDevice,Grid::copyStream);
@@ -330,7 +330,17 @@ public:
       cudaMemcpyAsync(device,host,byte_size(), cudaMemcpyDeviceToHost,Grid::copyStream);
       host_in_sync = true;
     }
-#else
+#elif defined(GRID_HIP)
+    if(!device_in_sync && !host_in_sync) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Invalid state");
+    if(!device_in_sync){
+      hipMemcpyAsync(device,host,byte_size(), hipMemcpyHostToDevice ,Grid::copyStream);
+      device_in_sync = true;
+    }
+    if(!host_in_sync){
+      hipMemcpyAsync(device,host,byte_size(), hipMemcpyDeviceToHost,Grid::copyStream);
+      host_in_sync = true;
+    }
+#else    
     ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Asynchronous copies only currently supported for CUDA");
 #endif
   }

@@ -1,3 +1,8 @@
+#include <config.h>
+
+CPS_START_NAMESPACE
+
+
 void invcg_xp_update(double *out1, double *out2, double *A, double *B, double *mult, double *add, int size)
 {
 	//out1(x part)=A*mult+add(x part);
@@ -56,3 +61,5 @@ void invcg_xp_update(double *out1, double *out2, double *A, double *B, double *m
 	}
 
 }
+
+CPS_END_NAMESPACE
