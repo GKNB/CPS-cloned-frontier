@@ -63,6 +63,7 @@ public:
   //Read-only view class
   class ReadView{
     int nmodes_l, nmodes_r;
+    int tl, tr;
     int fsize; //in units of ScalarComplexType
     ScalarComplexType *data;
 
@@ -82,7 +83,7 @@ public:
     accelerator_inline int getNrows() const{ return nmodes_l; }
     accelerator_inline int getNcols() const{ return nmodes_r; }
 
-    ReadView(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize){
+    ReadView(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize), tl(mf.tl), tr(mf.tr){
 #ifdef GPU_VEC
       data = (ScalarComplexType *)device_alloc_check(fsize * sizeof(ScalarComplexType));
       copy_host_to_device(data, mf.ptr(), fsize * sizeof(ScalarComplexType));
