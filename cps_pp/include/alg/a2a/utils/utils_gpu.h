@@ -88,7 +88,14 @@ inline void copy_device_to_host(void* to, void const* from, size_t bytes){
 #endif
 }
 
-
+//memset for device memory
+inline void device_memset(void *ptr, int value, size_t count){
+#ifdef GPU_VEC
+  Grid::acceleratorMemSet(ptr, value, count);
+#else
+  memset(ptr, value, count);
+#endif
+}
 
 //Check if a class T has a method "free"
 template<typename T, typename U = void>
@@ -273,12 +280,13 @@ class hostDeviceMirroredContainer{
   bool host_in_sync;
   bool device_in_sync;  
   size_t n; //number of elements
+  bool use_pinned_mem;
 public:
   size_t byte_size() const{ return n*sizeof(T); }
 
-  hostDeviceMirroredContainer(size_t n): n(n), device_in_sync(true), host_in_sync(true){
-    //host = (T*)memalign_check(128,byte_size());
-    host = (T*)pinned_alloc_check(128,byte_size()); //pinned memory faster as it avoids a host-side copy in Cuda
+  //pinned memory has a faster copy as it avoids a host-side copy in Cuda, but it can take a while to allocate
+  hostDeviceMirroredContainer(size_t n, bool use_pinned_mem = true): n(n), device_in_sync(true), host_in_sync(true), use_pinned_mem(use_pinned_mem){
+    host = use_pinned_mem ? ((T*)pinned_alloc_check(128,byte_size())) : ((T*)memalign_check(128,byte_size())); 
 #ifdef GPU_VEC
     device = (T*)device_alloc_check(byte_size());
 #else
@@ -317,10 +325,11 @@ public:
     return device;
   }
 
-  //Synchronize the host and device with an asynchronous copy
+  //Synchronize the host and device with an asynchronous copy. Requires pinned memory
   //NOTE: While the sync flag will be set, the state is undefined until the copy stream has been synchronized
   void asyncHostDeviceSync(){
 #if defined(GRID_CUDA)
+    if(!use_pinned_mem) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Requires use of pinned memoruy");
     if(!device_in_sync && !host_in_sync) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Invalid state");
     if(!device_in_sync){
       cudaMemcpyAsync(device,host,byte_size(), cudaMemcpyHostToDevice,Grid::copyStream);
@@ -346,8 +355,8 @@ public:
   }
   
   ~hostDeviceMirroredContainer(){
-    pinned_free(host);
-    //free(host);
+    if(use_pinned_mem) pinned_free(host);
+    else free(host);
 #ifdef GPU_VEC
     device_free(device);
 #endif

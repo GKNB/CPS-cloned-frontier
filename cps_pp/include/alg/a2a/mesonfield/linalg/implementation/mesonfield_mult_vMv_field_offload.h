@@ -203,7 +203,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t vol4d = into.size();
     int t_off = GJP.TnodeSites() * GJP.TnodeCoor();
     size_t blocksize = BlockedvMvOffloadArgs::b;
-    size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
+    //size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
 
     typedef SIMT<VectorComplexType> ACC;
     typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
@@ -312,19 +312,20 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t vbprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
     size_t Mprime_bytes = blocksize * blocksize * sizeof(MFcomplexType);
 
-    VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
-    VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vbprime_bytes);
-    MFcomplexType* Mprime = (MFcomplexType*)managed_alloc_check(Mprime_bytes);
-    VectorComplexType* Mvbprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
-    
     if(!UniqueID()){
-      std::cout << "Outer block size " << blocksize << " inner blocksize " << inner_blocksize << std::endl;
+      std::cout << "Outer block size is blocksize=" << blocksize  << std::endl;  //<< " inner blocksize " << inner_blocksize << std::endl;
+      std::cout << "Field size is F=" << double(field_size * sizeof(VectorComplexType)) / 1024./1024. << " MB, for vector temporaries require (3 * blocksize * F) MB total" << std::endl;
       std::cout << "vaprime " << double(vaprime_bytes)/1024./1024. << " MB" << std::endl;
       std::cout << "vbprime " << double(vbprime_bytes)/1024./1024. << " MB" << std::endl;
       std::cout << "Mprime " << double(Mprime_bytes)/1024./1024. << " MB" << std::endl;
       std::cout << "Mvbprime " << double(vaprime_bytes)/1024./1024. << " MB" << std::endl;
     }
-
+    
+    VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
+    VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vbprime_bytes);
+    MFcomplexType* Mprime = (MFcomplexType*)managed_alloc_check(Mprime_bytes);
+    VectorComplexType* Mvbprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
+    
     //Do in blocks over i',j' to avoid taking too much space
     size_t niprime_blocks = (niprime + blocksize-1)/blocksize;
     size_t njprime_blocks = (njprime + blocksize-1)/blocksize;
@@ -338,7 +339,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       size_t iprimelessthan = std::min(iprimestart + blocksize, niprime);
       size_t niprime_block = iprimelessthan - iprimestart;
 
-      //std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
+      std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
       //std::cout << "Create va'" << std::endl;
 
       //Create va'
@@ -371,14 +372,14 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	size_t jprimelessthan = std::min(jprimestart + blocksize, njprime);
 	size_t njprime_block = jprimelessthan - jprimestart;	
 
-	//std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
-	//std::cout << "Create vb'" << std::endl;
+	std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
 
+	//std::cout << "Create vb' njprime_block=" << njprime_block << " xfsc_loop_size=" << 12*nf*vol4d << " nsimd=" << nsimd << std::endl;
 
 	//Create vb'
 	{
 	  using namespace Grid;
-	  accelerator_for2d(jprimeb, njprime_block, scf_x4d, 12*nf*vol4d, nsimd,
+	  accelerator_for2d(scf_x4d, 12*nf*vol4d, jprimeb, njprime_block, nsimd,
 			    {
 			      size_t rem = scf_x4d; //sc + 12*(f + nf*x4d)
 			      int sc = rem % 12; rem /= 12;
@@ -398,7 +399,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			    });
 	}
 
-	//std::cout << "Create Mprime" << std::endl;
+	std::cout << "Create Mprime" << std::endl;
 	//Create Mprime
 	{
 	  MFcomplexType *Mptr = Mprime;
@@ -421,7 +422,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	time.Mr -= dclock();
 	{
 	  using namespace Grid;
-	  accelerator_for2d(iprimeb, niprime_block, scf_x4d, 12*nf*vol4d, nsimd,
+	  accelerator_for2d(scf_x4d, 12*nf*vol4d, iprimeb, niprime_block, nsimd,
 			  {
 			    VectorComplexType *into = Mvbprime + iprimeb + niprime_block*scf_x4d;
 			    

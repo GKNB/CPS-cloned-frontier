@@ -366,6 +366,51 @@ struct FlavorUnpacked<StandardIndexDilution>{
 };
 
 
+//Mesonfields comprise either StandardIndexDilution or TimePackedIndexDilution indices
+//these functions allow conversions between those index types and StandardIndexDilution
+template<typename PackedDilutionType>
+struct mesonFieldConvertDilution{};
+
+template<>
+struct mesonFieldConvertDilution<StandardIndexDilution>{
+  //Convert to StandardIndexDilution
+  static accelerator_inline int unpack(const int from_idx, const int tblock, const int nl, const int nflavors, const int nspincolor, const int ntblocks){ return from_idx; }
+  ///Convert from StandardIndexDilution
+  static accelerator_inline std::pair<int,bool> pack(const int from_idx, const int tblock, const int nl, const int nflavors, const int nspincolor, const int ntblocks){ return {from_idx,true}; }
+};
+
+template<>
+struct mesonFieldConvertDilution<TimePackedIndexDilution>{
+  static accelerator_inline int unpack(const int from_idx, const int tblock, const int nl, const int nflavors, const int nspincolor, const int ntblocks){
+    if(from_idx < nl) return from_idx;
+    else{
+      //in_hi:  spin_color + nspincolor *( flavor + nflavors* hit);
+      //out_hi: spin_color + nspincolor *( flavor + nflavors*( tblock + ntblocks * hit) );
+      int hi = from_idx - nl;
+      int nscf = nspincolor * nflavors;
+      int scf = hi % nscf;
+      int hit = hi / nscf;
+      return nl + scf + nscf * ( tblock + ntblocks * hit );
+    }
+  }
+  //Returns (idx, tmatch)  where bool tmatch is true only if the embedded time index matches the input 'tblock'
+  static accelerator_inline std::pair<int,bool> pack(const int from_idx, const int tblock, const int nl, const int nflavors, const int nspincolor, const int ntblocks){
+    if(from_idx < nl) return {from_idx, true};
+    else{
+      //in_hi: spin_color + nspincolor *( flavor + nflavors*( tblock + ntblocks * hit) );
+      //out_hi:  spin_color + nspincolor *( flavor + nflavors* hit);
+      int hi = from_idx - nl;
+      int nscf = nspincolor * nflavors;
+      int scf = hi % nscf;
+      int thit = hi / nscf;
+      int t = thit % ntblocks;
+      int hit = thit / ntblocks;      
+      return {nl + scf + nscf * hit, t==tblock};
+    }
+  }
+};
+  
+
 
 
 CPS_END_NAMESPACE

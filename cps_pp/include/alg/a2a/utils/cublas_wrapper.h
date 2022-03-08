@@ -241,29 +241,39 @@ inline const char* cublasGetErrorString(cublasStatus_t status){
     return "unknown error";
 }
 
+struct cuBLAShandles{
+  cublasXtHandle_t handle_xt;
+  
+  cuBLAShandles(){
+    assert( cublasXtCreate(&handle_xt) == CUBLAS_STATUS_SUCCESS );
+
+    //Get the device that Grid has assigned to this rank
+    int devices[1] = { 0 };
+    assert(cudaGetDevice(devices) == cudaSuccess);
+
+    //int devices[1] = { Grid::GlobalSharedMemory::WorldShmRank };   //use the same GPU Grid does
+    assert(cublasXtDeviceSelect(handle_xt, 1, devices) == CUBLAS_STATUS_SUCCESS);
+  }
+
+  ~cuBLAShandles(){
+    assert( cublasXtDestroy(handle_xt) == CUBLAS_STATUS_SUCCESS );
+  }
+};
+
 //Multiply matrices C = A*B
 //m = A.rows()  n=B.cols()  k=A.cols()
 inline void mult_offload_cuBLASxt(cuDoubleComplex* C,
 			   cuDoubleComplex const* A,
 			   cuDoubleComplex const* B,
 			   const size_t m, const size_t n, const size_t k){
-
-  cublasXtHandle_t handle_xt;
-  assert( cublasXtCreate(&handle_xt) == CUBLAS_STATUS_SUCCESS );
-  
-  //Get the device that Grid has assigned to this rank
-  int devices[1] = { 0 };
-  assert(cudaGetDevice(devices) == cudaSuccess);
-
-  //int devices[1] = { Grid::GlobalSharedMemory::WorldShmRank };   //use the same GPU Grid does
-  assert(cublasXtDeviceSelect(handle_xt, 1, devices) == CUBLAS_STATUS_SUCCESS);
+  static cuBLAShandles handles; //perform initialization crud only once
   
   //cuBLAS uses awful column-major order
   //use trick from https://stackoverflow.com/questions/56043539/cublassgemm-row-major-multiplication to workaround
   gpuMatrix::complexD one(1.0,0.0);
   gpuMatrix::complexD zero(0.0,0.0);
 
-  cublasStatus_t err = cublasXtZgemm(handle_xt,
+  cublasStatus_t err = cublasXtZgemm(handles.handle_xt,
 				     CUBLAS_OP_N,CUBLAS_OP_N,
 				     n,m,k,
 				     (cuDoubleComplex*)&one,
@@ -273,8 +283,6 @@ inline void mult_offload_cuBLASxt(cuDoubleComplex* C,
 				     C, n);
   if(err!=CUBLAS_STATUS_SUCCESS)
     ERR.General("","mult_offload_cuBLASxt","cublasXtZgemm call failed with error: %s", cublasGetErrorString(err));
-
-  assert( cublasXtDestroy(handle_xt) == CUBLAS_STATUS_SUCCESS );
 }
 
 

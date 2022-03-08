@@ -201,8 +201,69 @@ public:
     }
   }
 
+
+  static void mult_cublasxt_v2(A2AmesonField<mf_Policies,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
+    getTimers().calls++;
+
+    typedef A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> MFtypeL;
+    typedef A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> MFtypeR;
+    typedef A2AmesonField<mf_Policies,lA2AfieldL,rA2AfieldR> MFtypeOut;
+    
+    getTimers().t_init -= dclock();
+    
+    typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+    
+    assert( (void*)&out != (void*)&l || (void*)&out != (void*)&r );
+
+    if(! l.getColParams().paramsEqual( r.getRowParams() ) ){
+      if(!UniqueID()){
+	printf("mult():  Illegal matrix product: underlying vector parameters must match\n"); fflush(stdout);
+	std::cout << "left-column: " << l.getColParams().print() << "\n";
+	std::cout << "right-row: " << r.getRowParams().print() << "\n";
+	std::cout.flush();
+      }
+      exit(-1);
+    }
+
+    out.setup(l.getRowParams(),r.getColParams(), l.getRowTimeslice(), r.getColTimeslice() ); //zeroes output, so safe to re-use
+
+    int lrows = l.getNrowsFull(), lcols = l.getNcolsFull();
+    int rrows = r.getNrowsFull(), rcols = r.getNcolsFull();
+    int orows = out.getNrowsFull(), ocols = out.getNcolsFull();
+    getTimers().t_init += dclock();
+    
+    getTimers().t_alloc -= dclock();
+    ScalarComplexType *lu = (ScalarComplexType *)device_alloc_check(lrows*lcols*sizeof(ScalarComplexType));
+    ScalarComplexType *ru = (ScalarComplexType *)device_alloc_check(rrows*rcols*sizeof(ScalarComplexType));
+    ScalarComplexType *ou = (ScalarComplexType *)device_alloc_check(orows*ocols*sizeof(ScalarComplexType));
+    getTimers().t_alloc += dclock();
+    
+    getTimers().t_write -= dclock();	
+    l.unpack_device(lu);
+    r.unpack_device(ru);
+    getTimers().t_write += dclock();
+
+    getTimers().t_compute -= dclock();
+    mult_offload_cuBLASxt((cuDoubleComplex*)ou, (cuDoubleComplex const*)lu, (cuDoubleComplex const*)ru, lrows, rcols, lcols);
+    getTimers().t_compute += dclock();
+    
+    getTimers().t_write -= dclock();	
+    out.pack_device(ou);
+    getTimers().t_write += dclock();
+
+    getTimers().t_alloc -= dclock();
+    device_free(lu);
+    device_free(ru);
+    device_free(ou);    
+    getTimers().t_alloc += dclock();
+  }
+    
+
+
+  
   inline static void mult(A2AmesonField<mf_Policies,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
     mult_cublasxt(out, l,r,node_local);
+    //mult_cublasxt_v2(out, l,r,node_local);
   }
 };
 

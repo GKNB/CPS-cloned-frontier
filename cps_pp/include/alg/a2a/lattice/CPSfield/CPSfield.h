@@ -9,6 +9,7 @@
 #include<util/lattice/bfm_evo.h>
 #endif
 
+#include<alg/a2a/lattice/spin_color_matrices.h>
 #include<alg/a2a/utils.h>
 
 CPS_START_NAMESPACE 
@@ -435,7 +436,7 @@ public:
   //NOTE: This does not work correctly for GPBC and FlavorPolicy==FixedFlavorPolicy<1> because we need to provide the flavor 
   //that this field represents to obtain the gauge-fixing matrix. I fixed this for CPSfermion3D and a similar implementation will work here
   //dagger = true  applied V^\dagger to the vector to invert a previous gauge fix
-  void gaugeFix(Lattice &lat, const bool parallel, const bool dagger = false);
+  void gaugeFix(Lattice &lat, const bool dagger = false);
 
   //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
   void setUniformRandom(const Float &hi = 0.5, const Float &lo = -0.5);

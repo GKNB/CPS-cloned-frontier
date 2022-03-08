@@ -1,0 +1,80 @@
+#pragma once
+
+CPS_START_NAMESPACE
+
+template<typename A2Apolicies>
+void benchmarkPiPiContractions(const A2AArg &a2a_args){
+  StandardPionMomentaPolicy mom_policy;
+  MesonFieldMomentumContainer<A2Apolicies> mf_con;
+
+  A2Aparams params(a2a_args);
+
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  
+  typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> MfType; 
+
+  int nmom = mom_policy.nMom();
+  
+  for(int i=0;i<nmom;i++){      
+    ThreeMomentum p = mom_policy.getMesonMomentum(i);
+    std::vector<MfType> mf(Lt);
+    for(int t=0;t<Lt;t++){
+      mf[t].setup(params,params,t,t);
+      mf[t].testRandom();
+    }
+    mf_con.moveAdd(p, mf);
+  }
+
+  double timeC(0), timeD(0), timeR(0), timeV(0);
+  double* timeCDR[3] = {&timeC, &timeD, &timeR};
+
+  for(int psrcidx=0; psrcidx < 1; psrcidx++){ //only do one src momentum otherwise it takes too long
+    ThreeMomentum p_pi1_src = mom_policy.getMesonMomentum(psrcidx);
+
+    for(int psnkidx=0; psnkidx < nmom; psnkidx++){	
+      fMatrix<typename A2Apolicies::ScalarComplexType> pipi(Lt,Lt);
+      ThreeMomentum p_pi1_snk = mom_policy.getMesonMomentum(psnkidx);
+
+      MesonFieldProductStore<A2Apolicies> products; //try to reuse products of meson fields wherever possible (not used ifdef DISABLE_PIPI_PRODUCTSTORE)
+      
+      char diag[3] = {'C','D','R'};
+      for(int d = 0; d < 3; d++){
+	printMem(stringize("Doing pipi figure %c, psrcidx=%d psnkidx=%d",diag[d],psrcidx,psnkidx),0);
+
+	bool redistribute_src = d == 2 && psnkidx == nmom - 1;
+	bool redistribute_snk = d == 2;
+
+	double time = -dclock();
+	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, 2, 1, mf_con, products
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+						 , redistribute_src, redistribute_snk
+#endif
+						 );
+	time += dclock();
+	*timeCDR[d] += time;
+      }
+    }
+
+    { //V diagram
+      printMem(stringize("Doing pipi figure V, pidx=%d",psrcidx),0);
+      double time = -dclock();
+      fVector<typename A2Apolicies::ScalarComplexType> figVdis(Lt);
+      ComputePiPiGparity<A2Apolicies>::computeFigureVdis(figVdis,p_pi1_src,2,mf_con);
+      time += dclock();
+      timeV += time;
+    }
+  }//end of psrcidx loop
+
+  print_time("main","Pi-pi figure C",timeC);
+  print_time("main","Pi-pi figure D",timeD);
+  print_time("main","Pi-pi figure R",timeR);
+  print_time("main","Pi-pi figure V",timeV);
+
+#ifdef MULT_IMPL_CUBLASXT
+  if(!UniqueID()) _mult_impl_base::getTimers().print();
+  _mult_impl_base::getTimers().reset();
+#endif
+
+}
+
+CPS_END_NAMESPACE

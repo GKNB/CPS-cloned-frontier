@@ -277,6 +277,112 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(bool require){
 }
 
 
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack(typename mf_Policies::ScalarComplexType* into) const{
+  memset(into, 0, getNrowsFull()*getNcolsFull()*sizeof(ScalarComplexType));
+  int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
+  int rnl = getColParams().getNl(),  rnf = getColParams().getNflavors(), rnsc = getColParams().getNspinColor() , rnt = getColParams().getNtBlocks();
+  int ncolsfull = getNcolsFull();
+
+#pragma omp parallel for
+  for(int i=0;i<getNrows();i++){
+    int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, getRowTimeslice(), lnl, lnf, lnsc, lnt);
+    for(int j=0;j<getNcols();j++){
+      int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, getColTimeslice(), rnl, rnf, rnsc, rnt);
+
+      into[jinto + ncolsfull*iinto] = (*this)(i,j);
+    }
+  }
+  
+}
+
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack_device(typename mf_Policies::ScalarComplexType* into, A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView const* view) const{
+#if !defined(USE_GRID) || !defined(GPU_VEC)
+  unpack(into); //into must be a host pointer here
+#else
+  A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView *vp = const_cast<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView *>(view);
+  bool delete_view = false;
+  if(vp == nullptr){
+    vp = new A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView(this->view()); //copies to device
+    delete_view = true;
+  }
+
+  A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView const& v = *vp;
+  
+  device_memset(into, 0, getNrowsFull()*getNcolsFull()*sizeof(ScalarComplexType));
+  int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
+  int rnl = getColParams().getNl(),  rnf = getColParams().getNflavors(), rnsc = getColParams().getNspinColor() , rnt = getColParams().getNtBlocks();
+  int ncolsfull = getNcolsFull();
+  int nrows= getNrows(), ncols = getNcols();
+  int tl = getRowTimeslice(), tr = getColTimeslice();
+  
+  {
+    using namespace Grid;
+    accelerator_for2d(j, ncols, i, nrows, 1, {
+	int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, tl, lnl, lnf, lnsc, lnt);
+	int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, tr, rnl, rnf, rnsc, rnt);
+
+	into[jinto + ncolsfull*iinto] = v(i,j);
+      });
+  }
+
+  if(delete_view) delete vp;
+#endif
+}
+
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack(typename mf_Policies::ScalarComplexType const* from){
+  int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
+  int rnl = getColParams().getNl(),  rnf = getColParams().getNflavors(), rnsc = getColParams().getNspinColor() , rnt = getColParams().getNtBlocks();
+  int nrowsfull = getNrowsFull(), ncolsfull = getNcolsFull();
+
+#pragma omp parallel for  
+  for(int i=0;i<nrowsfull;i++){
+    auto iinto = mesonFieldConvertDilution<LeftDilutionType>::pack(i, getRowTimeslice(), lnl, lnf, lnsc, lnt);
+    if(iinto.second){
+      for(int j=0;j<getNcols();j++){
+	auto jinto = mesonFieldConvertDilution<RightDilutionType>::pack(j, getColTimeslice(), rnl, rnf, rnsc, rnt);
+	if(jinto.second){
+	  (*this)(iinto.first,jinto.first) = from[j + ncolsfull*i];
+	}
+      }
+    }
+  }
+}
+
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack_device(typename mf_Policies::ScalarComplexType const* from){
+#if !defined(USE_GRID) || !defined(GPU_VEC)
+  pack(from);
+#else  
+  int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
+  int rnl = getColParams().getNl(),  rnf = getColParams().getNflavors(), rnsc = getColParams().getNspinColor() , rnt = getColParams().getNtBlocks();
+  int nrowsfull = getNrowsFull(), ncolsfull = getNcolsFull();
+  int nrows= getNrows(), ncols = getNcols(); 
+  int tl = getRowTimeslice(), tr = getColTimeslice();
+  
+  //Create a staging post on the device
+  size_t stage_size = nrows*ncols*sizeof(ScalarComplexType);
+  ScalarComplexType *stage = (ScalarComplexType*)device_alloc_check(stage_size);
+  
+  {
+    using namespace Grid;
+    accelerator_for2d(j, ncolsfull, i, nrowsfull, 1, {
+	auto iinto = mesonFieldConvertDilution<LeftDilutionType>::pack(i, tl, lnl, lnf, lnsc, lnt);
+	auto jinto = mesonFieldConvertDilution<RightDilutionType>::pack(j, tr, rnl, rnf, rnsc, rnt);
+	if(iinto.second && jinto.second)
+	  stage[jinto.first + ncols*iinto.first] = from[j + ncolsfull * i];
+      });
+  }
+  copy_device_to_host(this->ptr(),stage,stage_size);
+  device_free(stage);
+#endif
+}
+  
 
 #endif
 

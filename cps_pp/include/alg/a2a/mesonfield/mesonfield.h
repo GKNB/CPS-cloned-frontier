@@ -10,6 +10,10 @@
 #include "mesonfield_controls.h"
 #include "mesonfield_distributed_storage.h"
 
+#ifdef USE_GRID
+#include<Grid/Grid.h>
+#endif
+
 CPS_START_NAMESPACE
 
 
@@ -55,6 +59,50 @@ public:
 					 fsize(r.fsize), lindexdilution(r.lindexdilution), rindexdilution(r.rindexdilution),
 					 tl(r.tl), tr(r.tr), MesonFieldDistributedStorageType(r){ }
 
+
+  //Read-only view class
+  class ReadView{
+    int nmodes_l, nmodes_r;
+    int fsize; //in units of ScalarComplexType
+    ScalarComplexType *data;
+
+  public:
+    //Size in complex
+    accelerator_inline int size() const{ return fsize; }
+
+    //Access elements with compressed mode index
+    accelerator_inline const ScalarComplexType & operator()(const int i, const int j) const{
+      return data[j + nmodes_r*i];
+    }
+
+    accelerator_inline int getRowTimeslice() const{ return tl; }
+    accelerator_inline int getColTimeslice() const{ return tr; }
+    
+    //These functions return the number of *packed* modes not the full number of modes
+    accelerator_inline int getNrows() const{ return nmodes_l; }
+    accelerator_inline int getNcols() const{ return nmodes_r; }
+
+    ReadView(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize){
+#ifdef GPU_VEC
+      data = (ScalarComplexType *)device_alloc_check(fsize * sizeof(ScalarComplexType));
+      copy_host_to_device(data, mf.ptr(), fsize * sizeof(ScalarComplexType));
+#else
+      data = mf.ptr();
+#endif
+    }
+    
+    void free(){
+#ifdef GPU_VEC
+      device_free(data);
+#endif
+    }
+  };
+
+  //Create a *READ ONLY* view of the mesonfield for device access
+  inline ReadView view() const{ return ReadView(*this); }
+
+
+  
   //Call this when you use the default constructor if not automatically called (it is called automatically in ::compute)
   void setup(const A2Aparams &lp, const A2Aparams &rp, const int _tl, const int _tr){
     tl = _tl; tr = _tr;
@@ -208,6 +256,32 @@ public:
     return &this->operator()(packed_i,packed_j);
   }
 
+  //Convert the meson field from the packed default format into an unpacked format
+  //(i,j) element of 'into' =  j + getNcolsFull() * i
+  //size of 'into' = getNrowsFull()*getNcolsFull()
+  void unpack(ScalarComplexType* into) const;  
+
+  //Convert the meson field from the packed default format into an unpacked format *on the device*
+  //If a view is not provided it will be created internally and the host->device copy performed
+  //(i,j) element of 'into' =  j + getNcolsFull() * i
+  //size of 'into' = getNrowsFull()*getNcolsFull()
+  //** into must be allocated on the device! **
+  void unpack_device(ScalarComplexType* into, ReadView const* view = nullptr) const;
+  
+  //Convert the meson field from the unpacked format into the packed format
+  //(i,j) element of 'from' =  j + getNcolsFull() * i
+  //size of 'from' = getNrowsFull()*getNcolsFull()
+  //Note: the left and right timeslices of "this" must be set to match the time row/column that is non zero (if appropriate)  
+  void pack(ScalarComplexType const* from);
+
+  //Convert the meson field from the unpacked format into the packed format *on the device*
+  //The packing is performed on the device and the result is copied to the host
+  //(i,j) element of 'from' =  j + getNcolsFull() * i
+  //size of 'from' = getNrowsFull()*getNcolsFull()
+  //Note: the left and right timeslices of "this" must be set to match the time row/column that is non zero (if appropriate)
+  //** from must be allocated on the device! **
+  void pack_device(ScalarComplexType const* from);
+  
   inline void zero(const bool parallel = true){
     memset(this->data(), 0, sizeof(ScalarComplexType) * fsize);      
   }
