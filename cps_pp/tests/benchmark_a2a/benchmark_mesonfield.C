@@ -120,14 +120,14 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkmultGammaLeft(ntests, tol);
  
 #ifdef USE_GRID
-  if(0) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 #endif
 
   if(0) benchmarkCPSfieldIO();
 
 #ifdef USE_GRID
-  if(1) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
+  if(0) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
 #endif
 
   if(0) timeAllReduce(false);

@@ -82,20 +82,9 @@ public:
     accelerator_inline int getNrows() const{ return nmodes_l; }
     accelerator_inline int getNcols() const{ return nmodes_r; }
 
-    ReadView(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize){
-#ifdef GPU_VEC
-      data = (ScalarComplexType *)device_alloc_check(fsize * sizeof(ScalarComplexType));
-      copy_host_to_device(data, mf.ptr(), fsize * sizeof(ScalarComplexType));
-#else
-      data = mf.ptr();
-#endif
-    }
+    ReadView(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf);
     
-    void free(){
-#ifdef GPU_VEC
-      device_free(data);
-#endif
-    }
+    void free();
   };
 
   //Create a *READ ONLY* view of the mesonfield for device access
