@@ -70,7 +70,7 @@ void testCPSfieldArray(){
   typedef SIMT<ComplexType> ACC;
 
 #ifdef GRID_CUDA
-  using Grid::acceleratorAbortOnGpuError;
+  using Grid::acceleratorAbortOnGpuError;	//FIXME: need to check if this logic here is correct! (Also 4 more places below!)
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
