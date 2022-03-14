@@ -1,6 +1,69 @@
 #ifndef _MESONFIELD_COMPUTE_IMPL_OFFLOAD
 #define _MESONFIELD_COMPUTE_IMPL_OFFLOAD
 
+//Implementation of offloaded reduction kernel only CUDA and HIP currently
+
+#ifdef GRID_HIP
+
+#define MF_REDUCE_ON_DEVICE
+
+template<typename ComplexType>
+__global__ void reduceKernel(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t bi_true, const size_t bj_true, const size_t bj, const size_t size_3d, const size_t multiplicity)
+{
+#ifdef GRID_SIMT
+//FIXME: at this point we have to put the code inside GRID_SIMT condition in order to make sure that it is compiled on for GPU	
+  constexpr int nsimd = ComplexType::Nsimd();
+  __shared__ typename SIMT<ComplexType>::value_type thrbuf[nsimd];
+  int ii = blockIdx.x;
+  int jj = blockIdx.y;
+  int m = blockIdx.z;
+  int lane = threadIdx.x;
+
+  //input off = m + multiplicity*(x + size_3d*(jj + bj*ii))
+  //output off = m + multiplicity*(jj + bj*ii)
+  
+  ComplexType const* fb = from + m + multiplicity*size_3d*(jj + bj*ii); //x=0
+  typename ComplexType::scalar_type* ib = into + m + multiplicity*(jj + bj_true*ii);
+
+  //Each thread sums its lane into a temp shared buffer
+  typename SIMT<ComplexType>::value_type &v = thrbuf[lane];
+  v = SIMT<ComplexType>::read(fb[0],lane);
+  
+  for(size_t x=1; x<size_3d; x++){
+    v += SIMT<ComplexType>::read(fb[multiplicity*x],lane);
+  }
+  __syncthreads();
+
+  //Thread 0 sums over the temp buffer
+  if(lane == 0){
+    *ib = thrbuf[0];
+    for(int i=1; i<nsimd; i++) *ib += thrbuf[i];
+  }
+
+#else
+#warning "The reduceKernel is compiled for host! We don't want that happen!"
+#endif
+}
+
+template<typename ComplexType>
+void blockReduce(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t bi_true, const size_t bj_true, const size_t bj, const size_t size_3d, const size_t multiplicity){
+  //We will work with 1 thread per block and blocks over a 3d grid   nij x bj_true x multiplicity
+  //Each thread does thr reduction for a single element over the whole 3d grid
+  dim3 blocks(bi_true, bj_true, multiplicity);
+  constexpr int nsimd = ComplexType::Nsimd();
+  
+  reduceKernel<<< blocks, nsimd>>>(into, from, bi_true, bj_true, bj, size_3d, multiplicity);
+  hipDeviceSynchronize();
+
+  hipError_t err = hipGetLastError();
+  if ( hipSuccess != err ) {
+    printf("blockReduce: Hip error %s\n",hipGetErrorString( err ));
+    exit(0);
+  }
+}
+
+#endif //GRID_HIP
+
 //Implementation of offloaded reduction kernel only CUDA currently
 #ifdef GRID_CUDA
 
@@ -71,8 +134,8 @@ void mesonFieldComputeReduce(mfVectorType &mf_t, accumType const* accum,
 			     const int t, const size_t size_3d,
 			     const int multiplicity, const Accessor &acc){
 #ifdef MF_REDUCE_ON_DEVICE
-    //CUDA only currently
-    //std::cout << "CUDA GPU reduce (multi src)" << std::endl;
+    //CUDA only currently (HIP newly added)
+    //std::cout << "CUDA/HIP GPU reduce (multi src)" << std::endl;
 
     double talloc_free = 0;
     double tkernel = 0;
@@ -104,9 +167,9 @@ void mesonFieldComputeReduce(mfVectorType &mf_t, accumType const* accum,
     managed_free(tmp);
     talloc_free += dclock() - time;
 
-    // print_time("CUDA GPU reduce","alloc_free",talloc_free);
-    // print_time("CUDA GPU reduce","kernel",tkernel);
-    // print_time("CUDA GPU reduce","poke",tpoke);
+     //print_time("CUDA/HIP GPU reduce","alloc_free",talloc_free);
+     //print_time("CUDA/HIP GPU reduce","kernel",tkernel);
+     //print_time("CUDA/HIP GPU reduce","poke",tpoke);
 #else
     //Reduce over size_3d
     //(Do this on host for now) //GENERALIZE ME

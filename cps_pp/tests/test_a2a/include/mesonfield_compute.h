@@ -217,7 +217,23 @@ void testMesonFieldComputeSingleMulti(const A2AArg &a2a_args, double tol){
 //This test checks the Grid (SIMD) general MF compute against the non-SIMD
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void testGridMesonFieldCompute(const A2AArg &a2a_args, const int nthreads, const double tol){
+
+#ifdef USE_GRID
+  std::cout << "USE_GRID is enabled!" << std::endl;
+#endif  
+
+#ifdef GRID_CUDA
+  std::cout << "GRID_CUDA is enabled!" << std::endl;
+#endif  
+
+#ifdef GRID_HIP
+  std::cout << "GRID_HIP is enabled!" << std::endl;
+#endif  
  
+#ifdef GPU_VEC
+  std::cout << "GPU_VEC is enabled!" << std::endl;
+#endif  
+    	
 #ifdef USE_GRID
   std::cout << "Starting MF contraction test comparing Grid SIMD vs non-SIMD multi-timeslice implementations\n";
 

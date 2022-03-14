@@ -340,6 +340,7 @@ public:
       host_in_sync = true;
     }
 #elif defined(GRID_HIP)
+    if(!use_pinned_mem) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Requires use of pinned memoruy");
     if(!device_in_sync && !host_in_sync) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Invalid state");
     if(!device_in_sync){
       hipMemcpyAsync(device,host,byte_size(), hipMemcpyHostToDevice ,Grid::copyStream);

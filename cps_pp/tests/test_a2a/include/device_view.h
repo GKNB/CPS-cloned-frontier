@@ -69,12 +69,16 @@ void testCPSfieldArray(){
 
   typedef SIMT<ComplexType> ACC;
 
-#ifdef GRID_CUDA  
-  using Grid::LambdaApply;
-  using Grid::acceleratorAbortOnGpuError;  
+#ifdef GRID_CUDA
+  using Grid::acceleratorAbortOnGpuError;
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
+#if defined(GRID_HIP) || defined(GRID_CUDA)
+  using Grid::LambdaApply64;
+  using Grid::LambdaApply;
+#endif
+
 
   std::cout << "Starting kernel" << std::endl;
 
@@ -171,12 +175,16 @@ void testA2AfieldAccess(){
 
   typedef SIMT<ComplexType> ACC;
 
-#ifdef GRID_CUDA  
-  using Grid::LambdaApply;
+#ifdef GRID_CUDA
   using Grid::acceleratorAbortOnGpuError;
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
+#if defined(GRID_HIP) || defined(GRID_CUDA)
+  using Grid::LambdaApply64;
+  using Grid::LambdaApply;
+#endif  
+
 
   std::cout << "Generating views" << std::endl;
   CPSautoView(vv, v);
@@ -265,13 +273,16 @@ void testViewArray(){
 
   using Grid::acceleratorThreads;
 
-#ifdef GRID_CUDA  
-  using Grid::LambdaApply;
+#ifdef GRID_CUDA
   using Grid::acceleratorAbortOnGpuError;
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
-  
+#if defined(GRID_HIP) || defined(GRID_CUDA)
+  using Grid::LambdaApply64;
+  using Grid::LambdaApply;
+#endif  
+
   
   accelerator_for(x, 100, 1,
 		  {
@@ -336,12 +347,16 @@ void testCPSfieldDeviceCopy(){
 
   using Grid::acceleratorThreads;
 
-#ifdef GRID_CUDA  
-  using Grid::LambdaApply;
+#ifdef GRID_CUDA
   using Grid::acceleratorAbortOnGpuError;
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
+#if defined(GRID_HIP) || defined(GRID_CUDA)
+  using Grid::LambdaApply64;
+  using Grid::LambdaApply;
+#endif  
+
   auto field_v = field.view();
   
   accelerator_for(x, 1, nsimd,
@@ -411,12 +426,16 @@ void testMultiSourceDeviceCopy(){
 
   using Grid::acceleratorThreads;
 
-#ifdef GRID_CUDA  
-  using Grid::LambdaApply;
+#ifdef GRID_CUDA
   using Grid::acceleratorAbortOnGpuError;
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
+#if defined(GRID_HIP) || defined(GRID_CUDA)
+  using Grid::LambdaApply64;
+  using Grid::LambdaApply;
+#endif
+
 
   ComplexType* into = (ComplexType*)managed_alloc_check(sizeof(ComplexType));
   typedef SIMT<ComplexType> ACC;
