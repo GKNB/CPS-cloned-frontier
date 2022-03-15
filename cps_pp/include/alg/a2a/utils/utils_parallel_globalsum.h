@@ -53,7 +53,7 @@ inline void globalSum(thrust::complex<float>* v, const size_t n = 1){
 }
 
 
-#endif //GRID_CUDA
+#endif //GRID_CUDA || GRID_HIP
 
 template<typename T>
 struct _globalSumComplexGrid{

@@ -132,7 +132,7 @@ inline void device_free(void* p){
 
 //Allocate pinned memory on host if in use; otherwise do memalign
 inline void* pinned_alloc_check(const size_t align, const size_t byte_size){
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
   void *p;
   auto err = cudaMallocHost(&p,byte_size);
   if( err != cudaSuccess ) {
@@ -142,18 +142,38 @@ inline void* pinned_alloc_check(const size_t align, const size_t byte_size){
     assert(0);
   }
   return p;
-#else
+#elif defined(GRID_HIP)
+  void *p;
+  auto err = hipHostMalloc(&p,byte_size,hipHostMallocDefault);
+  if( err != hipSuccess ) {
+    p = (void*)NULL;
+    std::cerr << "pinned_alloc_check: hipHostMalloc failed for " << byte_size<<" bytes " <<hipGetErrorString(err)<< std::endl;
+    printMem("malloc failed",UniqueID());
+    assert(0);
+  }
+  return p;
+#else  
   return memalign_check(align, byte_size);
 #endif
 }
 
 inline void* pinned_alloc_check(const size_t byte_size){
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
   void *p;
   auto err = cudaMallocHost(&p,byte_size);
   if( err != cudaSuccess ) {
     p = (void*)NULL;
     std::cerr << "device_alloc_check: cudaHostMalloc failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
+    printMem("malloc failed",UniqueID());
+    assert(0);
+  }
+  return p;
+#elif defined(GRID_HIP)
+  void *p;
+  auto err = hipHostMalloc(&p,byte_size,hipHostMallocDefault);
+  if( err != hipSuccess ) {
+    p = (void*)NULL;
+    std::cerr << "device_alloc_check: hipHostMalloc failed for " << byte_size<<" bytes " <<hipGetErrorString(err)<< std::endl;
     printMem("malloc failed",UniqueID());
     assert(0);
   }
@@ -164,10 +184,16 @@ inline void* pinned_alloc_check(const size_t byte_size){
 }
 
 inline void pinned_free(void* p){
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
   auto err = cudaFreeHost(p);
   if( err != cudaSuccess ) {
     std::cerr << "pinned_free: cudaFree failed with error " <<cudaGetErrorString(err)<< std::endl;
+    assert(0);
+  }  
+#elif defined(GRID_HIP)
+  auto err = hipHostFree(p);	//Here hipFreeHost is deprecated, and hipHostFree does an implicit deviceSynchronize
+  if( err != hipSuccess ) {
+    std::cerr << "pinned_free: hipFree failed with error " <<hipGetErrorString(err)<< std::endl;
     assert(0);
   }  
 #else
@@ -180,7 +206,7 @@ inline void pinned_free(void* p){
 
 //Allocate mapped memory on host and device (if CUDA, otherwise do memalign)
 inline void mapped_alloc_check(void** hostptr, void **deviceptr,  const size_t align, const size_t byte_size){
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
   auto err1 = cudaHostAlloc(hostptr,byte_size,cudaHostAllocMapped);
   auto err2 = cudaHostGetDevicePointer(deviceptr, *hostptr, 0);	
 
@@ -191,6 +217,18 @@ inline void mapped_alloc_check(void** hostptr, void **deviceptr,  const size_t a
     printMem("malloc failed",UniqueID());
     assert(0);
   }
+#elif defined(GRID_HIP)
+  //FIXME: This version needs testing to see if it works as imagined. The official documentation is stupid
+  auto err1 = hipHostMalloc(hostptr,byte_size,hipHostMallocMapped);
+  auto err2 = hipHostGetDevicePointer(deviceptr, *hostptr, 0);	
+
+  if( err1 != hipSuccess || err2 != hipSuccess ) {
+    *hostptr = (void*)NULL;
+    *deviceptr = (void*)NULL;
+    std::cerr << "mapped_alloc_check: hipMallocHost failed for " << byte_size<<" bytes " <<hipGetErrorString(err1)<< " " << hipGetErrorString(err2) << std::endl;
+    printMem("malloc failed",UniqueID());
+    assert(0);
+  }
 #else
   *hostptr = memalign_check(align, byte_size);
   *deviceptr = *hostptr;
@@ -198,7 +236,7 @@ inline void mapped_alloc_check(void** hostptr, void **deviceptr,  const size_t a
 }
 
 inline void mapped_alloc_check(void** hostptr, void **deviceptr, const size_t byte_size){
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
   auto err1 = cudaHostAlloc(hostptr,byte_size,cudaHostAllocMapped);
   auto err2 = cudaHostGetDevicePointer(deviceptr, *hostptr, 0);	
 
@@ -206,6 +244,18 @@ inline void mapped_alloc_check(void** hostptr, void **deviceptr, const size_t by
     *hostptr = (void*)NULL;
     *deviceptr = (void*)NULL;
     std::cerr << "mapped_alloc_check: cudaMallocHost failed for " << byte_size<<" bytes " <<cudaGetErrorString(err1)<< " " << cudaGetErrorString(err2) << std::endl;
+    printMem("malloc failed",UniqueID());
+    assert(0);
+  }
+#elif defined(GRID_HIP)
+  //FIXME: This version needs testing to see if it works as imagined. The official documentation is stupid
+  auto err1 = hipHostMalloc(hostptr,byte_size,hipHostMallocMapped);
+  auto err2 = hipHostGetDevicePointer(deviceptr, *hostptr, 0);	
+
+  if( err1 != hipSuccess || err2 != hipSuccess ) {
+    *hostptr = (void*)NULL;
+    *deviceptr = (void*)NULL;
+    std::cerr << "mapped_alloc_check: hipMallocHost failed for " << byte_size<<" bytes " <<hipGetErrorString(err1)<< " " << hipGetErrorString(err2) << std::endl;
     printMem("malloc failed",UniqueID());
     assert(0);
   }
@@ -218,10 +268,16 @@ inline void mapped_alloc_check(void** hostptr, void **deviceptr, const size_t by
 
 
 inline void mapped_free(void* hostptr){
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
   auto err = cudaFreeHost(hostptr);
   if( err != cudaSuccess ) {
     std::cerr << "mapped_free: cudaFree failed with error " <<cudaGetErrorString(err)<< std::endl;
+    assert(0);
+  }  
+#elif defined(GRID_HIP)
+  auto err = hipHostFree(hostptr);
+  if( err != hipSuccess ) {
+    std::cerr << "mapped_free: hipFree failed with error " <<hipGetErrorString(err)<< std::endl;
     assert(0);
   }  
 #else
@@ -313,7 +369,7 @@ struct AlignedVector{
 };
 
 
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA) || defined(GRID_HIP)
 
 //Cache for pinned host memory; a modified version of Grid's pointer cache
 class PinnedHostMemoryCache {
@@ -370,8 +426,11 @@ public:
     Entries[v].address=ptr;
     Entries[v].bytes  =bytes;
     Entries[v].valid  =1;
-
+# if defined(GRID_CUDA)
     if(ret != NULL) assert( cudaFreeHost(ret) == cudaSuccess );
+# elif defined(GRID_HIP)
+    if(ret != NULL) assert( hipHostFree(ret) == hipSuccess );
+# endif
   }
 
   static void * alloc(size_t bytes){
@@ -388,12 +447,16 @@ public:
       }
     }
     void* ret;
+# if defined(GRID_CUDA)
     assert( cudaMallocHost(&ret, bytes, cudaHostAllocDefault) == cudaSuccess );    
+# elif defined(GRID_HIP)
+    assert( hipHostMalloc(&ret, bytes, hipHostMallocDefault) == hipSuccess );    
+# endif
     return ret;
   }
 };
 
-#endif //GRID_CUDA
+#endif //GRID_CUDA || GRID_HIP
 
 
 

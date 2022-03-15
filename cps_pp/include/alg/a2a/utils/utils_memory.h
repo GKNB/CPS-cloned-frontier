@@ -112,7 +112,7 @@ inline void printMem(const std::string &reason = "", int node = 0, FILE* stream 
   HeapProfilerDump(reason.c_str());
 #endif
 
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
   size_t gpu_free, gpu_tot;
   cudaError_t err = cudaMemGetInfo(&gpu_free, &gpu_tot);
   if( err != cudaSuccess ) {
@@ -123,7 +123,17 @@ inline void printMem(const std::string &reason = "", int node = 0, FILE* stream 
     fprintf(stream,"printMem node %d: GPU memory free %f MB, total %f MB\n",
 	    node, byte_to_MB(gpu_free), byte_to_MB(gpu_tot) );
   }
-
+#elif defined(GRID_HIP)
+  size_t gpu_free, gpu_tot;
+  hipError_t err = hipMemGetInfo(&gpu_free, &gpu_tot);
+  if( err != hipSuccess ) {
+    std::cerr << "printMem: hipMemGetInfo failed: " <<hipGetErrorString(err)<< std::endl;
+    assert(0);
+  }
+  if(UniqueID()==node){
+    fprintf(stream,"printMem node %d: GPU memory free %f MB, total %f MB\n",
+	    node, byte_to_MB(gpu_free), byte_to_MB(gpu_tot) );
+  }
 #endif
 
   fflush(stream);

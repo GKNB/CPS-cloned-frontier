@@ -52,7 +52,7 @@ CPS_START_NAMESPACE
 
 #if defined(GRID_CUDA) || !defined(GPU_VEC)
 //Only implemented for CUDA right now but I want to actually compile with non-CUDA devices!
-
+//FIXME: Need to implement that for HIP after mf_contract since it is needed in mesonfield_mult_vv_field_offload.h
 //query the max bytes allocatable as block shared memory for a given device. If the device index is -1 it will be inferred from the current device
 //Returns 0 if not using a CUDA GPU
 inline int maxDeviceShmemPerBlock(int device = -1){
@@ -351,7 +351,7 @@ public:
       host_in_sync = true;
     }
 #else    
-    ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Asynchronous copies only currently supported for CUDA");
+    ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Asynchronous copies only currently supported for CUDA and HIP");
 #endif
   }
   
