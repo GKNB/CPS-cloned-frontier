@@ -242,9 +242,12 @@ inline const char* cublasGetErrorString(cublasStatus_t status){
 }
 
 struct cuBLAShandles{
+  inline static double & time(){ static double t; return t; }
+  
   cublasXtHandle_t handle_xt;
   
   cuBLAShandles(){
+    time() -= dclock();
     assert( cublasXtCreate(&handle_xt) == CUBLAS_STATUS_SUCCESS );
 
     //Get the device that Grid has assigned to this rank
@@ -253,6 +256,7 @@ struct cuBLAShandles{
 
     //int devices[1] = { Grid::GlobalSharedMemory::WorldShmRank };   //use the same GPU Grid does
     assert(cublasXtDeviceSelect(handle_xt, 1, devices) == CUBLAS_STATUS_SUCCESS);
+    time() += dclock();
   }
 
   ~cuBLAShandles(){
@@ -310,6 +314,14 @@ inline gpuHostPinnedMatrix mult_offload_cuBLASxt(const gpuHostPinnedMatrix &A, c
   mult_offload_cuBLASxt(C_2.ptr(), A.ptr(), B.ptr(),
 			m,n,k);
   return C_2;
+}
+
+//A version of the above using preallocated output matrix
+inline void mult_offload_cuBLASxt(gpuHostPinnedMatrix &C, const gpuHostPinnedMatrix &A, const gpuHostPinnedMatrix &B){
+  size_t m =A.rows(), n=B.cols(), k=A.cols();
+  assert(C.rows() == m && C.cols() == n);
+  mult_offload_cuBLASxt(C.ptr(), A.ptr(), B.ptr(),
+			m,n,k);
 }
 
 

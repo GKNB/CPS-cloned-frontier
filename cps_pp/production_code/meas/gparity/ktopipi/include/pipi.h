@@ -110,6 +110,17 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
     fMatrix<typename A2Apolicies::ScalarComplexType> pipi(Lt,Lt);
     MesonFieldProductStore<A2Apolicies> products;
 
+    //Predetermine which products we are going to reuse in order to save memory
+    MesonFieldProductStoreComputeReuse<A2Apolicies> product_usage;
+    char diag[3] = {'C','D','R'};
+    for(int d = 0; d < 3; d++)
+      ComputePiPiGparity<A2Apolicies>::setupProductStore(product_usage, diag[d],
+							 correlators[c].pi1_src, correlators[c].pi2_src,
+							 correlators[c].pi1_snk, correlators[c].pi2_snk,
+							 params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con);
+    
+    product_usage.addAllowedStores(products); //restrict storage only to products we know we are going to reuse
+    
     for(int d = 0; d < 3; d++){
       printMem(stringize("Doing pipi figure %c, pi1_src=%s pi2_src=%s pi1_snk=%s pi2_snk=%s",diag[d],
 			 correlators[c].pi1_src.str().c_str(), correlators[c].pi2_src.str().c_str(),

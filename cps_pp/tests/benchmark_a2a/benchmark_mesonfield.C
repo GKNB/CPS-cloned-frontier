@@ -29,6 +29,8 @@ struct Options{
   double tol;
   int nlowmodes;
 
+  int nshift; //for shifted src benchmark
+  
   Options(){
     load_lrg=false;
     save_lrg=false;
@@ -40,6 +42,8 @@ struct Options{
     ntests = 10;    
     tol = 1e-8;
     nlowmodes = 100;
+
+    nshift = 4;
   }
 
 
@@ -120,8 +124,10 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkmultGammaLeft(ntests, tol);
  
 #ifdef USE_GRID
-  if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(0) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(0) benchmarkMultiShiftMFcontract<GridA2ApoliciesType>(a2a_args, opt.nshift);
+
 #endif
 
   if(0) benchmarkCPSfieldIO();
@@ -147,7 +153,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkMfTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMfTraceProdGPU<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMfVectorTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
-  if(0) benchmarkPiPiContractions<GridA2ApoliciesType>(a2a_args);
+  if(1) benchmarkPiPiContractions<GridA2ApoliciesType>(a2a_args);
 
   if(0) benchmarkMesonFieldUnpack<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMesonFieldPack<GridA2ApoliciesType>(a2a_args, ntests);
@@ -258,6 +264,11 @@ int main(int argc,char *argv[])
     }else if( cmd == "-vMv_split_blocksize" ){
       std::stringstream ss; ss  << argv[i+1]; ss >> BlockedSplitvMvArgs::b;
       if(!UniqueID()) printf("Set vMv split blocksize to %d\n", BlockedSplitvMvArgs::b);
+      i+=2;
+    }else if( cmd == "-nshift" ){
+      std::stringstream ss; ss << argv[i+1];
+      ss >> opt.nshift;
+      if(!UniqueID()) printf("Set nshift to %d\n",opt.nshift);
       i+=2;
     }else{
       i++;

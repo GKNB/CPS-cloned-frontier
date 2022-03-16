@@ -520,6 +520,14 @@ public:
     qidx_w = optimized_clist[cidx].qidx_w;    qidx_v = optimized_clist[cidx].qidx_v;
     p_w = optimized_clist[cidx].p_w;     p_v = optimized_clist[cidx].p_v; 
   }
+
+  //Return the number of shifts that are performed for a single contraction
+  int getNshifts(const int cidx){
+    optimizeContractionList();
+    return optimized_clist[cidx].shifts.size();
+  }
+
+
 };
 
 template<typename mf_Policies, typename InnerProduct>
