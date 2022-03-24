@@ -54,6 +54,22 @@ public:
   inline static Timings & timingsD(){ static Timings t('D'); return t; }
   inline static Timings & timingsR(){ static Timings t('R'); return t; }
   inline static Timings & timingsV(){ static Timings t('V'); return t; }
+
+  struct Options{
+    bool redistribute_pi1_src; //don't hold on to the pi1_src meson field after contracting
+    bool redistribute_pi2_src; //don't hold on to the pi2_src meson field after contracting
+    bool redistribute_pi1_snk; //don't hold on to the pi1_snk meson field after contracting
+    bool redistribute_pi2_snk; //don't hold on to the pi2_snk meson field after contracting
+
+    Options(bool redistribute = true){
+      redistribute_pi1_src = redistribute;
+      redistribute_pi2_src = redistribute;
+      redistribute_pi1_snk = redistribute;
+      redistribute_pi2_snk = redistribute;
+    }
+  };
+      
+    
 private:
   
   //C = \sum_{x,y,r,s}  \sum_{  0.5 Tr( [[w^dag(y) S_2 v(y)]] [[w^dag(r) S_2 * v(r)]] [[w^dag(s) S_2 v(s)]] [[w^dag(x) S_2 v(x)]] )
@@ -279,7 +295,14 @@ private:
 #endif
   }
 
-  
+
+  static inline void mf_keep_discard(std::vector< std::vector<MfType> const* > &keep,
+				     std::vector< std::vector<MfType>* > &discard,
+				     std::vector<MfType> &mf,
+				     bool do_discard){
+    if(do_discard) discard.push_back(&mf);
+    else keep.push_back(&mf);
+  }
   
 
 public:
@@ -298,18 +321,10 @@ public:
 		      const int tsep, const int tstep_src,
 		      MesonFieldMomentumContainer<mf_Policies> &src_mesonfields,
 		      MesonFieldMomentumContainer<mf_Policies> &snk_mesonfields,
-		      MesonFieldProductStore<mf_Policies> &products
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-		      , bool do_redistribute_src = true, bool do_redistribute_snk = true
-#endif		      
-		      ){
+		      MesonFieldProductStore<mf_Policies> &products,
+		      const Options &opt = Options()   ){
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","compute(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-
-    ThreeMomentum const* mom[4] = { &p_pi1_src, &p_pi2_src, &p_pi1_snk, &p_pi2_snk };
-    for(int p=0;p<2;p++)
-      if(! (p < 2 ? src_mesonfields.contains(*mom[p]) : snk_mesonfields.contains(*mom[p]) ) ) 
-	ERR.General("ComputePiPiGparity","compute(..)","Meson field container doesn't contain momentum %s\n",mom[p]->str().c_str());
 
     if(Lt % tstep_src != 0) ERR.General("ComputePiPiGparity","compute(..)","tstep_src must divide the time range exactly\n"); 
     
@@ -374,15 +389,13 @@ public:
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     //Need to take care that there's no overlap in the source and sink meson fields lest we distribute one we intend to keep
-    if(do_redistribute_snk && do_redistribute_src){
-      nodeDistributeMany(4,&mf_pi1_src,&mf_pi2_src,&mf_pi1_snk,&mf_pi2_snk);
-    }else if(do_redistribute_snk){
-      nodeDistributeUnique(mf_pi1_snk, 2, &mf_pi1_src, &mf_pi2_src);
-      nodeDistributeUnique(mf_pi2_snk, 2, &mf_pi1_src, &mf_pi2_src);
-    }else if(do_redistribute_src){
-      nodeDistributeUnique(mf_pi1_src, 2, &mf_pi1_snk, &mf_pi2_snk);
-      nodeDistributeUnique(mf_pi2_src, 2, &mf_pi1_snk, &mf_pi2_snk);
-    }  
+    std::vector< std::vector<MfType> const* > keep;
+    std::vector< std::vector<MfType>* > discard;
+    mf_keep_discard(keep, discard, mf_pi1_src, opt.redistribute_pi1_src);
+    mf_keep_discard(keep, discard, mf_pi2_src, opt.redistribute_pi2_src);
+    mf_keep_discard(keep, discard, mf_pi1_snk, opt.redistribute_pi1_snk);
+    mf_keep_discard(keep, discard, mf_pi2_snk, opt.redistribute_pi2_snk);
+    nodeDistributeUnique(discard, keep);
 #endif
   }
 
@@ -392,37 +405,25 @@ public:
 		      const ThreeMomentum &p_pi1_snk, const ThreeMomentum &p_pi2_snk, 
 		      const int tsep, const int tstep_src,
 		      MesonFieldMomentumContainer<mf_Policies> &srcsnk_mesonfields,
-		      MesonFieldProductStore<mf_Policies> &products
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-		      , bool do_redistribute_src = true, bool do_redistribute_snk = true
-#endif		      
+		      MesonFieldProductStore<mf_Policies> &products,
+		      const Options &opt = Options()
 		      ){
     compute(into,diag,p_pi1_src,p_pi2_src,p_pi1_snk,p_pi2_snk,tsep,tstep_src,
 	    srcsnk_mesonfields,srcsnk_mesonfields,
-	    products
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-	    , do_redistribute_src, do_redistribute_snk
-#endif	
-	    );
+	    products, opt );
   }
 
   //Calculate for p_cm=(0,0,0)
   static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, const char diag, 
 		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi1_snk, 
 		      const int tsep, const int tstep_src,
-		      MesonFieldMomentumContainer<mf_Policies> &mesonfields, MesonFieldProductStore<mf_Policies> &products
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-		      , bool do_redistribute_src = true, bool do_redistribute_snk = true
-#endif		      
+		      MesonFieldMomentumContainer<mf_Policies> &mesonfields, MesonFieldProductStore<mf_Policies> &products,
+		      const Options &opt = Options()
 		      ){
     ThreeMomentum p_pi2_src = -p_pi1_src;
     ThreeMomentum p_pi2_snk = -p_pi1_snk;
 
-    compute(into, diag, p_pi1_src, p_pi2_src, p_pi1_snk, p_pi2_snk, tsep, tstep_src, mesonfields, products
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-		      , do_redistribute_src, do_redistribute_snk
-#endif		      
-	    );
+    compute(into, diag, p_pi1_src, p_pi2_src, p_pi1_snk, p_pi2_snk, tsep, tstep_src, mesonfields, products, opt);
   }
 
 
@@ -438,11 +439,6 @@ public:
 				){
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","compute(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-
-    ThreeMomentum const* mom[4] = { &p_pi1_src, &p_pi2_src, &p_pi1_snk, &p_pi2_snk };
-    for(int p=0;p<2;p++)
-      if(! (p < 2 ? src_mesonfields.contains(*mom[p]) : snk_mesonfields.contains(*mom[p]) ) ) 
-	ERR.General("ComputePiPiGparity","compute(..)","Meson field container doesn't contain momentum %s\n",mom[p]->str().c_str());
 
     if(Lt % tstep_src != 0) ERR.General("ComputePiPiGparity","compute(..)","tstep_src must divide the time range exactly\n"); 
     

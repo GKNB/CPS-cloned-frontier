@@ -70,12 +70,12 @@ void benchmarkPiPiContractions(const A2AArg &a2a_args){
 	bool redistribute_src = d == 2 && psnkidx == nmom - 1;
 	bool redistribute_snk = d == 2;
 
+	typename ComputePiPiGparity<A2Apolicies>::Options opt;
+	opt.redistribute_pi1_src = opt.redistribute_pi2_src = redistribute_src;
+	opt.redistribute_pi1_snk = opt.redistribute_pi2_snk = redistribute_snk;
+	
 	double time = -dclock();
-	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, tsep_pipi, tstep_src, mf_con, products
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-						 , redistribute_src, redistribute_snk
-#endif
-						 );
+	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, tsep_pipi, tstep_src, mf_con, products, opt);
 	time += dclock();
 	*timeCDR[d] += time;
 

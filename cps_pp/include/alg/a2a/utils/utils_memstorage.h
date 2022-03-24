@@ -454,6 +454,34 @@ protected:
     return fp.checksum((char*)ptr, _size/sizeof(double), FP_AUTOMATIC);
   }  
 public:
+  struct GatherPerf{ //Note performance is only recorded for gathers that required communications from target node to origin
+    double alloc_time;
+    size_t gather_calls;
+    double gather_time;
+    double checksum_time;
+    size_t bytes;
+    
+    void reset(){
+      gather_calls=bytes=0;
+      alloc_time=gather_time=checksum_time=0;
+    }
+    GatherPerf(){
+      reset();
+    }
+    void print(int uid = 0){
+      if(UniqueID() == uid){
+	double avg_alloc_time = alloc_time / double(gather_calls);
+	double avg_gather_time = gather_time / double(gather_calls);
+	double avg_checksum_time = checksum_time / double(gather_calls);
+	double avg_bandwidth = double(bytes)/gather_time/(1024*1024); //MB/s
+	std::ostringstream os; 
+	os << "BurstBufferMemoryStorage::GatherPerf over " << gather_calls << " calls,  avg alloc time " << avg_alloc_time << "s, avg gather time " << avg_gather_time << "s, avg checksum time " << avg_checksum_time << ", gather bandwidth " << avg_bandwidth << " MB/s\n";
+	printf(os.str().c_str()); fflush(stdout);
+      }
+    }
+  };
+  static GatherPerf & perf(){ static GatherPerf p; return p; }
+
   BurstBufferMemoryStorage(): ptr(NULL), ondisk(false){}
 
   BurstBufferMemoryStorage(const BurstBufferMemoryStorage &r): ptr(NULL){
@@ -484,6 +512,7 @@ public:
     return *this;
   }
 
+  //Set the path to the scratch directories using this static function. Path must exist
   static std::string & filestub(){ static std::string b = "burststore"; return b; } //change this to the base filename (an _<IDX>.dat is appended)
   
   inline bool isOnNode() const{ return ptr != NULL; }
@@ -528,7 +557,11 @@ public:
   void gather(bool require){
     int do_gather_node = (require && ptr == NULL);
     if(do_gather_node){
+      perf().alloc_time -= dclock();
       alloc(_alignment,_size);
+      perf().alloc_time += dclock();
+
+      perf().gather_time -= dclock();
       std::fstream f(file.c_str(), std::ios::in | std::ios::binary);
       if(!f.good()) ERR.General("BurstBufferMemoryStorage","gather(bool)","Failed to open file %s for read\n",file.c_str());
       size_t rd_size; f.read((char*)&rd_size,sizeof(size_t));
@@ -537,12 +570,19 @@ public:
       f.read((char*)ptr,_size);
       if(!f.good()) ERR.General("BurstBufferMemoryStorage","gather(bool)","Read error in file %s\n",file.c_str());      
       f.close();
+      perf().gather_time += dclock();
+
+      perf().checksum_time -= dclock();
       unsigned int cksum_calc = checksum();
       if(cksum_calc != cksum_rd) ERR.General("BurstBufferMemoryStorage","gather(bool)","Checksum error on reading file %s, expected %u, got %u\n",file.c_str(),cksum_rd,cksum_calc);
+      perf().checksum_time += dclock();
+
+      perf().gather_calls++;
+      perf().bytes += _size;
     }
     cps::sync();
   }
-
+  
   void distribute(){
     if(ptr == NULL) return;
     unsigned int cksum = checksum();
@@ -880,10 +920,10 @@ public:
     /* } */
 
     MPI_Barrier(MPI_COMM_WORLD); //ensure everything is complete before destroying
-    printf("Node %d free\n", UniqueID()); fflush(stdout);
+    //printf("Node %d free\n", UniqueID()); fflush(stdout);
     freeMem();
     if(window != MPI_WIN_NULL){
-      printf("Node %d win free\n", UniqueID()); fflush(stdout);
+      //printf("Node %d win free\n", UniqueID()); fflush(stdout);
       assert(MPI_Win_free(&window)==MPI_SUCCESS);
     }
   }

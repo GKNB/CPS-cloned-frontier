@@ -19,7 +19,7 @@ struct _nodeGetManyPerf<DistributedMemoryStorage>{
 //Handy helpers for gather and distribute of length Lt vectors of meson fields
 template<typename T>
 void nodeGetMany(const int n, std::vector<T> *a, ...){
-  _nodeGetManyPerf<MesonFieldDistributedStorageType>::reset();
+  _nodeGetManyPerf<typename T::MesonFieldDistributedStorageType>::reset();
   cps::sync();
   
   double time = -dclock();
@@ -41,7 +41,7 @@ void nodeGetMany(const int n, std::vector<T> *a, ...){
   va_end(vl);
 
   print_time("nodeGetMany","Meson field gather",time+dclock());
-  _nodeGetManyPerf<MesonFieldDistributedStorageType>::print();
+  _nodeGetManyPerf<typename T::MesonFieldDistributedStorageType>::print();
 }
 
 
@@ -74,7 +74,7 @@ void nodeDistributeMany(const int n, std::vector<T> *a, ...){
 //Same as above but the user can pass in a set of bools that tell the gather whether the MF on that timeslice is required. If not it is internally deleted, freeing memory
 template<typename T>
 void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_timeslice_mask,  ...){
-  _nodeGetManyPerf<MesonFieldDistributedStorageType>::reset();
+  _nodeGetManyPerf<typename T::MesonFieldDistributedStorageType>::reset();
   cps::sync();
 
   double time = -dclock();
@@ -97,7 +97,7 @@ void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_time
   va_end(vl);
 
   print_time("nodeGetMany","Meson field gather",time+dclock());
-  _nodeGetManyPerf<MesonFieldDistributedStorageType>::print();
+  _nodeGetManyPerf<typename T::MesonFieldDistributedStorageType>::print();
 }
 
 
@@ -131,3 +131,29 @@ void nodeDistributeUnique(std::vector<T> &from, const int n, std::vector<T> cons
 
   print_time("nodeDistributeUnique","Meson field distribute",time+dclock());
 }
+
+
+//Distribute all meson fields in to_distribute which are not present in to_keep
+template<typename T>
+void nodeDistributeUnique(const std::vector< std::vector<T>* > &to_distribute, const std::vector< std::vector<T> const*> &to_keep){
+  cps::sync();
+  
+  double time = -dclock();
+
+  std::set<T const*> keep_p;
+  for(auto tv: to_keep)
+    for(const T & p: *tv)
+      keep_p.insert(&p);
+  
+  for(auto tv: to_distribute)
+    for(T & p: *tv)
+      if(!keep_p.count(&p)) p.nodeDistribute();
+
+  print_time("nodeDistributeUnique(vector edition)","Meson field distribute",time+dclock());
+}
+
+
+
+
+
+

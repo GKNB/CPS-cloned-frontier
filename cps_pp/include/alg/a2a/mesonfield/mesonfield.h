@@ -26,7 +26,7 @@ CPS_START_NAMESPACE
 
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-class A2AmesonField: public MesonFieldDistributedStorageType{
+class A2AmesonField: public mf_Policies::MesonFieldDistributedStorageType{
 public:
   //Deduce the dilution types for the meson field. We unpack the flavor index in W fields
   typedef typename A2AfieldL<mf_Policies>::DilutionType LeftInputDilutionType;
@@ -35,6 +35,7 @@ public:
   typedef typename FlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
   typedef typename FlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+  typedef typename mf_Policies::MesonFieldDistributedStorageType MesonFieldDistributedStorageType;
  private:
   int nmodes_l, nmodes_r;
   int fsize; //in units of ScalarComplexType

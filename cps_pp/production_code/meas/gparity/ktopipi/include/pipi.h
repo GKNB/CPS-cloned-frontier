@@ -30,13 +30,13 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
 	bool redistribute_src = d == 2 && psnkidx == nmom - 1;
 	bool redistribute_snk = d == 2;
 #endif	
-
+	typename ComputePiPiGparity<A2Apolicies>::Options opt;
+	opt.redistribute_pi1_src = opt.redistribute_pi2_src = redistribute_src;
+	opt.redistribute_pi1_snk = opt.redistribute_pi2_snk = redistribute_snk;
+	
 	double time = -dclock();
-	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-						 , redistribute_src, redistribute_snk
-#endif
-						 );
+	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products, opt);
+
 	std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_Figure" << diag[d] << "_sep" << params.jp.pipi_separation;
 #ifndef DAIQIAN_PION_PHASE_CONVENTION
 	os << "_mom" << p_pi1_src.file_str(2) << "_mom" << p_pi1_snk.file_str(2);
@@ -126,18 +126,15 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
 			 correlators[c].pi1_src.str().c_str(), correlators[c].pi2_src.str().c_str(),
 			 correlators[c].pi1_snk.str().c_str(), correlators[c].pi2_snk.str().c_str()), 0);
       
-      bool redistribute_src = true;
-      bool redistribute_snk = true;
-      
+      typename ComputePiPiGparity<A2Apolicies>::Options opt;
+      opt.redistribute_pi1_src = opt.redistribute_pi2_src = d==2;
+      opt.redistribute_pi1_snk = opt.redistribute_pi2_snk = d==2;
+           
       double time = -dclock();
       ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], 
 					       correlators[c].pi1_src, correlators[c].pi2_src,
 					       correlators[c].pi1_snk, correlators[c].pi2_snk,
-					       params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-					       , redistribute_src, redistribute_snk
-#endif
-					       );
+					       params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products, opt);
       
       std::ostringstream os; 
       os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_Figure" << diag[d] << "_sep" << params.jp.pipi_separation

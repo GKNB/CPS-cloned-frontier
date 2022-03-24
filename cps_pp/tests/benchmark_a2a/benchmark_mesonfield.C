@@ -153,7 +153,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkMfTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMfTraceProdGPU<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMfVectorTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
-  if(1) benchmarkPiPiContractions<GridA2ApoliciesType>(a2a_args);
+  if(0) benchmarkPiPiContractions<GridA2ApoliciesType>(a2a_args);
 
   if(0) benchmarkMesonFieldUnpack<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMesonFieldPack<GridA2ApoliciesType>(a2a_args, ntests);
@@ -161,6 +161,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkMesonFieldPackDevice<GridA2ApoliciesType>(a2a_args, ntests);
 #endif
 
+  if(1) benchmarkMesonFieldGather(a2a_args, ntests);
 }
 
 
@@ -269,6 +270,10 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss << argv[i+1];
       ss >> opt.nshift;
       if(!UniqueID()) printf("Set nshift to %d\n",opt.nshift);
+      i+=2;
+    }else if( cmd == "-mf_burst_store_stub"){ //set the file stub for the meson field disk storage 
+      BurstBufferMemoryStorage::filestub() = argv[i+1];
+      if(!UniqueID()) printf("Set mesonfield burst buffer file stub to %s\n", argv[i+1]);
       i+=2;
     }else{
       i++;

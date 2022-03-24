@@ -391,6 +391,64 @@ void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
   
   free(into);
 }
-  
+
+
+
+void testMesonFieldNodeDistributeUnique(const A2AArg &a2a_args){
+  //Generate a policy with the disk storage method so that we can test even for 1 rank
+  A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_NODESCRATCH);
+
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+  typedef A2AmesonField<A2ApoliciesTmp,A2AvectorWfftw,A2AvectorVfftw> MfType;
+  std::vector<MfType> mf1(Lt);
+  std::vector<MfType> mf2(Lt);
+
+  for(int t=0;t<Lt;t++){
+    mf1[t].setup(a2a_args,a2a_args,t,t);
+    mf1[t].testRandom();
+
+    mf2[t].setup(a2a_args,a2a_args,t,t);
+    mf2[t].testRandom();
+  }
+
+  {
+    //Distribute all of mf1
+    std::vector< std::vector<MfType>* > to_distribute = {&mf1};
+    std::vector< std::vector<MfType> const*> to_keep = {};
+    nodeDistributeUnique(to_distribute,to_keep);
+
+    for(int t=0;t<Lt;t++) assert(!mf1[t].isOnNode());
+    nodeGetMany(1,&mf1);
+  }
+  {
+    //Distribute all of mf1 not in mf2; this is all of them!
+    std::vector< std::vector<MfType>* > to_distribute = {&mf1};
+    std::vector< std::vector<MfType> const*> to_keep = {&mf2};
+    nodeDistributeUnique(to_distribute,to_keep);
+
+    for(int t=0;t<Lt;t++) assert(!mf1[t].isOnNode());
+    nodeGetMany(1,&mf1);	
+  }
+  {
+    //Keep all of mf1; should distribute nothing
+    std::vector< std::vector<MfType>* > to_distribute = {&mf1};
+    std::vector< std::vector<MfType> const*> to_keep = {&mf1};
+    nodeDistributeUnique(to_distribute,to_keep);
+
+    for(int t=0;t<Lt;t++) assert(mf1[t].isOnNode());
+  }
+  {
+    //Keep all of mf1 but not mf2
+    std::vector< std::vector<MfType>* > to_distribute = {&mf1,&mf2};
+    std::vector< std::vector<MfType> const*> to_keep = {&mf1};
+    nodeDistributeUnique(to_distribute,to_keep);
+
+    for(int t=0;t<Lt;t++) assert(mf1[t].isOnNode());
+    for(int t=0;t<Lt;t++) assert(!mf2[t].isOnNode());
+    nodeGetMany(1,&mf2);	
+  }
+}
+
 
 CPS_END_NAMESPACE
