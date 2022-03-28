@@ -153,7 +153,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkMfTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMfTraceProdGPU<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMfVectorTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
-  if(0) benchmarkPiPiContractions<GridA2ApoliciesType>(a2a_args);
+  if(1) benchmarkPiPiContractions<GridA2ApoliciesType>(a2a_args);
 
   if(0) benchmarkMesonFieldUnpack<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMesonFieldPack<GridA2ApoliciesType>(a2a_args, ntests);
@@ -161,7 +161,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkMesonFieldPackDevice<GridA2ApoliciesType>(a2a_args, ntests);
 #endif
 
-  if(1) benchmarkMesonFieldGather(a2a_args, ntests);
+  if(0) benchmarkMesonFieldGather(a2a_args, ntests);
 }
 
 
