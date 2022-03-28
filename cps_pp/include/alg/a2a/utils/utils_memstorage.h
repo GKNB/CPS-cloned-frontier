@@ -816,7 +816,7 @@ public:
   inline void const* data() const{ return ptr; }
   
   inline void gather(bool require){
-    if(require && UniqueID() != _master_uid && _size != 0){
+    if(require && UniqueID() != _master_uid && _size != 0 && ptr == NULL){
       perf().alloc_time -= dclock();
       alloc(_alignment,_size);
       perf().alloc_time += dclock();

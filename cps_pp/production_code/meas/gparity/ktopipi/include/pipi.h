@@ -129,7 +129,14 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
       typename ComputePiPiGparity<A2Apolicies>::Options opt;
       opt.redistribute_pi1_src = opt.redistribute_pi2_src = d==2;
       opt.redistribute_pi1_snk = opt.redistribute_pi2_snk = d==2;
-           
+      if(d==2 && c<correlators.size()-1){
+	//See if we can reuse some of the mesonfields on the next iteration
+	if(contains(correlators[c].pi1_src, correlators[c+1])){ opt.redistribute_pi1_src = false; }
+	if(contains(correlators[c].pi1_snk, correlators[c+1])){ opt.redistribute_pi1_snk = false; }
+	if(contains(correlators[c].pi2_src, correlators[c+1])){ opt.redistribute_pi2_src = false; }
+	if(contains(correlators[c].pi2_snk, correlators[c+1])){ opt.redistribute_pi2_snk = false; }
+      }
+      
       double time = -dclock();
       ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], 
 					       correlators[c].pi1_src, correlators[c].pi2_src,
@@ -178,9 +185,13 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
   }
 
   print_time("main","Pi-pi figure C",timeC);
+  ComputePiPiGparity<A2Apolicies>::timingsC().report();
   print_time("main","Pi-pi figure D",timeD);
+  ComputePiPiGparity<A2Apolicies>::timingsD().report();
   print_time("main","Pi-pi figure R",timeR);
+  ComputePiPiGparity<A2Apolicies>::timingsR().report();
   print_time("main","Pi-pi figure V",timeV);
+  ComputePiPiGparity<A2Apolicies>::timingsV().report();
 
   printMem("Memory after pi-pi 2pt function computation");
 }

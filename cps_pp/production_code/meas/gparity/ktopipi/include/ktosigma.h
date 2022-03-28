@@ -43,7 +43,9 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
 
     for(int t=0;t<Lt;t++){
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
+#if 0
       mf_sigma_s[t].enableExternalBuffer(gather_buf, gather_buf_size, 128);
+#endif
       mf_sigma_s[t].nodeGet(); //allocs of non-master node use external buf
 #endif
     
@@ -57,7 +59,9 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
       mf_sigma_s[t].nodeDistribute();
+#if 0
       mf_sigma_s[t].disableExternalBuffer();
+#endif
 #endif
     }
   }

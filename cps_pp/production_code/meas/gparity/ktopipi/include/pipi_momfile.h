@@ -79,4 +79,93 @@ void parsePiPiMomFile(std::vector<CorrelatorMomenta> &correlators, const std::st
   f.close();
 }
 
+
+//Pick one of the 4 momenta by index
+inline const ThreeMomentum & getP(const CorrelatorMomenta &p, const int i){
+  switch(i){
+  case 0:
+    return p.pi1_src;
+  case 1:
+    return p.pi2_src;
+  case 2:
+    return p.pi1_snk;
+  case 3:
+    return p.pi2_snk;
+  default:
+    assert(0);
+  }
+}
+
+bool contains(const ThreeMomentum &p, const CorrelatorMomenta &in){
+  for(int i=0;i<4;i++) if(getP(in,i) == p) return true;
+  return false;
+}
+
+  
+//Sort the CorrelatorMomenta array by its 4 momenta in the specified order
+std::vector<CorrelatorMomenta> sort(const std::vector<CorrelatorMomenta> &correlators, const std::array<int,4> &order){
+  std::vector<CorrelatorMomenta> cp(correlators);
+  std::sort(cp.begin(),cp.end(),
+	    [&order](const CorrelatorMomenta &a, const CorrelatorMomenta &b){
+	      ThreeMomentum const* ap[4] = { &getP(a,order[0]), &getP(a,order[1]), &getP(a,order[2]), &getP(a,order[3]) };
+	      ThreeMomentum const* bp[4] = { &getP(b,order[0]), &getP(b,order[1]), &getP(b,order[2]), &getP(b,order[3]) };
+	      for(int i=0;i<4;i++){
+		if( *ap[i] < *bp[i] ) return true;
+		else if( *ap[i] > *bp[i] ) return false;
+	      }
+	      return false; //all equal
+	    });
+  return cp;
+}
+
+
+//Determine the amount of reuse of momenta assuming execution in order
+int computeReuse(const std::vector<CorrelatorMomenta> &correlators){
+  int reuse = 0;
+  for(int c=1;c<correlators.size();c++){
+    const CorrelatorMomenta &cur = correlators[c];
+    const CorrelatorMomenta &prev = correlators[c-1];
+    for(int p=0;p<4;p++)
+      if(getP(cur,p) == getP(prev,p)) ++reuse;
+  }
+  return reuse;
+}
+
+
+//To maximimize reuse of meson fields we can reorder the correlators
+void optimizePiPiMomentumOrdering(std::vector<CorrelatorMomenta> &correlators){
+  //We want to sort by the four momenta, but it is not clear what order to sort
+  //Instead we try all different orderings and choose the one with the most reuse
+
+  //Enumerate permutations of 0,1,2,3
+  int nperm = 4*3*2;
+  std::vector<std::array<int,4> > perms(nperm);
+  int c=0;
+  for(int i=0;i<4;i++)
+    for(int j=0;j<4;j++)
+      for(int k=0;k<4;k++)
+	for(int l=0;l<4;l++)
+	  if( i!=j && i!= k && i!=l && j!=k && j!=l && k!=l ){
+	    assert(c<nperm);
+	    perms[c++] = {i,j,k,l};
+	  }
+
+  //Sort according to each different ordering and choose the combination that maximizes the reuse
+  std::vector<CorrelatorMomenta> best;
+  int max_reuse = -1;
+
+  for(int i=0;i<nperm;i++){
+    std::vector<CorrelatorMomenta> sorted = sort(correlators, perms[i]);
+    int reuse = computeReuse(sorted);
+    if(!UniqueID()){ std::cout << "optimizePiPiMomentumOrdering permutation " << perms[i][0] << "," << perms[i][1] << "," << perms[i][2] << "," << perms[i][3] << " reuse, " << reuse << ", best " << max_reuse << std::endl; }
+    if(reuse > max_reuse){
+      max_reuse = reuse;
+      best = std::move(sorted);
+    }    
+  }
+  correlators = std::move(best);
+}
+
+
+
 #endif

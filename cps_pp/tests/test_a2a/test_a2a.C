@@ -299,7 +299,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testGaugeFixOrigNew<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
 #endif
 
-  if(1) testMesonFieldNodeDistributeUnique(a2a_arg);
+  if(0) testMesonFieldNodeDistributeUnique(a2a_arg);
+  if(1) testMesonFieldNodeDistributeOneSided(a2a_arg);
 }
 
 

@@ -450,5 +450,61 @@ void testMesonFieldNodeDistributeUnique(const A2AArg &a2a_args){
   }
 }
 
+void testMesonFieldNodeDistributeOneSided(const A2AArg &a2a_args){
+  //Test the one-sided storage method
+  int nodes=1;
+  for(int i=0;i<4;i++) nodes *= GJP.Nodes(i);
+
+  //Require more than 1 node
+  if(nodes > 1){
+    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTEDONESIDED);
+
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    
+    typedef A2AmesonField<A2ApoliciesTmp,A2AvectorWfftw,A2AvectorVfftw> MfType;
+    std::vector<MfType> mf1(Lt);
+    std::vector<MfType> mf1_cp(Lt);
+
+    
+    for(int t=0;t<Lt;t++){
+      mf1[t].setup(a2a_args,a2a_args,t,t);
+      mf1[t].testRandom();
+      mf1_cp[t] = mf1[t];
+    }
+
+    //Check distribute
+    {
+      std::cout << "Checking distribute" << std::endl;
+      for(int t=0;t<Lt;t++){	
+	mf1[t].nodeDistribute();
+	std::cout << "t=" << t << " master uid " << mf1[t].masterUID() << std::endl;	
+	if(UniqueID() == mf1[t].masterUID()){
+	  assert(mf1[t].data() != nullptr);
+	}else{
+	  assert(mf1[t].data() == nullptr);
+	}
+      }
+    }
+    //Check gather
+    {
+      std::cout << "Checking gather" << std::endl;
+      for(int t=0;t<Lt;t++){
+	mf1[t].nodeGet();
+	assert(mf1[t].data() != nullptr);
+	assert(mf1[t].equals(mf1_cp[t],1e-12,true));	       
+      }
+    }    
+    //Check gathering a second time does not require another communication
+    {
+      std::cout << "Checking consecutive gather" << std::endl;
+      for(int t=0;t<Lt;t++){
+	DistributedMemoryStorageOneSided::perf().reset();
+	mf1[t].nodeGet();
+	assert(DistributedMemoryStorageOneSided::perf().gather_calls == 0);
+      }
+    }
+  }
+}
+
 
 CPS_END_NAMESPACE

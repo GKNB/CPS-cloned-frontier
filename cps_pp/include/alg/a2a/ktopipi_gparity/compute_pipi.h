@@ -41,12 +41,17 @@ public:
     char diag;
     double trace;
     double prod;
+    double total_compute;
+    double gather;
+    double distribute;
+    double gsum;
     double total;
-    Timings(char diag): trace(0), prod(0), total(0), diag(diag){}
+    
+    Timings(char diag): trace(0), prod(0), total_compute(0), gather(0), distribute(0), gsum(0), total(0), diag(diag){}
 
     void reset(){ trace=prod=total=0; }
     void report(bool do_reset = true){
-      std::cout << diag << ": Trace=" << trace << "s Prod=" << prod << "s Total=" << total << "s" << std::endl;
+      std::cout << diag << ": Trace=" << trace << "s Prod=" << prod << "s Total compute=" << total_compute << "s Gather=" << gather << "s Distribute=" << distribute << "s Reduce=" << gsum << "s Total=" << total << "s" << std::endl;
       if(do_reset) reset();
     }    
   };
@@ -55,6 +60,19 @@ public:
   inline static Timings & timingsR(){ static Timings t('R'); return t; }
   inline static Timings & timingsV(){ static Timings t('V'); return t; }
 
+  inline static Timings & getTimings(char c){
+    switch(c){
+    case 'C':
+      return timingsC();
+    case 'D':
+      return timingsD();
+    case 'R':
+      return timingsR();
+    case 'V':
+      return timingsV();
+    }
+  }
+      
   struct Options{
     bool redistribute_pi1_src; //don't hold on to the pi1_src meson field after contracting
     bool redistribute_pi2_src; //don't hold on to the pi2_src meson field after contracting
@@ -82,7 +100,7 @@ private:
 			     MesonFieldProductStore<mf_Policies> &products,
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     Timings &timings = timingsC();
-    timings.total -= dclock();
+    timings.total_compute -= dclock();
     
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     int tsrc2 = (tsrc-tsep+Lt) % Lt;
@@ -128,7 +146,7 @@ private:
     into(tsrc,tdis) += 0.5*topo1 + 0.5*topo2;
 
 #endif
-    timings.total += dclock();
+    timings.total_compute += dclock();
   }
 
   //Store the products we are going to reuse
@@ -162,7 +180,7 @@ private:
 			     const std::vector<MfType >& mf_pi2_snk,
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     Timings &timings = timingsD();
-    timings.total -= dclock();
+    timings.total_compute -= dclock();
 
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     int tdis = (tsnk - tsrc + Lt) % Lt;
@@ -182,7 +200,7 @@ private:
     incr *= ScalarComplexType(0.5*0.25); //extra factor of 0.5 from average over 2 distinct topologies
     into(tsrc, tdis) += incr;
 
-    timings.total += dclock();
+    timings.total_compute += dclock();
   }
 
   //R = 0.5 Tr( [[w^dag(r) S_2 v(r)]] [[w^dag(s) S_2 * v(s)]][[w^dag(y) S_2 v(y)]] [[w^dag(x) S_2 v(x)]] )
@@ -195,7 +213,7 @@ private:
 			     MesonFieldProductStore<mf_Policies> &products,
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     Timings &timings = timingsR();
-    timings.total -= dclock();
+    timings.total_compute -= dclock();
     
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     int tdis = (tsnk - tsrc + Lt) % Lt;
@@ -263,7 +281,7 @@ private:
 
     into(tsrc, tdis) += 0.25*topo1 + 0.25*topo2 + 0.25*topo3 + 0.25*topo4;
 #endif
-    timings.total += dclock();
+    timings.total_compute += dclock();
   }
 
 
@@ -323,6 +341,9 @@ public:
 		      MesonFieldMomentumContainer<mf_Policies> &snk_mesonfields,
 		      MesonFieldProductStore<mf_Policies> &products,
 		      const Options &opt = Options()   ){
+    Timings &perf = getTimings(diag);
+    perf.total -= dclock();
+    
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","compute(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
@@ -345,6 +366,7 @@ public:
 	      << "pi2_snk  mom=" << p_pi2_snk.str() << " ptr=" << &mf_pi2_snk << std::endl;
     
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
+    perf.gather -= dclock();
     //Get the meson fields we require. Only get those for the timeslices computed on this node
     std::vector<bool> tslice_src_mask(Lt, false);
     std::vector<bool> tslice_snk_mask(Lt, false);
@@ -366,6 +388,7 @@ public:
 		&mf_pi2_src, &tslice_src_mask,
 		&mf_pi1_snk, &tslice_snk_mask,
 		&mf_pi2_snk, &tslice_snk_mask);
+    perf.gather += dclock();
 #endif
 
     into.resize(Lt,Lt); into.zero();
@@ -385,9 +408,13 @@ public:
 	else ERR.General("ComputePiPiGparity","compute","Invalid diagram '%c'\n",diag);
       }
     }
+    //Reduction
+    perf.gsum -= dclock();
     into.nodeSum();
-
+    perf.gsum += dclock();
+    
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
+    perf.distribute -= dclock();
     //Need to take care that there's no overlap in the source and sink meson fields lest we distribute one we intend to keep
     std::vector< std::vector<MfType> const* > keep;
     std::vector< std::vector<MfType>* > discard;
@@ -396,7 +423,10 @@ public:
     mf_keep_discard(keep, discard, mf_pi1_snk, opt.redistribute_pi1_snk);
     mf_keep_discard(keep, discard, mf_pi2_snk, opt.redistribute_pi2_snk);
     nodeDistributeUnique(discard, keep);
+    perf.distribute += dclock();
 #endif
+
+    perf.total += dclock();
   }
 
   //Source and sink meson field set is the same
@@ -509,7 +539,9 @@ public:
     std::vector<MfType >& mf_pi2 = mesonfields.get(p_pi2);
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
+    timings.gather -= dclock();
     nodeGetMany(2,&mf_pi,&mf_pi2);
+    timings.gather += dclock();
 #endif
 
     into.resize(Lt); 
@@ -519,6 +551,7 @@ public:
     int node_work, node_off; bool do_work;
     getNodeWork(work,node_work,node_off,do_work);
 
+    timings.total_compute -= dclock();
     timings.trace -= dclock();
     if(do_work){
       for(int t=node_off; t<node_off + node_work; t++){
@@ -527,11 +560,18 @@ public:
       }
     }
     timings.trace += dclock();
+    timings.total_compute += dclock();
+
+    timings.gsum -= dclock();
     into.nodeSum();
+    timings.gsum += dclock();
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
+    timings.distribute -= dclock();
     nodeDistributeMany(2,&mf_pi,&mf_pi2);
+    timings.distribute += dclock();
 #endif
+
     timings.total += dclock();
   }
 
