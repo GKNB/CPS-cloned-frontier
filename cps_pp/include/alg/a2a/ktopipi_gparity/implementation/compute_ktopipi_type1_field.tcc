@@ -124,7 +124,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
     //Using the pion timeslices, get tK for each separation
     for(int tkpi_idx=0;tkpi_idx<ntsep_k_pi;tkpi_idx++){
       int t_K = modLt(t_pi1 - tsep_k_pi[tkpi_idx], Lt);
-      
+
+      //Loop over timeslices on this node
       for(int top=GJP.TnodeCoor()*GJP.TnodeSites(); top < (GJP.TnodeCoor()+1)*GJP.TnodeSites(); top++){
 	int t_dis = modLt(top - t_K, Lt);
 	if(t_dis > 0 && t_dis < tsep_k_pi[tkpi_idx]){

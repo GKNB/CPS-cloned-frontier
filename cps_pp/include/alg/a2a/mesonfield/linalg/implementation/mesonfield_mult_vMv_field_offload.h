@@ -53,25 +53,29 @@ struct mult_vMv_field_offload_timers{
   struct timers{
     double init1;
     double Mr;
-    double init2;
+    double init2_vaprime;
+    double init2_vbprime;
+    double init2_Mprime;
     double v_Mr;
     size_t calls;
 
-    timers(): init1(0), Mr(0), init2(0), v_Mr(0), calls(0){}
+    timers(): init1(0), Mr(0), init2_vaprime(0), init2_vbprime(0), init2_Mprime(0), v_Mr(0), calls(0){}
 
     void reset(){
-      init1=Mr=init2=v_Mr=0;
+      init1=Mr=init2_vaprime=init2_vbprime=init2_Mprime=v_Mr=0;
       calls = 0;
     }
     void average(){
       init1/=calls;
       Mr/=calls;
-      init2/=calls;
+      init2_vaprime/=calls;
+      init2_vbprime/=calls;
+      init2_Mprime/=calls;
       v_Mr/=calls;
     }
     void print(){
       average();
-      printf("calls=%zu init1=%g Mr=%g init2=%g v(Mr)=%g\n", calls, init1, Mr, init2, v_Mr);
+      printf("calls=%zu init1=%g Mr=%g init2(va')=%g init2(vb')=%g init2(Mprime)=%g v(Mr)=%g\n", calls, init1, Mr, init2_vaprime, init2_vbprime, init2_Mprime, v_Mr);
     }
 
   };
@@ -200,7 +204,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     int Lt = GJP.Tnodes() * GJP.TnodeSites();
     int nf = GJP.Gparity() + 1;
     size_t nsimd = VectorComplexType::Nsimd();
-    size_t vol4d = into.size();
+    size_t vol4d_node = into.size();
     int t_off = GJP.TnodeSites() * GJP.TnodeCoor();
     size_t blocksize = BlockedvMvOffloadArgs::b;
     //size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
@@ -307,7 +311,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t niprime = nil_ir_pairs;
     size_t njprime = njl_jr_pairs;
 
-    size_t field_size = 12 * nf * vol4d;
+    size_t field_size = 12 * nf * vol4d_node;
     size_t vaprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
     size_t vbprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
     size_t Mprime_bytes = blocksize * blocksize * sizeof(MFcomplexType);
@@ -334,7 +338,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     
     for(size_t iprimeblock =0; iprimeblock < niprime_blocks; iprimeblock++){
 
-      time.init2 -= dclock();
+      time.init2_vaprime -= dclock();
       size_t iprimestart = iprimeblock * blocksize;
       size_t iprimelessthan = std::min(iprimestart + blocksize, niprime);
       size_t niprime_block = iprimelessthan - iprimestart;
@@ -345,41 +349,40 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       //Create va'
       {	
 	using namespace Grid;
-	accelerator_for(x4d, vol4d, nsimd,
+	accelerator_for2d(x4d, vol4d_node, iprimeb, niprime_block, nsimd,
 			{
 			  size_t xop; int top;
 			  into_v.fourToThree(xop, top, x4d);
 			  int t_glob = top + t_off;
-			  for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
-			    size_t iprimeb = iprime - iprimestart;
-			    for(int f=0;f<nf;f++){
-			      for(int sc=0;sc<12;sc++){
-				VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index 
-				auto val = ACC::read(l_v.nativeElem(il_ir_pairs_v[iprime].first, x4d, sc, f));
-				val = conj_l ? Grid::conjugate(val) : val;
-				val = val * double(alpha_v[sc + 12*(f+ nf*(t_glob + Lt*iprime))]);
-				ACC::write(*into, val);
-			      }
+			  size_t iprime = iprimeb + iprimestart;
+			  for(int f=0;f<nf;f++){
+			    for(int sc=0;sc<12;sc++){
+			      VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index 
+			      auto val = ACC::read(l_v.nativeElem(il_ir_pairs_v[iprime].first, x4d, sc, f));
+			      val = conj_l ? Grid::conjugate(val) : val;
+			      val = val * double(alpha_v[sc + 12*(f+ nf*(t_glob + Lt*iprime))]);
+			      ACC::write(*into, val);
 			    }
 			  }
 			});
-	time.init2 += dclock();
+	
       }
+      time.init2_vaprime += dclock();
 
       for(size_t jprimeblock =0; jprimeblock < njprime_blocks; jprimeblock++){
-	time.init2 -= dclock();
+	time.init2_vbprime -= dclock();
 	size_t jprimestart = jprimeblock * blocksize;
 	size_t jprimelessthan = std::min(jprimestart + blocksize, njprime);
 	size_t njprime_block = jprimelessthan - jprimestart;	
 
 	std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
 
-	//std::cout << "Create vb' njprime_block=" << njprime_block << " xfsc_loop_size=" << 12*nf*vol4d << " nsimd=" << nsimd << std::endl;
+	//std::cout << "Create vb' njprime_block=" << njprime_block << " xfsc_loop_size=" << 12*nf*vol4d_node << " nsimd=" << nsimd << std::endl;
 
 	//Create vb'
 	{
 	  using namespace Grid;
-	  accelerator_for2d(scf_x4d, 12*nf*vol4d, jprimeb, njprime_block, nsimd,
+	  accelerator_for2d(scf_x4d, 12*nf*vol4d_node, jprimeb, njprime_block, nsimd,
 			    {
 			      size_t rem = scf_x4d; //sc + 12*(f + nf*x4d)
 			      int sc = rem % 12; rem /= 12;
@@ -398,8 +401,10 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			      ACC::write(*into, val);
 			    });
 	}
+	time.init2_vbprime += dclock();
 
-	std::cout << "Create Mprime" << std::endl;
+	time.init2_Mprime -= dclock();
+	//std::cout << "Create Mprime" << std::endl;
 	//Create Mprime
 	{
 	  MFcomplexType *Mptr = Mprime;
@@ -412,17 +417,15 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	      *Mptr++ = M(ir, jl);
 	    }
 	  }
-	}
-    
-	time.init2 += dclock();
-
+	}    
+	time.init2_Mprime += dclock();
 
 	//std::cout << "M' * vb'" << std::endl;
 	//Mprime * vbprime
 	time.Mr -= dclock();
 	{
 	  using namespace Grid;
-	  accelerator_for2d(scf_x4d, 12*nf*vol4d, iprimeb, niprime_block, nsimd,
+	  accelerator_for2d(scf_x4d, 12*nf*vol4d_node, iprimeb, niprime_block, nsimd,
 			  {
 			    VectorComplexType *into = Mvbprime + iprimeb + niprime_block*scf_x4d;
 			    
@@ -445,7 +448,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	time.v_Mr -= dclock();
 	{
 	  using namespace Grid;
-	  accelerator_for2d(x4d, vol4d, scfl_scfr, 12*nf*12*nf, nsimd,
+	  accelerator_for2d(x4d, vol4d_node, scfl_scfr, 12*nf*12*nf, nsimd,
 			  {
 			    VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
 			    int scfr = scfl_scfr % (12*nf); //scfl_scfr = scfr + 12*nf*scfl

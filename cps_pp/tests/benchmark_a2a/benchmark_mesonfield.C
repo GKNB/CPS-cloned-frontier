@@ -1,4 +1,5 @@
 #include "benchmark_mesonfield.h"
+#include <sstream>
 
 using namespace cps;
 
@@ -30,6 +31,8 @@ struct Options{
   int nlowmodes;
 
   int nshift; //for shifted src benchmark
+
+  std::vector<int> tsep_k_pi;
   
   Options(){
     load_lrg=false;
@@ -44,6 +47,8 @@ struct Options{
     nlowmodes = 100;
 
     nshift = 4;
+
+    tsep_k_pi = {4};
   }
 
 
@@ -142,18 +147,18 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #ifdef USE_GRID
   if(0) benchmarkvMvGridOrig<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 
-  if(0) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(1) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
-  if(0) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice);
-  if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice);
+  if(0) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
+  if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
 
   if(0) benchmarkDeflation<GridA2ApoliciesType>(lattice ,opt.nlowmodes, argc, argv);
 
   if(0) benchmarkMfTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMfTraceProdGPU<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMfVectorTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
-  if(1) benchmarkPiPiContractions<GridA2ApoliciesType>(a2a_args);
+  if(0) benchmarkPiPiContractions<GridA2ApoliciesType>(a2a_args);
 
   if(0) benchmarkMesonFieldUnpack<GridA2ApoliciesType>(a2a_args, ntests);
   if(0) benchmarkMesonFieldPack<GridA2ApoliciesType>(a2a_args, ntests);
@@ -275,6 +280,17 @@ int main(int argc,char *argv[])
       BurstBufferMemoryStorage::filestub() = argv[i+1];
       if(!UniqueID()) printf("Set mesonfield burst buffer file stub to %s\n", argv[i+1]);
       i+=2;
+    }else if( cmd == "-tsep_k_pi"){ //provide a list in Grid's  a.b.c.d  format
+      std::istringstream iss(argv[i+1]);
+      std::string token;
+      while (std::getline(iss, token, '.')) {
+	if (!token.empty())
+	  opt.tsep_k_pi.push_back(toInt(token.c_str()));
+      }
+      std::cout << "Set tsep_k_pi to {";
+      for(int v: opt.tsep_k_pi){ std::cout << v << " "; }
+      std::cout <<std::endl;      
+      i+=2;      
     }else{
       i++;
     }
