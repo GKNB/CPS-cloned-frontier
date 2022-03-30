@@ -432,7 +432,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	  using namespace Grid;
 	  accelerator_for2dNB(scf_x4d, 12*nf*vol4d_node, iprimeb, niprime_block, nsimd,
 			  {
-			    VectorComplexType *into = Mvbprime + iprimeb + niprime_block*scf_x4d;
+			    VectorComplexType *into = Mvbprime + iprimeb + niprime_block*scf_x4d;    //scf_x4d = sc + 12*(f + nf*x4d)
 			    
 			    typename ACC::value_type sum(0);
 			    VectorComplexType *rptr = vbprime + njprime_block*scf_x4d; //jprimeb=0
@@ -503,22 +503,22 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			  });
 
 	  //This kernel also takes a while so we may as well prefetch l for the next cycle
-#ifdef GRID_CUDA
-	  if(jprimeblock == njprime_blocks-1 && iprimeblock != niprime_blocks-1){
-	    size_t iprimeblock_nxt = iprimeblock+1;
-	    size_t iprimestart_nxt = iprimeblock_nxt * blocksize;
-	    size_t iprimelessthan_nxt = std::min(iprimestart_nxt + blocksize, niprime);
-	    size_t niprime_block_nxt = iprimelessthan_nxt - iprimestart_nxt;
+// #ifdef GRID_CUDA
+// 	  if(jprimeblock == njprime_blocks-1 && iprimeblock != niprime_blocks-1){
+// 	    size_t iprimeblock_nxt = iprimeblock+1;
+// 	    size_t iprimestart_nxt = iprimeblock_nxt * blocksize;
+// 	    size_t iprimelessthan_nxt = std::min(iprimestart_nxt + blocksize, niprime);
+// 	    size_t niprime_block_nxt = iprimelessthan_nxt - iprimestart_nxt;
 	    
-	    for(size_t iprimeb = 0 ; iprimeb < niprime_block_nxt; iprimeb++){
-	      size_t iprime = iprimeb + iprimestart_nxt;
-	      size_t il = il_ir_pairs_v[iprime].first;
-	      VectorComplexType const* v; size_t sz;
-	      l.getModeData(v,sz,il);
-	      assert( cudaMemPrefetchAsync( (void const*)v, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
-	    }
-	  }
-#endif
+// 	    for(size_t iprimeb = 0 ; iprimeb < niprime_block_nxt; iprimeb++){
+// 	      size_t iprime = iprimeb + iprimestart_nxt;
+// 	      size_t il = il_ir_pairs_v[iprime].first;
+// 	      VectorComplexType const* v; size_t sz;
+// 	      l.getModeData(v,sz,il);
+// 	      assert( cudaMemPrefetchAsync( (void const*)v, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
+// 	    }
+// 	  }
+// #endif
 
 	  accelerator_barrier(dummy);
 	}
