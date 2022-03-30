@@ -93,6 +93,10 @@ public:
     return *(v[i]->site_ptr(site,flavor)+spin_color);
   }
 
+  //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
+  inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
+    ptr = v[i]->ptr(); size = v[i]->size();
+  }
 
   class View: public StandardIndexDilution{
     typename CPSfieldArray<FermionFieldType>::View av;
@@ -198,6 +202,11 @@ public:
     return *(v[i]->site_ptr(site,flavor)+spin_color);
   }
 
+  //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
+  inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
+    ptr = v[i]->ptr(); size = v[i]->size();
+  }
+  
   //Create a regular fermion field for a given full mode by unpacking the dilution
   void unpackMode(FermionFieldType &into, const int mode) const{
     into = getMode(mode);
@@ -370,7 +379,16 @@ public:
       *(wh[i-nl]->site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
   }
 
-
+  //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
+  inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
+    if(i<nl){
+      ptr = wl[i]->ptr(); size = wl[i]->size();
+    }else{
+      int ii = i-nl;
+      ptr = wh[ii]->ptr(); size = wh[ii]->size();
+    }
+  }
+  
   class View: public FullyPackedIndexDilution{
     typename CPSfieldArray<FermionFieldType>::View awl;
     typename CPSfieldArray<ComplexFieldType>::View awh;
@@ -540,6 +558,16 @@ public:
       *(wh[i-nl]->site_ptr(site,flavor)+spin_color); //spin_color index diluted out.
   }
 
+  //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
+  inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
+    if(i<nl){
+      ptr = wl[i]->ptr(); size = wl[i]->size();
+    }else{
+      int ii = i-nl;
+      ptr = wh[ii]->ptr(); size = wh[ii]->size();
+    }
+  }
+  
   //Create a regular fermion field for a given full mode by unpacking the dilution
   void unpackMode(FermionFieldType &into, const int mode) const{
     if(mode < nl){

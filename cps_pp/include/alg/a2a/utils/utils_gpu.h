@@ -294,6 +294,11 @@ public:
 #endif
   }
 
+  //Return the status to its original, allowing the container to forget about its state and be reused
+  void reset(){
+    host_in_sync = device_in_sync = true;
+  }  
+
   T* getHostWritePtr(){
     host_in_sync = true;
     device_in_sync = false;

@@ -425,7 +425,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	time.Mr -= dclock();
 	{
 	  using namespace Grid;
-	  accelerator_for2d(scf_x4d, 12*nf*vol4d_node, iprimeb, niprime_block, nsimd,
+	  accelerator_for2dNB(scf_x4d, 12*nf*vol4d_node, iprimeb, niprime_block, nsimd,
 			  {
 			    VectorComplexType *into = Mvbprime + iprimeb + niprime_block*scf_x4d;
 			    
@@ -440,6 +440,27 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			    }
 			    ACC::write(*into, sum);
 			  });
+
+	  //This kernel takes a while so we may as well prefetch r for the next cycle
+#ifdef GRID_CUDA
+	  if(jprimeblock < njprime_blocks-1){
+	    size_t jprimeblock_nxt = jprimeblock+1;
+	    size_t jprimestart_nxt = jprimeblock_nxt * blocksize;
+	    size_t jprimelessthan_nxt = std::min(jprimestart_nxt + blocksize, njprime);
+	    size_t njprime_block_nxt = jprimelessthan_nxt - jprimestart_nxt;
+	    int device;
+	    assert(cudaGetDevice(&device) == cudaSuccess);
+	    
+	    for(size_t jprimeb = 0 ; jprimeb < njprime_block_nxt; jprimeb++){
+	      size_t jprime = jprimeb + jprimestart_nxt;
+	      size_t jr = jl_jr_pairs_v[jprime].second;
+	      VectorComplexType const* v; size_t sz;
+	      r.getModeData(v,sz,jr);
+	      assert( cudaMemPrefetchAsync( (void const*)v, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
+	    }
+	  }
+#endif
+	  accelerator_barrier(dummy);
 	}
 
 	time.Mr += dclock();
