@@ -209,6 +209,11 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t blocksize = BlockedvMvOffloadArgs::b;
     //size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
 
+#ifdef GRID_CUDA
+    int device;
+    assert(cudaGetDevice(&device) == cudaSuccess);
+#endif
+    
     typedef SIMT<VectorComplexType> ACC;
     typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
 
@@ -443,13 +448,11 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
 	  //This kernel takes a while so we may as well prefetch r for the next cycle
 #ifdef GRID_CUDA
-	  if(jprimeblock < njprime_blocks-1){
-	    size_t jprimeblock_nxt = jprimeblock+1;
+	  if(jprimeblock < njprime_blocks-1 || (jprimeblock == njprime_blocks-1 && iprimeblock != niprime_blocks-1)  ){
+	    size_t jprimeblock_nxt = (jprimeblock+1) % njprime_blocks; //loops back to 0 on last iteration so as to prefetch memory for next iblock
 	    size_t jprimestart_nxt = jprimeblock_nxt * blocksize;
 	    size_t jprimelessthan_nxt = std::min(jprimestart_nxt + blocksize, njprime);
 	    size_t njprime_block_nxt = jprimelessthan_nxt - jprimestart_nxt;
-	    int device;
-	    assert(cudaGetDevice(&device) == cudaSuccess);
 	    
 	    for(size_t jprimeb = 0 ; jprimeb < njprime_block_nxt; jprimeb++){
 	      size_t jprime = jprimeb + jprimestart_nxt;
@@ -469,7 +472,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	time.v_Mr -= dclock();
 	{
 	  using namespace Grid;
-	  accelerator_for2d(x4d, vol4d_node, scfl_scfr, 12*nf*12*nf, nsimd,
+	  accelerator_for2dNB(x4d, vol4d_node, scfl_scfr, 12*nf*12*nf, nsimd,
 			  {
 			    VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
 			    int scfr = scfl_scfr % (12*nf); //scfl_scfr = scfr + 12*nf*scfl
@@ -498,7 +501,28 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			    }
 			    ACC::write(out, sum);
 			  });
+
+	  //This kernel also takes a while so we may as well prefetch l for the next cycle
+#ifdef GRID_CUDA
+	  if(jprimeblock == njprime_blocks-1 && iprimeblock != niprime_blocks-1){
+	    size_t iprimeblock_nxt = iprimeblock+1;
+	    size_t iprimestart_nxt = iprimeblock_nxt * blocksize;
+	    size_t iprimelessthan_nxt = std::min(iprimestart_nxt + blocksize, niprime);
+	    size_t niprime_block_nxt = iprimelessthan_nxt - iprimestart_nxt;
+	    
+	    for(size_t iprimeb = 0 ; iprimeb < niprime_block_nxt; iprimeb++){
+	      size_t iprime = iprimeb + iprimestart_nxt;
+	      size_t il = il_ir_pairs_v[iprime].first;
+	      VectorComplexType const* v; size_t sz;
+	      l.getModeData(v,sz,il);
+	      assert( cudaMemPrefetchAsync( (void const*)v, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
+	    }
+	  }
+#endif
+
+	  accelerator_barrier(dummy);
 	}
+      
 
 	time.v_Mr += dclock();
       }
