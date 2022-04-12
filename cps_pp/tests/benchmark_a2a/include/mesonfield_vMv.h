@@ -252,8 +252,12 @@ void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int
   A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
   A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
 
-  Wgrid.testRandom();
-  Vgrid.testRandom();
+  //Any old data is fine
+  //Wgrid.testRandom();
+  //Vgrid.testRandom();
+
+  Wgrid.zero();
+  Vgrid.zero();
   
   A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
   mf_grid.setup(Wgrid,Vgrid,0,0);     

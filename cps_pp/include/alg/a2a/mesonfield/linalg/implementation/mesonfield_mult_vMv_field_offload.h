@@ -5,12 +5,7 @@
 
 CPS_START_NAMESPACE
 
-// std::ostream & operator<<(std::ostream &os, const std::pair<int,int> &p){
-//   os << '(' << p.first << "," << p.second << ')';
-//   return os;
-// }
-
-template<typename mf_Policies, 
+template<typename mf_Policies,
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,
 	 typename ComplexClass>
@@ -171,6 +166,146 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
   template<typename T>
   static accelerator_inline T min_value(const T&a, const T&b){ return a < b ? a : b; }
+
+  //Create va'
+  static void create_vaprime(VectorComplexType* vaprime, typename PropagatorField::View &into_v, typename lA2AfieldType::View &l_v,
+			     ManagedVector<uint8_t>::View &alpha_v, ManagedVector< std::pair<int,int> >::View &il_ir_pairs_v,
+			     int t_off, size_t iprimestart, int nf, int Lt, size_t vol4d_node, size_t niprime_block, size_t nsimd, bool conj_l){
+    typedef SIMT<VectorComplexType> ACC;
+    using namespace Grid;
+    accelerator_for2d(x4d, vol4d_node, iprimeb, niprime_block, nsimd,
+		      {
+			size_t xop; int top;
+			into_v.fourToThree(xop, top, x4d);
+			int t_glob = top + t_off;
+			size_t iprime = iprimeb + iprimestart;
+			for(int f=0;f<nf;f++){
+			  for(int sc=0;sc<12;sc++){
+			    VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index 
+			    auto val = ACC::read(l_v.nativeElem(il_ir_pairs_v[iprime].first, x4d, sc, f));
+			    val = conj_l ? Grid::conjugate(val) : val;
+			    val = val * double(alpha_v[sc + 12*(f+ nf*(t_glob + Lt*iprime))]);
+			    ACC::write(*into, val);
+			  }
+			}
+		      });
+    
+  }
+
+  //Create Mprime
+  static void create_Mprime(typename MesonFieldType::ScalarComplexType *Mprime, const MesonFieldType &M,
+			    size_t iprimestart, size_t iprimelessthan, size_t jprimestart, size_t jprimelessthan,
+			    ManagedVector< std::pair<int,int> > &il_ir_pairs, ManagedVector< std::pair<int,int> > &jl_jr_pairs){
+    typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
+    
+    MFcomplexType *Mptr = Mprime;
+    for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
+      size_t iprimeb = iprime - iprimestart;
+      size_t ir = il_ir_pairs[iprime].second;
+      for(size_t jprime = jprimestart; jprime < jprimelessthan; jprime++){
+	size_t jprimeb = jprime - jprimestart;
+	size_t jl = jl_jr_pairs[jprime].first;
+	*Mptr++ = M(ir, jl);
+      }
+    }
+  }    
+  
+  static void create_vbprime(VectorComplexType* vbprime, typename PropagatorField::View &into_v, typename rA2AfieldType::View &r_v,
+			     ManagedVector<uint8_t>::View &beta_v, ManagedVector< std::pair<int,int> >::View &jl_jr_pairs_v,
+			     int t_off, size_t jprimestart, int nf, int Lt, size_t vol4d_node, size_t njprime_block, size_t nsimd, bool conj_r,
+			     int scr, int fr){
+    typedef SIMT<VectorComplexType> ACC;
+    using namespace Grid;
+    accelerator_for2dNB(x4d, vol4d_node, jprimeb, njprime_block, nsimd,
+			{
+			  size_t jprime = jprimeb + jprimestart;
+			  size_t xop; int top;
+			  into_v.fourToThree(xop, top, x4d);
+			  int t_glob = top + t_off;
+			  
+			  VectorComplexType *into = vbprime + jprimeb + njprime_block*x4d;  //contiguous in summed index
+			  auto val = ACC::read(r_v.nativeElem(jl_jr_pairs_v[jprime].second, x4d, scr, fr));
+			  val = conj_r ? Grid::conjugate(val) : val;
+			  val = val * double(beta_v[scr + 12*(fr+ nf*(t_glob + Lt*jprime))]);
+			  ACC::write(*into, val);
+			});
+  }
+
+  //Mprime * vbprime
+  static void Mprime_vbprime(VectorComplexType* Mvbprime, typename MesonFieldType::ScalarComplexType *Mprime, VectorComplexType* vbprime, 
+			     size_t vol4d_node, size_t niprime_block, size_t njprime_block, size_t nsimd){
+    typedef SIMT<VectorComplexType> ACC;
+    typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
+    using namespace Grid;
+    accelerator_for2dNB(x4d, vol4d_node, iprimeb, niprime_block, nsimd,
+			{
+			  VectorComplexType *into = Mvbprime + iprimeb + niprime_block*x4d;
+			  
+			  typename ACC::value_type sum(0);
+			  VectorComplexType *rptr = vbprime + njprime_block*x4d; //jprimeb=0
+			  MFcomplexType *Mptr = Mprime + njprime_block * iprimeb; //jprimeb=0
+			  
+			  for(int jprimeb=0;jprimeb<njprime_block; jprimeb++){
+			    auto rval = ACC::read(*rptr++);
+			    auto Mval = *Mptr++; //not vectorized
+			    sum = sum + Mval * rval;
+			  }
+			  ACC::write(*into, sum);				      
+			});
+  }
+  
+  //va' (M' vb')
+  static void vaprime_Mprime_vbprime(typename PropagatorField::View &into_v, VectorComplexType* vaprime, VectorComplexType* Mvbprime, int sr, int cr, int fr, size_t vol4d_node, size_t niprime_block, int nf, size_t nsimd){
+    typedef SIMT<VectorComplexType> ACC;
+    using namespace Grid;
+    accelerator_for2dNB(x4d, vol4d_node, scfl, 12*nf, nsimd,
+			{
+			  VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
+			  int scl = scfl % 12;
+			  int fl = scfl / 12;
+			  int cl = scl % 3;
+			  int sl = scl / 3;			    
+			  
+			  VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
+			  auto sum = ACC::read(out);
+			  
+			  VectorComplexType *lptr = vaprime + niprime_block*(scfl + 12*nf*x4d);
+			  VectorComplexType *Mrptr = Mvbprime + niprime_block*x4d;
+			  
+			  for(size_t iprimeb=0; iprimeb < niprime_block; iprimeb++){
+			    auto lval = ACC::read(*lptr++); 
+			    auto Mrval = ACC::read(*Mrptr++); 
+			    sum = sum + lval * Mrval;
+			  }
+			  ACC::write(out, sum);
+			});
+  }
+
+  static void prefetch_r(size_t jprimeblock, size_t njprime_blocks, size_t iprimeblock, size_t niprime_blocks,
+			 size_t blocksize, size_t njprime, ManagedVector< std::pair<int,int> > &jl_jr_pairs, const rA2AfieldType &r){
+
+#ifdef GRID_CUDA
+    int device;
+    assert(cudaGetDevice(&device) == cudaSuccess);
+    
+    if(jprimeblock < njprime_blocks-1 || (jprimeblock == njprime_blocks-1 && iprimeblock != niprime_blocks-1)  ){
+      size_t jprimeblock_nxt = (jprimeblock+1) % njprime_blocks; //loops back to 0 on last iteration so as to prefetch memory for next iblock
+      size_t jprimestart_nxt = jprimeblock_nxt * blocksize;
+      size_t jprimelessthan_nxt = std::min(jprimestart_nxt + blocksize, njprime);
+      size_t njprime_block_nxt = jprimelessthan_nxt - jprimestart_nxt;
+      
+      for(size_t jprimeb = 0 ; jprimeb < njprime_block_nxt; jprimeb++){
+	size_t jprime = jprimeb + jprimestart_nxt;
+	size_t jr = jl_jr_pairs[jprime].second;
+	VectorComplexType const* v; size_t sz;
+	r.getModeData(v,sz,jr);
+	assert( cudaMemPrefetchAsync( (void const*)v, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
+      }
+    }
+#endif
+  }
+
+  
   
 
   static void optimized(PropagatorField &into,
@@ -204,11 +339,6 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t blocksize = BlockedvMvOffloadArgs::b;
     //size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
 
-#ifdef GRID_CUDA
-    int device;
-    assert(cudaGetDevice(&device) == cudaSuccess);
-#endif
-    
     typedef SIMT<VectorComplexType> ACC;
     typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
 
@@ -347,27 +477,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
       //std::cout << "Create va'" << std::endl;
 
-      //Create va'
-      {	
-	using namespace Grid;
-	accelerator_for2d(x4d, vol4d_node, iprimeb, niprime_block, nsimd,
-			{
-			  size_t xop; int top;
-			  into_v.fourToThree(xop, top, x4d);
-			  int t_glob = top + t_off;
-			  size_t iprime = iprimeb + iprimestart;
-			  for(int f=0;f<nf;f++){
-			    for(int sc=0;sc<12;sc++){
-			      VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index 
-			      auto val = ACC::read(l_v.nativeElem(il_ir_pairs_v[iprime].first, x4d, sc, f));
-			      val = conj_l ? Grid::conjugate(val) : val;
-			      val = val * double(alpha_v[sc + 12*(f+ nf*(t_glob + Lt*iprime))]);
-			      ACC::write(*into, val);
-			    }
-			  }
-			});
-	
-      }
+      create_vaprime(vaprime, into_v, l_v, alpha_v, il_ir_pairs_v, t_off, iprimestart, nf, Lt, vol4d_node, niprime_block, nsimd, conj_l);
       time.vaprime += dclock();
 
       for(size_t jprimeblock =0; jprimeblock < njprime_blocks; jprimeblock++){
@@ -378,40 +488,14 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
 
 	time.Mprime -= dclock();
-	//Create Mprime
-	{
-	  MFcomplexType *Mptr = Mprime;
-	  for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
-	    size_t iprimeb = iprime - iprimestart;
-	    size_t ir = il_ir_pairs[iprime].second;
-	    for(size_t jprime = jprimestart; jprime < jprimelessthan; jprime++){
-	      size_t jprimeb = jprime - jprimestart;
-	      size_t jl = jl_jr_pairs[jprime].first;
-	      *Mptr++ = M(ir, jl);
-	    }
-	  }
-	}    
+	create_Mprime(Mprime, M, iprimestart, iprimelessthan, jprimestart, jprimelessthan, il_ir_pairs, jl_jr_pairs);
 	time.Mprime += dclock();
 	
 	time.lMr -= dclock();
 
 	//The kernels below takes a while so we may as well prefetch r for the next cycle
-#ifdef GRID_CUDA
-	if(jprimeblock < njprime_blocks-1 || (jprimeblock == njprime_blocks-1 && iprimeblock != niprime_blocks-1)  ){
-	  size_t jprimeblock_nxt = (jprimeblock+1) % njprime_blocks; //loops back to 0 on last iteration so as to prefetch memory for next iblock
-	  size_t jprimestart_nxt = jprimeblock_nxt * blocksize;
-	  size_t jprimelessthan_nxt = std::min(jprimestart_nxt + blocksize, njprime);
-	  size_t njprime_block_nxt = jprimelessthan_nxt - jprimestart_nxt;
-	  
-	  for(size_t jprimeb = 0 ; jprimeb < njprime_block_nxt; jprimeb++){
-	    size_t jprime = jprimeb + jprimestart_nxt;
-	    size_t jr = jl_jr_pairs_v[jprime].second;
-	    VectorComplexType const* v; size_t sz;
-	    r.getModeData(v,sz,jr);
-	    assert( cudaMemPrefetchAsync( (void const*)v, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
-	  }
-	}
-#endif	
+	prefetch_r(jprimeblock, njprime_blocks, iprimeblock, niprime_blocks, blocksize, njprime, jl_jr_pairs, r);
+
 	for(int fr=0;fr<nf;fr++){
 	  for(int sr=0;sr<4;sr++){
 	    for(int cr=0;cr<3;cr++){
@@ -419,70 +503,14 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	      int scfr = cr+3*(sr + 4*fr);	      
 
 	      //Create vb'
-	      {
-		using namespace Grid;
-		accelerator_for2dNB(x4d, vol4d_node, jprimeb, njprime_block, nsimd,
-				  {
-				    size_t jprime = jprimeb + jprimestart;
-				    size_t xop; int top;
-				    into_v.fourToThree(xop, top, x4d);
-				    int t_glob = top + t_off;
-
-				    VectorComplexType *into = vbprime + jprimeb + njprime_block*x4d;  //contiguous in summed index
-				    auto val = ACC::read(r_v.nativeElem(jl_jr_pairs_v[jprime].second, x4d, scr, fr));
-				    val = conj_r ? Grid::conjugate(val) : val;
-				    val = val * double(beta_v[scr + 12*(fr+ nf*(t_glob + Lt*jprime))]);
-				    ACC::write(*into, val);
-				  });
-	      }
+	      create_vbprime(vbprime, into_v, r_v, beta_v, jl_jr_pairs_v, t_off, jprimestart, nf, Lt, vol4d_node, njprime_block, nsimd, conj_r, scr, fr);
 
 	      //Mprime * vbprime
+	      Mprime_vbprime(Mvbprime, Mprime, vbprime, vol4d_node, niprime_block, njprime_block, nsimd);
 
-	      {
-		using namespace Grid;
-		accelerator_for2dNB(x4d, vol4d_node, iprimeb, niprime_block, nsimd,
-				    {
-				      VectorComplexType *into = Mvbprime + iprimeb + niprime_block*x4d;
-			    
-				      typename ACC::value_type sum(0);
-				      VectorComplexType *rptr = vbprime + njprime_block*x4d; //jprimeb=0
-				      MFcomplexType *Mptr = Mprime + njprime_block * iprimeb; //jprimeb=0
-			    
-				      for(int jprimeb=0;jprimeb<njprime_block; jprimeb++){
-					auto rval = ACC::read(*rptr++);
-					auto Mval = *Mptr++; //not vectorized
-					sum = sum + Mval * rval;
-				      }
-				      ACC::write(*into, sum);				      
-				    });
-	      }
-
-	      //va' (M' vb')
-	      {
-		using namespace Grid;
-		accelerator_for2dNB(x4d, vol4d_node, scfl, 12*nf, nsimd,
-				    {
-				      VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
-				      int scl = scfl % 12;
-				      int fl = scfl / 12;
-				      int cl = scl % 3;
-				      int sl = scl / 3;			    
-				      
-				      VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
-				      auto sum = ACC::read(out);
-				      
-				      VectorComplexType *lptr = vaprime + niprime_block*(scfl + 12*nf*x4d);
-				      VectorComplexType *Mrptr = Mvbprime + niprime_block*x4d;
-
-				      for(size_t iprimeb=0; iprimeb < niprime_block; iprimeb++){
-					auto lval = ACC::read(*lptr++); 
-					auto Mrval = ACC::read(*Mrptr++); 
-					sum = sum + lval * Mrval;
-				      }
-				      ACC::write(out, sum);
-				    });
-	      }
-			     
+	      //va' (M' vb')	      
+	      vaprime_Mprime_vbprime(into_v, vaprime, Mvbprime, sr, cr, fr, vol4d_node, niprime_block, nf, nsimd);
+     
 	    }//cr
 	  }//sr      
 	}//fr
@@ -490,9 +518,10 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	  using namespace Grid;
 	  accelerator_barrier(dummy);
 	}
-	
+
 	time.lMr += dclock();
       }//jprimeblock
+
     }//iprimeblock
 
     device_free(vaprime);
