@@ -152,7 +152,7 @@ inline void* pinned_alloc_check(const size_t align, const size_t byte_size){
     assert(0);
   }
   return p;
-#else  
+#else 
   return memalign_check(align, byte_size);
 #endif
 }
