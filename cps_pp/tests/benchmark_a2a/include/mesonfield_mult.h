@@ -47,8 +47,9 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   Mflops = double(Flops)/time/double(1.e6);
   
   if(!UniqueID()) printf("MF mult node local first call (ni=%d nj=%d nk=%d) avg time %f s, %f Mflops\n",ni,nj,nk,time,Mflops);
-
+  
 #ifdef MULT_IMPL_CUBLASXT
+  std::cout << "cuBLASXT handle setup time (once) " << cuBLAShandles::time() << "s" << std::endl;
   if(!UniqueID()) _mult_impl_base::getTimers().print();
   _mult_impl_base::getTimers().reset();
 #endif

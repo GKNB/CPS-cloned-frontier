@@ -167,6 +167,170 @@ void benchmarkMesonFieldPackDevice(const A2AArg &a2a_args,const int ntest){
 }
 
 
+void benchmarkMesonFieldGather(const A2AArg &a2a_args,const int ntest){
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  int nodes = 1;
+  for(int i=0;i<4;i++) nodes *= GJP.Nodes(i);
+
+  //Distributed storage
+  if(nodes > 1){
+    std::cout << "Benchmarking distributed storage" << std::endl;
+    
+    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTED);
+    typedef A2AmesonField<A2ApoliciesTmp,A2AvectorWfftw,A2AvectorVfftw> MfType;
+    std::vector<MfType> mf(nodes); //arrange for 1 per node
+
+    std::vector<MfType*> owner_map(nodes);
+    for(int f=0;f<nodes;f++){
+      int t = f % Lt;
+      mf[f].setup(a2a_args,a2a_args,t,t);
+      mf[f].testRandom();
+      mf[f].nodeDistribute();
+      owner_map[mf[f].masterUID()] = &mf[f]; //only need one per partner node
+    }
+    
+    for(int f=0;f<nodes;f++){
+      double avg_time = 0;
+      double var_time = 0;
+
+      DistributedMemoryStorage::perf().reset();
+      
+      for(int t=0;t<ntest;t++){
+	double time = -dclock();
+	owner_map[f]->nodeGet();
+	time += dclock();
+
+	owner_map[f]->nodeDistribute();
+	
+	avg_time += time;
+	var_time += time*time;
+      }
+      avg_time /= ntest;
+      var_time = var_time/ntest - avg_time*avg_time;
+
+      if(!UniqueID()) printf("Owner node uid %d,  this node uid %d, time  %f +- %f\n", f, UniqueID(), avg_time, sqrt(var_time));
+
+      DistributedMemoryStorage::perf().print();
+    }
+    std::cout << "-----------------------------------" << std::endl;
+  }
+
+  //One-sided distributed storage
+  if(nodes > 1){
+    std::cout << "Benchmarking one-sided distributed storage" << std::endl;
+    
+    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTEDONESIDED);
+    typedef A2AmesonField<A2ApoliciesTmp,A2AvectorWfftw,A2AvectorVfftw> MfType;
+    std::vector<MfType> mf(nodes); //arrange for 1 per node
+
+    std::vector<MfType*> owner_map(nodes);
+    for(int f=0;f<nodes;f++){
+      int t = f % Lt;
+      mf[f].setup(a2a_args,a2a_args,t,t);
+      mf[f].testRandom();
+      mf[f].nodeDistribute();
+      owner_map[mf[f].masterUID()] = &mf[f]; //only need one per partner node
+    }
+    
+    for(int f=0;f<nodes;f++){
+      double avg_time = 0;
+      double var_time = 0;
+
+      DistributedMemoryStorageOneSided::perf().reset();
+      
+      for(int t=0;t<ntest;t++){
+	double time = -dclock();
+	owner_map[f]->nodeGet();
+	time += dclock();
+
+	owner_map[f]->nodeDistribute();
+	
+	avg_time += time;
+	var_time += time*time;
+      }
+      avg_time /= ntest;
+      var_time = var_time/ntest - avg_time*avg_time;
+
+      if(!UniqueID()) printf("Owner node uid %d,  this node uid %d, time  %f +- %f\n", f, UniqueID(), avg_time, sqrt(var_time));
+
+      DistributedMemoryStorageOneSided::perf().print();
+    }
+    std::cout << "-----------------------------------" << std::endl;
+  }
+
+  //Burst buffer storage (only one head node:  assumes shared scratch)
+  {
+    std::cout << "Benchmarking burst-buffer distributed storage" << std::endl;
+    
+    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_BURSTBUFFER);
+    typedef A2AmesonField<A2ApoliciesTmp,A2AvectorWfftw,A2AvectorVfftw> MfType;
+    std::vector<MfType> mf(nodes); //arrange for 1 per node
+
+    for(int f=0;f<nodes;f++){
+      int t = f % Lt;
+      mf[f].setup(a2a_args,a2a_args,t,t);
+      mf[f].testRandom();
+      mf[f].nodeDistribute();
+    }
+    
+    //only need to do this once but time from the perspective of all nodes (recall only head node writes)
+    //this first test is "hot", i.e. with the same data, so caching will possibly come into play
+    double avg_time = 0;
+    double var_time = 0;
+    
+    BurstBufferMemoryStorage::perf().reset();
+    
+    for(int t=0;t<ntest;t++){
+      double time = -dclock();
+      mf[0].nodeGet();
+      time += dclock();
+      
+      mf[0].nodeDistribute();
+      
+      avg_time += time;
+      var_time += time*time;
+    }
+    avg_time /= ntest;
+    var_time = var_time/ntest - avg_time*avg_time;
+
+    for(int f=0;f<nodes;f++){
+      if(UniqueID() == f) printf("Node uid %d, time  %f +- %f (hot)\n", UniqueID(), avg_time, sqrt(var_time));
+      cps::sync();
+    }
+    
+    BurstBufferMemoryStorage::perf().print();
+
+
+    avg_time = 0;
+    var_time = 0;
+    
+    BurstBufferMemoryStorage::perf().reset();
+    
+    for(int t=0;t<ntest;t++){
+      mf[0].nodeGet();	    
+      mf[0].testRandom();
+      mf[0].nodeDistribute(); //checksum will differ so it forces a rewrite
+      
+      double time = -dclock();
+      mf[0].nodeGet();
+      time += dclock();
+      
+      avg_time += time;
+      var_time += time*time;
+    }
+    avg_time /= ntest;
+    var_time = var_time/ntest - avg_time*avg_time;
+
+    for(int f=0;f<nodes;f++){
+      if(UniqueID() == f) printf("Node uid %d, time  %f +- %f (cold)\n", UniqueID(), avg_time, sqrt(var_time));
+      cps::sync();
+    }
+    
+    BurstBufferMemoryStorage::perf().print();    
+    
+    std::cout << "-----------------------------------" << std::endl;
+  }
+}
 
 
 

@@ -15,12 +15,24 @@ struct _nodeGetManyPerf<DistributedMemoryStorage>{
   }; 
 };
 
+template<>
+struct _nodeGetManyPerf<DistributedMemoryStorageOneSided>{ 
+  static void reset(){ DistributedMemoryStorageOneSided::perf().reset(); }; 
+  static void print(){ 
+    DistributedMemoryStorageOneSided::perf().print(); 
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+    if(!UniqueID()) DistributedMemoryStorageOneSided::block_allocator().stats(std::cout);
+#endif
+  }; 
+};
+
+ 
 
 //Handy helpers for gather and distribute of length Lt vectors of meson fields
 template<typename T>
 void nodeGetMany(const int n, std::vector<T> *a, ...){
-  _nodeGetManyPerf<MesonFieldDistributedStorageType>::reset();
-  cps::sync();
+  _nodeGetManyPerf<typename T::MesonFieldDistributedStorageType>::reset();
+  //cps::sync();
   
   double time = -dclock();
 
@@ -41,13 +53,13 @@ void nodeGetMany(const int n, std::vector<T> *a, ...){
   va_end(vl);
 
   print_time("nodeGetMany","Meson field gather",time+dclock());
-  _nodeGetManyPerf<MesonFieldDistributedStorageType>::print();
+  _nodeGetManyPerf<typename T::MesonFieldDistributedStorageType>::print();
 }
 
 
 template<typename T>
 void nodeDistributeMany(const int n, std::vector<T> *a, ...){
-  cps::sync();
+  //cps::sync();
   
   double time = -dclock();
 
@@ -74,8 +86,8 @@ void nodeDistributeMany(const int n, std::vector<T> *a, ...){
 //Same as above but the user can pass in a set of bools that tell the gather whether the MF on that timeslice is required. If not it is internally deleted, freeing memory
 template<typename T>
 void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_timeslice_mask,  ...){
-  _nodeGetManyPerf<MesonFieldDistributedStorageType>::reset();
-  cps::sync();
+  _nodeGetManyPerf<typename T::MesonFieldDistributedStorageType>::reset();
+  //cps::sync();
 
   double time = -dclock();
 
@@ -97,14 +109,14 @@ void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_time
   va_end(vl);
 
   print_time("nodeGetMany","Meson field gather",time+dclock());
-  _nodeGetManyPerf<MesonFieldDistributedStorageType>::print();
+  _nodeGetManyPerf<typename T::MesonFieldDistributedStorageType>::print();
 }
 
 
 //Distribute only meson fields in 'from' that are *not* present in any of the sets 'notina' and following
 template<typename T>
 void nodeDistributeUnique(std::vector<T> &from, const int n, std::vector<T> const* notina, ...){
-  cps::sync();
+  //cps::sync();
   
   double time = -dclock();
   
@@ -131,3 +143,33 @@ void nodeDistributeUnique(std::vector<T> &from, const int n, std::vector<T> cons
 
   print_time("nodeDistributeUnique","Meson field distribute",time+dclock());
 }
+
+
+//Distribute all meson fields in to_distribute which are not present in to_keep
+template<typename T>
+void nodeDistributeUnique(const std::vector< std::vector<T>* > &to_distribute, const std::vector< std::vector<T> const*> &to_keep){
+  //cps::sync();
+  
+  double time = -dclock();
+
+  std::set<T const*> keep_p;
+  for(auto tv: to_keep)
+    for(const T & p: *tv)
+      keep_p.insert(&p);
+
+  std::set<T const*> discarded_p;
+  for(auto tv: to_distribute)
+    for(T & p: *tv)
+      if(!keep_p.count(&p)){
+	p.nodeDistribute();
+	discarded_p.insert(&p);
+      }
+
+  if(!UniqueID()) printf("nodeDistributeUnique(vector edition) : Distributed %d meson fields in %f seconds\n", discarded_p.size(), time+dclock());
+}
+
+
+
+
+
+

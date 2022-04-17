@@ -1,4 +1,5 @@
 #include "benchmark_mesonfield.h"
+#include <sstream>
 
 using namespace cps;
 
@@ -29,6 +30,10 @@ struct Options{
   double tol;
   int nlowmodes;
 
+  int nshift; //for shifted src benchmark
+
+  std::vector<int> tsep_k_pi;
+  
   Options(){
     load_lrg=false;
     save_lrg=false;
@@ -40,6 +45,10 @@ struct Options{
     ntests = 10;    
     tol = 1e-8;
     nlowmodes = 100;
+
+    nshift = 4;
+
+    tsep_k_pi = {4};
   }
 
 
@@ -122,6 +131,8 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #ifdef USE_GRID
   if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(0) benchmarkMultiShiftMFcontract<GridA2ApoliciesType>(a2a_args, opt.nshift);
+
 #endif
 
   if(0) benchmarkCPSfieldIO();
@@ -136,11 +147,11 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #ifdef USE_GRID
   if(0) benchmarkvMvGridOrig<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 
-  if(0) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(1) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
-  if(0) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice);
-  if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice);
+  if(0) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
+  if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
 
   if(0) benchmarkDeflation<GridA2ApoliciesType>(lattice ,opt.nlowmodes, argc, argv);
 
@@ -155,6 +166,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkMesonFieldPackDevice<GridA2ApoliciesType>(a2a_args, ntests);
 #endif
 
+  if(0) benchmarkMesonFieldGather(a2a_args, ntests);
 }
 
 
@@ -259,6 +271,26 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss  << argv[i+1]; ss >> BlockedSplitvMvArgs::b;
       if(!UniqueID()) printf("Set vMv split blocksize to %d\n", BlockedSplitvMvArgs::b);
       i+=2;
+    }else if( cmd == "-nshift" ){
+      std::stringstream ss; ss << argv[i+1];
+      ss >> opt.nshift;
+      if(!UniqueID()) printf("Set nshift to %d\n",opt.nshift);
+      i+=2;
+    }else if( cmd == "-mf_burst_store_stub"){ //set the file stub for the meson field disk storage 
+      BurstBufferMemoryStorage::filestub() = argv[i+1];
+      if(!UniqueID()) printf("Set mesonfield burst buffer file stub to %s\n", argv[i+1]);
+      i+=2;
+    }else if( cmd == "-tsep_k_pi"){ //provide a list in Grid's  a.b.c.d  format
+      std::istringstream iss(argv[i+1]);
+      std::string token;
+      while (std::getline(iss, token, '.')) {
+	if (!token.empty())
+	  opt.tsep_k_pi.push_back(toInt(token.c_str()));
+      }
+      std::cout << "Set tsep_k_pi to {";
+      for(int v: opt.tsep_k_pi){ std::cout << v << " "; }
+      std::cout <<std::endl;      
+      i+=2;      
     }else{
       i++;
     }

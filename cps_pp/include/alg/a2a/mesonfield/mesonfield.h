@@ -26,7 +26,7 @@ CPS_START_NAMESPACE
 
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-class A2AmesonField: public MesonFieldDistributedStorageType{
+class A2AmesonField: public mf_Policies::MesonFieldDistributedStorageType{
 public:
   //Deduce the dilution types for the meson field. We unpack the flavor index in W fields
   typedef typename A2AfieldL<mf_Policies>::DilutionType LeftInputDilutionType;
@@ -35,6 +35,7 @@ public:
   typedef typename FlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
   typedef typename FlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+  typedef typename mf_Policies::MesonFieldDistributedStorageType MesonFieldDistributedStorageType;
  private:
   int nmodes_l, nmodes_r;
   int fsize; //in units of ScalarComplexType
@@ -83,20 +84,9 @@ public:
     accelerator_inline int getNrows() const{ return nmodes_l; }
     accelerator_inline int getNcols() const{ return nmodes_r; }
 
-    ReadView(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize), tl(mf.tl), tr(mf.tr){
-#ifdef GPU_VEC
-      data = (ScalarComplexType *)device_alloc_check(fsize * sizeof(ScalarComplexType));
-      copy_host_to_device(data, mf.ptr(), fsize * sizeof(ScalarComplexType));
-#else
-      data = mf.ptr();
-#endif
-    }
+    ReadView(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf);
     
-    void free(){
-#ifdef GPU_VEC
-      device_free(data);
-#endif
-    }
+    void free();
   };
 
   //Create a *READ ONLY* view of the mesonfield for device access

@@ -6,6 +6,20 @@
 
 CPS_START_NAMESPACE
 
+//Macro to choose meson field storage type
+//   only the head node writes to a fast scratch disk system
+#define SET_MFSTORAGE_BURSTBUFFER typedef BurstBufferMemoryStorage MesonFieldDistributedStorageType
+//   every node writes its own copy ( different filenames in case disk is shared )
+#define SET_MFSTORAGE_NODESCRATCH typedef IndependentDiskWriteStorage MesonFieldDistributedStorageType
+//   meson fields are distributed over the ranks of the system
+#define SET_MFSTORAGE_DISTRIBUTED typedef DistributedMemoryStorage MesonFieldDistributedStorageType
+//   meson fields are distributed over the ranks of the system and one-sided comms is used to retrieve them
+#define SET_MFSTORAGE_DISTRIBUTEDONESIDED typedef DistributedMemoryStorageOneSided MesonFieldDistributedStorageType
+
+//   Default to distributed storage
+#define SET_MFSTORAGE_DEFAULT SET_MFSTORAGE_DISTRIBUTED
+
+
 //Type policies needed for sources
 
 #ifdef USE_GRID
@@ -123,7 +137,7 @@ struct BaseGridPoliciesGparity{
 #endif  
 
 //This macro defines a template for all the non-SIMD A2A policies
-#define A2APOLICIES_TEMPLATE(NAME, IS_GPARITY_POLICY, BASE_GRID_PARAMS, ALLOCATOR_MACRO) \
+#define A2APOLICIES_TEMPLATE(NAME, IS_GPARITY_POLICY, BASE_GRID_PARAMS, ALLOCATOR_MACRO, MFSTORAGE_MACRO) \
 struct NAME{								\
  A2APOLICIES_SETUP(BASE_GRID_PARAMS)					\
  typedef StandardAllocPolicy AllocPolicy;				\
@@ -135,14 +149,15 @@ struct NAME{								\
  typedef CPSfield<typename SourcePolicies::ComplexType,1,typename SourcePolicies::MappingPolicy, typename SourcePolicies::AllocPolicy> SourceFieldType; \
 									\
  ALLOCATOR_MACRO(NAME);							\
+ MFSTORAGE_MACRO;							\
  enum { GPARITY=IS_GPARITY_POLICY };					\
 };
 
 //Apply the template!
-A2APOLICIES_TEMPLATE(A2ApoliciesDoubleAutoAlloc, 0, BaseGridPolicies, SET_A2AVECTOR_AUTOMATIC_ALLOC);
-A2APOLICIES_TEMPLATE(A2ApoliciesDoubleManualAlloc, 0, BaseGridPolicies, SET_A2AVECTOR_MANUAL_ALLOC);
-A2APOLICIES_TEMPLATE(A2ApoliciesDoubleAutoAllocGparity, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC);
-A2APOLICIES_TEMPLATE(A2ApoliciesDoubleManualAllocGparity, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_MANUAL_ALLOC);
+A2APOLICIES_TEMPLATE(A2ApoliciesDoubleAutoAlloc, 0, BaseGridPolicies, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DEFAULT);
+A2APOLICIES_TEMPLATE(A2ApoliciesDoubleManualAlloc, 0, BaseGridPolicies, SET_A2AVECTOR_MANUAL_ALLOC, SET_MFSTORAGE_DEFAULT);
+A2APOLICIES_TEMPLATE(A2ApoliciesDoubleAutoAllocGparity, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DEFAULT);
+A2APOLICIES_TEMPLATE(A2ApoliciesDoubleManualAllocGparity, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_MANUAL_ALLOC, SET_MFSTORAGE_DEFAULT);
 
 
 
@@ -152,7 +167,7 @@ A2APOLICIES_TEMPLATE(A2ApoliciesDoubleManualAllocGparity, 1, BaseGridPoliciesGpa
 
 //This macro defines a template for all the SIMD A2A policies
 
-#define A2APOLICIES_SIMD_TEMPLATE(NAME, IS_GPARITY_POLICY, BASE_GRID_PARAMS, ALLOCATOR_MACRO) \
+#define A2APOLICIES_SIMD_TEMPLATE(NAME, IS_GPARITY_POLICY, BASE_GRID_PARAMS, ALLOCATOR_MACRO, MFSTORAGE_MACRO) \
 struct NAME{					\
  INHERIT_BASE_GRID_TYPEDEFS(BASE_GRID_PARAMS);	\
 						\
@@ -172,15 +187,16 @@ struct NAME{					\
  typedef CPSfield<typename SourcePolicies::ComplexType,1,typename SourcePolicies::MappingPolicy, typename SourcePolicies::AllocPolicy> SourceFieldType; \
 									\
  ALLOCATOR_MACRO(NAME);							\
+ MFSTORAGE_MACRO;							\
  enum { GPARITY=IS_GPARITY_POLICY };					\
 };
 
 
 //Apply the template!
-A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleAutoAlloc, 0, BaseGridPolicies, SET_A2AVECTOR_AUTOMATIC_ALLOC);
-A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleManualAlloc, 0, BaseGridPolicies, SET_A2AVECTOR_MANUAL_ALLOC);
-A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleAutoAllocGparity, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC);
-A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleManualAllocGparity, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_MANUAL_ALLOC);
+A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleAutoAlloc, 0, BaseGridPolicies, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DEFAULT);
+A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleManualAlloc, 0, BaseGridPolicies, SET_A2AVECTOR_MANUAL_ALLOC, SET_MFSTORAGE_DEFAULT);
+A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleAutoAllocGparity, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DEFAULT);
+A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleManualAllocGparity, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_MANUAL_ALLOC, SET_MFSTORAGE_DEFAULT);
 
 #endif
 

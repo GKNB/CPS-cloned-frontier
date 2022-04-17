@@ -136,6 +136,7 @@ public:
       getTimers().t_alloc -= dclock();
       gpuHostPinnedMatrix lreord(bi,nj);
       gpuHostPinnedMatrix rreord(nj,bk);
+      gpuHostPinnedMatrix lr(bi,bk);
       getTimers().t_alloc += dclock();	
 
       //Compute which iblock,kblock index this node is responsible for
@@ -175,7 +176,7 @@ public:
 	getTimers().t_reord += dclock();
 	
 	getTimers().t_compute -= dclock();
-	gpuHostPinnedMatrix lr = mult_offload_cuBLASxt(lreord,rreord);
+	mult_offload_cuBLASxt(lr, lreord,rreord);
 	getTimers().t_compute += dclock();
 
 	getTimers().t_write -= dclock();

@@ -1,35 +1,25 @@
 #ifndef _KTOPIPI_MAIN_A2A_POLICIES_H_
 #define _KTOPIPI_MAIN_A2A_POLICIES_H_
 
-//Setup the A2A policy
+//Get the allocation type
 #ifdef USE_DESTRUCTIVE_FFT
-
-#ifdef A2A_PREC_DOUBLE
-typedef A2ApoliciesDoubleManualAllocGparity A2Apolicies;
-#elif defined(A2A_PREC_SINGLE)
-typedef A2ApoliciesSingleManualAllocGparity A2Apolicies;
-#elif defined(A2A_PREC_SIMD_DOUBLE)
-typedef A2ApoliciesSIMDdoubleManualAllocGparity A2Apolicies;
-#elif defined(A2A_PREC_SIMD_SINGLE)
-typedef A2ApoliciesSIMDsingleManualAllocGparity A2Apolicies;
+#define ALLOC_TYPE SET_A2AVECTOR_MANUAL_ALLOC
 #else
-#error "Must provide an A2A precision"
+#define ALLOC_TYPE SET_A2AVECTOR_AUTOMATIC_ALLOC
 #endif
 
-#else
-
-#ifdef A2A_PREC_DOUBLE
-typedef A2ApoliciesDoubleAutoAllocGparity A2Apolicies;
-#elif defined(A2A_PREC_SINGLE)
-typedef A2ApoliciesSingleAutoAllocGparity A2Apolicies;
-#elif defined(A2A_PREC_SIMD_DOUBLE)
-typedef A2ApoliciesSIMDdoubleAutoAllocGparity A2Apolicies;
-#elif defined(A2A_PREC_SIMD_SINGLE)
-typedef A2ApoliciesSIMDsingleAutoAllocGparity A2Apolicies;
-#else
-#error "Must provide an A2A precision"
+//Get the mesonfield storage type;  override default using -DMF_STORAGE_TYPE=<type>
+#ifndef MF_STORAGE_TYPE
+#define MF_STORAGE_TYPE SET_MFSTORAGE_DISTRIBUTED
 #endif
 
+//Get whether to use SIMD or non-SIMD policy
+#if defined(A2A_PREC_SIMD_DOUBLE) || defined(A2A_PREC_SIMD_DOUBLE)
+#define POLICIES_MACRO A2APOLICIES_SIMD_TEMPLATE
+#else
+#define POLICIES_MACRO A2APOLICIES_TEMPLATE
 #endif
+
+POLICIES_MACRO(A2Apolicies, 1, BaseGridPoliciesGparity, ALLOC_TYPE, MF_STORAGE_TYPE);
 
 #endif

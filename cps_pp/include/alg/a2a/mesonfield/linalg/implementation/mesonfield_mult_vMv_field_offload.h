@@ -51,27 +51,26 @@ struct _mult_vMv_field_offload_fields<mf_Policies,0>{
 
 struct mult_vMv_field_offload_timers{
   struct timers{
-    double init1;
-    double Mr;
-    double init2;
-    double v_Mr;
+    double init;
+    double vaprime;
+    double Mprime;
+    double lMr;
     size_t calls;
 
-    timers(): init1(0), Mr(0), init2(0), v_Mr(0), calls(0){}
+    timers(): init(0), vaprime(0), Mprime(0), lMr(0), calls(0){}
 
     void reset(){
-      init1=Mr=init2=v_Mr=0;
+      init=vaprime=Mprime=lMr=0;
       calls = 0;
     }
     void average(){
-      init1/=calls;
-      Mr/=calls;
-      init2/=calls;
-      v_Mr/=calls;
+      init/=calls;
+      vaprime/=calls;
+      lMr/=calls;
     }
     void print(){
       average();
-      printf("calls=%zu init1=%g Mr=%g init2=%g v(Mr)=%g\n", calls, init1, Mr, init2, v_Mr);
+      printf("calls=%zu init=%g va'=%g M'=%g lMr=%g\n", calls, init, vaprime, Mprime, lMr);
     }
 
   };
@@ -185,7 +184,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
     ++time.calls;
 
-    time.init1 -= dclock();
+    time.init -= dclock();
 
     into.zero();
 
@@ -200,11 +199,16 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     int Lt = GJP.Tnodes() * GJP.TnodeSites();
     int nf = GJP.Gparity() + 1;
     size_t nsimd = VectorComplexType::Nsimd();
-    size_t vol4d = into.size();
+    size_t vol4d_node = into.size();
     int t_off = GJP.TnodeSites() * GJP.TnodeCoor();
     size_t blocksize = BlockedvMvOffloadArgs::b;
     //size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
 
+#ifdef GRID_CUDA
+    int device;
+    assert(cudaGetDevice(&device) == cudaSuccess);
+#endif
+    
     typedef SIMT<VectorComplexType> ACC;
     typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
 
@@ -307,34 +311,35 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t niprime = nil_ir_pairs;
     size_t njprime = njl_jr_pairs;
 
-    size_t field_size = 12 * nf * vol4d;
-    size_t vaprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
-    size_t vbprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
+    size_t field_size = 12 * nf * vol4d_node;
+    size_t blocked_fermfields_bytes = field_size * blocksize * sizeof(VectorComplexType);
+    size_t blocked_cmplxfields_bytes = vol4d_node * blocksize * sizeof(VectorComplexType);    
     size_t Mprime_bytes = blocksize * blocksize * sizeof(MFcomplexType);
 
     if(!UniqueID()){
       std::cout << "Outer block size is blocksize=" << blocksize  << std::endl;  //<< " inner blocksize " << inner_blocksize << std::endl;
-      std::cout << "Field size is F=" << double(field_size * sizeof(VectorComplexType)) / 1024./1024. << " MB, for vector temporaries require (3 * blocksize * F) MB total" << std::endl;
-      std::cout << "vaprime " << double(vaprime_bytes)/1024./1024. << " MB" << std::endl;
-      std::cout << "vbprime " << double(vbprime_bytes)/1024./1024. << " MB" << std::endl;
+      std::cout << "Fermion field size is F=" << double(field_size * sizeof(VectorComplexType)) / 1024./1024. << " MB and complex filed Z="
+		<< double(vol4d_node*sizeof(VectorComplexType)) / 1024./1024. << "MB, for vector temporaries require blocksize * (F + 2*Z) MB total" << std::endl;
+      std::cout << "vaprime " << double(blocked_fermfields_bytes)/1024./1024. << " MB" << std::endl;
+      std::cout << "vbprime " << double(blocked_cmplxfields_bytes)/1024./1024. << " MB" << std::endl;
       std::cout << "Mprime " << double(Mprime_bytes)/1024./1024. << " MB" << std::endl;
-      std::cout << "Mvbprime " << double(vaprime_bytes)/1024./1024. << " MB" << std::endl;
+      std::cout << "Mvbprime " << double(blocked_cmplxfields_bytes)/1024./1024. << " MB" << std::endl;
     }
     
-    VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
-    VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vbprime_bytes);
+    VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(blocked_fermfields_bytes);
+    VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(blocked_cmplxfields_bytes); //only one spin,color,flavor    
     MFcomplexType* Mprime = (MFcomplexType*)managed_alloc_check(Mprime_bytes);
-    VectorComplexType* Mvbprime = (VectorComplexType*)device_alloc_check(vaprime_bytes);
+    VectorComplexType* Mvbprime = (VectorComplexType*)device_alloc_check(blocked_cmplxfields_bytes);
     
     //Do in blocks over i',j' to avoid taking too much space
     size_t niprime_blocks = (niprime + blocksize-1)/blocksize;
     size_t njprime_blocks = (njprime + blocksize-1)/blocksize;
 
-    time.init1 += dclock();
+    time.init += dclock();
     
     for(size_t iprimeblock =0; iprimeblock < niprime_blocks; iprimeblock++){
 
-      time.init2 -= dclock();
+      time.vaprime -= dclock();
       size_t iprimestart = iprimeblock * blocksize;
       size_t iprimelessthan = std::min(iprimestart + blocksize, niprime);
       size_t niprime_block = iprimelessthan - iprimestart;
@@ -345,61 +350,34 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       //Create va'
       {	
 	using namespace Grid;
-	accelerator_for(x4d, vol4d, nsimd,
+	accelerator_for2d(x4d, vol4d_node, iprimeb, niprime_block, nsimd,
 			{
 			  size_t xop; int top;
 			  into_v.fourToThree(xop, top, x4d);
 			  int t_glob = top + t_off;
-			  for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
-			    size_t iprimeb = iprime - iprimestart;
-			    for(int f=0;f<nf;f++){
-			      for(int sc=0;sc<12;sc++){
-				VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index 
-				auto val = ACC::read(l_v.nativeElem(il_ir_pairs_v[iprime].first, x4d, sc, f));
-				val = conj_l ? Grid::conjugate(val) : val;
-				val = val * double(alpha_v[sc + 12*(f+ nf*(t_glob + Lt*iprime))]);
-				ACC::write(*into, val);
-			      }
+			  size_t iprime = iprimeb + iprimestart;
+			  for(int f=0;f<nf;f++){
+			    for(int sc=0;sc<12;sc++){
+			      VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index 
+			      auto val = ACC::read(l_v.nativeElem(il_ir_pairs_v[iprime].first, x4d, sc, f));
+			      val = conj_l ? Grid::conjugate(val) : val;
+			      val = val * double(alpha_v[sc + 12*(f+ nf*(t_glob + Lt*iprime))]);
+			      ACC::write(*into, val);
 			    }
 			  }
 			});
-	time.init2 += dclock();
+	
       }
+      time.vaprime += dclock();
 
       for(size_t jprimeblock =0; jprimeblock < njprime_blocks; jprimeblock++){
-	time.init2 -= dclock();
 	size_t jprimestart = jprimeblock * blocksize;
 	size_t jprimelessthan = std::min(jprimestart + blocksize, njprime);
 	size_t njprime_block = jprimelessthan - jprimestart;	
 
 	std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
 
-	//std::cout << "Create vb' njprime_block=" << njprime_block << " xfsc_loop_size=" << 12*nf*vol4d << " nsimd=" << nsimd << std::endl;
-
-	//Create vb'
-	{
-	  using namespace Grid;
-	  accelerator_for2d(scf_x4d, 12*nf*vol4d, jprimeb, njprime_block, nsimd,
-			    {
-			      size_t rem = scf_x4d; //sc + 12*(f + nf*x4d)
-			      int sc = rem % 12; rem /= 12;
-			      int f = rem % nf; rem /= nf;
-			      size_t x4d = rem;
-
-			      size_t jprime = jprimeb + jprimestart;
-			      size_t xop; int top;
-			      into_v.fourToThree(xop, top, x4d);
-			      int t_glob = top + t_off;
-
-			      VectorComplexType *into = vbprime + jprimeb + njprime_block*scf_x4d;  //contiguous in summed index
-			      auto val = ACC::read(r_v.nativeElem(jl_jr_pairs_v[jprime].second, x4d, sc, f));
-			      val = conj_r ? Grid::conjugate(val) : val;
-			      val = val * double(beta_v[sc + 12*(f+ nf*(t_glob + Lt*jprime))]);
-			      ACC::write(*into, val);
-			    });
-	}
-
-	std::cout << "Create Mprime" << std::endl;
+	time.Mprime -= dclock();
 	//Create Mprime
 	{
 	  MFcomplexType *Mptr = Mprime;
@@ -412,73 +390,110 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	      *Mptr++ = M(ir, jl);
 	    }
 	  }
+	}    
+	time.Mprime += dclock();
+	
+	time.lMr -= dclock();
+
+	//The kernels below takes a while so we may as well prefetch r for the next cycle
+#ifdef GRID_CUDA
+	if(jprimeblock < njprime_blocks-1 || (jprimeblock == njprime_blocks-1 && iprimeblock != niprime_blocks-1)  ){
+	  size_t jprimeblock_nxt = (jprimeblock+1) % njprime_blocks; //loops back to 0 on last iteration so as to prefetch memory for next iblock
+	  size_t jprimestart_nxt = jprimeblock_nxt * blocksize;
+	  size_t jprimelessthan_nxt = std::min(jprimestart_nxt + blocksize, njprime);
+	  size_t njprime_block_nxt = jprimelessthan_nxt - jprimestart_nxt;
+	  
+	  for(size_t jprimeb = 0 ; jprimeb < njprime_block_nxt; jprimeb++){
+	    size_t jprime = jprimeb + jprimestart_nxt;
+	    size_t jr = jl_jr_pairs_v[jprime].second;
+	    VectorComplexType const* v; size_t sz;
+	    r.getModeData(v,sz,jr);
+	    assert( cudaMemPrefetchAsync( (void const*)v, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
+	  }
 	}
-    
-	time.init2 += dclock();
+#endif	
+	for(int fr=0;fr<nf;fr++){
+	  for(int sr=0;sr<4;sr++){
+	    for(int cr=0;cr<3;cr++){
+	      int scr = cr+3*sr;
+	      int scfr = cr+3*(sr + 4*fr);	      
 
+	      //Create vb'
+	      {
+		using namespace Grid;
+		accelerator_for2dNB(x4d, vol4d_node, jprimeb, njprime_block, nsimd,
+				  {
+				    size_t jprime = jprimeb + jprimestart;
+				    size_t xop; int top;
+				    into_v.fourToThree(xop, top, x4d);
+				    int t_glob = top + t_off;
 
-	//std::cout << "M' * vb'" << std::endl;
-	//Mprime * vbprime
-	time.Mr -= dclock();
+				    VectorComplexType *into = vbprime + jprimeb + njprime_block*x4d;  //contiguous in summed index
+				    auto val = ACC::read(r_v.nativeElem(jl_jr_pairs_v[jprime].second, x4d, scr, fr));
+				    val = conj_r ? Grid::conjugate(val) : val;
+				    val = val * double(beta_v[scr + 12*(fr+ nf*(t_glob + Lt*jprime))]);
+				    ACC::write(*into, val);
+				  });
+	      }
+
+	      //Mprime * vbprime
+
+	      {
+		using namespace Grid;
+		accelerator_for2dNB(x4d, vol4d_node, iprimeb, niprime_block, nsimd,
+				    {
+				      VectorComplexType *into = Mvbprime + iprimeb + niprime_block*x4d;
+			    
+				      typename ACC::value_type sum(0);
+				      VectorComplexType *rptr = vbprime + njprime_block*x4d; //jprimeb=0
+				      MFcomplexType *Mptr = Mprime + njprime_block * iprimeb; //jprimeb=0
+			    
+				      for(int jprimeb=0;jprimeb<njprime_block; jprimeb++){
+					auto rval = ACC::read(*rptr++);
+					auto Mval = *Mptr++; //not vectorized
+					sum = sum + Mval * rval;
+				      }
+				      ACC::write(*into, sum);				      
+				    });
+	      }
+
+	      //va' (M' vb')
+	      {
+		using namespace Grid;
+		accelerator_for2dNB(x4d, vol4d_node, scfl, 12*nf, nsimd,
+				    {
+				      VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
+				      int scl = scfl % 12;
+				      int fl = scfl / 12;
+				      int cl = scl % 3;
+				      int sl = scl / 3;			    
+				      
+				      VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
+				      auto sum = ACC::read(out);
+				      
+				      VectorComplexType *lptr = vaprime + niprime_block*(scfl + 12*nf*x4d);
+				      VectorComplexType *Mrptr = Mvbprime + niprime_block*x4d;
+
+				      for(size_t iprimeb=0; iprimeb < niprime_block; iprimeb++){
+					auto lval = ACC::read(*lptr++); 
+					auto Mrval = ACC::read(*Mrptr++); 
+					sum = sum + lval * Mrval;
+				      }
+				      ACC::write(out, sum);
+				    });
+	      }
+			     
+	    }//cr
+	  }//sr      
+	}//fr
 	{
 	  using namespace Grid;
-	  accelerator_for2d(scf_x4d, 12*nf*vol4d, iprimeb, niprime_block, nsimd,
-			  {
-			    VectorComplexType *into = Mvbprime + iprimeb + niprime_block*scf_x4d;
-			    
-			    typename ACC::value_type sum(0);
-			    VectorComplexType *rptr = vbprime + njprime_block*scf_x4d; //jprimeb=0
-			    MFcomplexType *Mptr = Mprime + njprime_block * iprimeb; //jprimeb=0
-			    
-			    for(int jprimeb=0;jprimeb<njprime_block; jprimeb++){
-			      auto rval = ACC::read(*rptr++);
-			      auto Mval = *Mptr++; //not vectorized
-			      sum = sum + Mval * rval;
-			    }
-			    ACC::write(*into, sum);
-			  });
+	  accelerator_barrier(dummy);
 	}
-
-	time.Mr += dclock();
-
-	//std::cout << "va' (M' vb')" << std::endl;
-	time.v_Mr -= dclock();
-	{
-	  using namespace Grid;
-	  accelerator_for2d(x4d, vol4d, scfl_scfr, 12*nf*12*nf, nsimd,
-			  {
-			    VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
-			    int scfr = scfl_scfr % (12*nf); //scfl_scfr = scfr + 12*nf*scfl
-			    int scfl = scfl_scfr / (12*nf);
-			    
-			    int scr = scfr % 12; //scfr = scr + 12*fr
-			    int fr = scfr / 12;
-			    int cr = scr % 3;
-			    int sr = scr / 3; //scr = cr + 3*sr
-
-			    int scl = scfl % 12;
-			    int fl = scfl / 12;
-			    int cl = scl % 3;
-			    int sl = scl / 3;			    
-			    
-			    VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
-			    auto sum = ACC::read(out);
-			    
-			    VectorComplexType *lptr = vaprime + niprime_block*(scfl + 12*nf*x4d);
-			    VectorComplexType *Mrptr = Mvbprime + niprime_block*(scfr + 12*nf*x4d);
-
-			    for(size_t iprimeb=0; iprimeb < niprime_block; iprimeb++){
-			      auto lval = ACC::read(*lptr++); 
-			      auto Mrval = ACC::read(*Mrptr++); 
-			      sum = sum + lval * Mrval;
-			    }
-			    ACC::write(out, sum);
-			  });
-	}
-
-	time.v_Mr += dclock();
-      }
-    }
+	
+	time.lMr += dclock();
+      }//jprimeblock
+    }//iprimeblock
 
     device_free(vaprime);
     device_free(vbprime);

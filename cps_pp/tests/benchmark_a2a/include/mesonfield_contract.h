@@ -402,4 +402,103 @@ void benchmarkMultiSrcMFcontract(const A2AArg &a2a_args, const int ntests, const
 }
 
 
+
+
+
+template<typename GridA2Apolicies>
+void benchmarkMultiShiftMFcontract(const A2AArg &a2a_args, const int nshift){
+#ifdef USE_GRID
+  typedef typename GridA2Apolicies::ComplexType ComplexType;  
+
+  const int nsimd = ComplexType::Nsimd();      
+
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+
+  A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
+  A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
+
+  //Just zero the data, makes no difference
+  Wgrid.zero();
+  Vgrid.zero();
+
+
+  ThreeDSIMDPolicy<OneFlavorPolicy>::ParamType simd_dims_3d;
+  ThreeDSIMDPolicy<OneFlavorPolicy>::SIMDdefaultLayout(simd_dims_3d,nsimd);
+
+  printf("Nsimd = %d, SIMD dimensions:\n", nsimd);
+  for(int i=0;i<4;i++)
+    printf("%d ", simd_dims[i]);
+  printf("\n");
+
+  const typename GridA2Apolicies::FermionFieldType &mode0 = Wgrid.getMode(0);
+  const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+
+  typedef typename GridA2Apolicies::SourcePolicies SourcePolicies;
+  typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<0,true,false> > InnerType;
+
+  double rad_1s = 2.;
+  int pbase[3];
+  GparityBaseMomentum(pbase,+1);    
+  ExpSrcType src(rad_1s,pbase,simd_dims_3d);
+  InnerType inner(sigma0, src);    
+
+  std::vector<int> shift_base = {1,1,1};
+  std::vector<std::vector<int> > shifts(nshift, shift_base);
+  
+  inner.setShifts(shifts);
+
+  typedef std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > MfVectorType;
+  std::vector<MfVectorType> mf(nshift);
+  std::vector<MfVectorType*> mf_p(nshift);
+  for(int s=0;s<nshift;s++) mf_p[s] = &mf[s];
+  
+  std::cout << "Timing contraction with nshift=" << nshift << std::endl;
+  double time = -dclock();
+  A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_p,Wgrid, inner, Vgrid);
+  time += dclock();
+
+  int nsrc = nshift;
+  
+  int g5_FLOPs = 12*6*nsimd + 12*2*nsimd;//4 flav * 12 vectorized conj(a)*b  + 12 vectorized += or -=
+  int siteFmat_FLOPs = nsrc*3*nsimd;  //1 vectorized z.im*-1, 1 vectorized -1*z
+  int s3_FLOPs = nsrc*4*nsimd; //2 vectorized -1*z
+  int TransLeftTrace_FLOPs = nsrc*nsimd*4*6 + nsrc*nsimd*3*2; //4 vcmul + 3vcadd
+  int reduce_FLOPs = 0; // (nsimd - 1)*2; //nsimd-1 cadd
+  
+  double FLOPs_per_site = 0.;
+  for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
+    const A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> &mf_shift0 = mf[0][t];
+    const int nl_l = mf_shift0.getRowParams().getNl();
+    const int nl_r = mf_shift0.getColParams().getNl();
+
+    int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+    
+    for(int i = 0; i < mf_shift0.getNrows(); i++){
+      modeIndexSet i_high_unmapped; if(i>=nl_l) mf_shift0.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
+      SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> lscf = Wgrid.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already \
+																	    
+      for(int j = 0; j < mf_shift0.getNcols(); j++) {
+	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_shift0.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
+	SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> rscf = Vgrid.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+	
+	for(int a=0;a<2;a++)
+	  for(int b=0;b<2;b++)
+	    if(!lscf.isZero(a) && !rscf.isZero(b))
+	      FLOPs_per_site += g5_FLOPs;
+	FLOPs_per_site += siteFmat_FLOPs + s3_FLOPs + TransLeftTrace_FLOPs + reduce_FLOPs;
+      }
+    }
+  }
+  double total_FLOPs = double(FLOPs_per_site) * double(size_3d);
+
+  double Mflops = total_FLOPs / time / 1e6;
+  std::cout << "Nshift=" << nshift << " Time per=" << time << "s Mflops=" << Mflops << std::endl;
+ 
+#endif
+}
+
+
+
 CPS_END_NAMESPACE

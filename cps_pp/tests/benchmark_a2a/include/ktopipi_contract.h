@@ -49,8 +49,8 @@ struct _benchmarkKtoPiPiOffload<A2Apolicies, 1>{
     delete Vh;
   }
 
-  _benchmarkKtoPiPiOffload(const A2AArg &a2a_args,Lattice &lat): a2a_args(a2a_args), lat(lat), params(a2a_args), Lt(GJP.Tnodes()*GJP.TnodeSites()), 
-								 tmp_WV(Lt), tmp_WW(Lt), pipi_sep(2), tstep(1), tsep_k_pi({6}){
+  _benchmarkKtoPiPiOffload(const A2AArg &a2a_args,Lattice &lat, const std::vector<int> &tsep_k_pi): a2a_args(a2a_args), lat(lat), params(a2a_args), Lt(GJP.Tnodes()*GJP.TnodeSites()), 
+												    tmp_WV(Lt), tmp_WW(Lt), pipi_sep(2), tstep(1), tsep_k_pi(tsep_k_pi){
     assert(GJP.Gparity());
 
     defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
@@ -104,14 +104,14 @@ struct _benchmarkKtoPiPiOffload<A2Apolicies, 1>{
 
 
 template<typename A2Apolicies>
-void benchmarkKtoPiPiType1offload(const A2AArg &a2a_args,Lattice &lat){
-  _benchmarkKtoPiPiOffload<A2Apolicies, A2Apolicies::GPARITY> calc(a2a_args,lat);
+void benchmarkKtoPiPiType1offload(const A2AArg &a2a_args,Lattice &lat, const std::vector<int> &tsep_k_pi){
+  _benchmarkKtoPiPiOffload<A2Apolicies, A2Apolicies::GPARITY> calc(a2a_args,lat,tsep_k_pi);
   calc.type1();
 }
 
 template<typename A2Apolicies>
-void benchmarkKtoPiPiType4offload(const A2AArg &a2a_args,Lattice &lat){
-  _benchmarkKtoPiPiOffload<A2Apolicies, A2Apolicies::GPARITY> calc(a2a_args,lat);
+void benchmarkKtoPiPiType4offload(const A2AArg &a2a_args,Lattice &lat, const std::vector<int> &tsep_k_pi){
+  _benchmarkKtoPiPiOffload<A2Apolicies, A2Apolicies::GPARITY> calc(a2a_args,lat,tsep_k_pi);
   calc.type4();
 }
 

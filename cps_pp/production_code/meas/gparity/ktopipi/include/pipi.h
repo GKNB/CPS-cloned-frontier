@@ -30,13 +30,13 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
 	bool redistribute_src = d == 2 && psnkidx == nmom - 1;
 	bool redistribute_snk = d == 2;
 #endif	
-
+	typename ComputePiPiGparity<A2Apolicies>::Options opt;
+	opt.redistribute_pi1_src = opt.redistribute_pi2_src = redistribute_src;
+	opt.redistribute_pi1_snk = opt.redistribute_pi2_snk = redistribute_snk;
+	
 	double time = -dclock();
-	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-						 , redistribute_src, redistribute_snk
-#endif
-						 );
+	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products, opt);
+
 	std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_Figure" << diag[d] << "_sep" << params.jp.pipi_separation;
 #ifndef DAIQIAN_PION_PHASE_CONVENTION
 	os << "_mom" << p_pi1_src.file_str(2) << "_mom" << p_pi1_snk.file_str(2);
@@ -110,23 +110,38 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
     fMatrix<typename A2Apolicies::ScalarComplexType> pipi(Lt,Lt);
     MesonFieldProductStore<A2Apolicies> products;
 
+    //Predetermine which products we are going to reuse in order to save memory
+    MesonFieldProductStoreComputeReuse<A2Apolicies> product_usage;
+    char diag[3] = {'C','D','R'};
+    for(int d = 0; d < 3; d++)
+      ComputePiPiGparity<A2Apolicies>::setupProductStore(product_usage, diag[d],
+							 correlators[c].pi1_src, correlators[c].pi2_src,
+							 correlators[c].pi1_snk, correlators[c].pi2_snk,
+							 params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con);
+    
+    product_usage.addAllowedStores(products); //restrict storage only to products we know we are going to reuse
+    
     for(int d = 0; d < 3; d++){
       printMem(stringize("Doing pipi figure %c, pi1_src=%s pi2_src=%s pi1_snk=%s pi2_snk=%s",diag[d],
 			 correlators[c].pi1_src.str().c_str(), correlators[c].pi2_src.str().c_str(),
 			 correlators[c].pi1_snk.str().c_str(), correlators[c].pi2_snk.str().c_str()), 0);
       
-      bool redistribute_src = true;
-      bool redistribute_snk = true;
+      typename ComputePiPiGparity<A2Apolicies>::Options opt;
+      opt.redistribute_pi1_src = opt.redistribute_pi2_src = d==2;
+      opt.redistribute_pi1_snk = opt.redistribute_pi2_snk = d==2;
+      if(d==2 && c<correlators.size()-1){
+	//See if we can reuse some of the mesonfields on the next iteration
+	if(contains(correlators[c].pi1_src, correlators[c+1])){ opt.redistribute_pi1_src = false; }
+	if(contains(correlators[c].pi1_snk, correlators[c+1])){ opt.redistribute_pi1_snk = false; }
+	if(contains(correlators[c].pi2_src, correlators[c+1])){ opt.redistribute_pi2_src = false; }
+	if(contains(correlators[c].pi2_snk, correlators[c+1])){ opt.redistribute_pi2_snk = false; }
+      }
       
       double time = -dclock();
       ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], 
 					       correlators[c].pi1_src, correlators[c].pi2_src,
 					       correlators[c].pi1_snk, correlators[c].pi2_snk,
-					       params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-					       , redistribute_src, redistribute_snk
-#endif
-					       );
+					       params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products, opt);
       
       std::ostringstream os; 
       os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_Figure" << diag[d] << "_sep" << params.jp.pipi_separation
@@ -170,9 +185,13 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
   }
 
   print_time("main","Pi-pi figure C",timeC);
+  ComputePiPiGparity<A2Apolicies>::timingsC().report();
   print_time("main","Pi-pi figure D",timeD);
+  ComputePiPiGparity<A2Apolicies>::timingsD().report();
   print_time("main","Pi-pi figure R",timeR);
+  ComputePiPiGparity<A2Apolicies>::timingsR().report();
   print_time("main","Pi-pi figure V",timeV);
+  ComputePiPiGparity<A2Apolicies>::timingsV().report();
 
   printMem("Memory after pi-pi 2pt function computation");
 }

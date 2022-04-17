@@ -278,6 +278,24 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(bool require){
 
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView::ReadView(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize){
+  size_t bsize = fsize * sizeof(ScalarComplexType);
+#ifdef GPU_VEC
+  data = (ScalarComplexType *)device_alloc_check(bsize);
+  copy_host_to_device(data, mf.ptr(), bsize);
+#else //GPU_VEC
+  data = mf.ptr();
+#endif //GPU_VEC
+}
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView::free(){
+#ifdef GPU_VEC
+  device_free(data);
+#endif
+}
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack(typename mf_Policies::ScalarComplexType* into) const{
   memset(into, 0, getNrowsFull()*getNcolsFull()*sizeof(ScalarComplexType));
   int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
@@ -295,7 +313,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack(typename mf_Policies
   }
   
 }
-
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack_device(typename mf_Policies::ScalarComplexType* into, A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView const* view) const{
@@ -328,7 +345,11 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack_device(typename mf_P
       });
   }
 
-  if(delete_view) delete vp;
+  if(delete_view){
+    vp->free();
+    delete vp;
+  }
+    
 #endif
 }
 
