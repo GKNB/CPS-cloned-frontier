@@ -807,6 +807,12 @@ public:
 
   accelerator_inline size_t fsiteFlavorOffset() const{ return logical_vol; }
   accelerator_inline size_t dimpol_site_stride_3d() const{ return 1; }
+
+  //Stride between consecutive timeslices
+  accelerator_inline size_t dimpol_time_stride() const{ return logical_dim[0]*logical_dim[1]*logical_dim[2]; }
+
+  //Return true if the data for a single flavor for a given timeslice is contiguous
+  accelerator_inline static bool dimpol_flavor_timeslice_contiguous(){ return true; }
   
   accelerator_inline size_t siteFsiteConvert(const size_t site, const int f) const{ 
     return site + logical_vol * f;

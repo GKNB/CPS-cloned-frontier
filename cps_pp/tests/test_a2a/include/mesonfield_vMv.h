@@ -336,4 +336,118 @@ void testvMvGridOrigPeriodic(const A2AArg &a2a_args, const int nthreads, const d
   std::cout << "testvMvGridOrigPeriodic passed" << std::endl;
 }
 
+
+template<typename CPSfieldType>
+bool compare(const CPSfieldType &a, const CPSfieldType &b, double tolerance, bool verbose = false){
+  if(a.size() != b.size()) return false;
+  size_t fsize = a.size();
+  typedef typename CPSfieldType::FieldSiteType T;
+  T const* ap = a.ptr();
+  T const* bp = b.ptr();
+  constexpr int SiteSize = CPSfieldType::FieldSiteSize;
+  typedef typename CPSfieldType::FieldMappingPolicy MappingPolicy;
+  
+  for(size_t i=0;i<fsize;i++){
+    if(verbose && !UniqueID()){
+      size_t rem = i;
+      size_t s = rem % SiteSize; rem /= SiteSize;
+      size_t x = rem % a.nsites(); rem /= a.nsites();
+      int flav = rem;
+      int coor[MappingPolicy::EuclideanDimension]; a.siteUnmap(x,coor);
+      std::ostringstream os; for(int a=0;a<MappingPolicy::EuclideanDimension;a++) os << coor[a] << " ";
+      std::string coor_str = os.str();
+      
+      printf("Off %d  [s=%d coor=(%s) f=%d] this[%g,%g] vs that[%g,%g] : diff [%g,%g]\n",i, s,coor_str.c_str(),flav,
+	     ap[i].real(),ap[i].imag(),bp[i].real(),bp[i].imag(),fabs(ap[i].real()-bp[i].real()), fabs(ap[i].imag()-bp[i].imag()) );
+    }
+    if( fabs(ap[i].real() - bp[i].real()) > tolerance || fabs(ap[i].imag() - bp[i].imag()) > tolerance ){
+      printf("ERROR\n"); fflush(stdout); return false;
+    }
+  }
+  return true;
+}
+
+
+  
+
+template<typename GridA2Apolicies>
+void testvMvFieldTimesliceRange(const A2AArg &a2a_args, const double tol){
+  std::cout << "Starting testvMvFieldTimesliceRange : vMv tests\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  typename FourDSIMDPolicy<typename GridA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<typename GridA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AvectorW<GridA2Apolicies> W(a2a_args, simd_dims);
+  A2AvectorV<GridA2Apolicies> V(a2a_args, simd_dims);
+  W.testRandom();
+  V.testRandom();
+
+  A2Aparams par(a2a_args);
+  A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
+  mf.setup(par,par,0,0);
+  mf.testRandom();
+  typedef typename GridA2Apolicies::ComplexType vComplex;
+  
+  typedef mult_vMv_field<GridA2Apolicies, A2AvectorV, A2AvectorWfftw, A2AvectorVfftw, A2AvectorW> vMvFieldImpl;
+  typedef typename vMvFieldImpl::PropagatorField PropagatorField;
+  PropagatorField pfield_expect(simd_dims), pfield_got(simd_dims);
+
+  vMvFieldImpl::optimized(pfield_expect, V, mf, W, false, true);
+
+  //Check we get the same field if we span the entire lattice
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  vMvFieldImpl::optimized(pfield_got, V, mf, W, false, true, 0, Lt-1);
+
+  constexpr int N = PropagatorField::FieldSiteType::nScalarType();
+  typedef CPSfield<cps::ComplexD, N, FourDpolicy<OneFlavorPolicy>, Aligned128AllocPolicy> ScalarComplexField;
+  typedef CPSfield<vComplex, N, FourDSIMDPolicy<OneFlavorPolicy>, Aligned128AllocPolicy> VectorComplexField;
+  NullObject null;
+  ScalarComplexField tmp1(null), tmp2(null);
+
+  //Check propagator field conversion working
+  PropagatorField test(simd_dims);
+  test.testRandom();
+  tmp1.zero();
+  tmp2.importField( (VectorComplexField const &)test );
+  assert( !tmp1.equals(tmp2, 1e-12, true) );
+
+  tmp1.importField( (VectorComplexField const &)test );
+  assert( tmp1.equals(tmp2, 1e-12, true) );
+  std::cout << "Passed propagatorField conversion check" << std::endl;
+  
+  tmp1.importField( (VectorComplexField const &)pfield_got );
+  tmp2.importField( (VectorComplexField const &)pfield_expect );
+  assert( tmp1.equals(tmp2, tol, true) );
+  std::cout << "Full Lt test passed" << std::endl;
+
+  int tmax = Lt/2 - 1;
+  vMvFieldImpl::optimized(pfield_got, V, mf, W, false, true, 0, tmax);
+  tmp1.importField( (VectorComplexField const &)pfield_got );
+
+  //Zero timeslices in comparison data
+  for(size_t xx = 0; xx < tmp2.nfsites(); xx++){
+    int f; int x[4];
+    tmp2.fsiteUnmap(xx,x,f);
+    int t = x[3] + GJP.TnodeCoor()*GJP.TnodeSites();
+    if(t>tmax){
+      cps::ComplexD *p = tmp2.fsite_ptr(xx);
+      for(int i=0;i<N;i++)
+	p[i] = 0;
+    }
+  }
+  
+  assert( compare(tmp1,tmp2,tol,true) );
+  
+  //assert( tmp1.equals(tmp2, tol, true) );
+  std::cout << "Partial Lt test passed" << std::endl;
+  
+  std::cout << "testvMvFieldTimesliceRange passed" << std::endl;
+}
+
+
+
+
+
 CPS_END_NAMESPACE

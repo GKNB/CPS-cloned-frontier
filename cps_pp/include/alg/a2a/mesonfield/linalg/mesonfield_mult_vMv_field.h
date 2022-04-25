@@ -22,5 +22,26 @@ void mult(typename mult_vMv_field<mf_Policies, lA2AfieldL, lA2AfieldR, rA2Afield
   return mult_vMv_field<mf_Policies, lA2AfieldL, lA2AfieldR, rA2AfieldL, rA2AfieldR>::implementation(into, l, M, r, conj_l, conj_r);
 }
 
+
+//Multiply v * M * v  (where v are A2A fields and M is a meson field) for all spatial sites and all full lattice timeslices  0 <= t < Lt for which t_start <= t <= t_end  and for which t is on the current node
+//Separations are taken modulo Lt
+//Output is a CPSfield<Matrix>  where Matrix is a spin-color(-flavor) matrix
+//conj_l and conj_r control whether the left/right vectors have the complex conjugate applied
+
+//Function is *node local*
+template<typename mf_Policies, 
+	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR>
+void mult(typename mult_vMv_field<mf_Policies, lA2AfieldL, lA2AfieldR, rA2AfieldL, rA2AfieldR>::PropagatorField &into,
+	  const lA2AfieldL<mf_Policies> &l, 
+	  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, 
+	  const rA2AfieldR<mf_Policies> &r,
+	  bool conj_l, bool conj_r,
+	  const int t_start, const int t_end){
+  return mult_vMv_field<mf_Policies, lA2AfieldL, lA2AfieldR, rA2AfieldL, rA2AfieldR>::implementation(into, l, M, r, conj_l, conj_r, t_start, t_end);
+}
+
+
+
 CPS_END_NAMESPACE
 #endif

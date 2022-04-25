@@ -282,6 +282,8 @@ class hostDeviceMirroredContainer{
   size_t n; //number of elements
   bool use_pinned_mem;
 public:
+  size_t size() const{ return n; }
+  
   size_t byte_size() const{ return n*sizeof(T); }
 
   //pinned memory has a faster copy as it avoids a host-side copy in Cuda, but it can take a while to allocate

@@ -167,6 +167,84 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   template<typename T>
   static accelerator_inline T min_value(const T&a, const T&b){ return a < b ? a : b; }
 
+  static void setup_index_maps(ManagedVector< std::pair<int,int> > &il_ir_pairs, ManagedVector< std::pair<int,int> > &jl_jr_pairs,
+			       std::map<std::pair<int,int>, int> &il_ir_pairs_index_map, std::map<std::pair<int,int>, int> &jl_jr_pairs_index_map,
+			       const MesonFieldType &M, const int nf, const int Lt,
+			       const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind,
+			       const ModeContractionIndices<jLeftDilutionType,jRightDilutionType> &j_ind){
+			       
+    std::set<std::pair<int,int> > il_ir_pairs_s;
+    std::set<std::pair<int,int> > jl_jr_pairs_s;
+
+    {
+      modeIndexSet ilp, irp, jlp, jrp;
+      irp.time = M.getRowTimeslice();
+      jlp.time = M.getColTimeslice();
+      for(int tv=0;tv<Lt;tv++){
+	ilp.time = jrp.time = tv;
+	for(int f=0;f<nf;f++){
+	  ilp.flavor = irp.flavor = jlp.flavor = jrp.flavor = f;
+	  for(int sc=0;sc<12;sc++){
+	    ilp.spin_color = irp.spin_color = jlp.spin_color = jrp.spin_color = sc;
+	
+	    const ModeMapType &i_ind_pairs = i_ind.getIndexVector(ilp,irp);
+	    for(int i=0;i<i_ind_pairs.size();i++) il_ir_pairs_s.insert(i_ind_pairs[i]);	    
+
+	    const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
+	    for(int j=0;j<j_ind_pairs.size();j++) jl_jr_pairs_s.insert(j_ind_pairs[j]);
+	  }
+	}
+      }
+    }
+    
+    il_ir_pairs.resize(il_ir_pairs_s.size());
+    int ii=0;
+    for(auto it=il_ir_pairs_s.begin(); it != il_ir_pairs_s.end(); it++){
+      il_ir_pairs[ii] = *it;
+      il_ir_pairs_index_map[*it] = ii;
+      ++ii;
+    }
+    jl_jr_pairs.resize(jl_jr_pairs_s.size());
+    ii=0;
+    for(auto it=jl_jr_pairs_s.begin(); it != jl_jr_pairs_s.end(); it++){
+      jl_jr_pairs[ii] = *it;
+      jl_jr_pairs_index_map[*it] = ii;
+      ++ii;
+    }
+  }
+  
+  static void setup_alpha_beta(ManagedVector<uint8_t> &alpha, ManagedVector<uint8_t> &beta,
+			       const MesonFieldType &M, const int nf, const int Lt,
+			       const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind,
+			       const ModeContractionIndices<jLeftDilutionType,jRightDilutionType> &j_ind,
+			       std::map<std::pair<int,int>, int> &il_ir_pairs_index_map, std::map<std::pair<int,int>, int> &jl_jr_pairs_index_map){
+    modeIndexSet ilp, irp, jlp, jrp;
+    irp.time = M.getRowTimeslice();
+    jlp.time = M.getColTimeslice();
+    for(int tv=0;tv<Lt;tv++){
+      ilp.time = jrp.time = tv;
+      for(int f=0;f<nf;f++){
+	ilp.flavor = irp.flavor = jlp.flavor = jrp.flavor = f;
+	for(int sc=0;sc<12;sc++){
+	  ilp.spin_color = irp.spin_color = jlp.spin_color = jrp.spin_color = sc;
+
+	  const ModeMapType &i_ind_pairs = i_ind.getIndexVector(ilp,irp);
+	  for(int i=0;i<i_ind_pairs.size();i++){
+	    const std::pair<int, int> &pair = i_ind_pairs[i];
+	    int pair_idx = il_ir_pairs_index_map[pair];
+	    alpha[sc + 12*(f+ nf*(tv + Lt*pair_idx))] = 1;
+	  }
+	  const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
+	  for(int j=0;j<j_ind_pairs.size();j++){
+	    const std::pair<int, int> &pair = j_ind_pairs[j];
+	    int pair_idx = jl_jr_pairs_index_map[pair];
+	    beta[sc + 12*(f+ nf*(tv + Lt*pair_idx))] = 1;
+	  }
+	}
+      }
+    }
+  }  
+  
   //Create va'
   static void create_vaprime(VectorComplexType* vaprime, typename PropagatorField::View &into_v, typename lA2AfieldType::View &l_v,
 			     ManagedVector<uint8_t>::View &alpha_v, ManagedVector< std::pair<int,int> >::View &il_ir_pairs_v,
@@ -192,6 +270,37 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     
   }
 
+  static void create_vaprime(VectorComplexType* vaprime, typename PropagatorField::View &into_v, typename lA2AfieldType::View &l_v,
+			     ManagedVector<uint8_t>::View &alpha_v, ManagedVector< std::pair<int,int> >::View &il_ir_pairs_v,
+			     int t_off, size_t iprimestart, int nf, int Lt, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices, size_t niprime_block, size_t nsimd, bool conj_l){
+    size_t nt = local_timeslices.size();
+    size_t nsites4d = vol3d_node * nt;
+    int const* local_timeslices_v = local_timeslices.getDeviceReadPtr();
+    typedef SIMT<VectorComplexType> ACC;
+    using namespace Grid;
+    accelerator_for2d(xx, nsites4d, iprimeb, niprime_block, nsimd,
+		      {
+			size_t xop = xx % vol3d_node;
+			int top = local_timeslices_v[xx / vol3d_node];
+			size_t x4d = xop + vol3d_node * top; //actual local 4d offset
+			int t_glob = top + t_off;
+			size_t iprime = iprimeb + iprimestart;
+			for(int f=0;f<nf;f++){
+			  for(int sc=0;sc<12;sc++){
+			    VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*xx) ); //contiguous in summed index 
+			    auto val = ACC::read(l_v.nativeElem(il_ir_pairs_v[iprime].first, x4d, sc, f));
+			    val = conj_l ? Grid::conjugate(val) : val;
+			    val = val * double(alpha_v[sc + 12*(f+ nf*(t_glob + Lt*iprime))]);
+			    ACC::write(*into, val);
+			  }
+			}
+		      });
+    
+  }
+
+
+
+  
   //Create Mprime
   static void create_Mprime(typename MesonFieldType::ScalarComplexType *Mprime, const MesonFieldType &M,
 			    size_t iprimestart, size_t iprimelessthan, size_t jprimestart, size_t jprimelessthan,
@@ -231,6 +340,34 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			});
   }
 
+  static void create_vbprime(VectorComplexType* vbprime, typename PropagatorField::View &into_v, typename rA2AfieldType::View &r_v,
+			     ManagedVector<uint8_t>::View &beta_v, ManagedVector< std::pair<int,int> >::View &jl_jr_pairs_v,
+			     int t_off, size_t jprimestart, int nf, int Lt, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices, size_t njprime_block, size_t nsimd, bool conj_r,
+			     int scr, int fr){
+    size_t nt = local_timeslices.size();
+    size_t nsites4d = vol3d_node * nt;
+    int const* local_timeslices_v = local_timeslices.getDeviceReadPtr();
+    typedef SIMT<VectorComplexType> ACC;
+    using namespace Grid;
+    accelerator_for2dNB(xx, nsites4d, jprimeb, njprime_block, nsimd,
+			{
+			  size_t jprime = jprimeb + jprimestart;
+			  size_t xop = xx % vol3d_node;
+			  int top = local_timeslices_v[xx / vol3d_node];
+			  size_t x4d = xop + vol3d_node * top; //actual local 4d offset
+			  int t_glob = top + t_off;
+			  
+			  VectorComplexType *into = vbprime + jprimeb + njprime_block*xx;  //contiguous in summed index
+			  auto val = ACC::read(r_v.nativeElem(jl_jr_pairs_v[jprime].second, x4d, scr, fr));
+			  val = conj_r ? Grid::conjugate(val) : val;
+			  val = val * double(beta_v[scr + 12*(fr+ nf*(t_glob + Lt*jprime))]);
+			  ACC::write(*into, val);
+			});
+  }
+
+
+
+  
   //Mprime * vbprime
   static void Mprime_vbprime(VectorComplexType* Mvbprime, typename MesonFieldType::ScalarComplexType *Mprime, VectorComplexType* vbprime, 
 			     size_t vol4d_node, size_t niprime_block, size_t njprime_block, size_t nsimd){
@@ -281,6 +418,41 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			});
   }
 
+  static void vaprime_Mprime_vbprime(typename PropagatorField::View &into_v, VectorComplexType* vaprime, VectorComplexType* Mvbprime, int sr, int cr, int fr, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices, size_t niprime_block, int nf, size_t nsimd){
+    size_t nt = local_timeslices.size();
+    size_t nsites4d = vol3d_node * nt;
+    int const* local_timeslices_v = local_timeslices.getDeviceReadPtr();
+    typedef SIMT<VectorComplexType> ACC;
+    using namespace Grid;
+    accelerator_for2dNB(xx, nsites4d, scfl, 12*nf, nsimd,
+			{
+			  size_t xop = xx % vol3d_node;
+			  int top = local_timeslices_v[xx / vol3d_node];
+			  size_t x4d = xop + vol3d_node * top; //actual local 4d offset
+			  
+			  VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
+			  int scl = scfl % 12;
+			  int fl = scfl / 12;
+			  int cl = scl % 3;
+			  int sl = scl / 3;			    
+			  
+			  VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
+			  auto sum = ACC::read(out);
+			  
+			  VectorComplexType *lptr = vaprime + niprime_block*(scfl + 12*nf*xx);
+			  VectorComplexType *Mrptr = Mvbprime + niprime_block*xx;
+			  
+			  for(size_t iprimeb=0; iprimeb < niprime_block; iprimeb++){
+			    auto lval = ACC::read(*lptr++); 
+			    auto Mrval = ACC::read(*Mrptr++); 
+			    sum = sum + lval * Mrval;
+			  }
+			  ACC::write(out, sum);
+			});
+  }
+
+
+  
   static void prefetch_r(size_t jprimeblock, size_t njprime_blocks, size_t iprimeblock, size_t niprime_blocks,
 			 size_t blocksize, size_t njprime, ManagedVector< std::pair<int,int> > &jl_jr_pairs, const rA2AfieldType &r){
 
@@ -305,6 +477,41 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 #endif
   }
 
+
+  static void prefetch_r(size_t jprimeblock, size_t njprime_blocks, size_t iprimeblock, size_t niprime_blocks,
+			 size_t blocksize, size_t njprime, ManagedVector< std::pair<int,int> > &jl_jr_pairs, const rA2AfieldType &r,
+			 size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices){
+    size_t nt = local_timeslices.size();
+    int const* local_timeslices_v = local_timeslices.getHostReadPtr();
+    
+#ifdef GRID_CUDA
+    int device;
+    assert(cudaGetDevice(&device) == cudaSuccess);
+    
+    if(jprimeblock < njprime_blocks-1 || (jprimeblock == njprime_blocks-1 && iprimeblock != niprime_blocks-1)  ){
+      size_t jprimeblock_nxt = (jprimeblock+1) % njprime_blocks; //loops back to 0 on last iteration so as to prefetch memory for next iblock
+      size_t jprimestart_nxt = jprimeblock_nxt * blocksize;
+      size_t jprimelessthan_nxt = std::min(jprimestart_nxt + blocksize, njprime);
+      size_t njprime_block_nxt = jprimelessthan_nxt - jprimestart_nxt;
+      
+      for(size_t jprimeb = 0 ; jprimeb < njprime_block_nxt; jprimeb++){
+	size_t jprime = jprimeb + jprimestart_nxt;
+	size_t jr = jl_jr_pairs[jprime].second;
+	for(int tt=0;tt<nt;tt++){
+	  int t = local_timeslices_v[tt];	  
+	  VectorComplexType const* v0;
+	  VectorComplexType const* v1;
+	  size_t sz;
+	  r.getModeTimesliceData(v0,v1,sz,jr,t);
+	  assert( cudaMemPrefetchAsync( (void const*)v0, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
+	  if(GJP.Gparity()) assert( cudaMemPrefetchAsync( (void const*)v1, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
+	}
+      }
+    }
+#endif
+  }
+
+  
   
   
 
@@ -357,89 +564,20 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     //Such that
     //\sum_i' \sum_j'  va'(i')_{scl, fl}(x) M'(i',j') vb'(j')_{scr, fr}(x)  
 
+    ManagedVector< std::pair<int,int> > il_ir_pairs, jl_jr_pairs; //pairs of il,il  and jl, jr  that must be contracted
+    std::map<std::pair<int,int>, int> il_ir_pairs_index_map, jl_jr_pairs_index_map; //map of a pair to its offset in the arrays above
+    setup_index_maps(il_ir_pairs, jl_jr_pairs, il_ir_pairs_index_map, jl_jr_pairs_index_map, M, nf, Lt, i_ind, j_ind);
 
-    std::set<std::pair<int,int> > il_ir_pairs_s;
-    std::set<std::pair<int,int> > jl_jr_pairs_s;
-
-    {
-      modeIndexSet ilp, irp, jlp, jrp;
-      irp.time = M.getRowTimeslice();
-      jlp.time = M.getColTimeslice();
-      for(int tv=0;tv<Lt;tv++){
-	ilp.time = jrp.time = tv;
-	for(int f=0;f<nf;f++){
-	  ilp.flavor = irp.flavor = jlp.flavor = jrp.flavor = f;
-	  for(int sc=0;sc<12;sc++){
-	    ilp.spin_color = irp.spin_color = jlp.spin_color = jrp.spin_color = sc;
-	
-	    const ModeMapType &i_ind_pairs = i_ind.getIndexVector(ilp,irp);
-	    for(int i=0;i<i_ind_pairs.size();i++) il_ir_pairs_s.insert(i_ind_pairs[i]);	    
-
-	    const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
-	    for(int j=0;j<j_ind_pairs.size();j++) jl_jr_pairs_s.insert(j_ind_pairs[j]);
-	  }
-	}
-      }
-    }
-    
-    ManagedVector< std::pair<int,int> > il_ir_pairs(il_ir_pairs_s.size());
-    std::map<std::pair<int,int>, int> il_ir_pairs_index_map;
-    int ii=0;
-    for(auto it=il_ir_pairs_s.begin(); it != il_ir_pairs_s.end(); it++){
-      il_ir_pairs[ii] = *it;
-      il_ir_pairs_index_map[*it] = ii;
-      ++ii;
-    }
-    int nil_ir_pairs = il_ir_pairs.size();
-    auto il_ir_pairs_v = il_ir_pairs.view();
-    
-    ManagedVector< std::pair<int,int> > jl_jr_pairs(jl_jr_pairs_s.size());
-    std::map<std::pair<int,int>, int> jl_jr_pairs_index_map;
-    ii=0;
-    for(auto it=jl_jr_pairs_s.begin(); it != jl_jr_pairs_s.end(); it++){
-      jl_jr_pairs[ii] = *it;
-      jl_jr_pairs_index_map[*it] = ii;
-      ++ii;
-    }
-    int njl_jr_pairs = jl_jr_pairs.size();
-    auto jl_jr_pairs_v = jl_jr_pairs.view();
+    int nil_ir_pairs = il_ir_pairs.size(), njl_jr_pairs = jl_jr_pairs.size();
+    auto il_ir_pairs_v = il_ir_pairs.view(), jl_jr_pairs_v = jl_jr_pairs.view();
     
     //Construct the masks
-    ManagedVector<uint8_t> alpha(12*nf*Lt*nil_ir_pairs,0);
-    auto alpha_v = alpha.view();
-    ManagedVector<uint8_t> beta(12*nf*Lt*njl_jr_pairs,0);
-    auto beta_v = beta.view();
-    
-    {
-      modeIndexSet ilp, irp, jlp, jrp;
-      irp.time = M.getRowTimeslice();
-      jlp.time = M.getColTimeslice();
-      for(int tv=0;tv<Lt;tv++){
-	ilp.time = jrp.time = tv;
-	for(int f=0;f<nf;f++){
-	  ilp.flavor = irp.flavor = jlp.flavor = jrp.flavor = f;
-	  for(int sc=0;sc<12;sc++){
-	    ilp.spin_color = irp.spin_color = jlp.spin_color = jrp.spin_color = sc;
+    ManagedVector<uint8_t> alpha(12*nf*Lt*nil_ir_pairs,0), beta(12*nf*Lt*njl_jr_pairs);
+    setup_alpha_beta(alpha, beta, M, nf, Lt, i_ind, j_ind, il_ir_pairs_index_map, jl_jr_pairs_index_map);
+    auto alpha_v = alpha.view(), beta_v = beta.view();
 
-	    const ModeMapType &i_ind_pairs = i_ind.getIndexVector(ilp,irp);
-	    for(int i=0;i<i_ind_pairs.size();i++){
-	      const std::pair<int, int> &pair = i_ind_pairs[i];
-	      int pair_idx = il_ir_pairs_index_map[pair];
-	      alpha[sc + 12*(f+ nf*(tv + Lt*pair_idx))] = 1;
-	    }
-	    const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
-	    for(int j=0;j<j_ind_pairs.size();j++){
-	      const std::pair<int, int> &pair = j_ind_pairs[j];
-	      int pair_idx = jl_jr_pairs_index_map[pair];
-	      beta[sc + 12*(f+ nf*(tv + Lt*pair_idx))] = 1;
-	    }
-	  }
-	}
-      }
-    }
-
-    size_t niprime = nil_ir_pairs;
-    size_t njprime = njl_jr_pairs;
+    //Prepare for blocked vMv
+    size_t niprime = nil_ir_pairs, njprime = njl_jr_pairs;
 
     size_t field_size = 12 * nf * vol4d_node;
     size_t blocked_fermfields_bytes = field_size * blocksize * sizeof(VectorComplexType);
@@ -532,6 +670,192 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   }//end of func
     
 
+
+
+
+
+
+
+
+
+  static void optimized(PropagatorField &into,
+			const lA2AfieldType &l,
+			const MesonFieldType &M,
+			const rA2AfieldType &r,
+			bool conj_l, bool conj_r,
+			const int t_start, const int t_end){
+    if(!UniqueID()) std::cout << "Starting field vMv multiplication between t=" << t_start << " and " << t_end << std::endl;
+
+    mult_vMv_field_offload_timers::timers &time = mult_vMv_field_offload_timers::get();
+
+    ++time.calls;
+
+    time.init -= dclock();
+
+    into.zero();
+    
+    int Lt = GJP.Tnodes() * GJP.TnodeSites();
+    assert(into.nodeSites(3) == GJP.TnodeSites()); //cannot be SIMD packed in t-direction
+
+    //Which local timeslices do we need?
+    std::vector<int> local_timeslices_v;
+    {
+      int tsep_start_end = (t_end - t_start + 10*Lt) % Lt; //wrap periodically
+      for(int tlcl = 0; tlcl < GJP.TnodeSites(); tlcl++){
+	int tglb = tlcl + GJP.TnodeCoor() * GJP.TnodeSites();
+	if( (tglb - t_start + 3*Lt) % Lt <= tsep_start_end )
+	  local_timeslices_v.push_back(tlcl);
+      }
+      std::cout << "t_start=" << t_start << " t_end=" << t_end << " tsep=" << tsep_start_end << " doing timeslices: ";
+      for(auto v: local_timeslices_v) std::cout << v << " ";
+      std::cout << std::endl;
+    }
+    int nt_do = local_timeslices_v.size();
+    if(nt_do == 0) return;
+    
+    hostDeviceMirroredContainer<int> local_timeslices(nt_do);
+    memcpy( local_timeslices.getHostWritePtr(), local_timeslices_v.data(), nt_do * sizeof(int));
+        
+    CPSautoView(l_v, l);
+    CPSautoView(r_v, r);
+    auto into_v = into.view(); //doesn't require free
+       
+    ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(l);
+    ModeContractionIndices<jLeftDilutionType,jRightDilutionType> j_ind(r);
+
+    int nf = GJP.Gparity() + 1;
+    size_t nsimd = VectorComplexType::Nsimd();
+    size_t vol4d_node = into.size();
+    int t_off = GJP.TnodeSites() * GJP.TnodeCoor();
+    size_t blocksize = BlockedvMvOffloadArgs::b;
+    //size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
+
+    size_t vol3d_node = vol4d_node / GJP.TnodeSites();
+    
+    typedef SIMT<VectorComplexType> ACC;
+    typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
+
+    //Need to compute \sum_i\sum_j v(il)_{scl,fl}(x)  M(ir, jl) * v(jr)_{scr,fr}(x)
+    
+    //Transform into   \sum_i' \sum_j'  v'(i')_{scl, fl}(x) M'(i',j') v'(j')_{scr, fr}(x)  alpha(scl,fl,t,i')   beta(scr,fr,t,j')
+    //i' and j' run over the full set of allowed index pairs
+    //alpha, beta are boolean masks that zero out pairs that are not valid for a particular sc,f,t
+    //v'(i')_{scl, fl}(x) = v(il[i'])_{scl, fl}(x)
+    //M'(i',j') = M(ir[i'],jl[j'])
+
+
+    //Then define
+    //va'(i')_{scl, fl}(x) =  alpha(scl,fl,t,i')  v'(i')_{scl, fl}(x)
+    //vb'(j')_{scr, fr}(x) =  beta(scr,fr,t,j')  v'(j')_{scr, fr}(x)
+    //Such that
+    //\sum_i' \sum_j'  va'(i')_{scl, fl}(x) M'(i',j') vb'(j')_{scr, fr}(x)  
+
+    ManagedVector< std::pair<int,int> > il_ir_pairs, jl_jr_pairs; //pairs of il,il  and jl, jr  that must be contracted
+    std::map<std::pair<int,int>, int> il_ir_pairs_index_map, jl_jr_pairs_index_map; //map of a pair to its offset in the arrays above
+    setup_index_maps(il_ir_pairs, jl_jr_pairs, il_ir_pairs_index_map, jl_jr_pairs_index_map, M, nf, Lt, i_ind, j_ind);
+
+    int nil_ir_pairs = il_ir_pairs.size(), njl_jr_pairs = jl_jr_pairs.size();
+    auto il_ir_pairs_v = il_ir_pairs.view(), jl_jr_pairs_v = jl_jr_pairs.view();
+    
+    //Construct the masks
+    ManagedVector<uint8_t> alpha(12*nf*Lt*nil_ir_pairs,0), beta(12*nf*Lt*njl_jr_pairs);
+    setup_alpha_beta(alpha, beta, M, nf, Lt, i_ind, j_ind, il_ir_pairs_index_map, jl_jr_pairs_index_map);
+    auto alpha_v = alpha.view(), beta_v = beta.view();
+
+    //Prepare for blocked vMv
+    size_t niprime = nil_ir_pairs, njprime = njl_jr_pairs;
+
+    size_t field_size = 12 * nf * vol3d_node * nt_do;
+    size_t blocked_fermfields_bytes = field_size * blocksize * sizeof(VectorComplexType);
+    size_t blocked_cmplxfields_bytes = vol3d_node * nt_do * blocksize * sizeof(VectorComplexType);    
+    size_t Mprime_bytes = blocksize * blocksize * sizeof(MFcomplexType);
+
+    if(!UniqueID()){
+      std::cout << "Outer block size is blocksize=" << blocksize  << std::endl;  //<< " inner blocksize " << inner_blocksize << std::endl;
+      std::cout << "Fermion field size is F=" << double(field_size * sizeof(VectorComplexType)) / 1024./1024. << " MB and complex filed Z="
+		<< double(vol4d_node*sizeof(VectorComplexType)) / 1024./1024. << "MB, for vector temporaries require blocksize * (F + 2*Z) MB total" << std::endl;
+      std::cout << "vaprime " << double(blocked_fermfields_bytes)/1024./1024. << " MB" << std::endl;
+      std::cout << "vbprime " << double(blocked_cmplxfields_bytes)/1024./1024. << " MB" << std::endl;
+      std::cout << "Mprime " << double(Mprime_bytes)/1024./1024. << " MB" << std::endl;
+      std::cout << "Mvbprime " << double(blocked_cmplxfields_bytes)/1024./1024. << " MB" << std::endl;
+    }
+    
+    VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(blocked_fermfields_bytes);
+    VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(blocked_cmplxfields_bytes); //only one spin,color,flavor    
+    MFcomplexType* Mprime = (MFcomplexType*)managed_alloc_check(Mprime_bytes);
+    VectorComplexType* Mvbprime = (VectorComplexType*)device_alloc_check(blocked_cmplxfields_bytes);
+    
+    //Do in blocks over i',j' to avoid taking too much space
+    size_t niprime_blocks = (niprime + blocksize-1)/blocksize;
+    size_t njprime_blocks = (njprime + blocksize-1)/blocksize;
+
+    time.init += dclock();
+    
+    for(size_t iprimeblock =0; iprimeblock < niprime_blocks; iprimeblock++){
+
+      time.vaprime -= dclock();
+      size_t iprimestart = iprimeblock * blocksize;
+      size_t iprimelessthan = std::min(iprimestart + blocksize, niprime);
+      size_t niprime_block = iprimelessthan - iprimestart;
+
+      std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
+      //std::cout << "Create va'" << std::endl;
+
+      create_vaprime(vaprime, into_v, l_v, alpha_v, il_ir_pairs_v, t_off, iprimestart, nf, Lt, vol3d_node, local_timeslices, niprime_block, nsimd, conj_l);
+      time.vaprime += dclock();
+
+      for(size_t jprimeblock =0; jprimeblock < njprime_blocks; jprimeblock++){
+	size_t jprimestart = jprimeblock * blocksize;
+	size_t jprimelessthan = std::min(jprimestart + blocksize, njprime);
+	size_t njprime_block = jprimelessthan - jprimestart;	
+
+	std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
+
+	time.Mprime -= dclock();
+	create_Mprime(Mprime, M, iprimestart, iprimelessthan, jprimestart, jprimelessthan, il_ir_pairs, jl_jr_pairs);
+	time.Mprime += dclock();
+	
+	time.lMr -= dclock();
+
+	//The kernels below takes a while so we may as well prefetch r for the next cycle
+	prefetch_r(jprimeblock, njprime_blocks, iprimeblock, niprime_blocks, blocksize, njprime, jl_jr_pairs, r, vol3d_node, local_timeslices);
+
+	for(int fr=0;fr<nf;fr++){
+	  for(int sr=0;sr<4;sr++){
+	    for(int cr=0;cr<3;cr++){
+	      int scr = cr+3*sr;
+	      int scfr = cr+3*(sr + 4*fr);	      
+
+	      //Create vb'
+	      create_vbprime(vbprime, into_v, r_v, beta_v, jl_jr_pairs_v, t_off, jprimestart, nf, Lt, vol3d_node, local_timeslices, njprime_block, nsimd, conj_r, scr, fr);
+
+	      //Mprime * vbprime
+	      Mprime_vbprime(Mvbprime, Mprime, vbprime, vol3d_node * nt_do, niprime_block, njprime_block, nsimd);
+
+	      //va' (M' vb')	      
+	      vaprime_Mprime_vbprime(into_v, vaprime, Mvbprime, sr, cr, fr, vol3d_node, local_timeslices, niprime_block, nf, nsimd);
+     
+	    }//cr
+	  }//sr      
+	}//fr
+	{
+	  using namespace Grid;
+	  accelerator_barrier(dummy);
+	}
+
+	time.lMr += dclock();
+      }//jprimeblock
+
+    }//iprimeblock
+
+    device_free(vaprime);
+    device_free(vbprime);
+    managed_free(Mprime);
+    device_free(Mvbprime);
+    
+  }//end of func
+
+  
   static void implementation(PropagatorField &into,
 			     const lA2AfieldType &l,
 			     const MesonFieldType &M,
@@ -541,6 +865,18 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     //simple(into, l, M, r, conj_l, conj_r);
   }
 
+  static void implementation(PropagatorField &into,
+			     const lA2AfieldType &l,
+			     const MesonFieldType &M,
+			     const rA2AfieldType &r,
+			     bool conj_l, bool conj_r,
+			     const int t_start, const int t_end){
+    optimized(into, l, M, r, conj_l, conj_r, t_start, t_end);
+  }
+
+  
+
+  
 };
 
 

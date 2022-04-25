@@ -229,4 +229,146 @@ void testA2AvectorIO(const A2AArg &a2a_args){
 }
 
 
+
+template<typename A2Apolicies>
+void testA2AvectorTimesliceExtraction(const A2AArg &a2a_args){
+  typedef typename A2AvectorV<A2Apolicies>::FieldInputParamType FieldParams;  
+  setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
+
+  {
+    A2AvectorV<A2Apolicies> V(a2a_args, p.params);
+    V.testRandom();
+
+    A2AvectorV<A2Apolicies> V2(a2a_args, p.params);
+    V2.zero();
+
+    typedef typename A2AvectorV<A2Apolicies>::FieldSiteType FieldSiteType;
+
+    for(int i=0;i<V.getNmodes();i++){    
+      for(int t=0;t<GJP.TnodeSites();t++){
+	FieldSiteType const* from0, *from1;
+	FieldSiteType const* to0, *to1; 
+	size_t sz1, sz2;
+	V.getModeTimesliceData(from0, from1, sz1, i, t);
+	V2.getModeTimesliceData(to0, to1, sz2, i, t);
+	assert(sz1 == sz2);
+	
+	memcpy( (void*)to0, (void const*)from0, sz1 * sizeof(FieldSiteType));
+	if(GJP.Gparity()) memcpy( (void*)to1, (void const*)from1, sz1 * sizeof(FieldSiteType));
+      }
+    }
+    for(int i=0;i<V.getNmodes();i++){    
+      assert(V2.getMode(i).equals( V.getMode(i), 1e-13 ) );
+    }
+    std::cout << "Passed V timeslice extraction test" << std::endl;
+  }
+
+
+  {
+    A2AvectorW<A2Apolicies> W(a2a_args, p.params);
+    W.testRandom();
+
+    A2AvectorW<A2Apolicies> W2(a2a_args, p.params);
+    W2.zero();
+
+    typedef typename A2AvectorW<A2Apolicies>::FieldSiteType FieldSiteType;
+
+    for(int i=0;i<W.getNmodes();i++){    
+      for(int t=0;t<GJP.TnodeSites();t++){
+	FieldSiteType const* from0, *from1;
+	FieldSiteType const* to0, *to1; 
+	size_t sz1, sz2;
+	W.getModeTimesliceData(from0, from1, sz1, i, t);
+	W2.getModeTimesliceData(to0, to1, sz2, i, t);
+	assert(sz1 == sz2);
+	
+	memcpy( (void*)to0, (void const*)from0, sz1 * sizeof(FieldSiteType));
+	if(GJP.Gparity()) memcpy( (void*)to1, (void const*)from1, sz1 * sizeof(FieldSiteType));
+      }
+    }
+    for(int i=0;i<W.getNl();i++){    
+      assert(W2.getWl(i).equals( W.getWl(i), 1e-13 ) );
+    }
+    for(int i=0;i<W.getNhits();i++){    
+      assert(W2.getWh(i).equals( W.getWh(i), 1e-13 ) );
+    }
+
+    std::cout << "Passed W timeslice extraction test" << std::endl;
+  }
+
+
+
+  {
+    A2AvectorVfftw<A2Apolicies> V(a2a_args, p.params);
+    V.testRandom();
+
+    A2AvectorVfftw<A2Apolicies> V2(a2a_args, p.params);
+    V2.zero();
+
+    typedef typename A2AvectorVfftw<A2Apolicies>::FieldSiteType FieldSiteType;
+
+    for(int i=0;i<V.getNmodes();i++){    
+      for(int t=0;t<GJP.TnodeSites();t++){
+	FieldSiteType const* from0, *from1;
+	FieldSiteType const* to0, *to1; 
+	size_t sz1, sz2;
+	V.getModeTimesliceData(from0, from1, sz1, i, t);
+	V2.getModeTimesliceData(to0, to1, sz2, i, t);
+	assert(sz1 == sz2);
+	
+	memcpy( (void*)to0, (void const*)from0, sz1 * sizeof(FieldSiteType));
+	if(GJP.Gparity()) memcpy( (void*)to1, (void const*)from1, sz1 * sizeof(FieldSiteType));
+      }
+    }
+    for(int i=0;i<V.getNmodes();i++){    
+      assert(V2.getMode(i).equals( V.getMode(i), 1e-13 ) );
+    }
+    std::cout << "Passed Vfftw timeslice extraction test" << std::endl;
+  }
+
+
+  {
+    A2AvectorWfftw<A2Apolicies> W(a2a_args, p.params);
+    W.testRandom();
+
+    A2AvectorWfftw<A2Apolicies> W2(a2a_args, p.params);
+    W2.zero();
+
+    typedef typename A2AvectorWfftw<A2Apolicies>::FieldSiteType FieldSiteType;
+
+    for(int i=0;i<W.getNmodes();i++){    
+      for(int t=0;t<GJP.TnodeSites();t++){
+	FieldSiteType const* from0, *from1;
+	FieldSiteType const* to0, *to1; 
+	size_t sz1, sz2;
+	W.getModeTimesliceData(from0, from1, sz1, i, t);
+	W2.getModeTimesliceData(to0, to1, sz2, i, t);
+	assert(sz1 == sz2);
+	
+	memcpy( (void*)to0, (void const*)from0, sz1 * sizeof(FieldSiteType));
+	if(GJP.Gparity()) memcpy( (void*)to1, (void const*)from1, sz1 * sizeof(FieldSiteType));
+      }
+    }
+    for(int i=0;i<W.getNl();i++){    
+      assert(W2.getWl(i).equals( W.getWl(i), 1e-13 ) );
+    }
+    for(int i=0;i<W.getNhits();i++){
+      for(int sc=0;sc<12;sc++)
+	assert(W2.getWh(i,sc).equals( W.getWh(i,sc), 1e-13 ) );
+    }
+
+    std::cout << "Passed Wfftw timeslice extraction test" << std::endl;
+  }
+
+
+  
+
+  
+}
+    
+
+    
+
+
+
 CPS_END_NAMESPACE

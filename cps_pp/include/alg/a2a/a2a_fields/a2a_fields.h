@@ -98,6 +98,15 @@ public:
     ptr = v[i]->ptr(); size = v[i]->size();
   }
 
+  //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
+  inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
+    assert(v[i]->dimpol_flavor_timeslice_contiguous());
+    size = v[i]->dimpol_time_stride() * v[i]->siteSize();      
+    ptr_f0 = v[i]->ptr() + t*size;
+    ptr_f1 = ptr_f0 + v[i]->flav_offset();
+  }
+  
+  
   class View: public StandardIndexDilution{
     typename CPSfieldArray<FermionFieldType>::View av;
   public:
@@ -205,6 +214,14 @@ public:
   //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
   inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
     ptr = v[i]->ptr(); size = v[i]->size();
+  }
+
+  //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
+  inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
+    assert(v[i]->dimpol_flavor_timeslice_contiguous());
+    size = v[i]->dimpol_time_stride() * v[i]->siteSize();      
+    ptr_f0 = v[i]->ptr() + t*size;
+    ptr_f1 = ptr_f0 + v[i]->flav_offset();
   }
   
   //Create a regular fermion field for a given full mode by unpacking the dilution
@@ -388,6 +405,23 @@ public:
       ptr = wh[ii]->ptr(); size = wh[ii]->size();
     }
   }
+
+  //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
+  inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
+    if(i<nl){
+      assert(wl[i]->dimpol_flavor_timeslice_contiguous());
+      size = wl[i]->dimpol_time_stride() * wl[i]->siteSize();      
+      ptr_f0 = wl[i]->ptr() + t*size;
+      ptr_f1 = ptr_f0 + wl[i]->flav_offset();
+    }else{
+      int ii = i-nl;
+      assert(wh[ii]->dimpol_flavor_timeslice_contiguous());	  
+      size = wh[ii]->dimpol_time_stride() * wh[ii]->siteSize();
+      ptr_f0 = wh[ii]->ptr() + t*size;
+      ptr_f1 = ptr_f0 + wh[ii]->flav_offset();
+    }
+  }
+
   
   class View: public FullyPackedIndexDilution{
     typename CPSfieldArray<FermionFieldType>::View awl;
@@ -565,6 +599,22 @@ public:
     }else{
       int ii = i-nl;
       ptr = wh[ii]->ptr(); size = wh[ii]->size();
+    }
+  }
+
+  //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
+  inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
+    if(i<nl){
+      assert(wl[i]->dimpol_flavor_timeslice_contiguous());
+      size = wl[i]->dimpol_time_stride() * wl[i]->siteSize();      
+      ptr_f0 = wl[i]->ptr() + t*size;
+      ptr_f1 = ptr_f0 + wl[i]->flav_offset();
+    }else{
+      int ii = i-nl;
+      assert(wh[ii]->dimpol_flavor_timeslice_contiguous());	  
+      size = wh[ii]->dimpol_time_stride() * wh[ii]->siteSize();
+      ptr_f0 = wh[ii]->ptr() + t*size;
+      ptr_f1 = ptr_f0 + wh[ii]->flav_offset();
     }
   }
   

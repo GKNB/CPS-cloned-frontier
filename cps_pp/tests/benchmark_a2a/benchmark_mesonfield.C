@@ -33,6 +33,10 @@ struct Options{
   int nshift; //for shifted src benchmark
 
   std::vector<int> tsep_k_pi;
+
+  int vMv_partial_timestart;
+  int vMv_partial_timeend;
+  bool vMv_partial_compare_full;
   
   Options(){
     load_lrg=false;
@@ -49,6 +53,10 @@ struct Options{
     nshift = 4;
 
     tsep_k_pi = {4};
+
+    vMv_partial_compare_full = false;
+    vMv_partial_timestart = 0;
+    vMv_partial_timeend = GJP.Tnodes()*GJP.TnodeSites()-1;
   }
 
 
@@ -147,7 +155,9 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #ifdef USE_GRID
   if(0) benchmarkvMvGridOrig<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 
-  if(1) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(0) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(1) benchmarkvMvPartialTimeGridOffload<GridA2ApoliciesType>(a2a_args, ntests, opt.vMv_partial_timestart, opt.vMv_partial_timeend, opt.vMv_partial_compare_full);
+  
   if(0) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
   if(0) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
@@ -290,7 +300,16 @@ int main(int argc,char *argv[])
       std::cout << "Set tsep_k_pi to {";
       for(int v: opt.tsep_k_pi){ std::cout << v << " "; }
       std::cout <<std::endl;      
-      i+=2;      
+      i+=2;
+    }else if( cmd == "-vMv_partial_timerange"){
+      opt.vMv_partial_timestart = std::stoi(argv[i+1]);
+      opt.vMv_partial_timeend = std::stoi(argv[i+2]);
+      std::cout << "Set vMv partial timerange to " << opt.vMv_partial_timestart << "-" << opt.vMv_partial_timeend << std::endl;
+      i+=3;
+    }else if( cmd == "-vMv_partial_compare_full"){
+      opt.vMv_partial_compare_full = true;
+      std::cout << "Enabled vMv partial comparison to full, original version" << std::endl;
+      i++;
     }else{
       i++;
     }
