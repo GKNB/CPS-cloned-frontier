@@ -93,6 +93,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
   std::set<int> t_K_all;
   std::vector<bool> pi1_tslice_mask(Lt,false), pi2_tslice_mask(Lt,false);
 
+  int tsep_k_pi_largest = 0;
+  for(int sep: tsep_k_pi) tsep_k_pi_largest = std::max(tsep_k_pi_largest, sep);
+  
   std::stringstream ss;
   ss << "Node " << UniqueID() << " doing (t_K, t_pi1) = {";
 
@@ -137,7 +140,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
     part1_storage[t_K].reset(new SCFmatrixField(field_params));
     SCFmatrixField &into = *part1_storage[t_K];
     assert(mf_kaon[t_K].isOnNode());
-    mult(into, vL, mf_kaon[t_K], vH, false, true);
+
+    //Get maximum t_pi1 given t_K
+    int t_pi1_max = modLt(t_K + tsep_k_pi_largest, Lt);    
+    
+    mult(into, vL, mf_kaon[t_K], vH, false, true, t_K, t_pi1_max);
     gr(into, -5);
   }
   Type2FieldTimings::timer().part1 += dclock();
@@ -169,9 +176,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
 
     //Construct part 2 (this doesn't involve the kaon):
     // \sum_{ \vec y, \vec z  }  vL(x_op) [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] wL^dag(x_op)
+    int tK_min = modLt(t_pi1 - tsep_k_pi_largest, Lt); //only compute for timeslices between kaon and inner pion
+    
     Type2FieldTimings::timer().part2 -= dclock();
-    mult(part2[0], vL, con_pi1_pi2, wL, false, true); //part2 goes from insertion to pi1 to pi2 and back to insertion
-    mult(part2[1], vL, con_pi2_pi1, wL, false, true); //part2 goes from insertion to pi2 to pi1 and back to insertion
+    mult(part2[0], vL, con_pi1_pi2, wL, false, true, tK_min, t_pi1); //part2 goes from insertion to pi1 to pi2 and back to insertion
+    mult(part2[1], vL, con_pi2_pi1, wL, false, true, tK_min, t_pi1); //part2 goes from insertion to pi2 to pi1 and back to insertion
     Type2FieldTimings::timer().part2 += dclock();
 
     for(int tkpi_idx : t_pair.second){
