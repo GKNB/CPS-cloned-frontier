@@ -236,6 +236,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
  
 #ifdef USE_GRID
   if(0) testConvertComplexD();
+
+  if(0) testBasicComplexArray<A2Apolicies_grid>();
   
   //Test the openmp Grid vs non-Grid implementation
   if(0) testKtoPiPiType1GridOmpStd<A2Apolicies_std, A2Apolicies_grid>(a2a_arg,
@@ -251,7 +253,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
   if(0) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
@@ -304,7 +306,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testMesonFieldNodeDistributeUnique(a2a_arg);
   if(0) testMesonFieldNodeDistributeOneSided(a2a_arg);
 
-  if(1) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
+  if(0) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
 }
 
 
