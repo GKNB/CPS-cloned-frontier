@@ -123,7 +123,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
     if(UniqueID()==0) printf("Config written.\n");
   }
-
+  
   if(0) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
 
 #ifdef USE_GRID
@@ -155,8 +155,8 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #ifdef USE_GRID
   if(0) benchmarkvMvGridOrig<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 
-  if(0) benchmarkvMvGridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
-  if(1) benchmarkvMvPartialTimeGridOffload<GridA2ApoliciesType>(a2a_args, ntests, opt.vMv_partial_timestart, opt.vMv_partial_timeend, opt.vMv_partial_compare_full);
+  if(1) benchmarkvMvGridOffload<GridA2ApoliciesType,A2AvectorVfftw,A2AvectorWfftw>(a2a_args, ntests, nthreads);
+  if(0) benchmarkvMvPartialTimeGridOffload<GridA2ApoliciesType>(a2a_args, ntests, opt.vMv_partial_timestart, opt.vMv_partial_timeend, opt.vMv_partial_compare_full);
   
   if(0) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
@@ -178,8 +178,6 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
   if(0) benchmarkMesonFieldGather(a2a_args, ntests);
 }
-
-
 
 int main(int argc,char *argv[])
 {

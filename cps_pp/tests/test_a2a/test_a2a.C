@@ -245,17 +245,17 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								      W_std, V_std, Wh_std, Vh_std,
 								      tol);
   
-  if(0) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(0) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
+  if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
 
   if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
 
   if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
-  if(1) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
   if(0) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);

@@ -122,7 +122,7 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
   PropagatorField pfield(simd_dims);
 
   //mult(pfield, Vgrid, mf_grid, Wgrid, false, true);
-  vMvFieldImpl::optimized(pfield, Vgrid, mf_grid, Wgrid, false, true);
+  vMvFieldImpl::optimized(pfield, Vgrid, mf_grid, Wgrid, false, true, 0, GJP.Tnodes()*GJP.TnodeSites()-1);
 
   CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
   vmv_offload_sum4.zero();
@@ -394,7 +394,16 @@ void testvMvFieldTimesliceRange(const A2AArg &a2a_args, const double tol){
   typedef typename vMvFieldImpl::PropagatorField PropagatorField;
   PropagatorField pfield_expect(simd_dims), pfield_got(simd_dims);
 
-  vMvFieldImpl::optimized(pfield_expect, V, mf, W, false, true);
+  //vMvFieldImpl::optimized(pfield_expect, V, mf, W, false, true);
+
+  //Compute the full result using the CPU implementation
+  for(int top=0;top<GJP.TnodeSites();top++){
+#pragma omp parallel for
+    for(size_t xop=0;xop<pfield_expect.nsites()/GJP.TnodeSites();xop++){
+      size_t off = pfield_expect.threeToFour(xop,top);
+      mult(*pfield_expect.site_ptr(off), V, mf, W, xop, top, false, true);
+    }
+  } 
 
   //Check we get the same field if we span the entire lattice
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
@@ -415,7 +424,7 @@ void testvMvFieldTimesliceRange(const A2AArg &a2a_args, const double tol){
 
   tmp1.importField( (VectorComplexField const &)test );
   assert( tmp1.equals(tmp2, 1e-12, true) );
-  std::cout << "Passed propagatorField conversion check" << std::endl;
+  std::cout << "Passed propagatorField conversion check (the first reported error above was intentional!)" << std::endl;
   
   tmp1.importField( (VectorComplexField const &)pfield_got );
   tmp2.importField( (VectorComplexField const &)pfield_expect );
