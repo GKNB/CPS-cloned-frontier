@@ -449,6 +449,12 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     cudaFuncCache cache_default;
     assert(cudaDeviceGetCacheConfig(&cache_default) == cudaSuccess );
     assert(cudaDeviceSetCacheConfig(cudaFuncCachePreferL1) == cudaSuccess );
+
+    for(int i=0;i<l.getNlowModes();i++) l.getLowMode(i).deviceSetAdviseUVMreadOnly(true);
+    for(int i=0;i<l.getNhighModes();i++) l.getHighMode(i).deviceSetAdviseUVMreadOnly(true);
+    for(int i=0;i<r.getNlowModes();i++) r.getLowMode(i).deviceSetAdviseUVMreadOnly(true);
+    for(int i=0;i<r.getNhighModes();i++) r.getHighMode(i).deviceSetAdviseUVMreadOnly(true);
+    
 #endif   
     
     mult_vMv_field_offload_timers::timers &time = mult_vMv_field_offload_timers::get();
@@ -626,6 +632,12 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
 #ifdef GRID_CUDA
     assert(cudaDeviceSetCacheConfig(cache_default) == cudaSuccess );
+
+    for(int i=0;i<l.getNlowModes();i++) l.getLowMode(i).deviceSetAdviseUVMreadOnly(false);
+    for(int i=0;i<l.getNhighModes();i++) l.getHighMode(i).deviceSetAdviseUVMreadOnly(false);
+    for(int i=0;i<r.getNlowModes();i++) r.getLowMode(i).deviceSetAdviseUVMreadOnly(false);
+    for(int i=0;i<r.getNhighModes();i++) r.getHighMode(i).deviceSetAdviseUVMreadOnly(false);
+
 #endif   
 
   }//end of func

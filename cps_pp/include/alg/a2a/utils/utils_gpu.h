@@ -97,6 +97,26 @@ inline void device_memset(void *ptr, int value, size_t count){
 #endif
 }
 
+//Advise the UVM driver that the memory region will be accessed in read-only fashion
+inline void device_UVM_advise_readonly(const void* ptr, size_t count){
+#ifdef GRID_CUDA
+  assert( cudaMemAdvise(ptr, count, cudaMemAdviseSetReadMostly, 0) == cudaSuccess );
+#else
+  assert(0);
+#endif
+}
+
+//Unset advice to the UVM driver that the memory region will be accessed in read-only fashion
+inline void device_UVM_advise_unset_readonly(const void* ptr, size_t count){
+#ifdef GRID_CUDA
+  assert( cudaMemAdvise(ptr, count, cudaMemAdviseUnsetReadMostly, 0) == cudaSuccess );
+#else
+  assert(0);
+#endif
+}
+
+
+
 //Check if a class T has a method "free"
 template<typename T, typename U = void>
 struct hasFreeMethod{

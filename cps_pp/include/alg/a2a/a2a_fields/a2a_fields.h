@@ -43,6 +43,8 @@ public:
   typedef typename Policies::FermionFieldType FermionFieldType;
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
+  typedef FermionFieldType LowModeFieldType;
+  typedef FermionFieldType HighModeFieldType;  
 private:
   CPSfieldArray<FermionFieldType> v;
 
@@ -73,14 +75,18 @@ public:
   inline const FermionFieldType & getMode(const int i) const{ return *v[i]; }
   inline FermionFieldType & getMode(const int i){ return *v[i]; }  
 
+  inline const FermionFieldType & getLowMode(const int il) const{ return *v[il]; }
+  inline const FermionFieldType & getHighMode(const int ih) const{ return *v[nl+ih]; }
+  
   //Get a mode from the low mode part
   inline FermionFieldType & getVl(const int il){ return *v[il]; }
   inline const FermionFieldType & getVl(const int il) const{ return *v[il]; }
-
+  
   //Get a mode from the high-mode part
   inline FermionFieldType & getVh(const int ih){ return *v[nl+ih]; }
   inline const FermionFieldType & getVh(const int ih) const{ return *v[nl+ih]; }
 
+ 
   //Get a particular site/spin/color element of a given mode
   //Note: x3d is the local (on-node) 3d site and t is the local time
   inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
@@ -171,7 +177,9 @@ public:
   typedef typename Policies::FermionFieldType FermionFieldType;
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
-
+  typedef FermionFieldType LowModeFieldType;
+  typedef FermionFieldType HighModeFieldType;  
+  
   #define VFFTW_ENABLE_IF_MANUAL_ALLOC(P) typename my_enable_if<  _equal<typename P::A2AvectorVfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , void>::type
 private:
   CPSfieldArray<FermionFieldType> v;
@@ -202,6 +210,9 @@ public:
 
   inline FermionFieldType & getMode(const int i){ return *v[i]; }
 
+  inline const FermionFieldType & getLowMode(const int il) const{ return *v[il]; }
+  inline const FermionFieldType & getHighMode(const int ih) const{ return *v[nl+ih]; }
+  
   inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
     int site = v[mode]->threeToFour(x3d,t);
     return *(v[mode]->site_ptr(site,flavor) + spin_color);
@@ -329,6 +340,9 @@ public:
 
   typedef typename my_enable_if< _equal<typename FermionFieldType::FieldSiteType, typename ComplexFieldType::FieldSiteType>::value,  typename FermionFieldType::FieldSiteType>::type FieldSiteType;
   typedef typename my_enable_if< _equal<typename FermionFieldType::InputParamType, typename ComplexFieldType::InputParamType>::value,  typename FermionFieldType::InputParamType>::type FieldInputParamType;
+
+  typedef FermionFieldType LowModeFieldType;
+  typedef ComplexFieldType HighModeFieldType;
 private:
   CPSfieldArray<FermionFieldType> wl; //The low mode part of the W field, comprised of nl fermion fields
   CPSfieldArray<ComplexFieldType> wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
@@ -370,6 +384,9 @@ public:
 
   inline FermionFieldType & getWl(const int i){ return *wl[i]; }
   inline ComplexFieldType & getWh(const int hit){ return *wh[hit]; }
+
+  inline const FermionFieldType & getLowMode(const int il) const{ return *wl[il]; }
+  inline const ComplexFieldType & getHighMode(const int ih) const{ return *wh[ih]; }
   
   //The spincolor, flavor and timeslice dilutions are packed so we must treat them differently
   //Mode is a full 'StandardIndex', (unpacked mode index)
@@ -506,7 +523,9 @@ public:
   typedef typename Policies::ComplexFieldType ComplexFieldType;
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
   typedef typename my_enable_if< _equal<typename FermionFieldType::InputParamType, typename ComplexFieldType::InputParamType>::value,  typename FermionFieldType::InputParamType>::type FieldInputParamType;
-
+  typedef FermionFieldType LowModeFieldType;
+  typedef FermionFieldType HighModeFieldType;
+  
 #define WFFTW_ENABLE_IF_MANUAL_ALLOC(P) typename my_enable_if<  _equal<typename P::A2AvectorWfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , int>::type
 private:
 
@@ -563,9 +582,12 @@ public:
 
   inline FermionFieldType & getMode(const int i){ return i < nl ? *wl[i] : *wh[i-nl]; }
 
+  inline const FermionFieldType & getLowMode(const int il) const{ return *wl[il]; }
+  inline const FermionFieldType & getHighMode(const int ih) const{ return *wh[ih]; }
+
   //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices: for i>=nl the modeIndexSet is used to obtain the appropriate mode 
   inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
-
+ 
   //The flavor and timeslice dilutions are still packed so we must treat them differently
   //Mode is a full 'StandardIndex', (unpacked mode index)
   inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{

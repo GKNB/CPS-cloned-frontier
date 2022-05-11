@@ -118,11 +118,11 @@ public:
 
   //Accelerator accessor functionality
   class View: public MappingPolicy{
-    SiteType* f;
+    SiteType* f; //assumes unified memory
   protected:
     size_t fsize; //number of SiteType in the array = SiteSize * fsites
   public:
-    View(const CPSfield &field): f(field.f), fsize(field.fsize), MappingPolicy(field){}
+    View(const CPSfield &field): f(field.f), fsize(field.fsize), MappingPolicy(field){ assert(FieldAllocPolicy::UVMenabled == 1); }
     
     //Number of SiteType per site
     accelerator_inline int siteSize() const{ return SiteSize; }
