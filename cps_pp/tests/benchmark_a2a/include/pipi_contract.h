@@ -90,7 +90,9 @@ void benchmarkPiPiContractions(const A2AArg &a2a_args){
     time += dclock();
     *timeCDR[d] += time;
 
+#ifdef GPU_VEC
     if(!UniqueID()) _mult_impl_base::getTimers().print();	
+#endif
   }
 
   std::cout << "Product container contains " << products.size() << " products consuming " << double(products.byte_size())/1024/1024 << " MB. Saved " << products.productsReused() << " products" << std::endl;

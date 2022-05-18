@@ -6,6 +6,7 @@
 
 #if defined(USE_GRID) && defined(USE_GRID_A2A)
 #include<Grid/Grid.h>
+#include <Grid/algorithms/iterative/LocalCoherenceLanczos.h>
 
 CPS_START_NAMESPACE
 
@@ -65,7 +66,7 @@ public:
 
   //Get the deflated guess for a set of 5D source vectors
   //if use_Nevecs is set the number of evecs used will be constrained to that number
-  virtual void deflatedGuessD(GridFermionFieldD *out, GridFermionFieldD const *in, int Nfield, int use_Nevecs = -1) const{
+  virtual void deflatedGuessDp(GridFermionFieldD *out, GridFermionFieldD const *in, int Nfield, int use_Nevecs = -1) const{
     if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
     else assert(use_Nevecs <= this->nEvecs());    
     basicDeflatedGuess(out, in, Nfield, use_Nevecs, [&](GridFermionFieldD &into, const int i){ return this->getEvecD(into,i); });
@@ -73,7 +74,7 @@ public:
 
   void deflatedGuessD(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in, int use_Nevecs = -1) const{
     assert(out.size() == in.size());
-    deflatedGuessD(out.data(),in.data(),in.size(),use_Nevecs);
+    deflatedGuessDp(out.data(),in.data(),in.size(),use_Nevecs);
   }
   
   virtual ~EvecInterface(){}
@@ -103,7 +104,7 @@ public:
 
   void operator()(const FieldF &src,FieldF &guess) {
     precisionChange(tmp1D,src);
-    interface.deflatedGuessD(&tmp2D, &tmp1D, 1);
+    interface.deflatedGuessDp(&tmp2D, &tmp1D, 1);
     precisionChange(guess,tmp2D);
   }
 };
@@ -121,7 +122,7 @@ public:
   //Get the single precision evec and eval
   virtual double getEvecF(GridFermionFieldF &into, const int idx) const = 0;
 
-  virtual void deflatedGuessF(GridFermionFieldF *out, GridFermionFieldF const *in, int Nfield, int use_Nevecs = -1) const{
+  virtual void deflatedGuessFp(GridFermionFieldF *out, GridFermionFieldF const *in, int Nfield, int use_Nevecs = -1) const{
     if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
     else assert(use_Nevecs <= this->nEvecs());    
     basicDeflatedGuess(out, in, Nfield, use_Nevecs, [&](GridFermionFieldF &into, const int i){ return this->getEvecF(into,i); });
@@ -129,7 +130,7 @@ public:
 
   void deflatedGuessF(std::vector<GridFermionFieldF> &out, const std::vector<GridFermionFieldF> &in, int use_Nevecs = -1) const{
     assert(out.size() == in.size());
-    deflatedGuessF(out.data(),in.data(),in.size(),use_Nevecs);
+    deflatedGuessFp(out.data(),in.data(),in.size(),use_Nevecs);
   }
   
   virtual ~EvecInterfaceMixedPrec(){}
@@ -141,14 +142,14 @@ struct _choose_deflate{};
 template<class FieldD, class FieldF>
 struct _choose_deflate<FieldD,FieldD,FieldF>{
   static void doit(const EvecInterfaceMixedPrec<FieldD,FieldF> &interface, const FieldD &src, FieldD &guess){
-    interface.deflatedGuessD(&guess, &src, 1);
+    interface.deflatedGuessDp(&guess, &src, 1);
   }
 };
 
 template<class FieldD, class FieldF>
 struct _choose_deflate<FieldF,FieldD,FieldF>{
   static void doit(const EvecInterfaceMixedPrec<FieldD,FieldF> &interface, const FieldF &src, FieldF &guess){
-    interface.deflatedGuessF(&guess, &src, 1);
+    interface.deflatedGuessFp(&guess, &src, 1);
   }
 };
 
@@ -269,6 +270,215 @@ public:
   int nEvecs() const override{ return m_evals.size(); }
 };
 
+
+template<typename GridFermionField, typename CoarseField, typename EvecGetter, typename Projector, typename Promoter>
+void compressedDeflatedGuess(GridFermionField *out, GridFermionField const *in, int Nfield,  int Nevecs, Grid::GridBase* coarseGrid,
+			     const EvecGetter &get, const Projector &proj, const Promoter &promote){
+  double t_total = -dclock();
+  double t_get = 0;
+  double t_project = 0;
+  double t_inner = 0;
+  double t_linalg = 0;
+  double t_promote = 0;
+
+  for(int i=0;i<Nfield;i++){
+    out[i] = Grid::Zero();
+    out[i].Checkerboard() = in[0].Checkerboard();
+  }
+
+  t_project -= dclock();
+  std::vector<CoarseField> eta_proj(Nfield, coarseGrid);
+  for(int i=0;i<Nfield;i++) proj(eta_proj[i], in[i]);
+  t_project += dclock();
+
+  std::vector<CoarseField> rho(Nfield, coarseGrid);
+  for(int i=0;i<Nfield;i++) rho[i] = Grid::Zero();
+
+  CoarseField cevec(coarseGrid);
+  for(int a=0;a<Nevecs;a++){      
+    t_get -= dclock();
+    double eval = get(cevec, a);
+    t_get += dclock();
+
+    for(int i=0;i<Nfield;i++){
+      t_inner -= dclock();
+      Grid::ComplexD dot = Grid::innerProduct(cevec, eta_proj[i]);
+      t_inner += dclock();
+	
+      t_linalg -= dclock();
+      rho[i] = rho[i] + dot / eval * cevec;
+      t_linalg += dclock();
+    }
+  }
+
+  t_promote -= dclock();    
+  for(int i=0;i<Nfield;i++) promote(out[i],rho[i]);
+  t_promote += dclock();    
+
+  t_total += dclock();
+  std::cout << "Deflated " << Nfield << " fields with " << Nevecs << " compressed evecs in " << t_total 
+	    << "s:  get: " << t_get << "s, projection:" << t_project << "s, inner_product:" << t_inner << "s, linalg:" << t_linalg << "s, promote:" << t_promote << "s" << std::endl;
+}
+
+
+
+
+
+
+template<typename _GridFermionFieldD, typename _GridFermionFieldF, int _basis_size>
+class EvecInterfaceCompressedMixedDoublePrec : public EvecInterfaceMixedPrec<_GridFermionFieldD, _GridFermionFieldF>{
+public:
+  typedef _GridFermionFieldD GridFermionFieldD;
+  typedef _GridFermionFieldF GridFermionFieldF;
+  enum { basis_size = _basis_size };
+private:
+  Grid::GridBase* m_evecGridD;
+  Grid::GridBase* m_evecGridF;
+  typedef typename GridFermionFieldD::vector_object SiteSpinor;
+  typedef Grid::LocalCoherenceLanczos<SiteSpinor,Grid::vTComplexD,basis_size> LCL;
+  typedef typename LCL::CoarseSiteVector vCoarseSiteVector;
+  typedef typename LCL::CoarseField CoarseField;
+  typedef typename vCoarseSiteVector::scalar_object CoarseSiteVector;
+
+  const std::vector<GridFermionFieldD> &m_basisD;
+  const std::vector<CoarseField> &m_coarseEvecsD;
+  const std::vector<double> &m_evals;
+
+  mutable GridFermionFieldD tmpD;
+public:
+  EvecInterfaceCompressedMixedDoublePrec( const std::vector<CoarseField> &coarseEvecsD, const std::vector<GridFermionFieldD> &basisD, 
+				const std::vector<double> &evals, Grid::GridBase* evecGridD, Grid::GridBase* evecGridF): 
+    m_coarseEvecsD(coarseEvecsD), m_basisD(basisD), m_evals(evals), m_evecGridD(evecGridD), m_evecGridF(evecGridF), tmpD(evecGridD){
+    assert(m_basisD.size() == basis_size);
+    assert(m_coarseEvecsD.size() == m_evals.size());
+  }
+  
+  Grid::GridBase* getEvecGridD() const override{ return m_evecGridD; }
+  Grid::GridBase* getEvecGridF() const override{ return m_evecGridF; }
+
+  //Get an eigenvector and eigenvalue
+  double getEvecD(GridFermionFieldD &into, const int idx) const override{
+    Grid::blockPromote(m_coarseEvecsD[idx],into,m_basisD); 
+    return m_evals[idx];
+  }
+
+  double getEvecF(GridFermionFieldF &into, const int idx) const override{
+    Grid::blockPromote(m_coarseEvecsD[idx],tmpD,m_basisD); 
+    precisionChange(into, tmpD);
+    return m_evals[idx];
+  }
+
+  int nEvecs() const override{ return m_evals.size(); }
+  
+  //Perform the deflation in the blocked space to avoid uncompression overheads
+  void deflatedGuessDp(GridFermionFieldD *out, GridFermionFieldD const *in, int Nfield, int use_Nevecs = -1) const override{
+    if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
+    else assert(use_Nevecs <= this->nEvecs());    
+
+    assert(m_coarseEvecsD.size() > 0);
+    Grid::GridBase* coarseGrid = m_coarseEvecsD[0].Grid();
+
+    compressedDeflatedGuess<GridFermionFieldD,CoarseField>(out, in, Nfield, use_Nevecs, coarseGrid,
+							   [&](CoarseField &into, const int idx){ into = m_coarseEvecsD[idx]; return m_evals[idx]; },
+							   [&](CoarseField &out, const GridFermionFieldD &in){ Grid::blockProject(out,in, m_basisD); },
+							   [&](GridFermionFieldD &out, const CoarseField &in){ Grid::blockPromote(in, out, m_basisD); }
+							   );
+  }
+
+  void deflatedGuessFp(GridFermionFieldF *out, GridFermionFieldF const *in, int Nfield, int use_Nevecs = -1) const override{
+    if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
+    else assert(use_Nevecs <= this->nEvecs());    
+
+    assert(m_coarseEvecsD.size() > 0);
+    Grid::GridBase* coarseGrid = m_coarseEvecsD[0].Grid();
+
+    //use double precision fields internally
+    compressedDeflatedGuess<GridFermionFieldF,CoarseField>(out, in, Nfield, use_Nevecs, coarseGrid,
+							   [&](CoarseField &into, const int idx){ into = m_coarseEvecsD[idx]; return m_evals[idx]; },
+							   [&](CoarseField &out, const GridFermionFieldF &in){ precisionChange(tmpD,in); Grid::blockProject(out,tmpD, m_basisD); },
+							   [&](GridFermionFieldF &out, const CoarseField &in){ Grid::blockPromote(in, tmpD, m_basisD); precisionChange(out,tmpD); }
+							   );
+  }
+
+
+};
+
+
+
+template<typename _GridFermionFieldD, typename _GridFermionFieldF, int _basis_size>
+class EvecInterfaceCompressedSinglePrec : public EvecInterfaceMixedPrec<_GridFermionFieldD, _GridFermionFieldF>{
+public:
+  typedef _GridFermionFieldD GridFermionFieldD;
+  typedef _GridFermionFieldF GridFermionFieldF;
+  enum { basis_size = _basis_size };
+private:
+  Grid::GridBase* m_evecGridD;
+  Grid::GridBase* m_evecGridF;
+  typedef typename GridFermionFieldF::vector_object SiteSpinor;
+  typedef Grid::LocalCoherenceLanczos<SiteSpinor,Grid::vTComplexF,basis_size> LCL;
+  typedef typename LCL::CoarseSiteVector vCoarseSiteVector;
+  typedef typename LCL::CoarseField CoarseField;
+  typedef typename vCoarseSiteVector::scalar_object CoarseSiteVector;
+
+  const std::vector<GridFermionFieldF> &m_basisF;
+  const std::vector<CoarseField> &m_coarseEvecsF;
+  const std::vector<double> &m_evals;
+  mutable GridFermionFieldF tmpF;
+public:
+  EvecInterfaceCompressedSinglePrec( const std::vector<CoarseField> &coarseEvecsF, const std::vector<GridFermionFieldF> &basisF, 
+				     const std::vector<double> &evals, Grid::GridBase* evecGridD, Grid::GridBase* evecGridF): 
+    m_coarseEvecsF(coarseEvecsF), m_basisF(basisF), m_evals(evals), m_evecGridD(evecGridD), m_evecGridF(evecGridF), tmpF(evecGridF){
+    assert(m_basisF.size() == basis_size);
+    assert(m_coarseEvecsF.size() == m_evals.size());
+  }
+  
+  Grid::GridBase* getEvecGridD() const override{ return m_evecGridD; }
+  Grid::GridBase* getEvecGridF() const override{ return m_evecGridF; }
+
+  //Get an eigenvector and eigenvalue
+  double getEvecD(GridFermionFieldD &into, const int idx) const override{
+    Grid::blockPromote(m_coarseEvecsF[idx],tmpF,m_basisF); 
+    precisionChange(into,tmpF);
+    return m_evals[idx];
+  }
+
+  double getEvecF(GridFermionFieldF &into, const int idx) const override{
+    Grid::blockPromote(m_coarseEvecsF[idx],into,m_basisF); 
+    return m_evals[idx];
+  }
+
+  int nEvecs() const override{ return m_evals.size(); }
+  
+  //Perform the deflation in the blocked space to avoid uncompression overheads
+  void deflatedGuessDp(GridFermionFieldD *out, GridFermionFieldD const *in, int Nfield, int use_Nevecs = -1) const override{
+    if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
+    else assert(use_Nevecs <= this->nEvecs());    
+
+    assert(m_coarseEvecsF.size() > 0);
+    Grid::GridBase* coarseGrid = m_coarseEvecsF[0].Grid();
+
+    //use single precision fields internally
+    compressedDeflatedGuess<GridFermionFieldD,CoarseField>(out, in, Nfield, use_Nevecs, coarseGrid,
+							   [&](CoarseField &into, const int idx){ into = m_coarseEvecsF[idx]; return m_evals[idx]; },
+							   [&](CoarseField &out, const GridFermionFieldD &in){ precisionChange(tmpF,in); Grid::blockProject(out,tmpF, m_basisF); },
+							   [&](GridFermionFieldD &out, const CoarseField &in){ Grid::blockPromote(in, tmpF, m_basisF); precisionChange(out, tmpF); }
+							   );
+  }
+
+  void deflatedGuessFp(GridFermionFieldF *out, GridFermionFieldF const *in, int Nfield, int use_Nevecs = -1) const override{
+    if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
+    else assert(use_Nevecs <= this->nEvecs());    
+
+    assert(m_coarseEvecsF.size() > 0);
+    Grid::GridBase* coarseGrid = m_coarseEvecsF[0].Grid();
+
+    compressedDeflatedGuess<GridFermionFieldF,CoarseField>(out, in, Nfield, use_Nevecs, coarseGrid,
+							   [&](CoarseField &into, const int idx){ into = m_coarseEvecsF[idx]; return m_evals[idx]; },
+							   [&](CoarseField &out, const GridFermionFieldF &in){ Grid::blockProject(out,in, m_basisF); },
+							   [&](GridFermionFieldF &out, const CoarseField &in){ Grid::blockPromote(in, out, m_basisF); }
+							   );
+  }
+};
 
 
 CPS_END_NAMESPACE

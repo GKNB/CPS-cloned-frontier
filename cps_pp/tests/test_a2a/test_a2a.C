@@ -245,8 +245,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								      W_std, V_std, Wh_std, Vh_std,
 								      tol);
   
-  if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
+  if(0) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
 
   if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
@@ -307,6 +307,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testMesonFieldNodeDistributeOneSided(a2a_arg);
 
   if(0) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
+
+  if(1) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);
+
 }
 
 

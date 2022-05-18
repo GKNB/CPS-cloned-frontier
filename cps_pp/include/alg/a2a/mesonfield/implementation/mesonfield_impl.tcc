@@ -284,7 +284,7 @@ A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView::ReadView(const A2Ameso
   data = (ScalarComplexType *)device_alloc_check(bsize);
   copy_host_to_device(data, mf.ptr(), bsize);
 #else //GPU_VEC
-  data = mf.ptr();
+  data = (ScalarComplexType *)mf.ptr();
 #endif //GPU_VEC
 }
 

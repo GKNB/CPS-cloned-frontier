@@ -3,6 +3,11 @@
 
 #include<set>
 
+//Not currently defined in Grid for CPU targets
+#ifndef accelerator_for2dNB
+#define accelerator_for2dNB(iter1, num1, iter2, num2, nsimd, ... ) thread_for2d(iter1,num1,iter2,num2,{ __VA_ARGS__ });
+#endif
+
 CPS_START_NAMESPACE
 
 template<typename mf_Policies,
@@ -594,7 +599,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	      int scr = cr+3*sr;
 	      int scfr = cr+3*(sr + 4*fr);	      
 
-	      if(cr == 0 && sr == 0 && fr == 0 && jprimeblock == 0 && iprimeblock == 0) cudaProfilerStart();
+	      //if(cr == 0 && sr == 0 && fr == 0 && jprimeblock == 0 && iprimeblock == 0) cudaProfilerStart();
 	      
 	      //Create vb'
 	      create_vbprime(vbprime, into_v, r_v, beta_v, jl_jr_pairs_v, t_off, jprimestart, nf, Lt, vol3d_node, local_timeslices, njprime_block, nsimd, conj_r, scr, fr);
@@ -605,7 +610,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	      //va' (M' vb')	      
 	      vaprime_Mprime_vbprime(into_v, vaprime, Mvbprime, sr, cr, fr, vol3d_node, local_timeslices, niprime_block, nf, nsimd);
 
-	      if(cr == 0 && sr == 0 && fr == 0 && jprimeblock == 0 && iprimeblock == 0) cudaProfilerStop();
+	      //if(cr == 0 && sr == 0 && fr == 0 && jprimeblock == 0 && iprimeblock == 0) cudaProfilerStop();
 	      
 	    }//cr
 	  }//sr      
