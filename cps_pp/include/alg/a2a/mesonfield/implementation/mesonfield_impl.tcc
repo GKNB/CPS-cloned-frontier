@@ -304,9 +304,9 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack(typename mf_Policies
 
 #pragma omp parallel for
   for(int i=0;i<getNrows();i++){
-    int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, getRowTimeslice(), lnl, lnf, lnsc, lnt);
+    int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, getRowParams().tblock(getRowTimeslice()), lnl, lnf, lnsc, lnt);
     for(int j=0;j<getNcols();j++){
-      int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, getColTimeslice(), rnl, rnf, rnsc, rnt);
+      int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, getColParams().tblock(getColTimeslice()), rnl, rnf, rnsc, rnt);
 
       into[jinto + ncolsfull*iinto] = (*this)(i,j);
     }
@@ -319,6 +319,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack_device(typename mf_P
 #if !defined(USE_GRID) || !defined(GPU_VEC)
   unpack(into); //into must be a host pointer here
 #else
+  if(getRowParams().getArgs().src_width != 1 || getColParams().getArgs().src_width != 1) ERR.General("A2AmesonField","unpack_device","Not implemented for non-unit temporal source width");
   A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView *vp = const_cast<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView *>(view);
   bool delete_view = false;
   if(vp == nullptr){
@@ -362,10 +363,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack(typename mf_Policies::
 
 #pragma omp parallel for  
   for(int i=0;i<nrowsfull;i++){
-    auto iinto = mesonFieldConvertDilution<LeftDilutionType>::pack(i, getRowTimeslice(), lnl, lnf, lnsc, lnt);
+    auto iinto = mesonFieldConvertDilution<LeftDilutionType>::pack(i, getRowParams().tblock(getRowTimeslice()), lnl, lnf, lnsc, lnt);
     if(iinto.second){
       for(int j=0;j<getNcols();j++){
-	auto jinto = mesonFieldConvertDilution<RightDilutionType>::pack(j, getColTimeslice(), rnl, rnf, rnsc, rnt);
+	auto jinto = mesonFieldConvertDilution<RightDilutionType>::pack(j, getColParams().tblock(getColTimeslice()), rnl, rnf, rnsc, rnt);
 	if(jinto.second){
 	  (*this)(iinto.first,jinto.first) = from[j + ncolsfull*i];
 	}
@@ -380,6 +381,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack_device(typename mf_Pol
 #if !defined(USE_GRID) || !defined(GPU_VEC)
   pack(from);
 #else  
+  if(getRowParams().getArgs().src_width != 1 || getColParams().getArgs().src_width != 1) ERR.General("A2AmesonField","pack_device","Not implemented for non-unit temporal source width");
   int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
   int rnl = getColParams().getNl(),  rnf = getColParams().getNflavors(), rnsc = getColParams().getNspinColor() , rnt = getColParams().getNtBlocks();
   int nrowsfull = getNrowsFull(), ncolsfull = getNcolsFull();

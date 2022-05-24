@@ -511,6 +511,110 @@ void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
 }
 
 
+template<typename A2Apolicies>
+void testMesonFieldUnpackPackTblock(A2AArg a2a_args, const double tol){
+  a2a_args.src_width = 2;
+  std::cout << "Testing mesonfield unpack, pack tblock" << std::endl;
+
+  LRG.AssignGenerator(0); //always uses the RNG at coord 0 on node 0 - should always be the same one!
+
+  //Check a WV type
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf1;
+  mf1.setup(a2a_args,a2a_args,0,0);
+  mf1.testRandom();
+  
+  typedef typename A2Apolicies::ScalarComplexType Complex;
+
+  int rows_full = mf1.getNrowsFull();
+  int cols_full = mf1.getNcolsFull();
+
+  size_t into_size = rows_full * cols_full * sizeof(Complex);
+  Complex* into = (Complex*)malloc(into_size);
+  Complex* device_into = (Complex*)device_alloc_check(into_size);
+  
+  mf1.unpack(into);
+  checkunpacked(mf1, into, tol, "WV");
+  
+  mf1.unpack_device(device_into);
+  memset(into,0,into_size);  
+  copy_device_to_host(into, device_into, into_size);
+  
+  checkunpacked(mf1, into, tol, "WV device");
+
+  //Do a test once with the view precreated
+  {
+    device_memset(device_into,0,into_size);
+    CPSautoView(mf1_v,mf1);
+
+    mf1.unpack_device(device_into, &mf1_v);
+    memset(into,0,into_size);  
+    copy_device_to_host(into, device_into, into_size);
+    
+    checkunpacked(mf1, into, tol, "WV device with view");
+  }
+
+  
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf1_p;
+  mf1_p.setup(a2a_args,a2a_args,0,0); 
+  mf1_p.pack(into);
+  checkpacked(mf1_p, mf1, tol, "WV");
+  
+  mf1_p.zero();
+  mf1_p.pack_device(device_into);
+  checkpacked(mf1_p, mf1, tol, "WV device");
+  
+
+  
+  //Check a VV type
+  memset(into,0,into_size);
+  A2AmesonField<A2Apolicies,A2AvectorVfftw,A2AvectorVfftw> mf2;
+  mf2.setup(a2a_args,a2a_args,0,0);
+  mf2.testRandom();
+  mf2.unpack(into);
+  checkunpacked(mf2, into, tol, "VV");
+
+  mf2.unpack_device(device_into);
+  memset(into,0,into_size);  
+  copy_device_to_host(into, device_into, into_size);
+  checkunpacked(mf2, into, tol, "VV device");
+  
+  A2AmesonField<A2Apolicies,A2AvectorVfftw,A2AvectorVfftw> mf2_p;
+  mf2_p.setup(a2a_args,a2a_args,0,0);  
+  mf2_p.pack(into);
+  checkpacked(mf2_p, mf2, tol, "VV");
+
+  mf2_p.zero();
+  mf2_p.pack_device(device_into);
+  checkpacked(mf2_p, mf2, tol, "VV device");
+  
+
+  //Check a WW type
+  memset(into,0,into_size);
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> mf3;
+  mf3.setup(a2a_args,a2a_args,0,0);
+  mf3.testRandom();
+  mf3.unpack(into);
+  checkunpacked(mf3, into, tol, "WW");
+
+  mf3.unpack_device(device_into);
+  memset(into,0,into_size);  
+  copy_device_to_host(into, device_into, into_size);
+  checkunpacked(mf3, into, tol, "WW device");
+  
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> mf3_p;
+  mf3_p.setup(a2a_args,a2a_args,0,0); 
+  mf3_p.pack(into);
+  checkpacked(mf3_p, mf3, tol, "WW");
+  
+  mf3_p.zero();
+  mf3_p.pack_device(device_into);
+  checkpacked(mf3_p, mf3, tol, "WW device");
+  
+  free(into);
+}
+
+
+
 
 void testMesonFieldNodeDistributeUnique(const A2AArg &a2a_args){
   //Generate a policy with the disk storage method so that we can test even for 1 rank
