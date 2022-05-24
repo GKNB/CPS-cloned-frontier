@@ -56,6 +56,9 @@ void testGridGetTwistedFFT(const A2AArg &a2a_args, const int nthreads, const dou
 
 template<typename A2Apolicies>
 void testFFTopt(){
+#ifdef GRID_HIP
+  rocfft_setup();
+#endif
   typedef typename A2Apolicies::FermionFieldType::FieldSiteType mf_Complex;
   typedef typename A2Apolicies::FermionFieldType::FieldMappingPolicy MappingPolicy;
   typedef typename A2Apolicies::FermionFieldType::FieldAllocPolicy AllocPolicy;
@@ -117,7 +120,9 @@ void testFFTopt(){
     assert( inv.equals(in, 1e-8, true ) );
     printf("Passed FFT inverse test (2)\n");  
   }
-
+#ifdef GRID_HIP
+  rocfft_cleanup();
+#endif
 }
 
 template<typename A2Apolicies>

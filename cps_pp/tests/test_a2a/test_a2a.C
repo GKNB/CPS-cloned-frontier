@@ -184,7 +184,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   
   if(0) testMFmult<A2Apolicies_std>(a2a_arg,tol);
 #ifdef USE_GRID
-  if(0) testMFmult<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testMFmult<A2Apolicies_grid>(a2a_arg,tol);
 #endif
   
   if(0) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
@@ -243,7 +243,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								      W_std, V_std, Wh_std, Vh_std,
 								      tol);
   
-  if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
 

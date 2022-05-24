@@ -5,6 +5,9 @@ CPS_START_NAMESPACE
 //non-SIMD data
 template<typename A2Apolicies>
 void benchmarkFFT(const int ntest){
+#ifdef GRID_HIP
+  rocfft_setup();
+#endif
   typedef typename A2Apolicies::FermionFieldType::FieldSiteType mf_Complex;
   typedef typename A2Apolicies::FermionFieldType::FieldMappingPolicy MappingPolicy;
   typedef typename A2Apolicies::FermionFieldType::FieldAllocPolicy AllocPolicy;
@@ -42,7 +45,9 @@ void benchmarkFFT(const int ntest){
     printf("3D FFT timings: orig %f s   opt %f s\n", t_orig, t_opt);    
     fft_opt_mu_timings::get().print();
   }
-  
+#ifdef GRID_HIP
+  rocfft_cleanup();
+#endif  
 }
 
 

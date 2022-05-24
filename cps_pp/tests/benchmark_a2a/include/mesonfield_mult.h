@@ -48,8 +48,12 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   
   if(!UniqueID()) printf("MF mult node local first call (ni=%d nj=%d nk=%d) avg time %f s, %f Mflops\n",ni,nj,nk,time,Mflops);
   
-#ifdef MULT_IMPL_CUBLASXT
-  std::cout << "cuBLASXT handle setup time (once) " << cuBLAShandles::time() << "s" << std::endl;
+#ifdef MULT_IMPL_GPUBLAS
+#if defined(GRID_CUDA)
+  std::cout << "GPUBLAS handle setup time (once) " << cuBLAShandles::time() << "s" << std::endl;
+#elif defined(GRID_HIP)
+  std::cout << "GPUBLAS handle setup time (once) " << rocBLAShandles::time() << "s" << std::endl;
+#endif
   if(!UniqueID()) _mult_impl_base::getTimers().print();
   _mult_impl_base::getTimers().reset();
 #endif
@@ -67,7 +71,7 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
 
   if(!UniqueID()) printf("MF mult node local (ni=%d nj=%d nk=%d) calls %d, avg time %f s, %f Mflops\n",ni,nj,nk,ntests,time,Mflops);
 
-#ifdef MULT_IMPL_CUBLASXT
+#ifdef MULT_IMPL_GPUBLAS
   if(!UniqueID()) _mult_impl_base::getTimers().print();
   _mult_impl_base::getTimers().reset();
 #endif
@@ -85,7 +89,7 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   
   if(!UniqueID()) printf("MF mult node distributed (ni=%d nj=%d nk=%d) calls %d, avg time %f s, %f Mflops,  %f Mflops/node\n",ni,nj,nk,ntests,time,Mflops, Mflops_per_node);
 
-#ifdef MULT_IMPL_CUBLASXT
+#ifdef MULT_IMPL_GPUBLAS
   if(!UniqueID()) _mult_impl_base::getTimers().print();
 #endif
 
