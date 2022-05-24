@@ -34,11 +34,11 @@
   accelerator_barrier(dummy);
 
 #elif defined(GPU_VEC)
-//GPU but not CUDA; not implemented
+//GPU but not CUDA/HIP; not implemented
 
-#define accelerator_forNB_shmem( iterator, num, nsimd, shmem_size, ... ) { static_assert(false, "accelerator_forNB_shmem not defined for GPU other than CUDA"); }
+#define accelerator_forNB_shmem( iterator, num, nsimd, shmem_size, ... ) { static_assert(false, "accelerator_forNB_shmem not defined for GPU other than CUDA/HIP"); }
   
-#define accelerator_shmem( iterator, num, nsimd, shmem_size, ... ) { static_assert(false, "accelerator_for_shmem not defined for GPU other than CUDA"); }
+#define accelerator_shmem( iterator, num, nsimd, shmem_size, ... ) { static_assert(false, "accelerator_for_shmem not defined for GPU other than CUDA/HIP"); }
 
 #else
 
@@ -50,19 +50,24 @@
 
 CPS_START_NAMESPACE
 
-#if defined(GRID_CUDA) || !defined(GPU_VEC)
-//Only implemented for CUDA right now but I want to actually compile with non-CUDA devices!
-//FIXME: Need to implement that for HIP after mf_contract since it is needed in mesonfield_mult_vv_field_offload.h
+#if defined(GRID_CUDA) || defined(GRID_HIP) || !defined(GPU_VEC)
+//FIXME: Need to test HIP implementation after mf_contract since it is needed in mesonfield_mult_vv_field_offload.h. Logic with GPU_VEC seems weird
+//Only implemented for CUDA/HIP right now but I want to actually compile with non-CUDA devices!
 //query the max bytes allocatable as block shared memory for a given device. If the device index is -1 it will be inferred from the current device
-//Returns 0 if not using a CUDA GPU
+//Returns 0 if not using a CUDA/HIP GPU
 inline int maxDeviceShmemPerBlock(int device = -1){
 #ifdef GRID_CUDA
   if(device == -1) cudaGetDevice(&device);
   int smemSize;
   cudaDeviceGetAttribute(&smemSize, cudaDevAttrMaxSharedMemoryPerBlock, device);
   return smemSize;
+#elif defined(GRID_HIP)
+  if(device == -1) hipGetDevice(&device);
+  int smemSize;
+  hipDeviceGetAttribute(&smemSize, hipDeviceAttributeMaxSharedMemoryPerBlock, device);
+  return smemSize;
 #elif defined(GPU_VEC)
-  static_assert(false, "maxDeviceShmemPerBlock not defined for GPU other than CUDA");
+  static_assert(false, "maxDeviceShmemPerBlock not defined for GPU other than CUDA/HIP");
 #else
   return 0;
 #endif

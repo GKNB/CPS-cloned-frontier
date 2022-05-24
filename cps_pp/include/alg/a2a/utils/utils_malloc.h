@@ -204,7 +204,7 @@ inline void pinned_free(void* p){
 
 
 
-//Allocate mapped memory on host and device (if CUDA, otherwise do memalign)
+//Allocate mapped memory on host and device (if CUDA/HIP, otherwise do memalign)
 inline void mapped_alloc_check(void** hostptr, void **deviceptr,  const size_t align, const size_t byte_size){
 #if defined(GRID_CUDA)
   auto err1 = cudaHostAlloc(hostptr,byte_size,cudaHostAllocMapped);

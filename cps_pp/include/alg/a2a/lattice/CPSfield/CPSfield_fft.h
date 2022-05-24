@@ -145,6 +145,7 @@ struct fft_opt_mu_timings{
 
 #include "implementation/CPSfield_dofft_fftw.tcc"
 #include "implementation/CPSfield_dofft_cufft.tcc"
+#include "implementation/CPSfield_dofft_rocfft.tcc"
 #include "implementation/CPSfield_dofft_onemkl.tcc"
 
 template<typename CPSfieldType>
@@ -262,6 +263,8 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 
 #ifdef GRID_CUDA
   CPSfield_do_fft_cufft<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf, bufsz);
+#elif defined(GRID_HIP)
+  CPSfield_do_fft_rocfft<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf, bufsz);
 #elif defined(GRID_SYCL)
   CPSfield_do_fft_onemkl<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf, bufsz);
 #else //GRID_CUDA
