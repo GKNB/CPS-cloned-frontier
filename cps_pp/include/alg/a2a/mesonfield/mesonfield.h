@@ -199,13 +199,15 @@ public:
 
     int nll = lindexdilution.getNl();
     int nlr = rindexdilution.getNl();
+    int tblockl = lindexdilution.tblock(tl);
+    int tblockr = rindexdilution.tblock(tr);
 
     int packed_i;
     if(_equal<LeftDilutionType,StandardIndexDilution>::value || full_i < nll) packed_i = full_i; //  lindexdilution.getModeType() == StandardIndex
     else{ // W *
       StandardIndexDilution lfulldil(lindexdilution);
       modeIndexSet i_idx; lfulldil.indexUnmap(full_i-nll, i_idx);
-      if(i_idx.time != tl) return zero; //delta function in time
+      if(i_idx.time != tblockl) return zero; //delta function in time
       else packed_i = nll + lindexdilution.indexMap(i_idx);
     }
     int packed_j;
@@ -213,7 +215,7 @@ public:
     else{ //* W
       StandardIndexDilution rfulldil(rindexdilution);
       modeIndexSet j_idx; rfulldil.indexUnmap(full_j-nlr, j_idx);
-      if(j_idx.time != tr) return zero;
+      if(j_idx.time != tblockr) return zero;
       else packed_j = nlr + rindexdilution.indexMap(j_idx);
     }
     return this->operator()(packed_i,packed_j);
@@ -226,13 +228,15 @@ public:
     
     int nll = lindexdilution.getNl();
     int nlr = rindexdilution.getNl();
+    int tblockl = lindexdilution.tblock(tl);
+    int tblockr = rindexdilution.tblock(tr);
 
     int packed_i;
     if(_equal<LeftDilutionType,StandardIndexDilution>::value || full_i < nll) packed_i = full_i; //  lindexdilution.getModeType() == StandardIndex
     else{ // W *
       StandardIndexDilution lfulldil(lindexdilution);
       modeIndexSet i_idx; lfulldil.indexUnmap(full_i-nll, i_idx);
-      if(i_idx.time != tl) return NULL; //delta function in time
+      if(i_idx.time != tblockl) return NULL; //delta function in time
       else packed_i = nll + lindexdilution.indexMap(i_idx);
     }
     int packed_j;
@@ -240,7 +244,7 @@ public:
     else{ //* W
       StandardIndexDilution rfulldil(rindexdilution);
       modeIndexSet j_idx; rfulldil.indexUnmap(full_j-nlr, j_idx);
-      if(j_idx.time != tr) return NULL;
+      if(j_idx.time != tblockr) return NULL;
       else packed_j = nlr + rindexdilution.indexMap(j_idx);
     }
     return &this->operator()(packed_i,packed_j);

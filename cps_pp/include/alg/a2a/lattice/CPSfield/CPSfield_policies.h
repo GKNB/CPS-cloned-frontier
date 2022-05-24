@@ -5,6 +5,7 @@
 #include <alg/a2a/utils/utils_generic.h>
 #include <alg/a2a/utils/utils_malloc.h>
 #include <alg/a2a/utils/template_wizardry.h>
+#include <alg/a2a/utils/utils_gpu.h>
 
 CPS_START_NAMESPACE
 

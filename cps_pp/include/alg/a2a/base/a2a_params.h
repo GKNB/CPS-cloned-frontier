@@ -18,6 +18,7 @@ protected:
   int ndilute; //number of high mode stochastic dilutions (e.g. if spin/color/timeslice diluting then  ndilute = 12*Lt 
   int nh; //total number of high mode fields = ndilute * nhits
   int nv; //total number of v fields =  nl + ndilute * nhits
+  int Lt; //global lattice time extent
 
 public:
   inline int getNl() const{ return nl; }
@@ -28,12 +29,14 @@ public:
   inline int getNdilute() const{ return ndilute; }
   inline int getNh() const{ return nh; }
   inline int getNv() const{ return nv; }
+  inline int getLt() const{ return Lt; }
 
-  A2Aparams(): nl(0),nhits(0),nflavors(0),nspincolor(0),ntblocks(0),ndilute(0),nh(0),nv(0){}
+  A2Aparams(): nl(0),nhits(0),nflavors(0),nspincolor(0),ntblocks(0),ndilute(0),nh(0),nv(0),Lt(0){}
   A2Aparams(const A2AArg &_args);
 
   inline bool paramsEqual(const A2Aparams &r) const{
-    return (nl == r.nl  &&  nhits == r.nhits  &&  nflavors == r.nflavors  &&  ntblocks == r.ntblocks  &&  ndilute == r.ndilute  &&  nh == r.nh  &&  nv == r.nv);
+    return (nl == r.nl  &&  nhits == r.nhits  &&  nflavors == r.nflavors  &&  ntblocks == r.ntblocks  &&  
+	    ndilute == r.ndilute  &&  nh == r.nh  &&  nv == r.nv && Lt == r.Lt);
   }
 
   inline const A2AArg &getArgs() const{ return args; }
@@ -43,7 +46,7 @@ public:
 
   inline std::string print() const{
     std::ostringstream os; os << "nl=" << nl << " nhits=" << nhits << " nflavors=" << nflavors 
-			      << " nspincolor=" << nspincolor << " ntblocks=" << ntblocks << " ndilute=" << ndilute << " nh=" << nh << " nv=" << nv;
+			      << " nspincolor=" << nspincolor << " ntblocks=" << ntblocks << " ndilute=" << ndilute << " nh=" << nh << " nv=" << nv << " Lt=" << Lt;
     return os.str();
   }
 

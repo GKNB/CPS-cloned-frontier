@@ -49,6 +49,7 @@ public:
   }
 
   static void mult_onemkl(A2AmesonField<mf_Policies,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
+    if(l.getArgs().src_width != 1 || r.getArgs().src_width != 1) ERR.General("mesonfield_mult_impl_onemkl","mult","Does not support non-unit src width");
     getTimers().calls++;
     getTimers().t_init -= dclock();
 

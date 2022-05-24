@@ -27,7 +27,10 @@ public:
       exit(-1);
     }
 
-    out.setup(l.getRowParams(),r.getColParams(), l.tl, r.tr ); //zeroes output, so safe to re-use
+    int l_tl = l.getRowTimeslice(), l_tr = l.getColTimeslice();
+    int r_tl = r.getRowTimeslice(), r_tr = r.getColTimeslice();
+    
+    out.setup(l.getRowParams(),r.getColParams(), l_tl, r_tr ); //zeroes output, so safe to re-use
   
     int ni = l.getNrows();
     int nk = r.getNcols();  
@@ -44,8 +47,8 @@ public:
     if(do_work){
       Float time = -dclock();
 
-      modeIndexSet lmodeparams; lmodeparams.time = l.tr;
-      modeIndexSet rmodeparams; rmodeparams.time = r.tl;
+      modeIndexSet lmodeparams; lmodeparams.time = l.getColParams().tblock(l_tr);
+      modeIndexSet rmodeparams; rmodeparams.time = r.getRowParams().tblock(r_tl);
 	
       int nj = j_ind2.getNindices(lmodeparams,rmodeparams);
 
