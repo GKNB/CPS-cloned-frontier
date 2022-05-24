@@ -137,7 +137,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 				 typename PropagatorField::View &into,
 				 size_t niprime, size_t niprime_block,
 				 size_t iprimestart, size_t iprimelessthan,
-				 size_t vol4d, int t_off, int nf, size_t nsimd,
+				 size_t vol4d, int t_off, int nf, int src_width, size_t nsimd,
 				 int device){
     cudaMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
     cudaMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
@@ -171,6 +171,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			  size_t xop; int top;
 			  into.fourToThree(xop, top, x4d);
 			  int t_glob = top + t_off;
+			  int t_glob_block = t_glob / src_width;
 
 			  VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
 			  size_t niprimeb_subblocks = (niprime_block + shmem_iblock_size - 1)/shmem_iblock_size;
@@ -212,7 +213,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
 					VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
 					SIMTcomplexType sum = ACC::read(out);
-					uint8_t const* alptr = alpha.data() + iprimestart + iprimeb_start + niprime * ( scr + 12*(fr + nf*( scl + 12*( fl + nf*t_glob) ) ) );
+					uint8_t const* alptr = alpha.data() + iprimestart + iprimeb_start + niprime * ( scr + 12*(fr + nf*( scl + 12*( fl + nf*t_glob_block) ) ) );
 
 					for(int isb=0; isb < iprimeb_subblock_size; isb++){
 					  if(*alptr++ == 1){
@@ -244,7 +245,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 				 typename PropagatorField::View &into,
 				 size_t niprime, size_t niprime_block,
 				 size_t iprimestart, size_t iprimelessthan,
-				 size_t vol4d, int t_off, int nf, size_t nsimd
+				 size_t vol4d, int t_off, int nf, int src_width, size_t nsimd
 				 ){
     static const int shmem_iblock_size = 4;
     
@@ -265,6 +266,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 		      size_t xop; int top;
 		      into.fourToThree(xop, top, x4d);
 		      int t_glob = top + t_off;
+		      int t_glob_block = t_glob / src_width;
 
 		      VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
 		      size_t niprimeb_subblocks = (niprime_block + shmem_iblock_size - 1)/shmem_iblock_size;
@@ -306,7 +308,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
 				    VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
 				    SIMTcomplexType sum = ACC::read(out);
-				    uint8_t const* alptr = alpha.data() + iprimestart + iprimeb_start + niprime * ( scr + 12*(fr + nf*( scl + 12*( fl + nf*t_glob) ) ) );
+				    uint8_t const* alptr = alpha.data() + iprimestart + iprimeb_start + niprime * ( scr + 12*(fr + nf*( scl + 12*( fl + nf*t_glob_block) ) ) );
 
 				    for(int isb=0; isb < iprimeb_subblock_size; isb++){
 				      if(*alptr++ == 1){
@@ -350,13 +352,19 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     ModeContractionIndices<leftDilutionType,rightDilutionType> i_ind(l);
 
     assert(into.nodeSites(3) == GJP.TnodeSites()); //cannot be SIMD packed in t-direction
-    int Lt = GJP.Tnodes() * GJP.TnodeSites();
     int nf = GJP.Gparity() + 1;
     int nsimd = VectorComplexType::Nsimd();
     size_t vol4d = into.size();
     int t_off = GJP.TnodeSites() * GJP.TnodeCoor();
     size_t blocksize = BlockedvMvOffloadArgs::b;
     size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
+
+    //This version is designed for l, r with the same temporal src_width
+    int ntblocks = l.getNtBlocks();
+    assert(r.getNtBlocks() == ntblocks);
+
+    int src_width = l.getArgs().src_width;
+    assert(r.getArgs().src_width == src_width);
 
 #ifdef GRID_CUDA
     int device;
@@ -378,7 +386,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
     {
       modeIndexSet ilp, irp;
-      for(int tv=0;tv<Lt;tv++){
+      for(int tv=0;tv<ntblocks;tv++){
 	ilp.time = irp.time = tv;
 	for(ilp.flavor=0; ilp.flavor<nf; ilp.flavor++){
 	  for(ilp.spin_color=0; ilp.spin_color<12; ilp.spin_color++){
@@ -416,11 +424,11 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     }
 
     //Construct the mask
-    ManagedVector<uint8_t> alpha(nil_ir_pairs*12*nf*12*nf*Lt,0); //map as  i' + ni' * (scr + 12*(fr + nf*( scl + 12*(fl + nf*t)  ) ) )
+    ManagedVector<uint8_t> alpha(nil_ir_pairs*12*nf*12*nf*ntblocks,0); //map as  i' + ni' * (scr + 12*(fr + nf*( scl + 12*(fl + nf*tblock)  ) ) )
     auto alpha_v = alpha.view();
     {
       modeIndexSet ilp, irp;
-      for(int tv=0;tv<Lt;tv++){
+      for(int tv=0;tv<ntblocks;tv++){
 	ilp.time = irp.time = tv;
 	for(ilp.flavor=0; ilp.flavor<nf; ilp.flavor++){
 	  for(ilp.spin_color=0; ilp.spin_color<12; ilp.spin_color++){
@@ -521,9 +529,9 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 #endif
     
 #ifdef GRID_CUDA
-      run_VV_kernel_CUDA(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, nsimd, device);
+      run_VV_kernel_CUDA(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd, device);
 #else
-      run_VV_kernel_base(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, nsimd);
+      run_VV_kernel_base(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd);
 #endif
 
       time.vv += dclock();
