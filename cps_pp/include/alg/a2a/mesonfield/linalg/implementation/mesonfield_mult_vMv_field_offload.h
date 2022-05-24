@@ -174,7 +174,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
   static void setup_index_maps(ManagedVector< std::pair<int,int> > &il_ir_pairs, ManagedVector< std::pair<int,int> > &jl_jr_pairs,
 			       std::map<std::pair<int,int>, int> &il_ir_pairs_index_map, std::map<std::pair<int,int>, int> &jl_jr_pairs_index_map,
-			       const MesonFieldType &M, const int nf, const int Lt,
+			       const MesonFieldType &M, const int nf, int ntblocks,
 			       const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind,
 			       const ModeContractionIndices<jLeftDilutionType,jRightDilutionType> &j_ind){
 			       
@@ -185,7 +185,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       modeIndexSet ilp, irp, jlp, jrp;
       irp.time = M.getRowTimeslice();
       jlp.time = M.getColTimeslice();
-      for(int tv=0;tv<Lt;tv++){
+      for(int tv=0;tv<ntblocks;tv++){
 	ilp.time = jrp.time = tv;
 	for(int f=0;f<nf;f++){
 	  ilp.flavor = irp.flavor = jlp.flavor = jrp.flavor = f;
@@ -219,14 +219,14 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   }
   
   static void setup_alpha_beta(ManagedVector<uint8_t> &alpha, ManagedVector<uint8_t> &beta,
-			       const MesonFieldType &M, const int nf, const int Lt,
+			       const MesonFieldType &M, const int nf, const int ntblocks,
 			       const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind,
 			       const ModeContractionIndices<jLeftDilutionType,jRightDilutionType> &j_ind,
 			       std::map<std::pair<int,int>, int> &il_ir_pairs_index_map, std::map<std::pair<int,int>, int> &jl_jr_pairs_index_map){
     modeIndexSet ilp, irp, jlp, jrp;
-    irp.time = M.getRowTimeslice();
-    jlp.time = M.getColTimeslice();
-    for(int tv=0;tv<Lt;tv++){
+    irp.time = M.getRowParams().tblock(M.getRowTimeslice());
+    jlp.time = M.getColParams().tblock(M.getColTimeslice());
+    for(int tv=0;tv<ntblocks;tv++){
       ilp.time = jrp.time = tv;
       for(int f=0;f<nf;f++){
 	ilp.flavor = irp.flavor = jlp.flavor = jrp.flavor = f;
@@ -237,13 +237,13 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	  for(int i=0;i<i_ind_pairs.size();i++){
 	    const std::pair<int, int> &pair = i_ind_pairs[i];
 	    int pair_idx = il_ir_pairs_index_map[pair];
-	    alpha[sc + 12*(f+ nf*(tv + Lt*pair_idx))] = 1;
+	    alpha[sc + 12*(f+ nf*(tv + ntblocks*pair_idx))] = 1;
 	  }
 	  const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
 	  for(int j=0;j<j_ind_pairs.size();j++){
 	    const std::pair<int, int> &pair = j_ind_pairs[j];
 	    int pair_idx = jl_jr_pairs_index_map[pair];
-	    beta[sc + 12*(f+ nf*(tv + Lt*pair_idx))] = 1;
+	    beta[sc + 12*(f+ nf*(tv + ntblocks*pair_idx))] = 1;
 	  }
 	}
       }
@@ -253,7 +253,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   //Create va'
   static void create_vaprime(VectorComplexType* vaprime, typename PropagatorField::View &into_v, typename lA2AfieldType::View &l_v,
 			     ManagedVector<uint8_t>::View &alpha_v, ManagedVector< std::pair<int,int> >::View &il_ir_pairs_v,
-			     int t_off, size_t iprimestart, int nf, int Lt, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices, size_t niprime_block, size_t nsimd, bool conj_l){
+			     int t_off, int src_width, size_t iprimestart, int nf, int ntblocks, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices, size_t niprime_block, size_t nsimd, bool conj_l){
     size_t nt = local_timeslices.size();
     size_t nsites4d = vol3d_node * nt;
     int const* local_timeslices_v = local_timeslices.getDeviceReadPtr();
@@ -264,7 +264,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			size_t xop = xx % vol3d_node;
 			int top = local_timeslices_v[xx / vol3d_node];
 			size_t x4d = xop + vol3d_node * top; //actual local 4d offset
-			int t_glob = top + t_off;
+			int t_glob = top + t_off; 
+			int t_glob_block = t_glob / src_width; //time block for a2a index
 			size_t iprime = iprimeb + iprimestart;
 			for(int f=0;f<nf;f++){
 			  for(int sc=0;sc<12;sc++){
@@ -272,7 +273,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			    
 			    auto val = ACC::read(l_v.nativeElem(il_ir_pairs_v[iprime].first, x4d, sc, f));
 			    val = conj_l ? Grid::conjugate(val) : val;
-			    val = val * double(alpha_v[sc + 12*(f+ nf*(t_glob + Lt*iprime))]);
+			    val = val * double(alpha_v[sc + 12*(f+ nf*(t_glob_block + ntblocks*iprime))]);
 			    ACC::write(*into, val);
 			  }
 			}
@@ -303,7 +304,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   
   static void create_vbprime(VectorComplexType* vbprime, typename PropagatorField::View &into_v, typename rA2AfieldType::View &r_v,
 			     ManagedVector<uint8_t>::View &beta_v, ManagedVector< std::pair<int,int> >::View &jl_jr_pairs_v,
-			     int t_off, size_t jprimestart, int nf, int Lt, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices,
+			     int t_off, int src_width, size_t jprimestart, int nf, int ntblocks, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices,
 			     size_t njprime_block, size_t nsimd, bool conj_r,
 			     int scr, int fr){
     size_t nt = local_timeslices.size();
@@ -318,11 +319,12 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			  int top = local_timeslices_v[xx / vol3d_node];
 			  size_t x4d = xop + vol3d_node * top; //actual local 4d offset
 			  int t_glob = top + t_off;
+			  int t_glob_block = t_glob / src_width; //tblock for a2a index
 			  
 			  VectorComplexType *into = vbprime + jprimeb + njprime_block*xx;  //contiguous in summed index
 			  auto val = ACC::read(r_v.nativeElem(jl_jr_pairs_v[jprime].second, x4d, scr, fr));
 			  val = conj_r ? Grid::conjugate(val) : val;
-			  val = val * double(beta_v[scr + 12*(fr+ nf*(t_glob + Lt*jprime))]);
+			  val = val * double(beta_v[scr + 12*(fr+ nf*(t_glob_block + ntblocks*jprime))]);
 			  ACC::write(*into, val);
 			});
   }
@@ -392,7 +394,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			  int fl = scfl / 12;
 			  int cl = scl % 3;
 			  int sl = scl / 3;			    
-			  
+
 			  VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
 			  auto sum = ACC::read(out);
 			  
@@ -495,6 +497,10 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     CPSautoView(l_v, l);
     CPSautoView(r_v, r);
     auto into_v = into.view(); //doesn't require free
+
+    //This version is designed for l, r with the same temporal src_width
+    int ntblocks = l.getNtBlocks();
+    assert(r.getNtBlocks() == ntblocks);
        
     ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(l);
     ModeContractionIndices<jLeftDilutionType,jRightDilutionType> j_ind(r);
@@ -528,14 +534,14 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
     ManagedVector< std::pair<int,int> > il_ir_pairs, jl_jr_pairs; //pairs of il,il  and jl, jr  that must be contracted
     std::map<std::pair<int,int>, int> il_ir_pairs_index_map, jl_jr_pairs_index_map; //map of a pair to its offset in the arrays above
-    setup_index_maps(il_ir_pairs, jl_jr_pairs, il_ir_pairs_index_map, jl_jr_pairs_index_map, M, nf, Lt, i_ind, j_ind);
+    setup_index_maps(il_ir_pairs, jl_jr_pairs, il_ir_pairs_index_map, jl_jr_pairs_index_map, M, nf, ntblocks, i_ind, j_ind);
 
     int nil_ir_pairs = il_ir_pairs.size(), njl_jr_pairs = jl_jr_pairs.size();
     auto il_ir_pairs_v = il_ir_pairs.view(), jl_jr_pairs_v = jl_jr_pairs.view();
     
     //Construct the masks
-    ManagedVector<uint8_t> alpha(12*nf*Lt*nil_ir_pairs,0), beta(12*nf*Lt*njl_jr_pairs);
-    setup_alpha_beta(alpha, beta, M, nf, Lt, i_ind, j_ind, il_ir_pairs_index_map, jl_jr_pairs_index_map);
+    ManagedVector<uint8_t> alpha(12*nf*ntblocks*nil_ir_pairs,0), beta(12*nf*ntblocks*njl_jr_pairs);
+    setup_alpha_beta(alpha, beta, M, nf, ntblocks, i_ind, j_ind, il_ir_pairs_index_map, jl_jr_pairs_index_map);
     auto alpha_v = alpha.view(), beta_v = beta.view();
 
     //Prepare for blocked vMv
@@ -577,7 +583,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
       //std::cout << "Create va'" << std::endl;
 
-      create_vaprime(vaprime, into_v, l_v, alpha_v, il_ir_pairs_v, t_off, iprimestart, nf, Lt, vol3d_node, local_timeslices, niprime_block, nsimd, conj_l);
+      create_vaprime(vaprime, into_v, l_v, alpha_v, il_ir_pairs_v, t_off, l.getArgs().src_width, iprimestart, nf, ntblocks, vol3d_node, local_timeslices, niprime_block, nsimd, conj_l);
       time.vaprime += dclock();
 
       for(size_t jprimeblock =0; jprimeblock < njprime_blocks; jprimeblock++){
@@ -602,7 +608,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	      //if(cr == 0 && sr == 0 && fr == 0 && jprimeblock == 0 && iprimeblock == 0) cudaProfilerStart();
 	      
 	      //Create vb'
-	      create_vbprime(vbprime, into_v, r_v, beta_v, jl_jr_pairs_v, t_off, jprimestart, nf, Lt, vol3d_node, local_timeslices, njprime_block, nsimd, conj_r, scr, fr);
+	      create_vbprime(vbprime, into_v, r_v, beta_v, jl_jr_pairs_v, t_off, r.getArgs().src_width, jprimestart, nf, ntblocks, vol3d_node, local_timeslices, njprime_block, nsimd, conj_r, scr, fr);
 
 	      //Mprime * vbprime
 	      Mprime_vbprime(Mvbprime, Mprime, vbprime, vol3d_node * nt_do, niprime_block, njprime_block, nsimd);

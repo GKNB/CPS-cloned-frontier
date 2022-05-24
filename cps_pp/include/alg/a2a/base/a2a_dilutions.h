@@ -142,7 +142,7 @@ struct modeIndexSet{
   int hit;
   int spin_color;
   int flavor;
-  int time;
+  int time; //actually this is the *tblock*, not the time itself (differ is src_width>1)   TODO: Change name!
   modeIndexSet(): hit(-1),spin_color(-1),flavor(-1),time(-1){}
 };
 

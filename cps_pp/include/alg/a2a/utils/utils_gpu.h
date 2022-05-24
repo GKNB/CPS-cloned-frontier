@@ -312,7 +312,7 @@ public:
 #ifdef GPU_VEC
     device = (T*)device_alloc_check(byte_size());
 #else
-    host = device;
+    device = host;
 #endif
   }
 

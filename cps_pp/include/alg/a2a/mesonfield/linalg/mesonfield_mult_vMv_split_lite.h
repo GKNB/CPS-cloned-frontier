@@ -128,11 +128,11 @@ public:
     CnumPolicy::checkDecomp(l.getMode(0));
 
     modeIndexSet ilp, irp, jlp, jrp;
-    ilp.time = top_glb;
-    irp.time = M.getRowTimeslice();
+    ilp.time = l.tblock(top_glb);
+    irp.time = l.tblock(M.getRowTimeslice());
     
-    jlp.time = M.getColTimeslice();
-    jrp.time = top_glb;
+    jlp.time = r.tblock(M.getColTimeslice());
+    jrp.time = r.tblock(top_glb);
 
     Mrows = M.getNrows();
 

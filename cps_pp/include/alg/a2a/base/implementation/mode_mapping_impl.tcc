@@ -6,7 +6,7 @@ template<int Depth, typename DilutionType>
 struct computeModeUnmapping{
   typedef typename IndexVector<Depth>::Type VectorType;
   static void doit(VectorType &v,modeIndexSet &coord, const DilutionType &dil){
-    int nidx = IndexConvention<Depth>::getNidx();
+    int nidx = IndexConvention<Depth>::getNidx(dil);
     v.resize(nidx);
     for(int i=0;i<nidx;i++){
       IndexConvention<Depth>::set(coord,i);
@@ -36,11 +36,11 @@ struct computeModeMap{
 
   typedef typename IndexTensor<DepthLeftDilution, DepthRightDilution>::Type TensorType;
   
-  static void doit(TensorType &v,const VectorTypeLeftDilution &left_unmap, const VectorTypeRightDilution &right_unmap){
-    int nidx = IndexConvention<DepthLeftDilution>::getNidx();
+  static void doit(TensorType &v,const VectorTypeLeftDilution &left_unmap, const VectorTypeRightDilution &right_unmap, const A2Aparams &p){
+    int nidx = IndexConvention<DepthLeftDilution>::getNidx(p);
     v.resize(nidx);
     for(int i=0;i<nidx;i++)
-      computeModeMap<DepthLeftDilution-1,DepthRightDilution, LeftDilutionType,RightDilutionType>::doit(v[i],left_unmap[i],right_unmap);
+      computeModeMap<DepthLeftDilution-1,DepthRightDilution, LeftDilutionType,RightDilutionType>::doit(v[i],left_unmap[i],right_unmap, p);
   }
 };
 //Gotten down to the base modes for left, start on right
@@ -51,11 +51,11 @@ struct computeModeMap<0,DepthRightDilution,LeftDilutionType,RightDilutionType>{
 
   typedef typename IndexTensor<0, DepthRightDilution>::Type TensorType;
   
-  static void doit(TensorType &v,const VectorTypeLeftDilution &left_unmap, const VectorTypeRightDilution &right_unmap){
-    int nidx = IndexConvention<DepthRightDilution>::getNidx();
+  static void doit(TensorType &v,const VectorTypeLeftDilution &left_unmap, const VectorTypeRightDilution &right_unmap, const A2Aparams &p){
+    int nidx = IndexConvention<DepthRightDilution>::getNidx(p);
     v.resize(nidx);
     for(int i=0;i<nidx;i++)
-      computeModeMap<0,DepthRightDilution-1, LeftDilutionType,RightDilutionType>::doit(v[i],left_unmap,right_unmap[i]);
+      computeModeMap<0,DepthRightDilution-1, LeftDilutionType,RightDilutionType>::doit(v[i],left_unmap,right_unmap[i],p);
   }
 };
 template<typename LeftDilutionType, typename RightDilutionType>
@@ -65,7 +65,7 @@ struct computeModeMap<0,0,LeftDilutionType,RightDilutionType>{ //gotten down to 
 
   typedef typename IndexTensor<0, 0>::Type TensorType; //mode * mode
   
-  static void doit(TensorType &v,const VectorTypeLeftDilution &left_unmap, const VectorTypeRightDilution &right_unmap){
+  static void doit(TensorType &v,const VectorTypeLeftDilution &left_unmap, const VectorTypeRightDilution &right_unmap, const A2Aparams &p){
     //Fully unpack both and find the overlap between the sets of non-zero indices
     const std::vector<bool> &non_zeroes_left = left_unmap.second;
     const std::vector<bool> &non_zeroes_right = right_unmap.second;
@@ -104,7 +104,7 @@ void ModeMapping<LeftDilutionType,RightDilutionType>::compute(TensorType &idx_ma
   VectorTypeRightDilution right_unmap;
   computeModeUnmapping<DepthRightDilution,RightDilutionType>::doit(right_unmap,tmp,right);
   
-  computeModeMap<DepthLeftDilution,DepthRightDilution, LeftDilutionType,RightDilutionType>::doit(idx_map,left_unmap,right_unmap);
+  computeModeMap<DepthLeftDilution,DepthRightDilution, LeftDilutionType,RightDilutionType>::doit(idx_map,left_unmap,right_unmap,p);
 }
 
 

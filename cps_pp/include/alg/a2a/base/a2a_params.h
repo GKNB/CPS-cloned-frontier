@@ -38,6 +38,9 @@ public:
 
   inline const A2AArg &getArgs() const{ return args; }
 
+  //Get the time block for a given lattice time t
+  inline int tblock(const int t) const{ return t / args.src_width; }
+
   inline std::string print() const{
     std::ostringstream os; os << "nl=" << nl << " nhits=" << nhits << " nflavors=" << nflavors 
 			      << " nspincolor=" << nspincolor << " ntblocks=" << ntblocks << " ndilute=" << ndilute << " nh=" << nh << " nv=" << nv;
