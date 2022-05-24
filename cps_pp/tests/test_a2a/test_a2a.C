@@ -251,9 +251,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								      W_std, V_std, Wh_std, Vh_std,
 								      tol);
   
-  if(0) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(0) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(0) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
+  if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
 
   if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
@@ -307,8 +307,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testA2AvectorIO<A2Apolicies_grid>(a2a_arg);
   if(0) testLanczosIO<A2Apolicies_grid>(lattice);
   if(0) testSCFmat();
-  if(1) testMesonFieldUnpackPack<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testMesonFieldUnpackPackTblock<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testMesonFieldUnpackPack<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testMesonFieldUnpackPackTblock<A2Apolicies_grid>(a2a_arg,tol);
   
 #ifdef USE_GRID
   if(0) testGaugeFixOrigNew<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);

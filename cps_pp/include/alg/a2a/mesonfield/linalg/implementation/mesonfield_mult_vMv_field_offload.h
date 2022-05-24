@@ -472,7 +472,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
     into.zero();
     
-    int Lt = GJP.Tnodes() * GJP.TnodeSites();
+    int Lt = l.getLt();
     assert(into.nodeSites(3) == GJP.TnodeSites()); //cannot be SIMD packed in t-direction
 
     //Which local timeslices do we need?

@@ -63,6 +63,18 @@ public:
     v.resize(nv);
     this->allocInitializeFields(v,field_setup_params);
   }
+
+  A2AvectorV(const A2Aparams &_args): StandardIndexDilution(_args){    
+    v.resize(nv);
+    this->allocInitializeFields(v,NullObject());
+  }
+  
+  A2AvectorV(const A2Aparams &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args){
+    checkSIMDparams<FieldInputParamType>::check(field_setup_params);
+    v.resize(nv);
+    this->allocInitializeFields(v,field_setup_params);
+  }
+
   
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 
@@ -196,6 +208,17 @@ public:
     v.resize(nv);
     this->allocInitializeFields(v,field_setup_params);
   }
+
+  A2AvectorVfftw(const A2Aparams &_args): StandardIndexDilution(_args){
+    v.resize(nv);
+    this->allocInitializeFields(v,NullObject());
+  }
+  A2AvectorVfftw(const A2Aparams &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args){
+    checkSIMDparams<FieldInputParamType>::check(field_setup_params);
+    v.resize(nv);
+    this->allocInitializeFields(v,field_setup_params);
+  }
+
   
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 
@@ -348,18 +371,16 @@ private:
   CPSfieldArray<ComplexFieldType> wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
 
   bool wh_rand_performed; //store if the wh random numbers have been set
+  
+  void initialize(const FieldInputParamType &field_setup_params);
 public:
   typedef FullyPackedIndexDilution DilutionType;
 
-  A2AvectorW(const A2AArg &_args): FullyPackedIndexDilution(_args), wh_rand_performed(false){
-    wl.resize(nl); this->allocInitializeLowModeFields(wl,NullObject());
-    wh.resize(nhits); this->allocInitializeHighModeFields(wh,NullObject());
-  }
-  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params): FullyPackedIndexDilution(_args), wh_rand_performed(false){
-    checkSIMDparams<FieldInputParamType>::check(field_setup_params);
-    wl.resize(nl); this->allocInitializeLowModeFields(wl,field_setup_params);
-    wh.resize(nhits); this->allocInitializeHighModeFields(wh,field_setup_params);
-  }
+  A2AvectorW(const A2AArg &_args);
+  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params);
+
+  A2AvectorW(const A2Aparams &_args);
+  A2AvectorW(const A2Aparams &_args, const FieldInputParamType &field_setup_params);
 
   //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
   //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
@@ -539,28 +560,15 @@ private:
 #else
   FieldSiteType zerosc[12];
 #endif
+
+  void initialize(const FieldInputParamType &field_setup_params);
 public:
   typedef TimeFlavorPackedIndexDilution DilutionType;
 
- A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args)
-#ifdef ZEROSC_MANAGED
-    , zerosc(12)
-#endif
-    {
-    wl.resize(nl); this->allocInitializeLowModeFields(wl,NullObject());
-    wh.resize(12*nhits); this->allocInitializeHighModeFields(wh,NullObject());
-    for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
-  }
- A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args)
-#ifdef ZEROSC_MANAGED
-    , zerosc(12)
-#endif
-  {
-    checkSIMDparams<FieldInputParamType>::check(field_setup_params);
-    wl.resize(nl); this->allocInitializeLowModeFields(wl,field_setup_params);
-    wh.resize(12*nhits); this->allocInitializeHighModeFields(wh,field_setup_params);
-    for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
-  }
+  A2AvectorWfftw(const A2AArg &_args);
+  A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params);
+  A2AvectorWfftw(const A2Aparams &_args);
+  A2AvectorWfftw(const A2Aparams &_args, const FieldInputParamType &field_setup_params);
 
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 
