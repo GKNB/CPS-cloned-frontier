@@ -49,8 +49,6 @@ public:
 			      << " nspincolor=" << nspincolor << " ntblocks=" << ntblocks << " ndilute=" << ndilute << " nh=" << nh << " nv=" << nv << " Lt=" << Lt;
     return os.str();
   }
-
-
 };
 
 CPS_END_NAMESPACE

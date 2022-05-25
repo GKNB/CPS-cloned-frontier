@@ -659,7 +659,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			     const MesonFieldType &M,
 			     const rA2AfieldType &r,
 			     bool conj_l, bool conj_r){
-    optimized(into, l, M, r, conj_l, conj_r, 0, GJP.Tnodes()*GJP.TnodeSites()-1);
+    optimized(into, l, M, r, conj_l, conj_r, 0, l.getLt()-1);
     //simple(into, l, M, r, conj_l, conj_r);
   }
 

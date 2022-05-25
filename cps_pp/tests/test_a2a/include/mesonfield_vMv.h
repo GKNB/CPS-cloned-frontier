@@ -658,6 +658,285 @@ void testvMvFieldTimesliceRange(const A2AArg &a2a_args, const double tol){
 }
 
 
+class A2AparamsOverride: public A2Aparams{
+ public:
+  A2AparamsOverride(): A2Aparams(){}
+  A2AparamsOverride(const A2AArg &_args): A2Aparams(_args){}
+
+  //Set the number to tblocks to 'to', overriding setting from A2Aargs input. This is intended for benchmarking estimates for large jobs using single nodes
+  //and may have unexpected consequences!
+  void setNtBlocks(const int to){
+    ntblocks = to;
+    ndilute =  ntblocks * nspincolor* nflavors;      
+    nhits = args.nhits;
+    nh = nhits * ndilute;
+    nv = nl + nh;
+  }
+  void setLt(const int to){
+    Lt = to;
+  }
+};
+
+
+
+//Test that we can correctly evaluate the vMv operation for a number of temporal blocks unrelated
+//to the size of the job lattice
+template<typename GridA2Apolicies>
+void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, const double tol){
+  std::cout << "Starting testvMvFieldArbitraryNtblock\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  typename FourDSIMDPolicy<typename GridA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<typename GridA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AparamsOverride params(a2a_args);
+  
+  int nl = a2a_args.nl;
+  int orig_Lt = GJP.Tnodes()*GJP.TnodeSites();
+  int new_Lt = 2*orig_Lt;
+  int ntblocks = new_Lt;
+  params.setLt(new_Lt);
+  params.setNtBlocks(ntblocks);
+
+  std::cout << "Orig Lt=" << orig_Lt << " new Lt=" << new_Lt << " params tblocks " << params.getNtBlocks() << std::endl;
+
+  A2AvectorW<GridA2Apolicies> W(params, simd_dims);
+  A2AvectorV<GridA2Apolicies> V(params, simd_dims);
+
+  int nf = GJP.Gparity()+1;
+  std::cout << "V high modes: " << V.getNhighModes() << " expect " << 12*nf*ntblocks << std::endl;
+
+  assert(V.getNhighModes() == 12*nf*ntblocks);
+
+  //We want the W, V to have a predictable structure that can be replicated on the doubled lattice
+  int node_sites[4];
+  int node_off[4];
+  int glb_size[4];
+  for(int i=0;i<4;i++){
+    node_sites[i] = GJP.NodeSites(i);
+    node_off[i] = GJP.NodeSites(i)*GJP.NodeCoor(i);
+    glb_size[i] = GJP.NodeSites(i)*GJP.Nodes(i);
+  }
+  glb_size[3] = new_Lt;
+
+  for(int t=0;t<node_sites[3];t++){
+    int tg = t + node_off[3];
+    for(int z=0;z<node_sites[2];z++){
+      int zg = z + node_off[2];
+
+      for(int y=0;y<node_sites[1];y++){
+	int yg = y + node_off[1];
+
+	for(int x=0;x<node_sites[0];x++){
+	  int xg = x + node_off[0];
+
+	  int c[4] = {x,y,z,t};
+
+	  for(int f=0;f<nf;f++){
+
+	    for(int i=0;i<nl;i++){
+	      auto &wl = W.getWl(i); //fermion type
+	      auto &vl = V.getVl(i);
+
+	      auto* wsite = wl.site_ptr(c,f);
+	      auto* vsite = vl.site_ptr(c,f);
+
+	      size_t val_base = 12*f + 24*(xg + glb_size[0]*(yg + glb_size[1]*(zg + glb_size[2]*(tg + glb_size[3]*i))));
+	      for(int sc=0;sc<12;sc++){
+		*(wsite++) = sc + val_base;
+		*(vsite++) = sc + val_base;
+	      }
+	    }
+
+	    for(int i=0;i<V.getNhighModes();i++){
+	      auto &vh = V.getVh(i);
+	      auto* vsite = vh.site_ptr(c,f);
+
+	      size_t val_base = 12*f + 24*(xg + glb_size[0]*(yg + glb_size[1]*(zg + glb_size[2]*(tg + glb_size[3]*i))));
+	      for(int sc=0;sc<12;sc++){
+		*(vsite++) = sc + val_base;
+	      }
+	    }		
+
+	    for(int i=0;i<W.getNhighModes();i++){
+	      auto &wh = W.getWh(i);
+	      auto* wsite = wh.site_ptr(c,f);
+
+	      size_t val_base = f + 2*(xg + glb_size[0]*(yg + glb_size[1]*(zg + glb_size[2]*(tg + glb_size[3]*i))));
+	      *wsite = val_base;
+	    }		
+
+	  }
+	}
+      }
+    }
+  }
+  
+  A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
+  mf.setup(params,params,0,0);
+  mf.testRandom();
+  typedef typename GridA2Apolicies::ComplexType vComplex;
+  
+  std::cout << "Meson field rows = " << mf.getNrows() << " expect " << nl + 12*nf << std::endl;
+  std::cout << "Meson field cols = " << mf.getNcols() << " expect " << nl + 12*nf*ntblocks << std::endl;
+  assert(mf.getNcols() == nl + 12*nf*ntblocks);
+
+  typedef mult_vMv_field<GridA2Apolicies, A2AvectorV, A2AvectorWfftw, A2AvectorVfftw, A2AvectorW> vMvFieldImpl;
+  typedef typename vMvFieldImpl::PropagatorField PropagatorField;
+  PropagatorField pfield_got(simd_dims);
+
+  mult(pfield_got, V, mf, W, false, true);
+  
+  cps::ComplexD tline_got[new_Lt];
+  memset(tline_got, 0, new_Lt*sizeof(cps::ComplexD));
+
+  for(int t=0;t<node_sites[3];t++){
+    int tg = t + node_off[3];  
+    for(int z=0;z<node_sites[2];z++){
+      for(int y=0;y<node_sites[1];y++){
+	for(int x=0;x<node_sites[0];x++){
+	  int c[4] = {x,y,z,t};
+	  auto* sp = pfield_got.site_ptr(c);
+
+	  for(int s1=0;s1<4;s1++){
+	    for(int c1=0;c1<3;c1++){
+	      for(int f1=0;f1<nf;f1++){
+		for(int s2=0;s2<4;s2++){
+		  for(int c2=0;c2<3;c2++){
+		    for(int f2=0;f2<nf;f2++){
+		      tline_got[tg] += Reduce((*sp)(s1,s2)(c1,c2)(f1,f2));
+		    }
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+  globalSum(tline_got, new_Lt);
+  
+
+  DoArg do_arg_dbl(do_arg);
+  do_arg_dbl.t_sites *= 2;
+
+  GJP.Initialize(do_arg_dbl);
+
+  assert(GJP.Tnodes()*GJP.TnodeSites() == new_Lt);  
+
+  A2AvectorW<GridA2Apolicies> W2(a2a_args, simd_dims);
+  A2AvectorV<GridA2Apolicies> V2(a2a_args, simd_dims);
+
+  for(int i=0;i<4;i++){
+    node_sites[i] = GJP.NodeSites(i);
+    node_off[i] = GJP.NodeSites(i)*GJP.NodeCoor(i);
+    glb_size[i] = GJP.NodeSites(i)*GJP.Nodes(i);
+  }
+
+  for(int t=0;t<node_sites[3];t++){
+    int tg = t + node_off[3];
+    for(int z=0;z<node_sites[2];z++){
+      int zg = z + node_off[2];
+
+      for(int y=0;y<node_sites[1];y++){
+	int yg = y + node_off[1];
+
+	for(int x=0;x<node_sites[0];x++){
+	  int xg = x + node_off[0];
+
+	  int c[4] = {x,y,z,t};
+
+	  for(int f=0;f<nf;f++){
+
+	    for(int i=0;i<nl;i++){
+	      auto &wl = W2.getWl(i); //fermion type
+	      auto &vl = V2.getVl(i);
+
+	      auto* wsite = wl.site_ptr(c,f);
+	      auto* vsite = vl.site_ptr(c,f);
+
+	      size_t val_base = 12*f + 24*(xg + glb_size[0]*(yg + glb_size[1]*(zg + glb_size[2]*(tg + glb_size[3]*i))));
+	      for(int sc=0;sc<12;sc++){
+		*(wsite++) = sc + val_base;
+		*(vsite++) = sc + val_base;
+	      }
+	    }
+
+	    for(int i=0;i<V2.getNhighModes();i++){
+	      auto &vh = V2.getVh(i);
+	      auto* vsite = vh.site_ptr(c,f);
+
+	      size_t val_base = 12*f + 24*(xg + glb_size[0]*(yg + glb_size[1]*(zg + glb_size[2]*(tg + glb_size[3]*i))));
+	      for(int sc=0;sc<12;sc++){
+		*(vsite++) = sc + val_base;
+	      }
+	    }		
+
+	    for(int i=0;i<W2.getNhighModes();i++){
+	      auto &wh = W2.getWh(i);
+	      auto* wsite = wh.site_ptr(c,f);
+
+	      size_t val_base = f + 2*(xg + glb_size[0]*(yg + glb_size[1]*(zg + glb_size[2]*(tg + glb_size[3]*i))));
+	      *wsite = val_base;
+	      //*wsite = 2*val_base;
+	    }		
+
+	  }
+	}
+      }
+    }
+  }
+
+  PropagatorField pfield_expect(simd_dims);
+
+  mult(pfield_expect, V2, mf, W2, false, true); //use same meson field
+
+
+  cps::ComplexD tline_expect[new_Lt];
+
+  memset(tline_expect, 0, new_Lt*sizeof(cps::ComplexD));
+
+  for(int t=0;t<node_sites[3];t++){
+    int tg = t + node_off[3];  
+    for(int z=0;z<node_sites[2];z++){
+      for(int y=0;y<node_sites[1];y++){
+	for(int x=0;x<node_sites[0];x++){
+	  int c[4] = {x,y,z,t};
+	  auto* sp = pfield_expect.site_ptr(c);
+
+	  for(int s1=0;s1<4;s1++){
+	    for(int c1=0;c1<3;c1++){
+	      for(int f1=0;f1<nf;f1++){
+		for(int s2=0;s2<4;s2++){
+		  for(int c2=0;c2<3;c2++){
+		    for(int f2=0;f2<nf;f2++){
+		      tline_expect[tg] += Reduce((*sp)(s1,s2)(c1,c2)(f1,f2));
+		    }
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+  globalSum(tline_expect, new_Lt);
+
+  std::cout << "Got   Expect   Diff" << std::endl;
+  for(int i=0;i<new_Lt;i++){
+    cps::ComplexD diff = tline_got[i]-tline_expect[i];
+    std::cout << i << " " << tline_got[i] << " " << tline_expect[i] << " " << diff << std::endl;
+    if(i < orig_Lt && ( fabs(diff.real()) > tol || fabs(diff.imag()) > tol) ) ERR.General("","","Comparison failed");      
+  }
+  GJP.Initialize(do_arg);
+
+  std::cout << "testvMvFieldArbitraryNtblock passed" << std::endl;
+}
+
+
 
 
 

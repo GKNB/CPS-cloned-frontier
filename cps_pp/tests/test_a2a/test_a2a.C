@@ -83,7 +83,7 @@ void setupDoArg(DoArg &do_arg, int size[5], int ngp, bool verbose = true){
   }
 }
 
-void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_arg, LancArg &lanc_arg, int ntests, int nthreads, double tol){
+void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_arg, LancArg &lanc_arg, DoArg &do_arg, int ntests, int nthreads, double tol){
   //Setup types
   typedef A2ApoliciesSIMDdoubleAutoAllocGparity A2Apolicies_grid;
   typedef A2ApoliciesDoubleAutoAllocGparity A2Apolicies_std; 
@@ -251,10 +251,11 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								      W_std, V_std, Wh_std, Vh_std,
 								      tol);
   
-  if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
-
+  if(0) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
+  if(1) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
+    
   if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
@@ -614,7 +615,7 @@ int main(int argc,char *argv[])
     }
   }
 
-  if(ngp > 0) testGparity(common_arg, a2a_arg, fix_gauge_arg, lanc_arg, ntests, nthreads, tol);
+  if(ngp > 0) testGparity(common_arg, a2a_arg, fix_gauge_arg, lanc_arg, do_arg, ntests, nthreads, tol);
   else testPeriodic(common_arg, a2a_arg, fix_gauge_arg, lanc_arg, ntests, nthreads, tol);
 
   std::cout << "Done" << std::endl;
