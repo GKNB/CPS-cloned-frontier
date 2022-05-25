@@ -319,7 +319,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack_device(typename mf_P
 #if !defined(USE_GRID) || !defined(GPU_VEC)
   unpack(into); //into must be a host pointer here
 #else
-  if(getRowParams().getArgs().src_width != 1 || getColParams().getArgs().src_width != 1) ERR.General("A2AmesonField","unpack_device","Not implemented for non-unit temporal source width");
   A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView *vp = const_cast<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView *>(view);
   bool delete_view = false;
   if(vp == nullptr){
@@ -335,12 +334,13 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack_device(typename mf_P
   int ncolsfull = getNcolsFull();
   int nrows= getNrows(), ncols = getNcols();
   int tl = getRowTimeslice(), tr = getColTimeslice();
+  int tlblock = getRowParams().tblock(tl), trblock = getColParams().tblock(tr);
   
   {
     using namespace Grid;
     accelerator_for2d(j, ncols, i, nrows, 1, {
-	int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, tl, lnl, lnf, lnsc, lnt);
-	int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, tr, rnl, rnf, rnsc, rnt);
+	int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, tlblock, lnl, lnf, lnsc, lnt);
+	int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, trblock, rnl, rnf, rnsc, rnt);
 
 	into[jinto + ncolsfull*iinto] = v(i,j);
       });
@@ -381,12 +381,12 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack_device(typename mf_Pol
 #if !defined(USE_GRID) || !defined(GPU_VEC)
   pack(from);
 #else  
-  if(getRowParams().getArgs().src_width != 1 || getColParams().getArgs().src_width != 1) ERR.General("A2AmesonField","pack_device","Not implemented for non-unit temporal source width");
   int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
   int rnl = getColParams().getNl(),  rnf = getColParams().getNflavors(), rnsc = getColParams().getNspinColor() , rnt = getColParams().getNtBlocks();
   int nrowsfull = getNrowsFull(), ncolsfull = getNcolsFull();
   int nrows= getNrows(), ncols = getNcols(); 
   int tl = getRowTimeslice(), tr = getColTimeslice();
+  int tlblock = getRowParams().tblock(tl), trblock = getColParams().tblock(tr);
   
   //Create a staging post on the device
   size_t stage_size = nrows*ncols*sizeof(ScalarComplexType);
@@ -395,8 +395,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack_device(typename mf_Pol
   {
     using namespace Grid;
     accelerator_for2d(j, ncolsfull, i, nrowsfull, 1, {
-	auto iinto = mesonFieldConvertDilution<LeftDilutionType>::pack(i, tl, lnl, lnf, lnsc, lnt);
-	auto jinto = mesonFieldConvertDilution<RightDilutionType>::pack(j, tr, rnl, rnf, rnsc, rnt);
+	auto iinto = mesonFieldConvertDilution<LeftDilutionType>::pack(i, tlblock, lnl, lnf, lnsc, lnt);
+	auto jinto = mesonFieldConvertDilution<RightDilutionType>::pack(j, trblock, rnl, rnf, rnsc, rnt);
 	if(iinto.second && jinto.second)
 	  stage[jinto.first + ncols*iinto.first] = from[j + ncolsfull * i];
       });

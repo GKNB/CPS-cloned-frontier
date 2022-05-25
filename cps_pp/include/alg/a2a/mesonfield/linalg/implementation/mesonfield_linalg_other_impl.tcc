@@ -98,7 +98,6 @@ template<typename mf_Policies,
 typename mf_Policies::ScalarComplexType trace_gpu(const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r,
 						  const typename A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR>::ReadView *l_view = nullptr,
 						  const typename A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR>::ReadView *r_view = nullptr){
-  if(l.getRowParams().getArgs().src_width != 1 || r.getRowParams().getArgs().src_width != 1) ERR.General("","trace_gpu","Not implemented for non-unit source width");
   mesonfield_trace_prod_gpu_timings::_data &timings = mesonfield_trace_prod_gpu_timings::data();
   ++timings.count;
   timings.init -= dclock();
@@ -122,7 +121,8 @@ typename mf_Policies::ScalarComplexType trace_gpu(const A2AmesonField<mf_Policie
   ModeContractionIndices<DilType0,DilType3> i_ind(l.getRowParams());
   ModeContractionIndices<DilType1,DilType2> j_ind(r.getRowParams());
 
-  const int times[4] = { l.getRowTimeslice(), l.getColTimeslice(), r.getRowTimeslice(), r.getColTimeslice() };
+  const int times[4] = { l.getRowParams().tblock(l.getRowTimeslice()), l.getColParams().tblock(l.getColTimeslice()),
+			 r.getRowParams().tblock(r.getRowTimeslice()), r.getColParams().tblock(r.getColTimeslice()) };
 
   //W * W is only non-zero when the timeslice upon which we evaluate them are equal
   modeIndexSet lip; lip.time = times[0];

@@ -805,7 +805,7 @@ void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, c
 		for(int s2=0;s2<4;s2++){
 		  for(int c2=0;c2<3;c2++){
 		    for(int f2=0;f2<nf;f2++){
-		      tline_got[tg] += Reduce((*sp)(s1,s2)(c1,c2)(f1,f2));
+		      tline_got[tg] += convertComplexD(Reduce((*sp)(s1,s2)(c1,c2)(f1,f2)));
 		    }
 		  }
 		}
@@ -912,7 +912,7 @@ void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, c
 		for(int s2=0;s2<4;s2++){
 		  for(int c2=0;c2<3;c2++){
 		    for(int f2=0;f2<nf;f2++){
-		      tline_expect[tg] += Reduce((*sp)(s1,s2)(c1,c2)(f1,f2));
+		      tline_expect[tg] += convertComplexD(Reduce((*sp)(s1,s2)(c1,c2)(f1,f2)));
 		    }
 		  }
 		}
