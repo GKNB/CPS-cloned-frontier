@@ -256,7 +256,7 @@ inline void mult_offload_rocBLAS(rocblas_double_complex* C,
 				      C, n);
   if(err!=rocblas_status_success)
     ERR.General("","mult_offload_rocBLAS","rocblas_zgemm call failed with error: %s", rocblas_status_to_string(err));
-  hipDeviceSynchronize();	//FIXME: Tianle: Need to figure out where to put this to improve performance
+//  hipDeviceSynchronize();	//FIXME: Tianle: Need to figure out where to put this to improve performance
 }
 
 
