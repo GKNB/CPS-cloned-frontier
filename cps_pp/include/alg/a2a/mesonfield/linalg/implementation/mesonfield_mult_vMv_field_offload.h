@@ -334,7 +334,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   
   //Mprime * vbprime
   static void Mprime_vbprime(VectorComplexType* Mvbprime, typename MesonFieldType::ScalarComplexType *Mprime, VectorComplexType* vbprime, 
-			     size_t vol4d_node, size_t niprime_block, size_t njprime_block, size_t nsimd){
+			     size_t vol4d_node, size_t niprime_block, size_t njprime_block, size_t nsimd, bool verbose = false){
     typedef SIMT<VectorComplexType> ACC;
     typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
     using namespace Grid;
@@ -350,7 +350,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     
     double block_size_MB = double(njprime_block*xblocksz*sizeof(VectorComplexType))/1024./1024.;
     double Mprime_size_MB = double(niprime_block*njprime_block*sizeof(MFcomplexType))/1024./1024.;
-    std::cout << "Solving M'* vb' with nxblocks=" << nxblocks << ": block volume " << xblocksz << " = " << block_size_MB << " MB and M' size " << niprime_block << "*" << njprime_block << " = " << Mprime_size_MB << " MB" << std::endl;
+    if(verbose) std::cout << "Solving M'* vb' with nxblocks=" << nxblocks << ": block volume " << xblocksz << " = " << block_size_MB << " MB and M' size " << niprime_block << "*" << njprime_block << " = " << Mprime_size_MB << " MB" << std::endl;
     
     accelerator_for2dNB(x4d_block, xblocksz, iprimeb_xb, niprime_block*nxblocks, nsimd,
 			{
@@ -611,7 +611,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	      create_vbprime(vbprime, into_v, r_v, beta_v, jl_jr_pairs_v, t_off, r.getArgs().src_width, jprimestart, nf, ntblocks, vol3d_node, local_timeslices, njprime_block, nsimd, conj_r, scr, fr);
 
 	      //Mprime * vbprime
-	      Mprime_vbprime(Mvbprime, Mprime, vbprime, vol3d_node * nt_do, niprime_block, njprime_block, nsimd);
+	      Mprime_vbprime(Mvbprime, Mprime, vbprime, vol3d_node * nt_do, niprime_block, njprime_block, nsimd, scfr==0);
 
 	      //va' (M' vb')	      
 	      vaprime_Mprime_vbprime(into_v, vaprime, Mvbprime, sr, cr, fr, vol3d_node, local_timeslices, niprime_block, nf, nsimd);

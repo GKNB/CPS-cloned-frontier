@@ -170,10 +170,10 @@ class ComputeMesonFields{
 				  A2AvectorWfftw<mf_Policies> * Wfftw_base[2], A2AvectorVfftw<mf_Policies> * Vfftw_base[2],
 				  const typename StorageType::InnerProductType &M){
 
-    if(!UniqueID()){ printf("ComputeMesonFields::compute Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W_args, W_fieldparams)); fflush(stdout); }
+    if(!UniqueID()){ printf("ComputeMesonFields::shiftBaseAndComputeMF Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W_args, W_fieldparams)); fflush(stdout); }
     A2AvectorWfftw<mf_Policies> fftw_W(W_args, W_fieldparams );
 
-    if(!UniqueID()){ printf("ComputeMesonFields::compute Allocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V_args, V_fieldparams)); fflush(stdout); }
+    if(!UniqueID()){ printf("ComputeMesonFields::shiftBaseAndComputeMF Allocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V_args, V_fieldparams)); fflush(stdout); }
     A2AvectorVfftw<mf_Policies> fftw_V(V_args, V_fieldparams );
 	      
 #ifdef USE_DESTRUCTIVE_FFT
@@ -200,11 +200,11 @@ class ComputeMesonFields{
 					   const typename StorageType::InnerProductType &M, 
 					   bool is_last){
 
-    if(!UniqueID()){ printf("ComputeMesonFields::compute Shifting base Wfftw in place\n"); fflush(stdout); }
+    if(!UniqueID()){ printf("ComputeMesonFields::shiftBaseInPlaceAndComputeMF Shifting base Wfftw in place\n"); fflush(stdout); }
     std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> > inplace_w = A2AvectorWfftw<mf_Policies>::inPlaceTwistedFFT(p_w.ptr(), Wfftw_base[0], Wfftw_base[1]);
     const A2AvectorWfftw<mf_Policies> &fftw_W = *inplace_w.first;
 
-    if(!UniqueID()){ printf("ComputeMesonFields::compute Shifting base Vfftw in place\n"); fflush(stdout); }
+    if(!UniqueID()){ printf("ComputeMesonFields::shiftBaseInPlaceAndComputeMF Shifting base Vfftw in place\n"); fflush(stdout); }
     std::pair< A2AvectorVfftw<mf_Policies>*, std::vector<int> > inplace_v = A2AvectorVfftw<mf_Policies>::inPlaceTwistedFFT(p_v.ptr(), Vfftw_base[0], Vfftw_base[1]);
     const A2AvectorVfftw<mf_Policies> &fftw_V = *inplace_v.first;
 

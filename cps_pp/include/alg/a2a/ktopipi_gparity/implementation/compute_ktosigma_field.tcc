@@ -97,8 +97,10 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
   std::vector<SCFmatrixField> pt2_store(ntS, SCFmatrixField(field_params));
   for(int tS_idx=0;tS_idx<ntS;tS_idx++){
     int tS_glb = tS_subset_map[tS_idx];
+    int t_range_start = modLt(tS_glb - tsep_k_sigma_lrg, Lt); //no point computing outside of range between kaon and sigma operator
+    
     pt2_time -= dclock();
-    mult(pt2_store[tS_idx], vL, mf_S[tS_glb], wL, false, true); //result is field in xop
+    mult(pt2_store[tS_idx], vL, mf_S[tS_glb], wL, false, true, t_range_start, tS_glb); //result is field in xop
     pt2_time += dclock();
   }
 
@@ -106,8 +108,10 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
 
   //Start loop over tK
   for(int tK_glb=0;tK_glb< Lt; tK_glb++){
+    int t_range_end = modLt(tK_glb + tsep_k_sigma_lrg, Lt); //no point computing outside of range between kaon and sigma operator
+    
     pt1_time -= dclock();
-    mult(pt1, vL, mf_ls_WW[tK_glb], vH, false, true);
+    mult(pt1, vL, mf_ls_WW[tK_glb], vH, false, true, tK_glb, t_range_end);
     pt1_time += dclock();
 
     //loop over K->sigma seps, reuse precomputed pt2
@@ -320,7 +324,7 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
     int tK=tK_tS_idx_map[i].first, tS = tK_tS_idx_map[i].second;
     Type3MesonFieldProductType mf_prod;
     mult(mf_prod, mf_S[tS], mf_ls_WW[tK], true);      //node local because the tK,tS pairings are specific to this node    
-    mult(pt1_store[i], vL, mf_prod, vH, false, true);
+    mult(pt1_store[i], vL, mf_prod, vH, false, true, tK, tS); //only compute between kaon and sigma
   }
   pt1_time += dclock();
 

@@ -252,12 +252,12 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								      tol);
   
   if(0) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
   if(0) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
     
   if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(1) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
 
   if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
@@ -266,8 +266,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-  if(0) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(0) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
   if(0) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
@@ -298,9 +298,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testDestructiveFFT<A2ApoliciesSIMDdoubleManualAllocGparity>(a2a_arg, lattice);
   if(0) testMesonFieldReadWrite<A2Apolicies_std>(a2a_arg);
   if(0) testMesonFieldTraceSingle<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testMesonFieldTraceSingleTblock<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testMesonFieldTraceSingleTblock<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testMesonFieldTraceProduct<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testMesonFieldTraceProductTblock<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testMesonFieldTraceProductTblock<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testMesonFieldTraceProductAllTimes<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testCPSfieldImpex();
   if(0) testGridFieldImpex<A2Apolicies_grid>(lattice);
@@ -309,7 +309,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testLanczosIO<A2Apolicies_grid>(lattice);
   if(0) testSCFmat();
   if(0) testMesonFieldUnpackPack<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testMesonFieldUnpackPackTblock<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testMesonFieldUnpackPackTblock<A2Apolicies_grid>(a2a_arg,tol);
   
 #ifdef USE_GRID
   if(0) testGaugeFixOrigNew<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);

@@ -169,6 +169,9 @@ struct CommandLineArgs{
 	BlockedvMvOffloadArgs::b = strToAny<int>(argv[arg+1]);
 	BlockedSplitvMvArgs::b = BlockedvMvOffloadArgs::b;
 	arg+=2;
+      }else if(cmdstr == "-vMv_inner_blocking"){
+	BlockedvMvOffloadArgs::bb = strToAny<int>(argv[arg+1]);
+	arg+=2;
       }else if( strncmp(cmd,"-do_split_job",30) == 0){
 	do_split_job = true;
 	split_job_part = strToAny<int>(argv[arg+1]);
