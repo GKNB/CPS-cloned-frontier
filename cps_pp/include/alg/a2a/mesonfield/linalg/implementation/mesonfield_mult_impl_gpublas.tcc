@@ -277,8 +277,8 @@ public:
 
   
   inline static void mult(A2AmesonField<mf_Policies,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
-    //mult_gpublas(out, l,r,node_local);
-    mult_gpublas_v2(out, l,r,node_local);		//FIXME: tianle: I use v2 this time!!!
+    mult_gpublas(out, l,r,node_local);
+    //mult_gpublas_v2(out, l,r,node_local);
   }
 };
 

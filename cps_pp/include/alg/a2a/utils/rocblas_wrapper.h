@@ -290,8 +290,23 @@ inline gpuHostPinnedMatrix mult_offload_rocBLAS(const gpuHostPinnedMatrix &A, co
 inline void mult_offload_rocBLAS(gpuHostPinnedMatrix &C, const gpuHostPinnedMatrix &A, const gpuHostPinnedMatrix &B){
   size_t m =A.rows(), n=B.cols(), k=A.cols();
   assert(C.rows() == m && C.cols() == n);
-  mult_offload_rocBLAS(C.ptr(), A.ptr(), B.ptr(),
-		       m,n,k);
+
+  rocblas_double_complex *A_d;
+  rocblas_double_complex *B_d;
+  rocblas_double_complex *C_d;
+
+  hipMalloc(&A_d, sizeof(rocblas_double_complex) * m * k);
+  hipMalloc(&B_d, sizeof(rocblas_double_complex) * k * n);
+  hipMalloc(&C_d, sizeof(rocblas_double_complex) * m * n);
+  hipMemcpy(A_d, A.ptr(), sizeof(rocblas_double_complex) * m * k, hipMemcpyHostToDevice);
+  hipMemcpy(B_d, B.ptr(), sizeof(rocblas_double_complex) * k * n, hipMemcpyHostToDevice);
+
+  mult_offload_rocBLAS(C_d, A_d, B_d, m,n,k);
+
+  hipMemcpy(C.ptr(), C_d, sizeof(rocblas_double_complex) * m * n, hipMemcpyDeviceToHost);
+  hipFree(A_d);
+  hipFree(B_d);
+  hipFree(C_d);
 }
 
 
