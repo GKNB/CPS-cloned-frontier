@@ -253,12 +253,10 @@ struct CommandLineArgs{
 	arg++;
 #endif
 
-#if defined(MESONFIELD_USE_BURSTBUFFER) || defined(MESONFIELD_USE_NODE_SCRATCH)
-      }else if( strncmp(cmd,"-mesonfield_scratch_stub",50) == 0){
+      }else if( cmdstr == "-mesonfield_scratch_stub" ){
 	BurstBufferMemoryStorage::filestub() = argv[arg+1];
 	if(!UniqueID()) printf("Set mesonfield scratch stub to %s\n",BurstBufferMemoryStorage::filestub().c_str());
 	arg+=2;
-#endif
 
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
       }else if( cmdstr == "-max_memblocks" ){

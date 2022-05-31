@@ -356,7 +356,7 @@ public:
   //NOTE: While the sync flag will be set, the state is undefined until the copy stream has been synchronized
   void asyncHostDeviceSync(){
 #ifdef GRID_CUDA
-    if(!use_pinned_mem) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Requires use of pinned memoruy");
+    if(!use_pinned_mem) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Requires use of pinned memory");
     if(!device_in_sync && !host_in_sync) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Invalid state");
     if(!device_in_sync){
       cudaMemcpyAsync(device,host,byte_size(), cudaMemcpyHostToDevice,Grid::copyStream);

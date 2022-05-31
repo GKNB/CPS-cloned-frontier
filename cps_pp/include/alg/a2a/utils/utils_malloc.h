@@ -338,6 +338,16 @@ private:
 
 public:
 
+  //Report the memory usage in MB
+  static double report_usage(){
+    double sz = 0;
+    static double MB=1024*1024;
+    PointerCacheEntry* Entries = getEntries();
+    for(int e=0;e<Ncache;e++)
+      sz += double(Entries[e].bytes)/MB;
+    return sz;
+  }   
+  
   static void free(void *ptr,size_t bytes){
 #ifdef GRID_OMP
     assert(omp_in_parallel()==0);

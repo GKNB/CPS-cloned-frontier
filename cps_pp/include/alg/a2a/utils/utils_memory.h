@@ -4,6 +4,10 @@
 //Utilities for memory status and control
 
 #include <fstream>
+#include <cstring>
+#include <cstdio>
+#include <cstdlib>
+
 #ifdef ARCH_BGQ
 #include <spi/include/kernel/memory.h>
 #else
@@ -31,6 +35,33 @@ CPS_START_NAMESPACE
 inline double byte_to_MB(const size_t b){
   return double(b)/1024./1024.;
 }
+
+inline int procParseLine(char* line){
+    // This assumes that a digit will be found and the line ends in " Kb".
+    int i = strlen(line);
+    const char* p = line;
+    while (*p <'0' || *p > '9') p++;
+    line[i-3] = '\0';
+    i = atoi(p);
+    return i;
+}
+
+//Get the "resident set size"
+inline int getRSS(){ //Note: this value is in KB!
+    FILE* file = fopen("/proc/self/status", "r");
+    int result = -1;
+    char line[128];
+
+    while (fgets(line, 128, file) != NULL){
+        if (strncmp(line, "VmRSS:", 6) == 0){
+	  result = procParseLine(line);
+	  break;
+        }
+    }
+    fclose(file);
+    return result;
+}
+
 
 //Print memory usage
 inline void printMem(const std::string &reason = "", int node = 0, FILE* stream = stdout){
@@ -126,6 +157,10 @@ inline void printMem(const std::string &reason = "", int node = 0, FILE* stream 
 
 #endif
 
+  if(UniqueID()==node){
+    fprintf(stream, "printMem node %d: Resident set size %f MB\n", node, double(getRSS())/1024.);
+  }
+  
   fflush(stream);
 }
 
