@@ -847,19 +847,18 @@ public:
       storageType &to = *tosum[i].to;
       storageType &from = *tosum[i].from;
 
-      int gather_distribute = to[0].isOnNode() ? 1 : 0;
-      MPI_Allreduce(MPI_IN_PLACE, &gather_distribute, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-      if(gather_distribute) nodeGetMany(1, &to);
+      nodeGetMany(1, &to); //sum targets should remain distributed
 
 #ifndef MEMTEST_MODE
       for(int t=0;t<Lt;t++){
+	assert(from[t].isOnNode());
+	assert(to[t].isOnNode());
+
 	to[t].plus_equals(from[t]);
       }
 #endif
       
-      if(gather_distribute) nodeDistributeMany(1, &to);
-
+      nodeDistributeMany(1, &to);
     }
     tosum.clear();
   }

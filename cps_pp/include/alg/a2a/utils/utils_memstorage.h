@@ -35,17 +35,156 @@ struct nodeDistributeCounter{
 
 };
 
-class DistributedMemoryStorage{
+class MemoryStorageBase{
+protected:
   void *ptr;
   int _alignment;
   size_t _size;
-  int _master_uid;
-  int _master_mpirank;
 
+  //Functionality to use an externally provided memory location
   bool use_external_buffer;
   void *external_buffer;
   size_t external_buffer_size;
   int external_buffer_alignment;
+
+public:
+
+  MemoryStorageBase(): ptr(NULL), use_external_buffer(false), _size(0), _alignment(0){}
+
+  MemoryStorageBase(const MemoryStorageBase &r): ptr(NULL), use_external_buffer(false), _size(0), _alignment(0){
+    if(r.ptr != NULL){    
+      alloc(r._alignment, r._size);
+      memcpy(ptr, r.ptr, r._size);
+    }else{
+      _size = r._size;
+      _alignment = r._alignment;
+    }      
+  }
+  
+  MemoryStorageBase & operator=(const MemoryStorageBase &r){
+    if(r.ptr != NULL){
+      if(_size != r._size || _alignment != r._alignment){
+	freeMem();
+	alloc(r._alignment, r._size);
+      }
+      memcpy(ptr, r.ptr, r._size);      
+    }else{
+      freeMem();
+      ptr = NULL;
+      _size = r._size;
+      _alignment = r._alignment;
+    }
+
+    return *this;
+  }
+
+  ~MemoryStorageBase(){ freeMem(); }
+
+  inline bool isOnNode() const{ return ptr != NULL; }
+
+  //Future memory allocations will use this external buffer
+  void enableExternalBuffer(void* p, size_t sz, int align){
+    use_external_buffer = true;
+    external_buffer = p;
+    external_buffer_size = sz;
+    external_buffer_alignment = align;
+  }
+
+  void disableExternalBuffer(){
+    if(!use_external_buffer) return;
+    if(ptr == external_buffer) ERR.General("MemoryStorageBase","disableExternalBuffer","Cannot disable external buffer if it is being used to store data!");
+    use_external_buffer = false;
+    external_buffer = NULL;
+    external_buffer_size = 0;
+    external_buffer_alignment = 0;
+  }
+
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+  inline static ReuseBlockAllocatorsAligned & block_allocator(){ static ReuseBlockAllocatorsAligned r; return r; }
+#endif
+
+  void alloc(int alignment, size_t size){
+    if(ptr != NULL){
+      if(alignment == _alignment && size == _size) return;
+      else{ 
+	if(use_external_buffer) ERR.General("DistributedMemoryStorage","alloc","Currently using external buffer but size and alignment of alloc call does not match that of buffer");
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+	block_allocator().free(ptr); 
+#else
+	free(ptr);
+#endif
+	ptr = NULL; 
+      }
+    }
+    
+    if(use_external_buffer){
+      if(external_buffer_size != size || external_buffer_alignment != alignment)
+	ERR.General("DistributedMemoryStorage","alloc","External buffer size and alignment of alloc call does not match that of buffer");
+      ptr = external_buffer;
+    }else{
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+      ptr = block_allocator().alloc(alignment,size);
+#else
+      ptr = memalign_check(alignment, size);
+#endif
+    }
+
+    _size = size;
+    _alignment = alignment;
+  }
+
+  void freeMem(){
+    if(ptr != NULL){
+      if(!use_external_buffer){
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+	block_allocator().free(ptr);
+#else
+	free(ptr);
+#endif
+      }
+      ptr = NULL;
+    }
+  }
+
+  void move(MemoryStorageBase &r){
+    ptr = r.ptr;
+    _alignment = r._alignment;
+    _size = r._size;
+
+    use_external_buffer = r.use_external_buffer;
+    external_buffer = r.external_buffer;
+    external_buffer_size = r.external_buffer_size;
+    external_buffer_alignment = r.external_buffer_alignment;
+
+    r._size = 0;
+    r.ptr = NULL;
+  }
+
+
+  inline void* data(){ return ptr; }
+  inline void const* data() const{ return ptr; }
+};
+
+//A version that keeps all meson fields in each node's memory. Gather and distribute have no effect.
+class InMemMemoryStorage: public MemoryStorageBase{
+public:
+  InMemMemoryStorage() = default;
+  
+  InMemMemoryStorage(const InMemMemoryStorage &r)= default;
+
+  InMemMemoryStorage & operator=(const InMemMemoryStorage &r){ this->MemoryStorageBase::operator=(r); return *this; }
+  
+  inline void gather(bool require){ }
+
+  void distribute(){ }
+};
+
+
+  
+
+class DistributedMemoryStorage: public MemoryStorageBase{
+  int _master_uid;
+  int _master_mpirank;
 
   void initMaster(){
     if(_master_uid == -1){
@@ -115,123 +254,25 @@ public:
   };
   static GatherPerf & perf(){ static GatherPerf p; return p; }
 
-  DistributedMemoryStorage(): ptr(NULL), _master_uid(-1), use_external_buffer(false), _size(0), _alignment(0){}
+  DistributedMemoryStorage(): _master_uid(-1), MemoryStorageBase(){}
 
-  DistributedMemoryStorage(const DistributedMemoryStorage &r): ptr(NULL), use_external_buffer(false), _size(0), _alignment(0){
-    if(r.ptr != NULL){    
-      alloc(r._alignment, r._size);
-      memcpy(ptr, r.ptr, r._size);
-    }else{
-      _size = r._size;
-      _alignment = r._alignment;
-    }      
-    _master_uid = r._master_uid;
-    _master_mpirank = r._master_mpirank;
-  }
+  DistributedMemoryStorage(const DistributedMemoryStorage &r): _master_uid(r._master_uid), _master_mpirank(r._master_mpirank),  MemoryStorageBase(r){ }
 
   DistributedMemoryStorage & operator=(const DistributedMemoryStorage &r){
-    if(r.ptr != NULL){
-      if(_size != r._size || _alignment != r._alignment){
-	freeMem();
-	alloc(r._alignment, r._size);
-      }
-      memcpy(ptr, r.ptr, r._size);      
-    }else{
-      _size = r._size;
-      _alignment = r._alignment;
-    }      
     _master_uid = r._master_uid;
     _master_mpirank = r._master_mpirank;
+    this->MemoryStorageBase::operator=(r);
     return *this;
   }
 
-  inline bool isOnNode() const{ return ptr != NULL; }
-  
   inline int masterUID() const{ return _master_uid; }
 
   void move(DistributedMemoryStorage &r){
-    ptr = r.ptr;
-    _alignment = r._alignment;
-    _size = r._size;
     _master_uid = r._master_uid;
     _master_mpirank = r._master_mpirank;
-
-    use_external_buffer = r.use_external_buffer;
-    external_buffer = r.external_buffer;
-    external_buffer_size = r.external_buffer_size;
-    external_buffer_alignment = r.external_buffer_alignment;
-
-    r._size = 0;
-    r.ptr = NULL;
+    this->MemoryStorageBase::move(r);
   }
-
-  //Future memory allocations will use this external buffer
-  void enableExternalBuffer(void* p, size_t sz, int align){
-    use_external_buffer = true;
-    external_buffer = p;
-    external_buffer_size = sz;
-    external_buffer_alignment = align;
-  }
-
-  void disableExternalBuffer(){
-    if(!use_external_buffer) return;
-    if(ptr == external_buffer) ERR.General("DistributedMemoryStorage","disableExternalBuffer","Cannot disable external buffer if it is being used to store data!");
-    use_external_buffer = false;
-    external_buffer = NULL;
-    external_buffer_size = 0;
-    external_buffer_alignment = 0;
-  }
-
-#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
-  inline static ReuseBlockAllocatorsAligned & block_allocator(){ static ReuseBlockAllocatorsAligned r; return r; }
-#endif
-
-  void alloc(int alignment, size_t size){
-    if(ptr != NULL){
-      if(alignment == _alignment && size == _size) return;
-      else{ 
-	if(use_external_buffer) ERR.General("DistributedMemoryStorage","alloc","Currently using external buffer but size and alignment of alloc call does not match that of buffer");
-#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
-	block_allocator().free(ptr); 
-#else
-	free(ptr);
-#endif
-	ptr = NULL; 
-      }
-    }
-    
-    if(use_external_buffer){
-      if(external_buffer_size != size || external_buffer_alignment != alignment)
-	ERR.General("DistributedMemoryStorage","alloc","External buffer size and alignment of alloc call does not match that of buffer");
-      ptr = external_buffer;
-    }else{
-#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
-      ptr = block_allocator().alloc(alignment,size);
-#else
-      ptr = memalign_check(alignment, size);
-#endif
-    }
-
-    _size = size;
-    _alignment = alignment;
-  }
-
-  void freeMem(){
-    if(ptr != NULL){
-      if(!use_external_buffer){
-#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
-	block_allocator().free(ptr);
-#else
-	free(ptr);
-#endif
-      }
-      ptr = NULL;
-    }
-  }
-
-  inline void* data(){ return ptr; }
-  inline void const* data() const{ return ptr; }
-  
+ 
   //Every node performs gather but if not required and not master, data is not kept  
   void gather_bcast_full(bool require){
 #ifndef USE_MPI
@@ -424,24 +465,17 @@ public:
     }
 
   }
-
-  ~DistributedMemoryStorage(){
-    freeMem();
-  }
   
 };
 
 
 //A similar class to the above but which stores to disk rather than distributing over the memory systems of a multi-node machine. This version is designed to work on systems with burst buffers that are on a shared filesystem such that only the head node writes to disk
-class BurstBufferMemoryStorage{
+class BurstBufferMemoryStorage: public MemoryStorageBase{
 protected:
-  void *ptr;
-  int _alignment;
-  size_t _size;
   std::string file;
   bool ondisk;
   unsigned int ondisk_checksum; //so we can tell if the data has changed since we wrote it previously
-  
+
   unsigned int checksum() const{
     static bool init = false;
     static FPConv fp;    
@@ -453,6 +487,7 @@ protected:
     assert(_size % sizeof(double) == 0);   
     return fp.checksum((char*)ptr, _size/sizeof(double), FP_AUTOMATIC);
   }  
+  
 public:
   struct GatherPerf{ //Note performance is only recorded for gathers that required communications from target node to origin
     double alloc_time;
@@ -482,81 +517,42 @@ public:
   };
   static GatherPerf & perf(){ static GatherPerf p; return p; }
 
-  BurstBufferMemoryStorage(): ptr(NULL), ondisk(false){}
+  BurstBufferMemoryStorage(): ondisk(false), MemoryStorageBase(){}
 
-  BurstBufferMemoryStorage(const BurstBufferMemoryStorage &r): ptr(NULL){
-    if(r.ptr != NULL){
-      alloc(r._alignment, r._size);
-      memcpy(ptr, r.ptr, r._size);
-    }else{
-      _size = r._size;
-      _alignment = r._alignment;
-    }      
-    file = r.file;
-    ondisk = r.ondisk;
-    ondisk_checksum = r.ondisk_checksum;
+  BurstBufferMemoryStorage(const BurstBufferMemoryStorage &r): ondisk(false), MemoryStorageBase(r){ 
+    if(r.ptr == NULL && r.ondisk) ERR.General("BurstBufferMemoryStorage","copy-constructor","Cannot copy without gathering first");
   }
 
   BurstBufferMemoryStorage & operator=(const BurstBufferMemoryStorage &r){
-    freeMem();
-    if(r.ptr != NULL){
-      alloc(r._alignment, r._size);
-      memcpy(ptr, r.ptr, r._size);
-    }else{
-      _size = r._size;
-      _alignment = r._alignment;
-    }
-    file = r.file;
-    ondisk = r.ondisk;
-    ondisk_checksum = r.ondisk_checksum;
+    if(r.ptr == NULL && r.ondisk) ERR.General("BurstBufferMemoryStorage","operator=","Cannot copy without gathering first");
+    //Copies are independent so we cannot back with the same file
+    file = "";
+    ondisk = false;
+    this->MemoryStorageBase::operator=(r);
     return *this;
   }
 
   //Set the path to the scratch directories using this static function. Path must exist
   static std::string & filestub(){ static std::string b = "burststore"; return b; } //change this to the base filename (an _<IDX>.dat is appended)
   
-  inline bool isOnNode() const{ return ptr != NULL; }
-  
   void move(BurstBufferMemoryStorage &r){
-    ptr = r.ptr;
-    _alignment = r._alignment;
-    _size = r._size;
     file = r.file;
     ondisk = r.ondisk;
     ondisk_checksum = r.ondisk_checksum;
-    r._size = 0;
     r.ondisk = false;
     r.file = "";
-    r.ptr = NULL;
+    this->MemoryStorageBase::move(r);
   }
-
-  
-  void alloc(int alignment, size_t size){
-    if(ptr != NULL){
-      if(alignment == _alignment && size == _size) return;
-      else{ free(ptr); ptr = NULL; }
-    }
-    ptr =  memalign_check(alignment, size);
-    _size = size;
-    _alignment = alignment;
-  }
-
-  void freeMem(){
-    if(ptr != NULL){
-      free(ptr);
-      ptr = NULL;
-    }
-  }
-
-  inline void* data(){ return ptr; }
-  inline void const* data() const{ return ptr; }
 
 #define DISTRIBUTE_FLUSH_MEMBUF
   
   //Load from disk (optional)
   void gather(bool require){
     int do_gather_node = (require && ptr == NULL);
+
     if(do_gather_node){
+      if(!ondisk) ERR.General("BurstBufferMemoryStorage","gather(bool)","Cannot gather data as no copy has been written to disk");
+
       perf().alloc_time -= dclock();
       alloc(_alignment,_size);
       perf().alloc_time += dclock();
@@ -585,22 +581,29 @@ public:
   
   void distribute(){
     if(ptr == NULL) return;
+
     unsigned int cksum = checksum();
     if(!ondisk || (ondisk && ondisk_checksum != cksum) ){ //it is assumed here that node 0 has a copy
       static int fidx = 0;
       if(!ondisk){
-	std::ostringstream os; os << filestub() << "_" << fidx++ << ".dat";
+	int nodes = 1; for(int i=0;i<4;i++) nodes *= GJP.Nodes(i);
+	int nodes_participating = 1;
+	MPI_Allreduce(MPI_IN_PLACE, &nodes_participating, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+	if(nodes_participating != nodes) ERR.General("BurstBufferMemoryStorage","distribute","All nodes must participate in a distribute operation");
+	int fidx_use = fidx++;
+	MPI_Bcast(&fidx_use, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	std::ostringstream os; os << filestub() << "_" << fidx_use << ".dat";
 	file = os.str();
       }
 	
       if(!UniqueID()){
 	assert(ptr != NULL);
 	std::fstream f(file.c_str(), std::ios::out | std::ios::binary);
-	if(!f.good()) ERR.General("BurstBufferMemoryStorage","gather(bool)","Failed to open file %s for write\n",file.c_str());
+	if(!f.good()) ERR.General("BurstBufferMemoryStorage","distribute","Failed to open file %s for write\n",file.c_str());
 	f.write((char*)&_size,sizeof(size_t));
 	f.write((char*)&cksum,sizeof(unsigned int));
 	f.write((char*)ptr,_size);
-	if(!f.good()) ERR.General("BurstBufferMemoryStorage","gather(bool)","Write error in file %s\n",file.c_str());
+	if(!f.good()) ERR.General("BurstBufferMemoryStorage","distribute","Write error in file %s\n",file.c_str());
 #ifdef DISTRIBUTE_FLUSH_MEMBUF
 	f.flush(); //should ensure data is written to disk immediately and not kept around in some memory buffer, but may slow things down
 #endif	
@@ -611,11 +614,7 @@ public:
     cps::sync();
     freeMem();
   }
-  
-  ~BurstBufferMemoryStorage(){
-    freeMem();
-  }
-  
+    
 };
 
 
@@ -664,10 +663,7 @@ public:
 #ifdef USE_MPI
 
 //Use MPI one-sided communication to manage the gather
-class DistributedMemoryStorageOneSided{
-  void *ptr;
-  int _alignment;
-  size_t _size;
+class DistributedMemoryStorageOneSided: public MemoryStorageBase{
   int _master_uid;
   int _master_mpirank;
 
@@ -722,16 +718,9 @@ public:
   };
   static GatherPerf & perf(){ static GatherPerf p; return p; }
 
-  DistributedMemoryStorageOneSided(): ptr(NULL), _master_uid(-1), _size(0), _alignment(0), window(MPI_WIN_NULL){}
+  DistributedMemoryStorageOneSided(): _master_uid(-1), window(MPI_WIN_NULL), MemoryStorageBase(){}
 
-  DistributedMemoryStorageOneSided(const DistributedMemoryStorageOneSided &r): ptr(NULL),  _size(0), _alignment(0), window(MPI_WIN_NULL){
-    if(r.ptr != NULL){    
-      alloc(r._alignment, r._size);
-      memcpy(ptr, r.ptr, r._size);
-    }else{
-      _size = r._size;
-      _alignment = r._alignment;
-    }      
+  DistributedMemoryStorageOneSided(const DistributedMemoryStorageOneSided &r): window(MPI_WIN_NULL), MemoryStorageBase(r){
     _master_uid = r._master_uid;
     _master_mpirank = r._master_mpirank;
     if(r.window != MPI_WIN_NULL) initWindow();
@@ -739,82 +728,23 @@ public:
 
   DistributedMemoryStorageOneSided & operator=(const DistributedMemoryStorageOneSided &r){
     if(window != MPI_WIN_NULL) assert(MPI_Win_free(&window)==MPI_SUCCESS);
-
-    if(r.ptr != NULL){
-      if(_size != r._size || _alignment != r._alignment){
-	freeMem();
-	alloc(r._alignment, r._size);
-      }
-      memcpy(ptr, r.ptr, r._size);      
-    }else{
-      _size = r._size;
-      _alignment = r._alignment;
-    }      
+    this->MemoryStorageBase::operator=(r);
     _master_uid = r._master_uid;
     _master_mpirank = r._master_mpirank;
     if(r.window != MPI_WIN_NULL) initWindow();
     return *this;
   }
 
-  inline bool isOnNode() const{ return ptr != NULL; }
-  
   inline int masterUID() const{ return _master_uid; }
 
   void move(DistributedMemoryStorageOneSided &r){
-    ptr = r.ptr;
-    _alignment = r._alignment;
-    _size = r._size;
     _master_uid = r._master_uid;
     _master_mpirank = r._master_mpirank;
     window = r.window;
-
-    r._size = 0;
-    r.ptr = NULL;
     r.window = MPI_WIN_NULL;
+    this->MemoryStorageBase::move(r);
   }
 
-
-#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
-  inline static ReuseBlockAllocatorsAligned & block_allocator(){ static ReuseBlockAllocatorsAligned r; return r; }
-#endif
-
-  void alloc(int alignment, size_t size){
-    if(ptr != NULL){
-      if(alignment == _alignment && size == _size) return;
-      else{ 
-#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
-	block_allocator().free(ptr); 
-#else
-	free(ptr);
-#endif
-	ptr = NULL; 
-      }
-    }
-    
-    _size = size;
-    _alignment = alignment;
-
-#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
-    ptr = block_allocator().alloc(alignment,size);
-#else
-    ptr = memalign_check(alignment, size);
-#endif
-  }
-
-  void freeMem(){
-    if(ptr != NULL){
-#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
-      block_allocator().free(ptr);
-#else
-      free(ptr);
-#endif
-      ptr = NULL;
-    }
-  }
-
-  inline void* data(){ return ptr; }
-  inline void const* data() const{ return ptr; }
-  
   inline void gather(bool require){
     if(require && UniqueID() != _master_uid && _size != 0 && ptr == NULL){
       perf().alloc_time -= dclock();

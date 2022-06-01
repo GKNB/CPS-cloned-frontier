@@ -164,6 +164,11 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testAutoView();
   if(0) testViewArray();
   if(0) testCPSfieldArray<A2Apolicies_grid>();
+
+  if(1) testMemoryStorageBase();
+  if(1) testBurstBufferMemoryStorage();
+  if(1) testDistributedStorage();
+  if(1) testDistributedStorageOneSided();
   
   if(0) testA2AfieldAccess<A2Apolicies_grid>();
   if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
@@ -266,8 +271,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-  if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
   if(0) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
