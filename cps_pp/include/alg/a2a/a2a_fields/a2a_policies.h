@@ -17,6 +17,8 @@ CPS_START_NAMESPACE
 #define SET_MFSTORAGE_DISTRIBUTEDONESIDED typedef DistributedMemoryStorageOneSided MesonFieldDistributedStorageType
 //   meson fields are stored with a copy in memory on every node
 #define SET_MFSTORAGE_INMEM typedef InMemMemoryStorage MesonFieldDistributedStorageType
+//   meson fields are stored with a file-backed mmap region
+#define SET_MFSTORAGE_MMAP typedef MmapMemoryStorage MesonFieldDistributedStorageType
 
 
 //   Default to distributed storage

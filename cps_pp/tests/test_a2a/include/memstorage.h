@@ -99,20 +99,27 @@ void testBurstBufferMemoryStorage(){
     
   for(int i=0;i<10;i++) assert(ptr[i] == double(i));
   
-  //Test copy uses same file
+  //Test copy uses different file
   BurstBufferMemoryStorage store2(store);
-  assert( (( BurstBufferMemoryStorageTest& )store2).getFile() == (( BurstBufferMemoryStorageTest& )store).getFile() );
+  assert( (( BurstBufferMemoryStorageTest& )store2).getFile() != (( BurstBufferMemoryStorageTest& )store).getFile() );
   assert(store2.data() != store.data());
 
   double* ptr2 = (double*)store2.data();
   for(int i=0;i<10;i++) assert(ptr2[i] == double(i));
   
   //Test move
+  std::string f2 = (( BurstBufferMemoryStorageTest& )store2).getFile();
+  void* d2 = store2.data();
   BurstBufferMemoryStorage store3;
   store3.move(store2);
-  assert( (( BurstBufferMemoryStorageTest& )store3).getFile() == (( BurstBufferMemoryStorageTest& )store).getFile() );
+  assert( (( BurstBufferMemoryStorageTest& )store3).getFile() == f2 );
   assert( store2.data() == NULL );
   assert( (( BurstBufferMemoryStorageTest& )store2).isOnDisk() == false );
+  assert( store3.data() == d2 );
+
+  double* ptr3 = (double*)store3.data();
+  for(int i=0;i<10;i++) assert(ptr3[i] == double(i));
+
   std::cout << "testBurstBufferMemoryStorage passed" << std::endl;
 }
 
@@ -212,6 +219,49 @@ void testDistributedStorageOneSided(){
   }else{
     std::cout << "Requires >1 node" << std::endl;
   }
+}
+
+
+
+void testMmapMemoryStorage(){
+  std::cout << "Starting testMmapMemoryStorage" << std::endl;
+  MmapMemoryStorage store;
+  assert(store.data() == NULL);
+
+  store.alloc(128, 10*sizeof(double));
+  assert(store.data() != NULL);
+  
+  double* ptr = (double*)store.data();
+  for(int i=0;i<10;i++) ptr[i] = i;
+
+  store.distribute();
+  
+  //Can still read here, distribute just advises the OS that the pages are not expected to be needed soon
+  assert(store.data() != NULL);
+  for(int i=0;i<10;i++) assert(ptr[i] == double(i));
+
+  store.gather(true);
+  assert(store.data() != NULL);
+  
+   
+  //Test copy uses different
+  MmapMemoryStorage store2(store);
+  assert( store2.getFilename() != store.getFilename() );
+  assert(store2.data() != store.data());
+
+  double* ptr2 = (double*)store2.data();
+  for(int i=0;i<10;i++) assert(ptr2[i] == double(i));
+  
+  //Test move
+  MmapMemoryStorage store3;
+  store3.move(store2);
+  assert( store2.getFilename() == "" );
+  assert( store2.data() == NULL );
+  double* ptr3 = (double*)store3.data();
+  for(int i=0;i<10;i++) assert(ptr3[i] == double(i));
+  
+
+  std::cout << "testMmapMemoryStorage passed" << std::endl;
 }
 
 

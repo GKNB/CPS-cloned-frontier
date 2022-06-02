@@ -860,6 +860,131 @@ public:
   
 };
 
+
+//A memory storage that uses a mmap disk memory region. Gather calls a prefetch operation
+class MmapMemoryStorage{
+protected:
+  void *ptr;
+  size_t _size;
+  std::string filename;
+public:
+
+  const std::string & getFilename() const{ return filename; }
+
+  MmapMemoryStorage(): ptr(NULL), _size(0), filename(""){}
+
+  MmapMemoryStorage(const MmapMemoryStorage &r): ptr(NULL), _size(0), filename(""){
+    if(r.ptr != NULL){    
+      alloc(0, r._size);
+      memcpy(ptr, r.ptr, r._size);
+    }else{
+      _size = r._size;
+    }      
+  }
+  
+  MmapMemoryStorage & operator=(const MmapMemoryStorage &r){
+    if(r.ptr != NULL){
+      if(_size != r._size){
+	freeMem();
+	alloc(0, r._size);
+      }
+      memcpy(ptr, r.ptr, r._size);      
+    }else{
+      freeMem();
+      _size = r._size;
+    }
+
+    return *this;
+  }
+
+  ~MmapMemoryStorage(){ freeMem(); }
+
+  inline bool isOnNode() const{ return ptr != NULL; }
+
+  //does nothing
+  void enableExternalBuffer(void* p, size_t sz, int align){ }
+  void disableExternalBuffer(){ }
+
+
+  void alloc(int alignment, size_t size){
+    static int fidx = 0;
+
+    if(filename == ""){
+      std::ostringstream os; os << BurstBufferMemoryStorage::filestub() << "_" << (fidx++) << "_uid" << UniqueID();
+      filename = os.str();
+    }
+
+    if(ptr != NULL){
+      if(size == _size) return;
+      else{
+	freeMem();
+      }
+    }
+
+    _size = size;
+
+    int fd = open(filename.c_str(), O_RDWR | O_CREAT | O_TRUNC, (mode_t)0666);
+    if( fd == -1 ){
+      std::cout << "ERROR open: " << strerror(errno) << std::endl;
+      assert(0);
+    }
+    if( posix_fallocate(fd, 0, _size) != 0 ){
+      std::cout << "ERROR posix_fallocate: " << strerror(errno) << std::endl;
+      assert(0);
+    }    
+
+    ptr = mmap(NULL, size, PROT_READ | PROT_WRITE , MAP_FILE|MAP_SHARED, fd, 0);
+    if(ptr == MAP_FAILED){
+      std::cout << "ERROR mmap: " << strerror(errno) << std::endl;
+      assert(0);
+    }
+    close(fd);
+  }
+
+  void freeMem(){
+    if(ptr != NULL){
+      if( munmap(ptr, _size) != 0 ){
+	std::cout << "ERROR munmap: " << strerror(errno) << std::endl;
+	assert(0);
+      }
+      if( unlink(filename.c_str()) != 0 ){
+	std::cout << "ERROR unlink: " << strerror(errno) << std::endl;
+	assert(0);
+      }
+      ptr = NULL; 
+    }
+  }
+
+  void move(MmapMemoryStorage &r){
+    ptr = r.ptr;
+    _size = r._size;
+    filename = r.filename;
+
+    r._size = 0;
+    r.ptr = NULL;
+    r.filename = "";
+  }
+
+  inline void* data(){ return ptr; }
+  inline void const* data() const{ return ptr; }
+
+  inline void gather(bool require){
+    if(ptr != NULL){
+      madvise(ptr, _size, MADV_WILLNEED);
+    }else assert(0);
+  }
+  inline void distribute(){
+    if(ptr != NULL){
+      madvise(ptr, _size, MADV_DONTNEED);
+    }else assert(0);  
+  }
+};
+
+
+
+
+
+
 #endif
 
 
