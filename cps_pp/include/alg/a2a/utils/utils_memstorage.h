@@ -905,7 +905,8 @@ public:
   void enableExternalBuffer(void* p, size_t sz, int align){ }
   void disableExternalBuffer(){ }
 
-
+  void flush(){ if(ptr != NULL) msync(ptr,_size,MS_SYNC); }
+  
   void alloc(int alignment, size_t size){
     static int fidx = 0;
 

@@ -35,5 +35,93 @@ void benchmarkCPSfieldIO(){
   }
 }
 
+void markit(){
+  static int v = 0;
+  v++;
+}
+  
+
+void benchmarkMmapMemoryStorage(int ntest, int nval){
+  MmapMemoryStorage store;
+
+  size_t sz = nval*sizeof(int);
+  double sz_MB = double(sz)/1024./1024.;
+  double sz_GB = double(sz)/1024./1024./1024.;
+  std::cout << "Data size " << sz_MB << " MB" << std::endl;
+  store.alloc(0,sz);
+  int* iptr = (int*)store.data();
+  
+  for(int i=0;i<nval;i++){
+    iptr[i] = i;
+  }    
+  store.flush();
+  
+
+  
+  //memset(store.data(), 0, sz);
+
+  //Hot read
+  int v = 0;
+
+  for(int i=0;i<nval;i++){
+    v = iptr[i];
+  }    
+ 
+  double time = 0;
+  for(int i=0;i<ntest;i++){
+    time -= dclock();
+    for(int j=0;j<nval;j++){
+      v += iptr[j];
+    }    
+    time += dclock();
+  }
+  
+  std::cout << "Hot read: " << ntest*sz_GB/time << " GB/s, read time: " << time << "s" << std::endl;
+
+  //Cold read 
+  time = 0;
+  double free_time = 0;
+  double alloc_time = 0;
+  double flush_time = 0;
+  double write_time = 0;
+  
+  for(int i=0;i<ntest;i++){
+    free_time -= dclock();
+    store.freeMem();
+    free_time += dclock();
+
+    alloc_time -= dclock();
+    store.alloc(0,sz);
+    alloc_time += dclock();
+
+    write_time -= dclock();
+    iptr = (int*)store.data();
+    for(int j=0;j<nval;j++){
+      iptr[j] = j;
+    }    
+    write_time += dclock();
+    
+    flush_time -= dclock();
+    store.flush();
+    flush_time += dclock();
+       
+    time -= dclock();
+    markit();
+    for(int j=0;j<nval;j++){
+      v += iptr[j];
+    }
+    markit();
+    time += dclock();
+  }
+  
+  std::cout << "Cold read: " << ntest*sz_GB/time << " GB/s,  read time: " << time << ", free time: " << free_time << "s, alloc time: " << alloc_time << "s, write time: " << write_time << ", flush time: " << flush_time << "s" << std::endl;
+
+  
+
+}
+
+
+
+
 
 CPS_END_NAMESPACE
