@@ -969,12 +969,20 @@ public:
   inline void* data(){ return ptr; }
   inline void const* data() const{ return ptr; }
 
-  inline void gather(bool require){
+  void gather(bool require){
     if(ptr != NULL){
+      madvise(ptr, _size, MADV_SEQUENTIAL); //hopefully this will cause it to read ahead
+      char volatile *pPage = (char *)ptr;
+      size_t page_size = sysconf(_SC_PAGESIZE);
+      size_t npage = _size / page_size;
+      for(int i=0;i<npage;i++){
+	(void)*pPage; //touch the page, should force a load (cf https://stackoverflow.com/questions/18929011/how-do-i-touch-a-memory-page-on-purpose)
+	pPage += page_size; 
+      }
       madvise(ptr, _size, MADV_WILLNEED);
     }else assert(0);
   }
-  inline void distribute(){
+  void distribute(){
     if(ptr != NULL){
       madvise(ptr, _size, MADV_DONTNEED);
     }else assert(0);  
