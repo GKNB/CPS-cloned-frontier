@@ -102,6 +102,26 @@ inline void device_memset(void *ptr, int value, size_t count){
 #endif
 }
 
+//Advise the UVM driver that the memory region will be accessed in read-only fashion
+inline void device_UVM_advise_readonly(const void* ptr, size_t count){
+#ifdef GRID_CUDA
+  assert( cudaMemAdvise(ptr, count, cudaMemAdviseSetReadMostly, 0) == cudaSuccess );
+#else
+  assert(0);
+#endif
+}
+
+//Unset advice to the UVM driver that the memory region will be accessed in read-only fashion
+inline void device_UVM_advise_unset_readonly(const void* ptr, size_t count){
+#ifdef GRID_CUDA
+  assert( cudaMemAdvise(ptr, count, cudaMemAdviseUnsetReadMostly, 0) == cudaSuccess );
+#else
+  assert(0);
+#endif
+}
+
+
+
 //Check if a class T has a method "free"
 template<typename T, typename U = void>
 struct hasFreeMethod{
@@ -287,6 +307,8 @@ class hostDeviceMirroredContainer{
   size_t n; //number of elements
   bool use_pinned_mem;
 public:
+  size_t size() const{ return n; }
+  
   size_t byte_size() const{ return n*sizeof(T); }
 
   //pinned memory has a faster copy as it avoids a host-side copy in Cuda, but it can take a while to allocate
@@ -295,7 +317,7 @@ public:
 #ifdef GPU_VEC
     device = (T*)device_alloc_check(byte_size());
 #else
-    host = device;
+    device = host;
 #endif
   }
 
@@ -339,7 +361,7 @@ public:
   //NOTE: While the sync flag will be set, the state is undefined until the copy stream has been synchronized
   void asyncHostDeviceSync(){
 #if defined(GRID_CUDA)
-    if(!use_pinned_mem) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Requires use of pinned memoruy");
+    if(!use_pinned_mem) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Requires use of pinned memory");
     if(!device_in_sync && !host_in_sync) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Invalid state");
     if(!device_in_sync){
       cudaMemcpyAsync(device,host,byte_size(), cudaMemcpyHostToDevice,Grid::copyStream);
@@ -350,7 +372,7 @@ public:
       host_in_sync = true;
     }
 #elif defined(GRID_HIP)
-    if(!use_pinned_mem) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Requires use of pinned memoruy");
+    if(!use_pinned_mem) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Requires use of pinned memory");
     if(!device_in_sync && !host_in_sync) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Invalid state");
     if(!device_in_sync){
       hipMemcpyAsync(device,host,byte_size(), hipMemcpyHostToDevice ,Grid::copyStream);

@@ -142,7 +142,7 @@ struct modeIndexSet{
   int hit;
   int spin_color;
   int flavor;
-  int time;
+  int time; //actually this is the *tblock*, not the time itself (differ is src_width>1)   TODO: Change name!
   modeIndexSet(): hit(-1),spin_color(-1),flavor(-1),time(-1){}
 };
 
@@ -175,6 +175,9 @@ public:
   }
   inline int getNmodes() const{ return nv; }
 
+  inline int getNlowModes() const{ return nl; }
+  inline int getNhighModes() const{ return nh; }
+  
   //Compute the mapping between a full (unpacked) index and the packed index. Only the elements map[i] for which non_zeroes[i]==true are meaningful
   //coord_delta is ignored here
   void getIndexMapping(std::vector<int> &map, std::vector<bool> &non_zeroes, const modeIndexSet &coord_delta) const{
@@ -212,6 +215,9 @@ public:
   }
   inline int getNmodes() const{ return nl + nhits*nspincolor*nflavors; }
 
+  inline int getNlowModes() const{ return nl; }
+  inline int getNhighModes() const{ return nhits*nspincolor*nflavors; }
+  
   //Compute the mapping between a full (unpacked) index and the packed index. Only the elements map[i] for which non_zeroes[i]==true are meaningful
   //t_delta is defined above
   void getIndexMapping(std::vector<int> &map, std::vector<bool> &non_zeroes, int t_delta) const{
@@ -266,6 +272,9 @@ public:
   }
   inline int getNmodes() const{ return nl + nhits*nspincolor; }
 
+  inline int getNlowModes() const{ return nl; }
+  inline int getNhighModes() const{ return nhits*nspincolor; }
+  
   //Compute the mapping between a full (unpacked) index and the packed index. Only the elements map[i] for which non_zeroes[i]==true are meaningful
   //f_delta, t_delta are defined above
   void getIndexMapping(std::vector<int> &map, std::vector<bool> &non_zeroes, const int f_delta, const int t_delta) const{
@@ -320,6 +329,9 @@ public:
 
   inline int getNmodes() const{ return nl + nhits; }
 
+  inline int getNlowModes() const{ return nl; }
+  inline int getNhighModes() const{ return nhits; }
+  
   //Compute the mapping between a full (unpacked) index and the packed index. Only the elements map[i] for which non_zeroes[i]==true are meaningful
   //sc_delta, f_delta, t_delta are defined above
   void getIndexMapping(std::vector<int> &map, std::vector<bool> &non_zeroes, const int sc_delta, const int f_delta, const int t_delta) const{

@@ -92,9 +92,11 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
   ComputeKtoSigma<A2Apolicies> compute(V, W, V_s, W_s, mf_ls_ww, k_sigma_separation);
 
   //Type1/2
-  {
+  {    
     double time = -dclock();
     if(!UniqueID()) printf("Starting K->sigma type 1/2 contractions with source %s\n",src_descr.c_str());
+    printMem("Memory at start of K->sigma type 1/2 contraction");     
+    
     std::vector<ResultsContainerType> result;
     compute.type12(result, mf_sigma);
   
@@ -112,6 +114,7 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
   {
     double time = -dclock();
     if(!UniqueID()) printf("Starting K->sigma type 3 contractions with source %s\n",src_descr.c_str());
+    printMem("Memory at start of K->sigma type 3 contraction");     
     std::vector<ResultsContainerType> result;
     std::vector<MixDiagResultsContainerType> mix;
     compute.type3(result, mix, mf_sigma);
@@ -130,6 +133,7 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
   if(do_type4){
     double time = -dclock();
     if(!UniqueID()) printf("Starting K->sigma type 4 contractions\n");
+    printMem("Memory at start of K->sigma type 4 contraction");     
     ResultsContainerType result;
     MixDiagResultsContainerType mix;
     compute.type4(result, mix);

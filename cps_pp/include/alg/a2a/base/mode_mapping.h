@@ -12,21 +12,21 @@ struct IndexConvention{};
 
 template<>
 struct IndexConvention<3>{
-  static int getNidx(){ return 12; }
+  static int getNidx(const A2Aparams &p){ return 12; }
   static std::string getStr(){ return "spin-color"; }
   static void set(modeIndexSet &into, const int &val){ into.spin_color = val; } 
   static const int & get(const modeIndexSet &from){ return from.spin_color; } 
 };
 template<>
 struct IndexConvention<2>{
-  static int getNidx(){ return GJP.Gparity() ? 2:1; }
+  static int getNidx(const A2Aparams &p){ return GJP.Gparity() ? 2:1; }
   static std::string getStr(){ return "flavor"; }  
   static void set(modeIndexSet &into, const int &val){ into.flavor = val; } 
   static const int & get(const modeIndexSet &from){ return from.flavor; } 
 };
 template<>
 struct IndexConvention<1>{
-  static int getNidx(){ return GJP.Tnodes()*GJP.TnodeSites(); }
+  static int getNidx(const A2Aparams &p){ return p.getNtBlocks(); }
   static std::string getStr(){ return "time"; }
   static void set(modeIndexSet &into, const int &val){ into.time = val; } 
   static const int & get(const modeIndexSet &from){ return from.time; } 

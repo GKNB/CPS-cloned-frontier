@@ -169,6 +169,9 @@ struct CommandLineArgs{
 	BlockedvMvOffloadArgs::b = strToAny<int>(argv[arg+1]);
 	BlockedSplitvMvArgs::b = BlockedvMvOffloadArgs::b;
 	arg+=2;
+      }else if(cmdstr == "-vMv_inner_blocking"){
+	BlockedvMvOffloadArgs::bb = strToAny<int>(argv[arg+1]);
+	arg+=2;
       }else if( strncmp(cmd,"-do_split_job",30) == 0){
 	do_split_job = true;
 	split_job_part = strToAny<int>(argv[arg+1]);
@@ -250,12 +253,10 @@ struct CommandLineArgs{
 	arg++;
 #endif
 
-#if defined(MESONFIELD_USE_BURSTBUFFER) || defined(MESONFIELD_USE_NODE_SCRATCH)
-      }else if( strncmp(cmd,"-mesonfield_scratch_stub",50) == 0){
+      }else if( cmdstr == "-mesonfield_scratch_stub" ){
 	BurstBufferMemoryStorage::filestub() = argv[arg+1];
 	if(!UniqueID()) printf("Set mesonfield scratch stub to %s\n",BurstBufferMemoryStorage::filestub().c_str());
 	arg+=2;
-#endif
 
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
       }else if( cmdstr == "-max_memblocks" ){

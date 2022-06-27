@@ -25,3 +25,4 @@
 #include "include/gparity.h"
 #include "include/complex.h"
 #include "include/lanczos.h"
+#include "include/memstorage.h"

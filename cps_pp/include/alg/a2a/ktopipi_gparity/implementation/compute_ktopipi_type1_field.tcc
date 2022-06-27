@@ -93,7 +93,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
 
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
   const int ntsep_k_pi = tsep_k_pi.size();
-    
+  int tsep_k_pi_largest = 0;
+  for(int sep: tsep_k_pi) tsep_k_pi_largest = std::max(tsep_k_pi_largest, sep);
+  
   const ThreeMomentum p_pi_2 = -p_pi_1;
 
   static const int n_contract = 6; //six type1 diagrams
@@ -165,13 +167,17 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
     //std::vector<bool> node_top_used;
     //getUsedTimeslices(node_top_used,tsep_k_pi,t_pi1);
 
+    //Get lowest value of t_K, i.e. from largest sep
+    int tK_min = modLt(t_pi1 - tsep_k_pi_largest, Lt);
+
     //Compute part1 and part2
     //Construct part 1 (no dependence on t_K):
     //\Gamma_1 vL_i(x_op; x_4) [[\sum_{\vec x} wL_i^dag(x) S_2 vL_j(x;top)]] wL_j^dag(x_op)
     Type1FieldTimings::timer().part1 -= dclock();
     std::vector<SCFmatrixField> part1(2, SCFmatrixField(field_params)); //part1 goes from insertion to pi1, pi2 (x_4 = t_pi1, t_pi2)
-    mult(part1[0], vL, mf_pi1[t_pi1], wL, false, true);
-    mult(part1[1], vL, mf_pi2[t_pi2], wL, false, true);
+    //Only compute in window between kaon and inner pion to save computation
+    mult(part1[0], vL, mf_pi1[t_pi1], wL, false, true, tK_min, t_pi1);
+    mult(part1[1], vL, mf_pi2[t_pi2], wL, false, true, tK_min, t_pi1);
     Type1FieldTimings::timer().part1 += dclock();    
 
     for(int tkpi_idx : t_it->second){
@@ -191,8 +197,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
       //\Gamma_2 vL_i(x_op;y_4) [[ wL_i^dag(y) S_2 vL_j(y;t_K) ]] [[ wL_j^dag(x_K)\gamma^5 \gamma^5 wH_k(x_K) ) ]] vH_k^\dagger(x_op;t_K)\gamma^5
       Type1FieldTimings::timer().part2 -= dclock();
       std::vector<SCFmatrixField> part2(2, SCFmatrixField(field_params)); //part2 has pi1, pi2 at y_4 = t_pi1, t_pi2
-      mult(part2[0], vL, con_pi1_K, vH, false, true);
-      mult(part2[1], vL, con_pi2_K, vH, false, true);
+      mult(part2[0], vL, con_pi1_K, vH, false, true, t_K, t_pi1);
+      mult(part2[1], vL, con_pi2_K, vH, false, true, t_K, t_pi1);
       gr(part2[0], -5); //right multiply by g5
       gr(part2[1], -5);
       Type1FieldTimings::timer().part2 += dclock();

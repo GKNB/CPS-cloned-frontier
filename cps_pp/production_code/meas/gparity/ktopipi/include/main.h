@@ -48,6 +48,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
     computeVW(V, W, Light, params, eig, latwrp, cmdline.randomize_vw);
   }
   if(!UniqueID()){ printf("Freeing light evecs\n"); fflush(stdout); }
+  printMem("Memory before light evec free");
   eig.freeEvecs();
   printMem("Memory after light evec free");
     
@@ -61,6 +62,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   BFMGridA2ALatticeWrapper<A2Apolicies> latwrp(solvers, params.jp);
   computeVW(V_s, W_s, Heavy, params, eig_s, latwrp, cmdline.randomize_vw);
 
+  printMem("Memory before heavy evec free");
   eig_s.freeEvecs();
   printMem("Memory after heavy evec free");
 

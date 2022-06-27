@@ -39,11 +39,11 @@ public:
     ModeContractionIndices<jLeftDilutionType,jRightDilutionType> j_ind(r);
 
     modeIndexSet ilp, irp, jlp, jrp;
-    ilp.time = top_glb;
-    irp.time = M.getRowTimeslice();
+    ilp.time = l.tblock(top_glb);
+    irp.time = l.tblock(M.getRowTimeslice());
     
-    jlp.time = M.getColTimeslice();
-    jrp.time = top_glb;
+    jlp.time = r.tblock(M.getColTimeslice());
+    jrp.time = r.tblock(top_glb);
 
     int site4dop = xop + GJP.VolNodeSites()/GJP.TnodeSites()*top;
 
@@ -289,11 +289,11 @@ public:
     ModeContractionIndices<jLeftDilutionType,jRightDilutionType> j_ind(r);
 
     modeIndexSet ilp, irp, jlp, jrp;
-    ilp.time = top_glb;
-    irp.time = M.getRowTimeslice();
+    ilp.time = l.tblock(top_glb);
+    irp.time = l.tblock(M.getRowTimeslice());
     
-    jlp.time = M.getColTimeslice();
-    jrp.time = top_glb;
+    jlp.time = l.tblock(M.getColTimeslice());
+    jrp.time = l.tblock(top_glb);
 
     int site4dop = l.getMode(0).threeToFour(xop, top);
 

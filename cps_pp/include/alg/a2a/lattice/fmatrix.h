@@ -410,8 +410,22 @@ public:
     con.resize(1);
   }
   void nodeSum(){
-    for(int t=0;t<con.size();t++)
+#ifdef GRID_CUDA
+    //Perlmutter MPI calls on UVM are currently broken
+    //To workaround we copy to a temp buffer
+    size_t bsize = thread_size * sizeof(mf_Complex);
+    mf_Complex* p = (mf_Complex*)malloc(bsize);
+    for(int t=0;t<con.size();t++){
+      memcpy(p, this->con[t], bsize);
+      globalSum(p,thread_size);
+      memcpy(this->con[t], p, bsize);
+    }
+    free(p);
+#else
+    for(int t=0;t<con.size();t++){
       globalSum(this->con[t],thread_size);
+    }
+#endif
   }
 };
 

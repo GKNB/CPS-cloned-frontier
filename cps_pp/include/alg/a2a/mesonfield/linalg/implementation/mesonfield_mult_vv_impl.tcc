@@ -34,8 +34,8 @@ public:
 
     //Precompute index mappings
     modeIndexSet ilp, irp;
-    ilp.time = top_glb;
-    irp.time = top_glb;
+    ilp.time = l.tblock(top_glb);
+    irp.time = r.tblock(top_glb);
     
     //We want to treat this as a matrix mult of a 24 * nv  matrix with an nv * 24 matrix, where nv is the number of fully undiluted indices. First implementation uses regular GSL, but could perhaps be done better with sparse matrices
     int site4dop = l.getMode(0).threeToFour(xop,top);
@@ -193,8 +193,8 @@ public:
 
     //Precompute index mappings
     modeIndexSet ilp, irp;
-    ilp.time = top_glb;
-    irp.time = top_glb;
+    ilp.time = l.tblock(top_glb);
+    irp.time = r.tblock(top_glb);
 
     int site4dop = l.getMode(0).threeToFour(xop, top);
 

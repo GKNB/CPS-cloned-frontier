@@ -46,10 +46,64 @@ void A2AvectorVfftw<mf_Policies>::inversefft(A2AvectorV<Policies> &to, fieldOper
   _V_invfft_impl<A2AvectorV<Policies>, const A2AvectorVfftw<mf_Policies>, VFFTfieldPolicyBasic>::inversefft(to,*this,mode_postop);
 }
 
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::initialize(const FieldInputParamType &field_setup_params){
+  checkSIMDparams<FieldInputParamType>::check(field_setup_params);
+  wl.resize(nl); this->allocInitializeLowModeFields(wl,field_setup_params);
+  wh.resize(nhits); this->allocInitializeHighModeFields(wh,field_setup_params);
+}
+
+template< typename mf_Policies>
+A2AvectorW<mf_Policies>::A2AvectorW(const A2AArg &_args): FullyPackedIndexDilution(_args), wh_rand_performed(false){ initialize(NullObject()); }
+
+template< typename mf_Policies>
+A2AvectorW<mf_Policies>::A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params): FullyPackedIndexDilution(_args), wh_rand_performed(false){
+  initialize(field_setup_params); }
+
+template< typename mf_Policies>
+A2AvectorW<mf_Policies>::A2AvectorW(const A2Aparams &_args): FullyPackedIndexDilution(_args), wh_rand_performed(false){ initialize(NullObject()); }
+
+template< typename mf_Policies>
+A2AvectorW<mf_Policies>::A2AvectorW(const A2Aparams &_args, const FieldInputParamType &field_setup_params): FullyPackedIndexDilution(_args), wh_rand_performed(false){ initialize(field_setup_params); }
 
 
 
+template< typename mf_Policies>
+void A2AvectorWfftw<mf_Policies>::initialize(const FieldInputParamType &field_setup_params){
+  checkSIMDparams<FieldInputParamType>::check(field_setup_params);
+  wl.resize(nl); this->allocInitializeLowModeFields(wl,field_setup_params);
+  wh.resize(12*nhits); this->allocInitializeHighModeFields(wh,field_setup_params);
+  for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
+}
 
+template< typename mf_Policies>
+A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args)
+#ifdef ZEROSC_MANAGED
+    , zerosc(12)
+#endif
+{ initialize(NullObject()); }
+
+template< typename mf_Policies>
+A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args)
+#ifdef ZEROSC_MANAGED
+    , zerosc(12)
+#endif
+{ initialize(field_setup_params); }
+
+template< typename mf_Policies>
+A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2Aparams &_args): TimeFlavorPackedIndexDilution(_args)
+#ifdef ZEROSC_MANAGED
+    , zerosc(12)
+#endif
+    { initialize(NullObject()); }
+
+
+template< typename mf_Policies>
+A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2Aparams &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args)
+#ifdef ZEROSC_MANAGED
+    , zerosc(12)
+#endif
+  { initialize(field_setup_params); }
 
 
 //Set this object to be the fast Fourier transform of the input field

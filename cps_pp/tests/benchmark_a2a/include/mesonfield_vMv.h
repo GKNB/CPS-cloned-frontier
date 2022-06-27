@@ -240,26 +240,27 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
 
 
 
-template<typename GridA2Apolicies>
+template<typename GridA2Apolicies, template<typename> class A2AfieldL, template<typename> class A2AfieldR>
 void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int nthreads){
   std::cout << "Starting vMv offload benchmark\n";
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
-
+  A2Aparams a2a_params(a2a_args);
+  
   typename FourDSIMDPolicy<typename GridA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::ParamType simd_dims;
   FourDSIMDPolicy<typename GridA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
       
-  A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
-  A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
+  A2AfieldL<GridA2Apolicies> fieldL(a2a_args, simd_dims);
+  A2AfieldR<GridA2Apolicies> fieldR(a2a_args, simd_dims);
 
-  Wgrid.testRandom();
-  Vgrid.testRandom();
+  fieldL.zero();
+  fieldR.zero();
   
   A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
-  mf_grid.setup(Wgrid,Vgrid,0,0);     
+  mf_grid.setup(a2a_params,a2a_params,0,0);     
   mf_grid.testRandom();
   
-  typedef mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> offload;
+  typedef mult_vMv_field<GridA2Apolicies, A2AfieldL, A2AvectorWfftw, A2AvectorVfftw, A2AfieldR> offload;
   typedef typename offload::PropagatorField PropagatorField;
   PropagatorField pfield(simd_dims);
   
@@ -269,7 +270,7 @@ void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int
   for(int i=0;i<ntests;i++){
     if(!UniqueID()){ printf("."); fflush(stdout); }
     total_time_field_offload -= dclock();    
-    mult(pfield, Vgrid, mf_grid, Wgrid, false, true);
+    mult(pfield, fieldL, mf_grid, fieldR, false, true);
     total_time_field_offload += dclock();
   }
   if(!UniqueID()){ printf("\n"); fflush(stdout); }
@@ -318,8 +319,8 @@ void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int
   //vol4d * 12 * nf * ni * ( nj * 8 + 12*nf*ni *8)
 
 
-  ModeContractionIndices<typename offload::iLeftDilutionType, typename offload::iRightDilutionType> i_ind(Vgrid);
-  ModeContractionIndices<typename offload::jLeftDilutionType, typename offload::jRightDilutionType> j_ind(Vgrid);
+  ModeContractionIndices<typename offload::iLeftDilutionType, typename offload::iRightDilutionType> i_ind(a2a_params);
+  ModeContractionIndices<typename offload::jLeftDilutionType, typename offload::jRightDilutionType> j_ind(a2a_params);
   size_t Flops = 0;
   for(int t_glob=0;t_glob<GJP.TnodeSites()*GJP.Tnodes();t_glob++){
     modeIndexSet ilp, irp, jlp, jrp;
@@ -374,6 +375,126 @@ void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int
     mult_vMv_field_offload_timers::get().print();
   }
 }
+
+
+
+template<typename GridA2Apolicies>
+void benchmarkvMvPartialTimeGridOffload(const A2AArg &a2a_args, const int ntests, const int tstart, const int tend, bool compare_full){
+  std::cout << "Starting vMv partial-Lt offload benchmark\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  typename FourDSIMDPolicy<typename GridA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<typename GridA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
+  A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
+
+  Wgrid.zero();
+  Vgrid.zero();
+  
+  A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
+  mf_grid.setup(Wgrid,Vgrid,0,0);     
+  mf_grid.testRandom();
+  
+  typedef mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> offload;
+  typedef typename offload::PropagatorField PropagatorField;
+  PropagatorField pfield(simd_dims);
+
+  Float total_time_orig = 0;
+  if(compare_full){
+    std::cout << "Running full-Lt implementation" << std::endl;
+    for(int i=0;i<ntests;i++){
+      if(!UniqueID()){ printf("."); fflush(stdout); }
+      total_time_orig -= dclock();    
+      mult(pfield, Vgrid, mf_grid, Wgrid, false, true);
+      total_time_orig += dclock();
+    }
+  }
+
+  Float total_time_partial = 0.;
+  mult_vMv_field_offload_timers::get().reset();
+
+  std::cout << "Running partial-Lt implementation for t in range " << tstart << " " <<  tend << std::endl;
+  for(int i=0;i<ntests;i++){
+    if(!UniqueID()){ printf("."); fflush(stdout); }
+    total_time_partial -= dclock();    
+    mult(pfield, Vgrid, mf_grid, Wgrid, false, true, tstart, tend);
+    total_time_partial += dclock();
+  }
+  if(!UniqueID()){ printf("\n"); fflush(stdout); }
+
+  int nf = GJP.Gparity() + 1;
+
+
+  ModeContractionIndices<typename offload::iLeftDilutionType, typename offload::iRightDilutionType> i_ind(Vgrid);
+  ModeContractionIndices<typename offload::jLeftDilutionType, typename offload::jRightDilutionType> j_ind(Vgrid);
+  size_t Flops = 0;
+  for(int t_glob=0;t_glob<GJP.TnodeSites()*GJP.Tnodes();t_glob++){
+    if(t_glob < tstart || t_glob > tend) continue;
+    
+    modeIndexSet ilp, irp, jlp, jrp;
+    ilp.time = jrp.time = t_glob;
+    irp.time = mf_grid.getRowTimeslice();
+    jlp.time = mf_grid.getColTimeslice();
+    
+    //ni is actually a function of scl, fl, but we can work out exactly which ir are used for any of the scl,fl
+    std::set<int> ir_used;
+    for(int fl=0;fl<nf;fl++){
+      ilp.flavor = irp.flavor = fl;
+      for(int scl=0;scl<12;scl++){
+	ilp.spin_color = irp.spin_color = scl;
+	auto const &ivec = i_ind.getIndexVector(ilp,irp);
+	for(int i=0;i<ivec.size();i++)
+	  ir_used.insert(ivec[i].second);
+      }
+    }
+    for(int fr=0;fr<nf;fr++){
+      jlp.flavor = jrp.flavor = fr;
+      for(int scr=0;scr<12;scr++){
+	jlp.spin_color = jrp.spin_color = scr;
+	size_t nj = j_ind.getIndexVector(jlp,jrp).size();
+	
+	Flops += ir_used.size() * nj * 8;
+      }
+    }
+
+    for(int fr=0;fr<nf;fr++){
+      for(int scr=0;scr<12;scr++){
+	
+	for(int fl=0;fl<nf;fl++){
+	  ilp.flavor = irp.flavor = fl;
+	  for(int scl=0;scl<12;scl++){
+	    ilp.spin_color = irp.spin_color = scl;
+	    size_t ni = i_ind.getIndexVector(ilp,irp).size();
+	    
+	    Flops += ni * 8;
+	  }
+	}
+      }
+    }
+  }
+  Flops *= GJP.TotalNodes()*GJP.VolNodeSites()/GJP.TnodeSites(); //the above is done for every 3d site
+
+  double tavg = total_time_partial/ntests;
+  double Mflops = double(Flops)/tavg/1e6;
+
+  if(!UniqueID()){
+    printf("vMv: Avg time offload %d iters: %g secs  perf %f Mflops\n",ntests,tavg,Mflops);
+    printf("vMv offload timings:\n");
+    mult_vMv_field_offload_timers::get().print();
+
+    if(compare_full){
+      double tavg_full = total_time_orig / ntests;
+      printf("vMv: Avg time full-Lt %d iters: %g secs,  ratio full/partial: %g\n",ntests,tavg_full, tavg_full/tavg);
+    }
+    
+  }
+}
+
+
+
+
 
 #endif //USE_GRID
 

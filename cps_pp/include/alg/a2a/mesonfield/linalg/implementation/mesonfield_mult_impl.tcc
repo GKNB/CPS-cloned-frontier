@@ -6,16 +6,10 @@
 //MULT_IMPL_BASIC        :not using any external libraries
 //MULT_IMPL_BLOCK_BASIC  :blocked matrix implementation without external libraries
 //MULT_IMPL_GSL          :blocked matrix implementation using GSL BLAS (and other BLAS can be slotted in by linking to the appropriate libraries)
-//MULT_IMPL_GRID         :using Grid library SIMD intrinsics with a hand-crafted wrapper
-//MULT_IMPL_ESSL:        :using BG/Q ESSL library
 //MULT_IMPL_GPUBLAS      :using CUDA CUBLASXT or HIP ROCBLAS library
 //MULT_IMPL_ONEMKL       :using Intel oneMKL
 
-#if defined(ARCH_BGQ) && defined(USE_ESSL_A2A)
-//Requires linking to essl_interface and fortran libraries
-#define MULT_IMPL_ESSL
-
-#elif defined(GRID_CUDA) || defined(GRID_HIP)
+#if defined(GRID_CUDA) || defined(GRID_HIP)
 //Use cuda/hip version
 #define MULT_IMPL_GPUBLAS
 
@@ -26,7 +20,8 @@
 #else
 //Default to GSL version
 #define MULT_IMPL_GSL
-
+//#define MULT_IMPL_BASIC
+//#define MULT_IMPL_BLOCK_BASIC
 #endif
 
 #if defined(MULT_IMPL_BASIC)
@@ -35,10 +30,6 @@
 #  include "mesonfield_mult_impl_block_basic.tcc"
 #elif defined(MULT_IMPL_GSL)
 #  include "mesonfield_mult_impl_gsl.tcc"
-#elif defined(MULT_IMPL_GRID)
-#  include "mesonfield_mult_impl_grid.tcc"
-#elif defined(MULT_IMPL_ESSL)
-#  include "mesonfield_mult_impl_essl.tcc"
 #elif defined(MULT_IMPL_GPUBLAS)
 #  include "mesonfield_mult_impl_gpublas.tcc"
 #elif defined(MULT_IMPL_ONEMKL)

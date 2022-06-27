@@ -25,12 +25,15 @@ A2Aparams::A2Aparams(const A2AArg &_args): args(_args){
   if(args.src_width <= 0) {
     ERR.General("A2Aparams","A2Aparams", "Invalid number for source width (value = %d).\n", args.src_width);
   }
-  if(GJP.Tnodes()*GJP.TnodeSites() % args.src_width != 0) {
-    ERR.General("A2Aparams","A2Aparams", "Full lattice t size(%d) is not a multiple of source width(%d).\n", GJP.Tnodes()*GJP.TnodeSites(), args.src_width);
-  }
   nspincolor = 12;
   nflavors = (GJP.Gparity() ? 2:1);
-  ntblocks = GJP.Tnodes()*GJP.TnodeSites()/ args.src_width;
+  Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+  if(Lt % args.src_width != 0) {
+    ERR.General("A2Aparams","A2Aparams", "Full lattice t size(%d) is not a multiple of source width(%d).\n", Lt, args.src_width);
+  }
+
+  ntblocks = Lt/ args.src_width;
 
   ndilute =  ntblocks * nspincolor* nflavors;      
   nhits = args.nhits;

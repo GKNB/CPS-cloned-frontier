@@ -91,6 +91,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(ResultsContainerType r
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
   const int tpi_sampled = Lt/tstep;
   const int ntsep_k_pi = tsep_k_pi.size();
+
+  int tsep_k_pi_largest = 0;
+  for(int sep: tsep_k_pi) tsep_k_pi_largest = std::max(tsep_k_pi_largest, sep);
   
   static const int n_contract = 10; //ten type3 diagrams
   static const int con_off = 13; //index of first contraction in set
@@ -192,8 +195,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(ResultsContainerType r
       //Construct part 1:
       // = vL(x_op) [[ wL^dag(x_pi1) S_2 vL(x_pi1) ]] [[ wL^dag(x_pi2) S_2 vL(x_pi2) ]] [[ wL^dag(x_K) wH(x_K) ]] vH^dag(x_op) \gamma^5
       Type3FieldTimings::timer().part1 -= dclock();	
-      mult(part1[0], vL, con_pi1_pi2_K, vH, false, true);
-      mult(part1[1], vL, con_pi2_pi1_K, vH, false, true);
+      mult(part1[0], vL, con_pi1_pi2_K, vH, false, true, t_K, t_pi1);
+      mult(part1[1], vL, con_pi2_pi1_K, vH, false, true, t_K, t_pi1);
       gr(part1[0], -5);
       gr(part1[1], -5);
       Type3FieldTimings::timer().part1 += dclock();	

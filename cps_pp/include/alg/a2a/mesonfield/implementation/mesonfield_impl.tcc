@@ -284,7 +284,7 @@ A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView::ReadView(const A2Ameso
   data = (ScalarComplexType *)device_alloc_check(bsize);
   copy_host_to_device(data, mf.ptr(), bsize);
 #else //GPU_VEC
-  data = mf.ptr();
+  data = (ScalarComplexType *)mf.ptr();
 #endif //GPU_VEC
 }
 
@@ -304,9 +304,9 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack(typename mf_Policies
 
 #pragma omp parallel for
   for(int i=0;i<getNrows();i++){
-    int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, getRowTimeslice(), lnl, lnf, lnsc, lnt);
+    int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, getRowParams().tblock(getRowTimeslice()), lnl, lnf, lnsc, lnt);
     for(int j=0;j<getNcols();j++){
-      int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, getColTimeslice(), rnl, rnf, rnsc, rnt);
+      int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, getColParams().tblock(getColTimeslice()), rnl, rnf, rnsc, rnt);
 
       into[jinto + ncolsfull*iinto] = (*this)(i,j);
     }
@@ -334,12 +334,13 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack_device(typename mf_P
   int ncolsfull = getNcolsFull();
   int nrows= getNrows(), ncols = getNcols();
   int tl = getRowTimeslice(), tr = getColTimeslice();
+  int tlblock = getRowParams().tblock(tl), trblock = getColParams().tblock(tr);
   
   {
     using namespace Grid;
     accelerator_for2d(j, ncols, i, nrows, 1, {
-	int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, tl, lnl, lnf, lnsc, lnt);
-	int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, tr, rnl, rnf, rnsc, rnt);
+	int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, tlblock, lnl, lnf, lnsc, lnt);
+	int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, trblock, rnl, rnf, rnsc, rnt);
 
 	into[jinto + ncolsfull*iinto] = v(i,j);
       });
@@ -362,10 +363,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack(typename mf_Policies::
 
 #pragma omp parallel for  
   for(int i=0;i<nrowsfull;i++){
-    auto iinto = mesonFieldConvertDilution<LeftDilutionType>::pack(i, getRowTimeslice(), lnl, lnf, lnsc, lnt);
+    auto iinto = mesonFieldConvertDilution<LeftDilutionType>::pack(i, getRowParams().tblock(getRowTimeslice()), lnl, lnf, lnsc, lnt);
     if(iinto.second){
       for(int j=0;j<getNcols();j++){
-	auto jinto = mesonFieldConvertDilution<RightDilutionType>::pack(j, getColTimeslice(), rnl, rnf, rnsc, rnt);
+	auto jinto = mesonFieldConvertDilution<RightDilutionType>::pack(j, getColParams().tblock(getColTimeslice()), rnl, rnf, rnsc, rnt);
 	if(jinto.second){
 	  (*this)(iinto.first,jinto.first) = from[j + ncolsfull*i];
 	}
@@ -385,6 +386,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack_device(typename mf_Pol
   int nrowsfull = getNrowsFull(), ncolsfull = getNcolsFull();
   int nrows= getNrows(), ncols = getNcols(); 
   int tl = getRowTimeslice(), tr = getColTimeslice();
+  int tlblock = getRowParams().tblock(tl), trblock = getColParams().tblock(tr);
   
   //Create a staging post on the device
   size_t stage_size = nrows*ncols*sizeof(ScalarComplexType);
@@ -393,8 +395,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack_device(typename mf_Pol
   {
     using namespace Grid;
     accelerator_for2d(j, ncolsfull, i, nrowsfull, 1, {
-	auto iinto = mesonFieldConvertDilution<LeftDilutionType>::pack(i, tl, lnl, lnf, lnsc, lnt);
-	auto jinto = mesonFieldConvertDilution<RightDilutionType>::pack(j, tr, rnl, rnf, rnsc, rnt);
+	auto iinto = mesonFieldConvertDilution<LeftDilutionType>::pack(i, tlblock, lnl, lnf, lnsc, lnt);
+	auto jinto = mesonFieldConvertDilution<RightDilutionType>::pack(j, trblock, rnl, rnf, rnsc, rnt);
 	if(iinto.second && jinto.second)
 	  stage[jinto.first + ncols*iinto.first] = from[j + ncolsfull * i];
       });

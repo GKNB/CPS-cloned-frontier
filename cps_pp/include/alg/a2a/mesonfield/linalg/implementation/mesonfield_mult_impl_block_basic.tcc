@@ -10,7 +10,7 @@ class _mult_impl{ //necessary to avoid an annoying ambigous overload when mesonf
 public:
   //Matrix product of meson field pairs
   //out(t1,t4) = l(t1,t2) * r(t3,t4)     (The stored timeslices are only used to unpack TimePackedIndex so it doesn't matter if t2 and t3 are thrown away; their indices are contracted over hence the times are not needed)
-  static void mult(A2AmesonField<mf_Policies,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
+  static void mult(A2AmesonField<mf_Policies,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r, const bool node_local){    
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     assert( (void*)&out != (void*)&l || (void*)&out != (void*)&r );
 
@@ -24,7 +24,10 @@ public:
       exit(-1);
     }
 
-    out.setup(l.getRowParams(),r.getColParams(), l.tl, r.tr ); //zeroes output, so safe to re-use
+    int l_tl = l.getRowTimeslice(), l_tr = l.getColTimeslice();
+    int r_tl = r.getRowTimeslice(), r_tr = r.getColTimeslice();
+
+    out.setup(l.getRowParams(),r.getColParams(), l_tl, r_tr ); //zeroes output, so safe to re-use
   
     int ni = l.getNrows();
     int nk = r.getNcols();
@@ -34,8 +37,8 @@ public:
 
     ModeContractionIndices<LeftDilutionType,RightDilutionType> j_ind2(l.getColParams()); //these maps could be cached somewhere
     
-    modeIndexSet lmodeparams; lmodeparams.time = l.tr;
-    modeIndexSet rmodeparams; rmodeparams.time = r.tl;
+    modeIndexSet lmodeparams; lmodeparams.time = l.getColParams().tblock(l_tr);
+    modeIndexSet rmodeparams; rmodeparams.time = r.getRowParams().tblock(r_tl);
     
     int nj = j_ind2.getNindices(lmodeparams,rmodeparams);
 

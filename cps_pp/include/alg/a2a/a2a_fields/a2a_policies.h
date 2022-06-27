@@ -15,6 +15,11 @@ CPS_START_NAMESPACE
 #define SET_MFSTORAGE_DISTRIBUTED typedef DistributedMemoryStorage MesonFieldDistributedStorageType
 //   meson fields are distributed over the ranks of the system and one-sided comms is used to retrieve them
 #define SET_MFSTORAGE_DISTRIBUTEDONESIDED typedef DistributedMemoryStorageOneSided MesonFieldDistributedStorageType
+//   meson fields are stored with a copy in memory on every node
+#define SET_MFSTORAGE_INMEM typedef InMemMemoryStorage MesonFieldDistributedStorageType
+//   meson fields are stored with a file-backed mmap region
+#define SET_MFSTORAGE_MMAP typedef MmapMemoryStorage MesonFieldDistributedStorageType
+
 
 //   Default to distributed storage
 #define SET_MFSTORAGE_DEFAULT SET_MFSTORAGE_DISTRIBUTED

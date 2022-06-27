@@ -19,7 +19,8 @@ typename mf_Policies::ScalarComplexType trace_cpu(const A2AmesonField<mf_Policie
   ModeContractionIndices<DilType0,DilType3> i_ind(l.getRowParams());
   ModeContractionIndices<DilType1,DilType2> j_ind(r.getRowParams());
 
-  const int times[4] = { l.getRowTimeslice(), l.getColTimeslice(), r.getRowTimeslice(), r.getColTimeslice() };
+  const int times[4] = { l.getRowParams().tblock(l.getRowTimeslice()), l.getColParams().tblock(l.getColTimeslice()), 
+			 r.getRowParams().tblock(r.getRowTimeslice()), r.getColParams().tblock(r.getColTimeslice()) };
 
   //W * W is only non-zero when the timeslice upon which we evaluate them are equal
   modeIndexSet lip; lip.time = times[0];
@@ -120,7 +121,8 @@ typename mf_Policies::ScalarComplexType trace_gpu(const A2AmesonField<mf_Policie
   ModeContractionIndices<DilType0,DilType3> i_ind(l.getRowParams());
   ModeContractionIndices<DilType1,DilType2> j_ind(r.getRowParams());
 
-  const int times[4] = { l.getRowTimeslice(), l.getColTimeslice(), r.getRowTimeslice(), r.getColTimeslice() };
+  const int times[4] = { l.getRowParams().tblock(l.getRowTimeslice()), l.getColParams().tblock(l.getColTimeslice()),
+			 r.getRowParams().tblock(r.getRowTimeslice()), r.getColParams().tblock(r.getColTimeslice()) };
 
   //W * W is only non-zero when the timeslice upon which we evaluate them are equal
   modeIndexSet lip; lip.time = times[0];
@@ -336,7 +338,7 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,A2
 
   ModeContractionIndices<DilType0,DilType1> i_ind(m.getRowParams());
 
-  const int times[2] = { m.getRowTimeslice(), m.getColTimeslice() };
+  const int times[2] = { m.getRowParams().tblock(m.getRowTimeslice()), m.getColParams().tblock(m.getColTimeslice()) };
 
   const int n_threads = omp_get_max_threads();
   std::vector<ScalarComplexType, BasicAlignedAllocator<ScalarComplexType> > ret_vec(n_threads,(0.,0.));

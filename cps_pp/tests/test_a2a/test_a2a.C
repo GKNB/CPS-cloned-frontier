@@ -83,7 +83,7 @@ void setupDoArg(DoArg &do_arg, int size[5], int ngp, bool verbose = true){
   }
 }
 
-void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_arg, LancArg &lanc_arg, int ntests, int nthreads, double tol){
+void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_arg, LancArg &lanc_arg, DoArg &do_arg, int ntests, int nthreads, double tol){
   //Setup types
   typedef A2ApoliciesSIMDdoubleAutoAllocGparity A2Apolicies_grid;
   typedef A2ApoliciesDoubleAutoAllocGparity A2Apolicies_std; 
@@ -164,7 +164,13 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testAutoView();
   if(0) testViewArray();
   if(0) testCPSfieldArray<A2Apolicies_grid>();
-  
+
+  if(0) testMemoryStorageBase();
+  if(0) testBurstBufferMemoryStorage();
+  if(0) testDistributedStorage();
+  if(0) testDistributedStorageOneSided();
+  if(1) testMmapMemoryStorage();
+
   if(0) testA2AfieldAccess<A2Apolicies_grid>();
   if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
   if(0) testMultiSourceDeviceCopy<A2Apolicies_grid>();
@@ -186,6 +192,12 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 #ifdef USE_GRID
   if(1) testMFmult<A2Apolicies_grid>(a2a_arg,tol);
 #endif
+
+  if(0) testMFmultTblock<A2Apolicies_std>(a2a_arg,tol);
+#ifdef USE_GRID
+  if(0) testMFmultTblock<A2Apolicies_grid>(a2a_arg,tol);
+#endif
+
   
   if(0) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
 
@@ -236,6 +248,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
  
 #ifdef USE_GRID
   if(0) testConvertComplexD();
+
+  if(0) testBasicComplexArray<A2Apolicies_grid>();
   
   //Test the openmp Grid vs non-Grid implementation
   if(0) testKtoPiPiType1GridOmpStd<A2Apolicies_std, A2Apolicies_grid>(a2a_arg,
@@ -244,7 +258,12 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								      tol);
   
   if(0) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
+  if(0) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
+    
   if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(0) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
 
   if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
@@ -285,7 +304,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testDestructiveFFT<A2ApoliciesSIMDdoubleManualAllocGparity>(a2a_arg, lattice);
   if(0) testMesonFieldReadWrite<A2Apolicies_std>(a2a_arg);
   if(0) testMesonFieldTraceSingle<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testMesonFieldTraceSingleTblock<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testMesonFieldTraceProduct<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testMesonFieldTraceProductTblock<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testMesonFieldTraceProductAllTimes<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testCPSfieldImpex();
   if(0) testGridFieldImpex<A2Apolicies_grid>(lattice);
@@ -294,6 +315,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testLanczosIO<A2Apolicies_grid>(lattice);
   if(0) testSCFmat();
   if(0) testMesonFieldUnpackPack<A2Apolicies_grid>(a2a_arg,tol);
+  if(0) testMesonFieldUnpackPackTblock<A2Apolicies_grid>(a2a_arg,tol);
   
 #ifdef USE_GRID
   if(0) testGaugeFixOrigNew<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
@@ -301,6 +323,11 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(0) testMesonFieldNodeDistributeUnique(a2a_arg);
   if(0) testMesonFieldNodeDistributeOneSided(a2a_arg);
+
+  if(0) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
+
+  if(0) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);
+
 }
 
 
@@ -594,7 +621,7 @@ int main(int argc,char *argv[])
     }
   }
 
-  if(ngp > 0) testGparity(common_arg, a2a_arg, fix_gauge_arg, lanc_arg, ntests, nthreads, tol);
+  if(ngp > 0) testGparity(common_arg, a2a_arg, fix_gauge_arg, lanc_arg, do_arg, ntests, nthreads, tol);
   else testPeriodic(common_arg, a2a_arg, fix_gauge_arg, lanc_arg, ntests, nthreads, tol);
 
   std::cout << "Done" << std::endl;

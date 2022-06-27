@@ -5,6 +5,7 @@
 #include <alg/a2a/utils/utils_generic.h>
 #include <alg/a2a/utils/utils_malloc.h>
 #include <alg/a2a/utils/template_wizardry.h>
+#include <alg/a2a/utils/utils_gpu.h>
 
 CPS_START_NAMESPACE
 
@@ -25,25 +26,32 @@ inline void checkPolicyName(std::istream &file, const std::string &policy, const
 
 //AllocPolicy controls mem alloc
 class StandardAllocPolicy{
- protected:
+protected:
   inline static void _alloc(void** p, const size_t byte_size){
     *p = smalloc("CPSfield", "CPSfield", "alloc" , byte_size);
   }
   inline static void _free(void* p){
     sfree("CPSfield","CPSfield","free",p);
   }
+
   inline void writeParams(std::ostream &file) const{
     writePolicyName(file, "ALLOCPOLICY", "StandardAllocPolicy");
   }
   inline void readParams(std::istream &file){
     checkPolicyName(file, "ALLOCPOLICY", "StandardAllocPolicy");
   }
+public:
   enum { UVMenabled = 0 }; //doesnt' support UVM
 };
 class Aligned128AllocPolicy{
- protected:
-  inline static void _alloc(void** p, const size_t byte_size){
+  void* _ptr;
+  size_t _byte_size;
+
+protected:
+  inline void _alloc(void** p, const size_t byte_size){
     *p = managed_alloc_check(128,byte_size); //note CUDA ignores alignment
+    _ptr = *p;
+    _byte_size = byte_size;
   }
   inline static void _free(void* p){
     managed_free(p);
@@ -54,34 +62,52 @@ class Aligned128AllocPolicy{
   inline void readParams(std::istream &file){
     checkPolicyName(file, "ALLOCPOLICY", "Aligned128AllocPolicy");
   }
+  
+public: 
+  inline void deviceSetAdviseUVMreadOnly(const bool to) const{
+    if(to) device_UVM_advise_readonly(_ptr, _byte_size);
+    else device_UVM_advise_unset_readonly(_ptr, _byte_size);
+  }
+  
   enum { UVMenabled = 1 }; //supports UVM
 };
 class NullAllocPolicy{
- protected:
+protected:
   inline static void _alloc(void** p, const size_t byte_size){
     *p = NULL;
   }
   inline static void _free(void* p){
   }
+
   inline void writeParams(std::ostream &file) const{
     writePolicyName(file, "ALLOCPOLICY", "NullAllocPolicy");
   }
   inline void readParams(std::istream &file){
     checkPolicyName(file, "ALLOCPOLICY", "NullAllocPolicy");
   }
+
+public:
   enum { UVMenabled = 0 }; //no data so copy is free
 };
 class ManualAllocPolicy{
   void** ptr;
   std::size_t bs;
- protected:
+protected:
   inline void _alloc(void** p, const size_t byte_size){
     ptr = p; bs = byte_size; *p = NULL;
   }
   inline static void _free(void* p){
     if(p!=NULL) sfree("CPSfield","CPSfield","free",p);
   }
- public:
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "ManualAllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "ManualAllocPolicy");
+  }
+
+public:
   inline void allocField(){
     if(*ptr == NULL)
       *ptr = smalloc("CPSfield", "CPSfield", "alloc" , bs);
@@ -92,25 +118,19 @@ class ManualAllocPolicy{
       *ptr = NULL;
     }
   }
-  inline void writeParams(std::ostream &file) const{
-    writePolicyName(file, "ALLOCPOLICY", "ManualAllocPolicy");
-  }
-  inline void readParams(std::istream &file){
-    checkPolicyName(file, "ALLOCPOLICY", "ManualAllocPolicy");
-  }
   enum { UVMenabled = 0 }; //doesnt' support UVM
 };
 class ManualAligned128AllocPolicy{
   void** ptr;
   std::size_t bs;
- protected:
+protected:
   inline void _alloc(void** p, const size_t byte_size){
     ptr = p; bs = byte_size; *p = NULL;
   }
   inline static void _free(void* p){
-    if(p!=NULL) free(p);
+    if(p!=NULL) managed_free(p);
   }
- public:
+public:
   inline void allocField(){
     if(*ptr == NULL)
       *ptr = managed_alloc_check(128,bs);    
@@ -807,6 +827,12 @@ public:
 
   accelerator_inline size_t fsiteFlavorOffset() const{ return logical_vol; }
   accelerator_inline size_t dimpol_site_stride_3d() const{ return 1; }
+
+  //Stride between consecutive timeslices
+  accelerator_inline size_t dimpol_time_stride() const{ return logical_dim[0]*logical_dim[1]*logical_dim[2]; }
+
+  //Return true if the data for a single flavor for a given timeslice is contiguous
+  accelerator_inline static bool dimpol_flavor_timeslice_contiguous(){ return true; }
   
   accelerator_inline size_t siteFsiteConvert(const size_t site, const int f) const{ 
     return site + logical_vol * f;
