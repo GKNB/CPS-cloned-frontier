@@ -169,7 +169,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testBurstBufferMemoryStorage();
   if(0) testDistributedStorage();
   if(0) testDistributedStorageOneSided();
-  if(1) testMmapMemoryStorage();
+  if(0) testMmapMemoryStorage();
 
   if(0) testA2AfieldAccess<A2Apolicies_grid>();
   if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
@@ -328,6 +328,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(0) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);
 
+  if(1) testA2AvectorWnorm<A2Apolicies_grid>(a2a_arg);
 }
 
 

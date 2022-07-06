@@ -360,13 +360,159 @@ void testA2AvectorTimesliceExtraction(const A2AArg &a2a_args){
     std::cout << "Passed Wfftw timeslice extraction test" << std::endl;
   }
 
-
-  
-
-  
+   
 }
     
 
+template<typename A2Apolicies>
+void testA2AvectorWnorm(const A2AArg &a2a_args){
+  assert(GJP.Gparity());
+
+  typedef typename A2AvectorW<A2Apolicies>::FieldInputParamType FieldParams;  
+  setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
+
+  A2AvectorW<A2Apolicies> W(a2a_args, p.params);
+  W.setWhRandom();
+  
+  StandardIndexDilution stdidx(a2a_args);
+
+  CPSfermion4D<typename A2Apolicies::ComplexTypeD,typename A2Apolicies::FermionFieldType::FieldMappingPolicy, 
+    typename A2Apolicies::FermionFieldType::FieldAllocPolicy> tmp1(p.params);
+
+  int Nh = stdidx.getNh();
+  std::vector< CPSfermion4D<cps::ComplexD,FourDpolicy<DynamicFlavorPolicy>, StandardAllocPolicy> > eta(Nh);
+
+  for(int i=0;i<stdidx.getNh();i++){
+    W.getDilutedSource(tmp1, i);
+    tmp1.exportField(eta[i]);
+  }
+
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+  assert(GJP.Tnodes() == 1); //lazy
+
+  size_t x3d = 0;
+
+  //Check that W is correctly normalized such that \sum_i \eta_i(x0,t1) \eta^\dag_i(x0,t2)  produces a unit matrix in spin-color,flavor and time for some arbitrary x0
+  bool fail = false;
+  for(int sc1=0;sc1<12;sc1++){
+    for(int f1=0;f1<2;f1++){
+      for(int t1=0;t1<Lt;t1++){
+	  
+	size_t x4d1 = eta[0].threeToFour(x3d, t1);
+	  
+	for(int sc2=0;sc2<12;sc2++){
+	  for(int f2=0;f2<2;f2++){
+	    for(int t2=0;t2<Lt;t2++){
+
+	      size_t x4d2 = eta[0].threeToFour(x3d, t2);
+
+	      cps::ComplexD sum = 0;
+	      bool expect_zero = sc1 != sc2 || f1 != f2 || t1 != t2;
+	      cps::ComplexD expect = expect_zero ? 0. : 1.;
+
+	      for(int i=0;i<Nh;i++){		  
+		cps::ComplexD v1 = *( eta[i].site_ptr(x4d1, f1) + sc1);
+		cps::ComplexD v2 = *( eta[i].site_ptr(x4d2, f2) + sc2);
+		sum += std::conj(v1)*v2;
+	      }  
+	      
+	      cps::ComplexD diff = sum - expect;
+
+	      bool tfail = fabs(diff.real()) > 1e-08 || fabs(diff.imag()) > 1e-08;
+
+	      std::cout << sc1 << " " << f1 << " " << t1 << " " << sc2 << " " << f2 << " " << t2 << " " << " got " << sum  << " expect " << expect << " diff " << diff << " " << (tfail ? "FAIL" : "pass") << std::endl;
+
+	      if(tfail) fail=true;
+
+	    }
+	  }
+	}
+      }
+    }
+  }
+  if(fail) std::cout << "W norm test FAILED" << std::endl;
+  else std::cout << "W norm test passed" << std::endl;
+
+  //For same site should get exactly a unit matrix structure in flavor
+  {
+    cps::ComplexD fstruct[2][2];
+    
+    int t=0;
+    int sc=0;
+
+    size_t x4d1 = eta[0].threeToFour(x3d, t);
+    size_t x4d2 = eta[0].threeToFour(x3d, t);
+  
+    for(int f1=0;f1<2;f1++){
+      for(int f2=0;f2<2;f2++){
+
+	cps::ComplexD sum = 0;
+	for(int i=0;i<Nh;i++){		  
+	  cps::ComplexD v1 = *( eta[i].site_ptr(x4d1, f1) + sc);
+	  cps::ComplexD v2 = *( eta[i].site_ptr(x4d2, f2) + sc);
+	  sum += std::conj(v1)*v2;
+	}  
+	fstruct[f1][f2] = sum;
+      }
+    }
+
+    std::cout << "For x1 == x2, flavor structure:" << std::endl;
+    for(int f1=0;f1<2;f1++){
+      for(int f2=0;f2<2;f2++){
+	std::cout << fstruct[f1][f2] << " ";
+      }
+      std::cout << std::endl;
+    }
+    if( fabs(fstruct[0][1].real())>1e-8 || fabs(fstruct[0][1].imag())>1e-8 ){ std::cout << "Expect elem 0,1 to be 0!" << std::endl; fail=true; }
+    if( fabs(fstruct[1][0].real())>1e-8 || fabs(fstruct[1][0].imag())>1e-8 ){ std::cout << "Expect elem 1,0 to be 0!" << std::endl; fail=true; }
+    if( fabs(fstruct[0][0].real()-1.0)>1e-8 || fabs(fstruct[0][0].imag())>1e-8 ){ std::cout << "Expect elem 0,0 to be 1!" << std::endl; fail=true; }
+    if( fabs(fstruct[1][1].real()-1.0)>1e-8 || fabs(fstruct[1][1].imag())>1e-8 ){ std::cout << "Expect elem 1,1 to be 1!" << std::endl; fail=true; }
+  }  
+  if(fail) std::cout << "W flavor struct test same site FAILED" << std::endl;
+  else std::cout << "W flavor struct test same site passed" << std::endl;
+
+
+  //For some other site on the same timeslice we should get a random phase
+  {
+    cps::ComplexD fstruct[2][2];
+    
+    size_t x3d2 = 1;
+    int t=0;
+    int sc=0;
+
+    size_t x4d1 = eta[0].threeToFour(x3d, t);
+    size_t x4d2 = eta[0].threeToFour(x3d2, t);
+  
+    for(int f1=0;f1<2;f1++){
+      for(int f2=0;f2<2;f2++){
+
+	cps::ComplexD sum = 0;
+	for(int i=0;i<Nh;i++){		  
+	  cps::ComplexD v1 = *( eta[i].site_ptr(x4d1, f1) + sc);
+	  cps::ComplexD v2 = *( eta[i].site_ptr(x4d2, f2) + sc);
+	  sum += std::conj(v1)*v2;
+	}  
+	fstruct[f1][f2] = sum;
+      }
+    }
+
+    std::cout << "For x1 != x2, flavor structure:" << std::endl;
+    for(int f1=0;f1<2;f1++){
+      for(int f2=0;f2<2;f2++){
+	std::cout << fstruct[f1][f2] << " ";
+      }
+      std::cout << std::endl;
+    }
+    if( fabs(fstruct[0][1].real())>1e-8 || fabs(fstruct[0][1].imag())>1e-8 ){ std::cout << "Expect elem 0,1 to be 0!" << std::endl; fail=true; }
+    if( fabs(fstruct[1][0].real())>1e-8 || fabs(fstruct[1][0].imag())>1e-8 ){ std::cout << "Expect elem 1,0 to be 0!" << std::endl; fail=true; }
+    if( fabs(std::norm(fstruct[0][0]) - 1.0) > 1e-8 ){ std::cout << "Expect elem 0,0 to be U(1)!" << std::endl; fail=true; }
+    if( fabs(std::norm(fstruct[1][1]) - 1.0) > 1e-8 ){ std::cout << "Expect elem 1,1 to be U(1)!" << std::endl; fail=true; }
+  }  
+  if(fail) std::cout << "W flavor struct test diff site FAILED" << std::endl;
+  else std::cout << "W flavor struct test diff site passed" << std::endl;
+
+}
     
 
 
