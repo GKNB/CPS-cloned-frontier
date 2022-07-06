@@ -53,7 +53,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
       }
     }
   }
-  sync();
+  cps::sync();
   print_time("A2AmesonField","local compute",time + dclock());
   time = -dclock();
 
@@ -98,7 +98,7 @@ void compute_simple(fMatrix<ComplexType> &into, const std::vector<FermionFieldTy
       }
     }
   }
-  sync();
+  cps::sync();
   into.nodeSum();
 }
 
@@ -152,7 +152,7 @@ void compute_simple(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const 
       }
     }
   }
-  sync();
+  cps::sync();
   into.nodeSum();
 }
 
@@ -697,7 +697,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
     print_time("A2AmesonField","local compute",time + dclock());
 
     time = -dclock();
-    sync();
+    cps::sync();
     print_time("A2AmesonField","sync",time + dclock());
 
     //Accumulate

@@ -126,7 +126,7 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
 }
 
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
-void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nthreads){
+void benchmarkMFcontract(const A2Aparams &a2a_params, const int ntests, const int nthreads){
 #ifdef USE_GRID
   typedef typename GridA2Apolicies::SourcePolicies GridSrcPolicy;
   typedef typename ScalarA2Apolicies::ScalarComplexType Ctype;
@@ -137,11 +137,11 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
   FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
 
-  A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
-  A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
+  A2AvectorWfftw<ScalarA2Apolicies> W(a2a_params);
+  A2AvectorVfftw<ScalarA2Apolicies> V(a2a_params);
   
-  A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
-  A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
+  A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_params, simd_dims);
+  A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_params, simd_dims);
   A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
 
   ThreeDSIMDPolicy<OneFlavorPolicy>::ParamType simd_dims_3d;

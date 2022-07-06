@@ -37,6 +37,8 @@ struct Options{
   int vMv_partial_timestart;
   int vMv_partial_timeend;
   bool vMv_partial_compare_full;
+
+  int override_a2a_ntblocks; //override the value of ntblocks in the A2A vectors / matrices so as to simulate running with a larger temporal extent
   
   Options(){
     load_lrg=false;
@@ -57,6 +59,8 @@ struct Options{
     vMv_partial_compare_full = false;
     vMv_partial_timestart = 0;
     vMv_partial_timeend = GJP.Tnodes()*GJP.TnodeSites()-1;
+
+    override_a2a_ntblocks = -1;
   }
 
 
@@ -75,6 +79,9 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   int nthreads = opt.nthreads;
   double tol = opt.tol;
 
+  A2Aparams a2a_params(a2a_args);
+  if(opt.override_a2a_ntblocks != -1)  ((A2AparamsOverride&)a2a_params).setNtBlocks(opt.override_a2a_ntblocks);					 
+  
 		   
 #if !defined(USE_GRID) || defined(ARCH_BGQ) 
   GnoneFnone lattice;
@@ -124,7 +131,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
     if(UniqueID()==0) printf("Config written.\n");
   }
 
-  if(1) benchmarkMmapMemoryStorage(ntests, opt.nlowmodes);
+  if(0) benchmarkMmapMemoryStorage(ntests, opt.nlowmodes);
   
   if(0) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
 
@@ -139,7 +146,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkmultGammaLeft(ntests, tol);
  
 #ifdef USE_GRID
-  if(0) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_params, ntests, nthreads);
   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkMultiShiftMFcontract<GridA2ApoliciesType>(a2a_args, opt.nshift);
 
@@ -310,6 +317,11 @@ int main(int argc,char *argv[])
       opt.vMv_partial_compare_full = true;
       std::cout << "Enabled vMv partial comparison to full, original version" << std::endl;
       i++;
+    }else if( cmd == "-override_a2a_ntblocks" ){
+      std::stringstream ss; ss << argv[i+1];
+      ss >> opt.override_a2a_ntblocks;
+      if(!UniqueID()) printf("Set #tblocks to %d\n",opt.override_a2a_ntblocks);
+      i+=2;            
     }else{
       i++;
     }

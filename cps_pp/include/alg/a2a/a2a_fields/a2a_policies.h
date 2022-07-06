@@ -21,9 +21,10 @@ CPS_START_NAMESPACE
 #define SET_MFSTORAGE_MMAP typedef MmapMemoryStorage MesonFieldDistributedStorageType
 
 
-//   Default to distributed storage
+//   Default to distributed storage (overrideable with compile option)
+#ifndef SET_MFSTORAGE_DEFAULT
 #define SET_MFSTORAGE_DEFAULT SET_MFSTORAGE_DISTRIBUTED
-
+#endif
 
 //Type policies needed for sources
 

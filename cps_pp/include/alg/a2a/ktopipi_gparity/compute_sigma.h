@@ -33,13 +33,20 @@ struct ComputeSigmaContractions{
     int work = Lt; //consider a better parallelization
     int node_work, node_off; bool do_work;
     getNodeWork(work,node_work,node_off,do_work);
-    
+
+    double t_trace = -dclock();
     if(do_work){
       for(int t=node_off; t<node_off + node_work; t++){
 	into(t) = trace(mf[t]);
       }
     }
+    t_trace += dclock();
+    print_time("ComputeSigmaContractions::computeDisconnectedBubble", "trace", t_trace);
+    
+    double t_reduce = -dclock();
     into.nodeSum();
+    t_reduce += dclock();
+    print_time("ComputeSigmaContractions::computeDisconnectedBubble", "reduction", t_reduce);
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeDistributeMany(1,&mf);
@@ -51,6 +58,7 @@ struct ComputeSigmaContractions{
 					 const fVector<typename mf_Policies::ScalarComplexType> &sigma_bubble_src,
 					 const fVector<typename mf_Policies::ScalarComplexType> &sigma_bubble_snk){
     //0.5 * tr( G(x1,tsnk; x2, tsnk) ) * tr( G(y1, tsrc; y2, tsrc) )
+    double time = -dclock();
     typedef typename mf_Policies::ScalarComplexType Complex;
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     into.resize(Lt,Lt);
@@ -60,6 +68,8 @@ struct ComputeSigmaContractions{
 	into(tsrc, tsep) = Complex(0.5) * sigma_bubble_snk(tsnk) * sigma_bubble_src(tsrc); 
       }
     }
+    time += dclock();
+    print_time("ComputeSigmaContractions::computeDisconnectedDiagram", "total", time);
   }
 
   //The second term we compute in full
@@ -82,13 +92,16 @@ struct ComputeSigmaContractions{
 #endif
 
     if(!UniqueID()){ printf("Starting trace\n");  fflush(stdout); }
+    double time = -dclock();
     trace(into,mf_snk,mf_src);
     into *= typename mf_Policies::ScalarComplexType(-0.5,0);
     rearrangeTsrcTsep(into); //rearrange temporal ordering
     
     cps::sync();
     if(!UniqueID()){ printf("Finished trace\n");  fflush(stdout); }
-
+    time += dclock();
+    print_time("ComputeSigmaContractions::computeConnected", "trace", time);
+    
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeDistributeMany(2,&mf_src,&mf_snk);
 #endif

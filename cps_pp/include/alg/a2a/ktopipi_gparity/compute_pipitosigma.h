@@ -76,6 +76,8 @@ struct ComputePiPiToSigmaContractions{
     //We can relate the two terms by g5-hermiticity and invoking parity and the reality of the correlation function under the ensemble average
 #define PIPI_SIGMA_USE_G5_HERM
 
+    double t_mult = 0;
+    double t_trace = 0;
     if(do_work){
       for(int tt=node_off; tt<node_off + node_work; tt++){
 	int tsnk = tt % Lt; //sink time
@@ -85,30 +87,46 @@ struct ComputePiPiToSigmaContractions{
 	
 #ifdef PIPI_SIGMA_USE_G5_HERM
 	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> pi_prod;
+	t_mult -= dclock();
 	mult(pi_prod, mf_pi1[tsrc], mf_pi2[tsrc2],NODE_LOCAL);
+	t_mult += dclock();
 	
 	ScalarComplexType incr(0,0);
+	t_trace -= dclock();
 	incr += trace(pi_prod, mf_sigma[tsnk]);
-
+	t_trace += dclock();
+	
 	into(tsrc,tdis) +=  -sqrt(6.)/2. * incr; 	
 #else
 	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> pi_prod_1, pi_prod_2;
+	t_mult -= dclock();
 	mult(pi_prod_1, mf_pi2[tsrc2], mf_pi1[tsrc],NODE_LOCAL);
 	mult(pi_prod_2, mf_pi1[tsrc], mf_pi2[tsrc2],NODE_LOCAL);
-
+	t_mult += dclock();
+	
 	ScalarComplexType incr(0,0);
+	t_trace -= dclock();
 	incr += trace(pi_prod_1, mf_sigma[tsnk]);
 	incr += trace(pi_prod_2, mf_sigma[tsnk]);
-
+	t_trace += dclock();
+	
 	into(tsrc,tdis) +=  -sqrt(6.)/4. * incr; //extra 1/2 from average of 2 topologies
 #endif
       }
     }
+    double t_reduce = -dclock();
     into.nodeSum();
+    t_reduce += dclock();
 
+    print_time("ComputePiPiToSigmaContractions::computeConnected", "trace", t_trace);
+    print_time("ComputePiPiToSigmaContractions::computeConnected", "mult", t_mult);
+    print_time("ComputePiPiToSigmaContractions::computeConnected", "reduce", t_reduce);
+        
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeDistributeMany(3,&mf_sigma,&mf_pi1,&mf_pi2);
 #endif
+
+    
   }
     
   //We provide the momentum index of the second (inner) sink pion
@@ -192,7 +210,9 @@ struct ComputePiPiToSigmaContractions{
     //We have pipi_bubble(t, p) = 0.5 * tr( M_pi1(p, t) M_pi2(-p, t-delta) )  which is created by ComputePiPiGparity::computeFigureVdis
     //Thus we compute
     //-sqrt(6)/2 \tr( M_sigma(tsnk,tsnk) ) B(tsrc)
-        
+
+    double time = -dclock();
+    
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
     assert(sigma_bubble.size() == Lt);
@@ -210,6 +230,9 @@ struct ComputePiPiToSigmaContractions{
   	into(tsrc, tsep) = coeff * sigma_bubble(tsnk) * pipi_bubble(tsrc);
       }
     }
+    time += dclock();
+    
+    print_time("ComputePiPiToSigmaContractions::computeDisconnectedDiagram", "total", time);
   }
 };
 
