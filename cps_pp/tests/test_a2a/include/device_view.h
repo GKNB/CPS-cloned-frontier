@@ -184,10 +184,11 @@ void testA2AfieldAccess(){
   using Grid::theGridAccelerator;
 #endif
 #if defined(GRID_HIP) || defined(GRID_CUDA)
-  using Grid::LambdaApply64;
   using Grid::LambdaApply;
-#endif  
-
+  #if defined(GRID_HIP)
+  using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
+  #endif
+#endif
 
   std::cout << "Generating views" << std::endl;
   CPSautoView(vv, v);
@@ -282,11 +283,12 @@ void testViewArray(){
   using Grid::theGridAccelerator;
 #endif
 #if defined(GRID_HIP) || defined(GRID_CUDA)
-  using Grid::LambdaApply64;
   using Grid::LambdaApply;
-#endif  
-
-  
+  #if defined(GRID_HIP)
+  using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
+  #endif
+#endif
+ 
   accelerator_for(x, 100, 1,
 		  {
 		    if(x==0 || x==1){
@@ -356,10 +358,12 @@ void testCPSfieldDeviceCopy(){
   using Grid::theGridAccelerator;
 #endif
 #if defined(GRID_HIP) || defined(GRID_CUDA)
-  using Grid::LambdaApply64;
   using Grid::LambdaApply;
-#endif  
-
+  #if defined(GRID_HIP)
+  using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
+  #endif
+#endif
+ 
   auto field_v = field.view();
   
   accelerator_for(x, 1, nsimd,
@@ -435,11 +439,12 @@ void testMultiSourceDeviceCopy(){
   using Grid::theGridAccelerator;
 #endif
 #if defined(GRID_HIP) || defined(GRID_CUDA)
-  using Grid::LambdaApply64;
   using Grid::LambdaApply;
+  #if defined(GRID_HIP)
+  using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
+  #endif
 #endif
-
-
+ 
   ComplexType* into = (ComplexType*)managed_alloc_check(sizeof(ComplexType));
   typedef SIMT<ComplexType> ACC;
  
