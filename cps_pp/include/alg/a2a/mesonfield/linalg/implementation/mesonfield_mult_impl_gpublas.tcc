@@ -76,9 +76,9 @@ public:
     typedef typename A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR>::LeftDilutionType RightDilutionType;
 
     ModeContractionIndices<LeftDilutionType,RightDilutionType> j_ind2(l.getColParams()); //these maps could be cached somewhere
-    
-    modeIndexSet lmodeparams; lmodeparams.time = l.getColTimeslice();
-    modeIndexSet rmodeparams; rmodeparams.time = r.getRowTimeslice();
+   
+    modeIndexSet lmodeparams; lmodeparams.time = l.getColParams().tblock(l.getColTimeslice());
+    modeIndexSet rmodeparams; rmodeparams.time = r.getRowParams().tblock(r.getRowTimeslice());
     
     const int nj = j_ind2.getNindices(lmodeparams,rmodeparams);
 

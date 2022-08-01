@@ -56,7 +56,7 @@ CPS_START_NAMESPACE
 //query the max bytes allocatable as block shared memory for a given device. If the device index is -1 it will be inferred from the current device
 //Returns 0 if not using a CUDA/HIP GPU
 inline int maxDeviceShmemPerBlock(int device = -1){
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
   if(device == -1) cudaGetDevice(&device);
   int smemSize;
   cudaDeviceGetAttribute(&smemSize, cudaDevAttrMaxSharedMemoryPerBlock, device);
@@ -104,8 +104,10 @@ inline void device_memset(void *ptr, int value, size_t count){
 
 //Advise the UVM driver that the memory region will be accessed in read-only fashion
 inline void device_UVM_advise_readonly(const void* ptr, size_t count){
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
   assert( cudaMemAdvise(ptr, count, cudaMemAdviseSetReadMostly, 0) == cudaSuccess );
+#elif defined(GRID_HIP)
+  assert( hipMemAdvise(ptr, count, hipMemAdviseSetReadMostly, 0) == hipSuccess );
 #else
   assert(0);
 #endif
@@ -113,8 +115,10 @@ inline void device_UVM_advise_readonly(const void* ptr, size_t count){
 
 //Unset advice to the UVM driver that the memory region will be accessed in read-only fashion
 inline void device_UVM_advise_unset_readonly(const void* ptr, size_t count){
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
   assert( cudaMemAdvise(ptr, count, cudaMemAdviseUnsetReadMostly, 0) == cudaSuccess );
+#elif defined(GRID_HIP)  
+  assert( hipMemAdvise(ptr, count, hipMemAdviseUnsetReadMostly, 0) == hipSuccess );
 #else
   assert(0);
 #endif

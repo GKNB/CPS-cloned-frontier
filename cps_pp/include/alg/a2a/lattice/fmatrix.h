@@ -410,7 +410,8 @@ public:
     con.resize(1);
   }
   void nodeSum(){
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA) || defined(GRID_HIP)
+    //FIXME: Need to check if AMD GPU works for UVM	  
     //Perlmutter MPI calls on UVM are currently broken
     //To workaround we copy to a temp buffer
     size_t bsize = thread_size * sizeof(mf_Complex);

@@ -338,7 +338,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     typedef SIMT<VectorComplexType> ACC;
     typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
     using namespace Grid;
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA) || defined(GRID_HIP)
     uint32_t orig_t = Grid::acceleratorThreads();
     Grid::acceleratorThreads(16);
     //std::cout << "Changed number of GPU threads from " << orig_t << " to " << Grid::acceleratorThreads() << std::endl;
@@ -371,7 +371,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			  ACC::write(*into, sum);				      
 			});
     
-#ifdef GRID_CUDA    
+#if defined(GRID_CUDA) || defined(GRID_HIP) 
     Grid::acceleratorThreads(orig_t);
 #endif
   }
@@ -414,35 +414,48 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   
   static void prefetch_r(size_t jprimeblock, size_t njprime_blocks, size_t iprimeblock, size_t niprime_blocks,
 			 size_t blocksize, size_t njprime, ManagedVector< std::pair<int,int> > &jl_jr_pairs, const rA2AfieldType &r,
-			 size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices){
+			 size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices)
+  {
     size_t nt = local_timeslices.size();
     int const* local_timeslices_v = local_timeslices.getHostReadPtr();
     
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA) || defined(GRID_HIP)
     int device;
+  #if defined(GRID_CUDA)
     assert(cudaGetDevice(&device) == cudaSuccess);
-    
-    if(jprimeblock < njprime_blocks-1 || (jprimeblock == njprime_blocks-1 && iprimeblock != niprime_blocks-1)  ){
+  #elif defined(GRID_HIP)
+    assert(hipGetDevice(&device) == hipSuccess);
+  #endif
+
+    if(jprimeblock < njprime_blocks-1 || (jprimeblock == njprime_blocks-1 && iprimeblock != niprime_blocks-1)  )
+    {
       size_t jprimeblock_nxt = (jprimeblock+1) % njprime_blocks; //loops back to 0 on last iteration so as to prefetch memory for next iblock
       size_t jprimestart_nxt = jprimeblock_nxt * blocksize;
       size_t jprimelessthan_nxt = std::min(jprimestart_nxt + blocksize, njprime);
       size_t njprime_block_nxt = jprimelessthan_nxt - jprimestart_nxt;
       
-      for(size_t jprimeb = 0 ; jprimeb < njprime_block_nxt; jprimeb++){
-	size_t jprime = jprimeb + jprimestart_nxt;
-	size_t jr = jl_jr_pairs[jprime].second;
-	for(int tt=0;tt<nt;tt++){
-	  int t = local_timeslices_v[tt];	  
-	  VectorComplexType const* v0;
-	  VectorComplexType const* v1;
-	  size_t sz;
-	  r.getModeTimesliceData(v0,v1,sz,jr,t);
-	  assert( cudaMemPrefetchAsync( (void const*)v0, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
-	  if(GJP.Gparity()) assert( cudaMemPrefetchAsync( (void const*)v1, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
-	}
+      for(size_t jprimeb = 0 ; jprimeb < njprime_block_nxt; jprimeb++)
+      {
+	      size_t jprime = jprimeb + jprimestart_nxt;
+	      size_t jr = jl_jr_pairs[jprime].second;
+	      for(int tt=0;tt<nt;tt++)
+        {
+	        int t = local_timeslices_v[tt];	  
+	        VectorComplexType const* v0;
+	        VectorComplexType const* v1;
+	        size_t sz;
+	        r.getModeTimesliceData(v0,v1,sz,jr,t);
+  #if defined(GRID_CUDA)
+	        assert( cudaMemPrefetchAsync( (void const*)v0, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
+	        if(GJP.Gparity()) assert( cudaMemPrefetchAsync( (void const*)v1, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
+  #elif defined(GRID_HIP)
+	        assert( hipMemPrefetchAsync( (void const*)v0, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == hipSuccess );
+	        if(GJP.Gparity()) assert( hipMemPrefetchAsync( (void const*)v1, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == hipSuccess );
+  #endif
+        }
       }
     }
-#endif
+#endif  //grid_cuda || grid_hip
   }
 
   static void optimized(PropagatorField &into,
@@ -452,7 +465,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			bool conj_l, bool conj_r,
 			const int t_start, const int t_end){
     if(!UniqueID()) std::cout << "Starting field vMv multiplication between t=" << t_start << " and " << t_end << std::endl;
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
     cudaFuncCache cache_default;
     assert(cudaDeviceGetCacheConfig(&cache_default) == cudaSuccess );
     assert(cudaDeviceSetCacheConfig(cudaFuncCachePreferL1) == cudaSuccess );
@@ -461,7 +474,15 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     for(int i=0;i<l.getNhighModes();i++) l.getHighMode(i).deviceSetAdviseUVMreadOnly(true);
     for(int i=0;i<r.getNlowModes();i++) r.getLowMode(i).deviceSetAdviseUVMreadOnly(true);
     for(int i=0;i<r.getNhighModes();i++) r.getHighMode(i).deviceSetAdviseUVMreadOnly(true);
-    
+#elif defined(GRID_HIP)   //FIXME, check if deviceSetAdviseUVMreadOnly has been implemented for hip
+    hipFuncCache_t cache_default;
+    assert(hipDeviceGetCacheConfig(&cache_default) == hipSuccess );
+    assert(hipDeviceSetCacheConfig(hipFuncCachePreferL1) == hipSuccess );
+
+    for(int i=0;i<l.getNlowModes();i++) l.getLowMode(i).deviceSetAdviseUVMreadOnly(true);
+    for(int i=0;i<l.getNhighModes();i++) l.getHighMode(i).deviceSetAdviseUVMreadOnly(true);
+    for(int i=0;i<r.getNlowModes();i++) r.getLowMode(i).deviceSetAdviseUVMreadOnly(true);
+    for(int i=0;i<r.getNhighModes();i++) r.getHighMode(i).deviceSetAdviseUVMreadOnly(true);
 #endif   
     
     mult_vMv_field_offload_timers::timers &time = mult_vMv_field_offload_timers::get();
@@ -641,14 +662,20 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     managed_free(Mprime);
     device_free(Mvbprime);
 
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
     assert(cudaDeviceSetCacheConfig(cache_default) == cudaSuccess );
 
     for(int i=0;i<l.getNlowModes();i++) l.getLowMode(i).deviceSetAdviseUVMreadOnly(false);
     for(int i=0;i<l.getNhighModes();i++) l.getHighMode(i).deviceSetAdviseUVMreadOnly(false);
     for(int i=0;i<r.getNlowModes();i++) r.getLowMode(i).deviceSetAdviseUVMreadOnly(false);
     for(int i=0;i<r.getNhighModes();i++) r.getHighMode(i).deviceSetAdviseUVMreadOnly(false);
+#elif defined(GRID_HIP) //FIXME, check if deviceSetAdviseUVMreadOnly has been implemented for hip
+    assert(hipDeviceSetCacheConfig(cache_default) == hipSuccess );
 
+    for(int i=0;i<l.getNlowModes();i++) l.getLowMode(i).deviceSetAdviseUVMreadOnly(false);
+    for(int i=0;i<l.getNhighModes();i++) l.getHighMode(i).deviceSetAdviseUVMreadOnly(false);
+    for(int i=0;i<r.getNlowModes();i++) r.getLowMode(i).deviceSetAdviseUVMreadOnly(false);
+    for(int i=0;i<r.getNhighModes();i++) r.getHighMode(i).deviceSetAdviseUVMreadOnly(false);
 #endif   
 
   }//end of func

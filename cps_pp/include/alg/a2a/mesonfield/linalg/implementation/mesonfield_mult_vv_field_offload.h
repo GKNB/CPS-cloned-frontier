@@ -130,17 +130,22 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
   static accelerator_inline T min_value(const T&a, const T&b){ return a < b ? a : b; }
 
 
-#ifdef GRID_CUDA
-  static void run_VV_kernel_CUDA(VectorComplexType* vaprime,
-				 VectorComplexType* vbprime,
-				 typename ManagedVector<uint8_t>::View &alpha,
-				 typename PropagatorField::View &into,
-				 size_t niprime, size_t niprime_block,
-				 size_t iprimestart, size_t iprimelessthan,
-				 size_t vol4d, int t_off, int nf, int src_width, size_t nsimd,
-				 int device){
+#if defined(GRID_CUDA) || defined(GRID_HIP)
+  static void run_VV_kernel_GPU(VectorComplexType* vaprime,
+				VectorComplexType* vbprime,
+				typename ManagedVector<uint8_t>::View &alpha,
+				typename PropagatorField::View &into,
+				size_t niprime, size_t niprime_block,
+				size_t iprimestart, size_t iprimelessthan,
+				size_t vol4d, int t_off, int nf, int src_width, size_t nsimd,
+				int device){
+#if defined(GRID_CUDA)
     cudaMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
     cudaMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
+#elif define(GRID_HIP)
+    hipMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
+    hipMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
+#endif
 
     //Divide up into two matrices of size   3 * shmem_iblock_size   requiring  bytes =  2* 3*shmem_iblock_size *sizeof(ScalarComplexType)
     int shmem_max = maxDeviceShmemPerBlock() / 4; //if we use all the available shared memory we get less blocks running at once. Tuneable
@@ -366,9 +371,12 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     int src_width = l.getArgs().src_width;
     assert(r.getArgs().src_width == src_width);
 
-#ifdef GRID_CUDA
+#if defined(GRID_CUDA)
     int device;
     cudaGetDevice(&device);
+#elif defined(GRID_HIP)
+    int device;
+    hipGetDevice(&device);
 #endif
 
     //Need to compute \sum_i v(il)_{scl,fl}(x) v(ir)_{scr,fr}(x)
@@ -528,8 +536,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
       copy_host_to_device(vbprime, vbprime_host, vprime_bytes);
 #endif
     
-#ifdef GRID_CUDA
-      run_VV_kernel_CUDA(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd, device);
+#if defined(GRID_CUDA) || defined(GRID_HIP)
+      run_VV_kernel_GPU(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd, device);
 #else
       run_VV_kernel_base(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd);
 #endif
