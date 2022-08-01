@@ -139,6 +139,8 @@ public:
       gpuHostPinnedMatrix lr(bi,bk);
       getTimers().t_alloc += dclock();	
 
+      //std::cout << "Current pinned memory cache usage " << PinnedHostMemoryCache::report_usage() << " MB" << std::endl;
+      
       //Compute which iblock,kblock index this node is responsible for
       //Some nodes might have to do >1 block depending on geometry
       for(int i0k0 = node_off; i0k0 < node_off + node_work; ++i0k0){

@@ -573,7 +573,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     print_time("A2AmesonField","reduce time in local compute",reduce_time);
     
     time = -dclock();
-    sync();
+    cps::sync();
     print_time("A2AmesonField","sync",time + dclock());
 
     //Accumulate
@@ -1034,7 +1034,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     print_time("A2AmesonField","reduce time in local compute",reduce_time);
     
     time = -dclock();
-    sync();
+    cps::sync();
     print_time("A2AmesonField","sync",time + dclock());
 
     //Accumulate

@@ -100,26 +100,35 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
     int t_range_start = modLt(tS_glb - tsep_k_sigma_lrg, Lt); //no point computing outside of range between kaon and sigma operator
     
     pt2_time -= dclock();
+    std::cout << Grid::GridLogMessage << "Part2 vMv " << t_range_start << "->" << tS_glb << std::endl;
     mult(pt2_store[tS_idx], vL, mf_S[tS_glb], wL, false, true, t_range_start, tS_glb); //result is field in xop
     pt2_time += dclock();
   }
 
   SCFmatrixField pt1(field_params);  
-
+  int node_tstart = GJP.TnodeCoor()*GJP.TnodeSites();
+  int node_tlessthan = (GJP.TnodeCoor()+1)*GJP.TnodeSites();
+  
   //Start loop over tK
   for(int tK_glb=0;tK_glb< Lt; tK_glb++){
+    if( tK_glb >= node_tlessthan ) continue;
+    
     int t_range_end = modLt(tK_glb + tsep_k_sigma_lrg, Lt); //no point computing outside of range between kaon and sigma operator
     
     pt1_time -= dclock();
+    std::cout << Grid::GridLogMessage << "Part1 t_K=" << tK_glb << " vMv " << tK_glb << "->" << t_range_end << std::endl;
     mult(pt1, vL, mf_ls_WW[tK_glb], vH, false, true, tK_glb, t_range_end);
     pt1_time += dclock();
 
     //loop over K->sigma seps, reuse precomputed pt2
     for(int i=0;i<ntsep_k_sigma;i++){
       int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
+
+      if( tS_glb  < node_tstart ) continue;
       
       const SCFmatrixField &pt2 = pt2_store[tS_subset_inv_map[tS_glb]];
 
+      std::cout << Grid::GridLogMessage << "Contract t_K=" << tK_glb << " t_sigma=" << tS_glb << std::endl;
       contract_time -= dclock();
       type12_contract(result[i], tK_glb, pt1, pt2);
       contract_time += dclock();
@@ -299,8 +308,10 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
   nodeGetMany(1, &mf_S, &gather_tslice_mask);
   print_time("ComputeKtoSigma","type3 mf gather",dclock()-time);  
 #endif
-
+  printMem("Memory after type3 mf gather");
+  
   //Setup output
+  std::cout << Grid::GridLogMessage << "Resize output" << std::endl;
   result.resize(ntsep_k_sigma); 
   mix3.resize(ntsep_k_sigma);
   for(int i=0;i<ntsep_k_sigma;i++){
@@ -308,6 +319,7 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
     mix3[i].resize(1);
   }
 
+  std::cout << Grid::GridLogMessage << "mix3_Gamma" << std::endl;
   SCFmat mix3_Gamma[2];
   mix3_Gamma[0].unit().pr(F0).gr(-5);
   mix3_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
@@ -317,17 +329,6 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
   double pt2_time = 0;
   double contract_time = 0;
 
-  //Precompute part1 for tK,tS we need
-  pt1_time -= dclock();  
-  std::vector<SCFmatrixField> pt1_store(ntK_tS, SCFmatrixField(field_params));
-  for(int i=0;i<ntK_tS;i++){
-    int tK=tK_tS_idx_map[i].first, tS = tK_tS_idx_map[i].second;
-    Type3MesonFieldProductType mf_prod;
-    mult(mf_prod, mf_S[tS], mf_ls_WW[tK], true);      //node local because the tK,tS pairings are specific to this node    
-    mult(pt1_store[i], vL, mf_prod, vH, false, true, tK, tS); //only compute between kaon and sigma
-  }
-  pt1_time += dclock();
-
   //Compute pt2 (loop): (vL,wL) and (vH,wH)
   pt2_time -= dclock();
   SCFmatrixField pt2_L(field_params), pt2_H(field_params);
@@ -335,11 +336,25 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
   mult(pt2_H, vH, wH, false, true);
   pt2_time += dclock();
 
+  int node_tstart = GJP.TnodeCoor()*GJP.TnodeSites();
+  int node_tlessthan = (GJP.TnodeCoor()+1)*GJP.TnodeSites();
+  
+  SCFmatrixField pt1(field_params);
+  Type3MesonFieldProductType mf_prod;
+  
   for(int tK_glb=0;tK_glb<Lt;tK_glb++){
+    if( tK_glb >= node_tlessthan ) continue;
+    
     for(int i=0;i<ntsep_k_sigma;i++){
       int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
+
+      if( tS_glb  < node_tstart ) continue;
       
-      const SCFmatrixField &pt1 = pt1_store[ tK_tS_idx_inv_map[tK_glb][tS_glb] ];
+      pt1_time -= dclock();
+      mult(mf_prod, mf_S[tS_glb], mf_ls_WW[tK_glb], true);      //node local because the tK,tS pairings are specific to this node
+      std::cout << Grid::GridLogMessage << "vMv "<< tK_glb << "->" << tS_glb << std::endl; 
+      mult(pt1, vL, mf_prod, vH, false, true, tK_glb, tS_glb); //only compute between kaon and sigma
+      pt1_time += dclock();
       
       contract_time -= dclock();
       type3_contract(result[i], tK_glb, pt1, pt2_L, pt2_H);

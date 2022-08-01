@@ -32,7 +32,7 @@ public:
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     if(!UniqueID()){ printf("Gathering meson fields\n");  fflush(stdout); }
     nodeGetMany(2,&mf_ll_src,&mf_ll_snk);
-    sync();
+    cps::sync();
 #endif
 
     //Compute the two-point function
@@ -45,7 +45,7 @@ public:
     into *= ScalarComplexType(0.5,0);
     rearrangeTsrcTsep(into); //rearrange temporal ordering
     
-    sync();
+    cps::sync();
     if(!UniqueID()){ printf("Finished trace\n");  fflush(stdout); }
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS

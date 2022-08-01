@@ -128,11 +128,11 @@ struct _set_wh_random_impl<ComplexFieldType, complex_double_or_float_mark>{
   static void doit(CPSfieldArray<ComplexFieldType> &wh, const RandomType &type, const int nhits){
     typedef typename ComplexFieldType::FieldSiteType FieldSiteType;
     LRG.SetInterval(1, 0);
-    int sites = wh[0]->nsites(), flavors = wh[0]->nflavors();
+    size_t sites = wh[0]->nsites(), flavors = wh[0]->nflavors();
     
-    for(int i = 0; i < sites*flavors; ++i) {
+    for(size_t i = 0; i < sites*flavors; ++i) {
       int flav = i / sites;
-      int st = i % sites;
+      size_t st = i % sites;
       
       LRG.AssignGenerator(st,flav);
       for(int j = 0; j < nhits; ++j) {

@@ -266,5 +266,24 @@ void hostTouch(std::vector<FieldType> &fields){
   }
 }
 
+class A2AparamsOverride: public A2Aparams{
+ public:
+  A2AparamsOverride(): A2Aparams(){}
+  A2AparamsOverride(const A2AArg &_args): A2Aparams(_args){}
+
+  //Set the number to tblocks to 'to', overriding setting from A2Aargs input. This is intended for benchmarking estimates for large jobs using single nodes
+  //and may have unexpected consequences!
+  void setNtBlocks(const int to){
+    ntblocks = to;
+    ndilute =  ntblocks * nspincolor* nflavors;      
+    nhits = args.nhits;
+    nh = nhits * ndilute;
+    nv = nl + nh;
+  }
+  void setLt(const int to){
+    Lt = to;
+  }
+};
+
 
 CPS_END_NAMESPACE
