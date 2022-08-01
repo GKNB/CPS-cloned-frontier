@@ -70,13 +70,16 @@ void testCPSfieldArray(){
   typedef SIMT<ComplexType> ACC;
 
 #ifdef GRID_CUDA
-  using Grid::acceleratorAbortOnGpuError;	//FIXME: need to check if this logic here is correct! (Also 4 more places below!)
+  using Grid::acceleratorAbortOnGpuError;	//FIXME: need to check if this logic here is correct! (Also 4 more places below!) I think Grid only implement that for CUDA
 #elif defined(GRID_SYCL)
   using Grid::theGridAccelerator;
 #endif
+
 #if defined(GRID_HIP) || defined(GRID_CUDA)
-  using Grid::LambdaApply64;
   using Grid::LambdaApply;
+  #if defined(GRID_HIP)
+  using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
+  #endif
 #endif
 
 

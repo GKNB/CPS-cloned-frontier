@@ -243,7 +243,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 #endif
 
 
-#if defined(GRID_CUDA) || defined(GRID_HIP)
+#if !defined(GRID_CUDA) && !defined(GRID_HIP)
   static void run_VV_kernel_base(VectorComplexType* vaprime,
 				 VectorComplexType* vbprime,
 				 typename ManagedVector<uint8_t>::View &alpha,
