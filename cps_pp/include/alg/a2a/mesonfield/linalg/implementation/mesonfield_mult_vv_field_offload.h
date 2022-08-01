@@ -142,7 +142,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 #if defined(GRID_CUDA)
     cudaMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
     cudaMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
-#elif define(GRID_HIP)
+#elif defined(GRID_HIP)
     hipMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
     hipMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
 #endif
