@@ -34,9 +34,22 @@ public:
   A2Aparams(): nl(0),nhits(0),nflavors(0),nspincolor(0),ntblocks(0),ndilute(0),nh(0),nv(0),Lt(0){}
   A2Aparams(const A2AArg &_args);
 
+  //FIXME: I change it a little bit to debug
   inline bool paramsEqual(const A2Aparams &r) const{
-    return (nl == r.nl  &&  nhits == r.nhits  &&  nflavors == r.nflavors  &&  ntblocks == r.ntblocks  &&  
+	  bool res = (nl == r.nl  &&  nhits == r.nhits  &&  nflavors == r.nflavors  &&  ntblocks == r.ntblocks  &&  
 	    ndilute == r.ndilute  &&  nh == r.nh  &&  nv == r.nv && Lt == r.Lt);
+	  if(!res)
+	  {
+		  std::cout << "nl = " << nl << "\t r.nl = " << r.nl
+                      << "\nnhits = " << nhits << "\t r.nhits = " <<  r.nhits
+                      << "\nnflavors = " <<  nflavors << "\t r.nflavors = " <<  r.nflavors
+                      << "\nntblocks = " <<  ntblocks << "\t r.ntblocks = " <<  r.ntblocks
+                      << "\nndilute = " <<  ndilute << "\t r.ndilute = " << r.ndilute
+                      << "\nnh = " <<  nh << "\t r.nh = " << r.nh
+                      << "\nnv = " <<  nv << "\t r.nv = " << r.nv
+                      << "\nLt = " << Lt << "\t r.Lv = " << r.Lt;
+	  }
+	  return res;
   }
 
   inline const A2AArg &getArgs() const{ return args; }

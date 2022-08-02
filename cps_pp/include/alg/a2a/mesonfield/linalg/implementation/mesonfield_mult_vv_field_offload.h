@@ -163,6 +163,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			  nsimd, 
 			  shmem_max,
 			{
+//FIXME: For HIP, it seems like this is necessary, since SIMTcomplexType will be different between host and device, because of GRID_SIMT shows up in its definition, which makes the host code different from device code
+#ifdef GRID_SIMT
 			  typedef SIMT<VectorComplexType> ACC; //this will use scalar data as on device
 			  typedef typename ACC::value_type SIMTcomplexType; //=ScalarComplexType on GPU
 
@@ -238,6 +240,9 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			      }//sl
 			    }//fl
 			  }//iprimeb_subblock
+#else 
+#warning "The run_VV_kernel_GPU is compiled for host! We don't want that happen!"
+#endif
 			});
   }
 #endif
