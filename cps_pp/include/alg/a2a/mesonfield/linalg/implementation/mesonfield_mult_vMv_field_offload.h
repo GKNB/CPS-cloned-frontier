@@ -464,7 +464,11 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			const rA2AfieldType &r,
 			bool conj_l, bool conj_r,
 			const int t_start, const int t_dis){
-    if(!UniqueID()) std::cout << "Starting field vMv multiplication between t=" << t_start << " and " << t_start + t_dis << " (mod Lt)" << std::endl;
+    if(!UniqueID()){
+      std::cout << "Starting field vMv multiplication between t=" << t_start << " and " << t_start + t_dis << " (mod Lt)" << std::endl;
+      std::cout << "Packed index sizes: " << l.getNmodes() << " (" << M.getNrows() << "," << M.getNcols() << ") " << r.getNmodes() << std::endl;
+    }
+
 #if defined(GRID_CUDA)
     cudaFuncCache cache_default;
     assert(cudaDeviceGetCacheConfig(&cache_default) == cudaSuccess );
@@ -567,7 +571,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
     //Prepare for blocked vMv
     size_t niprime = nil_ir_pairs, njprime = njl_jr_pairs;
-
+    if(!UniqueID()) std::cout << "niprime=" << niprime << " njprime=" << njprime << std::endl;
+    
     size_t field_size = 12 * nf * vol3d_node * nt_do;
     size_t blocked_fermfields_bytes = field_size * blocksize * sizeof(VectorComplexType);
     size_t blocked_cmplxfields_bytes = vol3d_node * nt_do * blocksize * sizeof(VectorComplexType);    

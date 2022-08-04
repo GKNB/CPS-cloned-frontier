@@ -10,18 +10,23 @@ void ComputeKtoSigma<mf_Policies>::type12_contract(ResultsContainerType &result,
   //D8   = Tr( ( [pt2] M2 )_ba ( [pt1] G5 M1 )_ba )
   //D11  = Tr( [pt1] G5 M1 )_ba Tr( [pt2] M2 )_ba
   //D19  = Tr(  Tr_c( [pt2] M2 ) Tr_c( [pt1] G5 M1 ) )  
-  
+
   auto pt1_G5 = gr_r(part1, -5);
+  auto dimpol = part1.getDimPolParams();
+  SCFmatrixField pt1_G5_M1(dimpol);
+  SCFmatrixField pt2_M2(dimpol);
+  SCFmatrixField ctrans_pt1_G5_M1(dimpol);
+  CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_pt1_G5_M1(dimpol);
+  CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_p2_M2(dimpol);
   
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
-      auto pt1_G5_M1 = multGammaRight(pt1_G5, 1, gcombidx,mu);
-      auto pt2_M2 = multGammaRight(part2, 2, gcombidx,mu);
+      multGammaRight(pt1_G5_M1, pt1_G5, 1, gcombidx,mu);
+      multGammaRight(pt2_M2, part2, 2, gcombidx,mu);
+      TransposeColor(ctrans_pt1_G5_M1, pt1_G5_M1);
 
-      auto ctrans_pt1_G5_M1 = TransposeColor(pt1_G5_M1);
-
-      auto tr_sf_pt1_G5_M1 = SpinFlavorTrace(pt1_G5_M1);
-      auto tr_sf_p2_M2 = SpinFlavorTrace(pt2_M2);
+      SpinFlavorTrace(tr_sf_pt1_G5_M1, pt1_G5_M1);
+      SpinFlavorTrace(tr_sf_p2_M2, pt2_M2);
        
       int c = 0;
       add(c++, result, tK_glb, gcombidx, 0,
@@ -39,6 +44,7 @@ void ComputeKtoSigma<mf_Policies>::type12_contract(ResultsContainerType &result,
       add(c++, result, tK_glb, gcombidx, 0,
 	  Trace( ColorTrace(pt1_G5_M1), ColorTrace(pt2_M2) )
 	  ); //D19
+
     }
   }
 #endif
@@ -106,14 +112,11 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
   }
 
   SCFmatrixField pt1(field_params);  
-  int node_tstart = GJP.TnodeCoor()*GJP.TnodeSites();
-  int node_tlessthan = (GJP.TnodeCoor()+1)*GJP.TnodeSites();
   
   //Start loop over tK
   for(int tK_glb=0;tK_glb< Lt; tK_glb++){
-    if( tK_glb >= node_tlessthan ) continue;
-    
-    int t_range_end = modLt(tK_glb + tsep_k_sigma_lrg, Lt); //no point computing outside of range between kaon and sigma operator
+    int t_range_end = modLt(tK_glb + tsep_k_sigma_lrg, Lt); 
+    if(!onNodeTimeslicesInRange(tK_glb, t_range_end)) continue; //no point computing outside of range between kaon and sigma operator
     
     pt1_time -= dclock();
     std::cout << Grid::GridLogMessage << "Part1 t_K=" << tK_glb << " vMv " << tK_glb << "->" << t_range_end << std::endl;
@@ -123,9 +126,8 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
     //loop over K->sigma seps, reuse precomputed pt2
     for(int i=0;i<ntsep_k_sigma;i++){
       int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
-
-      if( tS_glb  < node_tstart ) continue;
-      
+      if(!onNodeTimeslicesInRange(tK_glb, tS_glb)) continue; //no point computing outside of range between kaon and sigma operator
+            
       const SCFmatrixField &pt2 = pt2_store[tS_subset_inv_map[tS_glb]];
 
       std::cout << Grid::GridLogMessage << "Contract t_K=" << tK_glb << " t_sigma=" << tS_glb << std::endl;
@@ -135,15 +137,23 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
     }
   }//tdis
 
-  print_time("ComputeKtoSigma","type12 vMv setup",vmv_setup_time);     
-  print_time("ComputeKtoSigma","type12 pt1 compute",pt1_time);     
-  print_time("ComputeKtoSigma","type12 pt2 compute",pt2_time);     
-  print_time("ComputeKtoSigma","type12 contract",contract_time);     
+  time = dclock();
+  cps::sync();
+  double sync_time = dclock() - time;
 
+  printTimeStats("ComputeKtoSigma::type12 vMv setup",vmv_setup_time);     
+  printTimeStats("ComputeKtoSigma::type12 pt1 compute",pt1_time);     
+  printTimeStats("ComputeKtoSigma::type12 pt2 compute",pt2_time);     
+  printTimeStats("ComputeKtoSigma::type12 contract",contract_time);     
+  
+  print_time("ComputeKtoSigma","type12 sync",sync_time);     
+  
   time = dclock();
   for(int i=0;i<ntsep_k_sigma;i++){ result[i].nodeSum(); }
-
+  print_time("ComputeKtoSigma","type12 accum",dclock()-time);     
+  
   //For comparison with old code, zero out data not within the K->pi time region (later optimization may render this unnecessary)
+  time = dclock();
   int n_contract = 5;
 
   for(int i=0; i<ntsep_k_sigma; i++){
@@ -157,7 +167,7 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
     }
   }
 
-  print_time("ComputeKtoSigma","type12 accum",dclock()-time);     
+  print_time("ComputeKtoSigma","type12 zero ext",dclock()-time);     
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   time = dclock();
@@ -220,17 +230,25 @@ void ComputeKtoSigma<mf_Policies>::type3_contract(ResultsContainerType &result, 
   //D21 = Tr_c(  Tr( [pt2_H] M2) * Tr( [pt1] G5 M1 ) )
   //D23 = Tr( Tr_c( [pt1] G5 M2 )  Tr_c( [pt2_H] M1 ) )
 
+  auto dimpol = part1.getDimPolParams();
+  SCFmatrixField pt1_G5_M1(dimpol);
+  SCFmatrixField pt1_G5_M2(dimpol);
+  SCFmatrixField pt2L_M2(dimpol);
+  SCFmatrixField pt2H_M1(dimpol);
+  SCFmatrixField pt2H_M2(dimpol);
+  SCFmatrixField ctrans_pt2L_M2(dimpol);
+  
   auto pt1_G5 = gr_r(part1, -5);
 
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
-      auto pt1_G5_M1 = multGammaRight(pt1_G5, 1, gcombidx,mu);
-      auto pt1_G5_M2 = multGammaRight(pt1_G5, 2, gcombidx,mu);
-      auto pt2L_M2 = multGammaRight(part2_L, 2, gcombidx,mu);
-      auto pt2H_M1 = multGammaRight(part2_H, 1, gcombidx,mu);
-      auto pt2H_M2 = multGammaRight(part2_H, 2, gcombidx,mu);
+      multGammaRight(pt1_G5_M1, pt1_G5, 1, gcombidx,mu);
+      multGammaRight(pt1_G5_M2, pt1_G5, 2, gcombidx,mu);
+      multGammaRight(pt2L_M2, part2_L, 2, gcombidx,mu);
+      multGammaRight(pt2H_M1, part2_H, 1, gcombidx,mu);
+      multGammaRight(pt2H_M2, part2_H, 2, gcombidx,mu);
 
-      auto ctrans_pt2L_M2 = TransposeColor(pt2L_M2);
+      TransposeColor(ctrans_pt2L_M2, pt2L_M2);
 
       int c = 0;
 	
@@ -336,19 +354,14 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
   mult(pt2_H, vH, wH, false, true);
   pt2_time += dclock();
 
-  int node_tstart = GJP.TnodeCoor()*GJP.TnodeSites();
-  int node_tlessthan = (GJP.TnodeCoor()+1)*GJP.TnodeSites();
-  
   SCFmatrixField pt1(field_params);
   Type3MesonFieldProductType mf_prod;
   
   for(int tK_glb=0;tK_glb<Lt;tK_glb++){
-    if( tK_glb >= node_tlessthan ) continue;
-    
     for(int i=0;i<ntsep_k_sigma;i++){
       int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
 
-      if( tS_glb  < node_tstart ) continue;
+      if(!onNodeTimeslicesInRange(tK_glb, tS_glb)) continue; //no point computing outside of range between kaon and sigma operator
       
       pt1_time -= dclock();
       mult(mf_prod, mf_S[tS_glb], mf_ls_WW[tK_glb], true);      //node local because the tK,tS pairings are specific to this node

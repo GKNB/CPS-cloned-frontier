@@ -2,6 +2,7 @@
 #define COMPUTE_KTOSIGMA_H_
 
 #include "compute_ktopipi.h"
+#include <alg/a2a/utils/utils_parallel.h>
 
 CPS_START_NAMESPACE
 

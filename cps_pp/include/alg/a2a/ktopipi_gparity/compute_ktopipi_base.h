@@ -366,6 +366,41 @@ public:
     return tmp;
   }
 
+
+  template<typename ComplexType>
+  static void multGammaRight(CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &out,
+			     const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &M, const int whichGamma, 
+			     const int i, const int mu){
+    assert(whichGamma == 1 || whichGamma==2);
+    static int g1[8] = {0,1,0,1,2,3,2,3};
+    static int g2[8] = {1,0,3,2,1,0,3,2};
+
+    int gg = whichGamma == 1 ? g1[i] : g2[i];
+    switch(gg){
+    case 0:
+      gr_r(out, M,mu);      
+      pr( out, F0 );
+      break;
+    case 1:
+      grAx_r(out, M,mu);
+      pr( out, F0 );
+      break;
+    case 2:
+      gr_r(out, M,mu);
+      timesMinusOne( pr( out, F1 ) );
+      break;
+    case 3:
+      grAx_r(out, M,mu);
+      timesMinusOne( pr( out, F1) );
+      break;
+    default:
+      ERR.General("ComputeKtoPiPiGparityBase","multGammaRight","Invalid idx\n");
+      break;
+    }
+  }
+
+
+  
   
   //Perform the spatial reduction and add the result into the output container
   template<typename ComplexType, typename AllocPolicy>

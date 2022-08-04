@@ -470,6 +470,15 @@ struct gl_spinMatrixIterator{
   accelerator_inline const ComplexType & elem(const CPSspinMatrix<ComplexType> &M, const int s1, const int s2){ return M(s1,s2); }
 
   accelerator_inline bool end() const{ return i==1; }
+
+  //static versions that take a subindex that is ignored here
+  static accelerator_inline ComplexType & elem(CPSspinColorFlavorMatrix<ComplexType> &M, const int s1, const int s2, int ccff){
+    return M(s1,s2);
+  }
+  static accelerator_inline const ComplexType & elem(CPSspinColorFlavorMatrix<ComplexType> const& M, const int s1, const int s2, int ccff){
+    return M(s1,s2);
+  }
+
 };
 
 template<typename ComplexType>
@@ -493,6 +502,15 @@ struct gl_spinColorFlavorMatrixIterator{
   accelerator_inline const ComplexType & elem(const CPSspinColorFlavorMatrix<ComplexType> &M, const int s1, const int s2){ return M(s1,s2)(c1,c2)(f1,f2); }
 
   accelerator_inline bool end() const{ return i==36; }
+
+  //static versions that take a color*color*flavor*flavor compound offset 'ccff'
+  static accelerator_inline ComplexType & elem(CPSspinColorFlavorMatrix<ComplexType> &M, const int s1, const int s2, int ccff){
+    return *(M(s1,s2).scalarTypePtr() + ccff);
+  }
+  static accelerator_inline const ComplexType & elem(CPSspinColorFlavorMatrix<ComplexType> const& M, const int s1, const int s2, int ccff){
+    return *(M(s1,s2).scalarTypePtr() + ccff);
+  }
+
 };
 
 
@@ -786,6 +804,47 @@ accelerator_inline void gr_r(MatrixType &O, const MatrixType &M, int dir, int la
   }
 }
 
+template<typename MatrixIterator, typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+accelerator_inline void gr_r(MatrixType &O, const MatrixType &M, int dir, int s1, int ffcc, int lane){
+  typedef typename MatrixType::scalar_type ComplexType;
+
+  switch(dir){
+  case 0:
+    TIMESMINUSI( MatrixIterator::elem(O,s1,0,ffcc), RD(MatrixIterator::elem(M,s1,3,ffcc)) );
+    TIMESMINUSI( MatrixIterator::elem(O,s1,1,ffcc), RD(MatrixIterator::elem(M,s1,2,ffcc)) );
+    TIMESPLUSI(  MatrixIterator::elem(O,s1,2,ffcc), RD(MatrixIterator::elem(M,s1,1,ffcc)) );
+    TIMESPLUSI(  MatrixIterator::elem(O,s1,3,ffcc), RD(MatrixIterator::elem(M,s1,0,ffcc)) );    
+    break;
+  case 1:
+    TIMESMINUSONE( MatrixIterator::elem(O,s1,0,ffcc), RD(MatrixIterator::elem(M,s1,3,ffcc)) );
+    TIMESPLUSONE( MatrixIterator::elem(O,s1,1,ffcc), RD(MatrixIterator::elem(M,s1,2,ffcc)) );
+    TIMESPLUSONE( MatrixIterator::elem(O,s1,2,ffcc), RD(MatrixIterator::elem(M,s1,1,ffcc)) );
+    TIMESMINUSONE( MatrixIterator::elem(O,s1,3,ffcc), RD(MatrixIterator::elem(M,s1,0,ffcc)) );
+    break;
+  case 2:
+    TIMESMINUSI( MatrixIterator::elem(O,s1,0,ffcc), RD(MatrixIterator::elem(M,s1,2,ffcc)) );
+    TIMESPLUSI( MatrixIterator::elem(O,s1,1,ffcc), RD(MatrixIterator::elem(M,s1,3,ffcc)) );
+    TIMESPLUSI( MatrixIterator::elem(O,s1,2,ffcc), RD(MatrixIterator::elem(M,s1,0,ffcc)) );
+    TIMESMINUSI( MatrixIterator::elem(O,s1,3,ffcc), RD(MatrixIterator::elem(M,s1,1,ffcc)) );
+    break;
+  case 3:
+    TIMESPLUSONE( MatrixIterator::elem(O,s1,0,ffcc), RD(MatrixIterator::elem(M,s1,2,ffcc)) );
+    TIMESPLUSONE( MatrixIterator::elem(O,s1,1,ffcc), RD(MatrixIterator::elem(M,s1,3,ffcc)) );
+    TIMESPLUSONE( MatrixIterator::elem(O,s1,2,ffcc), RD(MatrixIterator::elem(M,s1,0,ffcc)) );
+    TIMESPLUSONE( MatrixIterator::elem(O,s1,3,ffcc), RD(MatrixIterator::elem(M,s1,1,ffcc)) );
+    break;
+  case -5:
+    TIMESPLUSONE( MatrixIterator::elem(O,s1,0,ffcc), RD(MatrixIterator::elem(M,s1,0,ffcc)) );
+    TIMESPLUSONE( MatrixIterator::elem(O,s1,1,ffcc), RD(MatrixIterator::elem(M,s1,1,ffcc)) );
+    TIMESMINUSONE( MatrixIterator::elem(O,s1,2,ffcc), RD(MatrixIterator::elem(M,s1,2,ffcc)) );
+    TIMESMINUSONE( MatrixIterator::elem(O,s1,3,ffcc), RD(MatrixIterator::elem(M,s1,3,ffcc)) );
+    break;
+  default:
+    assert(0);
+    break;
+  }
+}
+
 
 
 
@@ -1033,6 +1092,45 @@ accelerator_inline void grAx_r(MatrixType &O, const MatrixType &M, int dir, int 
       }
       ++it;
     }
+    break;
+  default:
+    assert(0);
+    break;
+  }
+}
+
+
+
+
+//multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*fro
+template<typename MatrixIterator, typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+accelerator_inline void grAx_r(MatrixType &O, const MatrixType &M, int dir, int s1, int ffcc, int lane){
+  typedef typename MatrixType::scalar_type ComplexType;
+
+  switch(dir){
+  case 0:
+    TIMESMINUSI( MatrixIterator::elem(O,s1,0,ffcc), RD(MatrixIterator::elem(M,s1,3,ffcc)) );
+    TIMESMINUSI( MatrixIterator::elem(O,s1,1,ffcc), RD(MatrixIterator::elem(M,s1,2,ffcc))  );
+    TIMESMINUSI( MatrixIterator::elem(O,s1,2,ffcc), RD(MatrixIterator::elem(M,s1,1,ffcc)) );
+    TIMESMINUSI( MatrixIterator::elem(O,s1,3,ffcc), RD(MatrixIterator::elem(M,s1,0,ffcc)) );
+    break;
+  case 1:
+    TIMESMINUSONE( MatrixIterator::elem(O,s1,0,ffcc), RD(MatrixIterator::elem(M,s1,3,ffcc)) );
+    TIMESPLUSONE( MatrixIterator::elem(O,s1,1,ffcc), RD(MatrixIterator::elem(M,s1,2,ffcc)) );
+    TIMESMINUSONE( MatrixIterator::elem(O,s1,2,ffcc), RD(MatrixIterator::elem(M,s1,1,ffcc))  );
+    TIMESPLUSONE( MatrixIterator::elem(O,s1,3,ffcc), RD(MatrixIterator::elem(M,s1,0,ffcc)) );
+    break;
+  case 2:
+    TIMESMINUSI( MatrixIterator::elem(O,s1,0,ffcc), RD(MatrixIterator::elem(M,s1,2,ffcc)) );
+    TIMESPLUSI( MatrixIterator::elem(O,s1,1,ffcc), RD(MatrixIterator::elem(M,s1,3,ffcc)) );
+    TIMESMINUSI( MatrixIterator::elem(O,s1,2,ffcc), RD(MatrixIterator::elem(M,s1,0,ffcc)) );
+    TIMESPLUSI( MatrixIterator::elem(O,s1,3,ffcc), RD(MatrixIterator::elem(M,s1,1,ffcc)) );
+    break;
+  case 3:
+    TIMESPLUSONE( MatrixIterator::elem(O,s1,0,ffcc), RD(MatrixIterator::elem(M,s1,2,ffcc)) );
+    TIMESPLUSONE( MatrixIterator::elem(O,s1,1,ffcc), RD(MatrixIterator::elem(M,s1,3,ffcc)) );
+    TIMESMINUSONE( MatrixIterator::elem(O,s1,2,ffcc), RD(MatrixIterator::elem(M,s1,0,ffcc)) );
+    TIMESMINUSONE( MatrixIterator::elem(O,s1,3,ffcc), RD(MatrixIterator::elem(M,s1,1,ffcc)) );
     break;
   default:
     assert(0);

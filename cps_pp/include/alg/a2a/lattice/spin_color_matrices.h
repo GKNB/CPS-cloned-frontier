@@ -319,8 +319,8 @@ public:
     return _RecursiveCountScalarType<CPSsquareMatrix<T,N>, cps_square_matrix_mark>::count();
   }
   //Return a pointer to this object as an array of scalar_type of size nScalarType()
-  scalar_type const* scalarTypePtr() const{ return (scalar_type const*)this; }
-  scalar_type * scalarTypePtr(){ return (scalar_type*)this; }
+  accelerator_inline scalar_type const* scalarTypePtr() const{ return (scalar_type const*)this; }
+  accelerator_inline scalar_type * scalarTypePtr(){ return (scalar_type*)this; }
 
 
   accelerator CPSsquareMatrix() = default;

@@ -17,8 +17,10 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
+#include <limits>
 
 #include "utils_malloc.h"
+#include "utils_parallel_globalsum.h"
 
 CPS_START_NAMESPACE
 
@@ -216,6 +218,54 @@ inline void makedir(const std::string& dir, const mode_t mode = 0775){
   assert(checkDirExists(dir));
 }
 
+inline void printTimeStats(const std::string &descr, double time){
+  int nodes = GJP.TotalNodes();
+  std::vector<double> t(nodes, 0);
+  t[UniqueID()] = time;
+  globalSum(t.data(), nodes);
+
+  double avg = 0, var = 0, max = 0, min = std::numeric_limits<double>::max();
+  int maxnode=0, minnode=0;
+  
+  for(int i=0;i<nodes;i++){
+    avg += t[i];
+    var += t[i]*t[i];
+    if(t[i] > max){
+      max = t[i];
+      maxnode = i;
+    }
+    if(t[i] < min){
+      min = t[i];
+      minnode = i;
+    }    
+  }
+  avg /= nodes;
+  var /= nodes;
+  var -= avg*avg;
+  
+  if(!UniqueID()){
+    std::cout << descr << ": avg=" << avg << "s, std.dev=" << sqrt(var) << "s, max=" << max << "s (" << maxnode << "), min=" << min << "s (" << minnode << ")" << std::endl;
+  }
+}
+
+//Return true if this node has timeslices that lie between tstart and tend
+//Supports periodic coordinates, e.g.  tstart=Lt-1 , tend=1 maps to the timeslices  Lt-1 , 0 , 1
+inline bool onNodeTimeslicesInRange(const int tstart, const int tend){
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  int toff = GJP.TnodeCoor()*GJP.TnodeSites();  
+  int tsep_max = (tend - tstart + 10*Lt) % Lt; //wrap
+  for(int tlcl=0;tlcl<GJP.TnodeSites();tlcl++){
+    int tglb = tlcl + toff;
+    int tsep = (tglb - tstart + 10*Lt) % Lt;
+    if(tsep <= tsep_max) return true;
+  }
+  return false;
+}
+
+
+
+
+  
 
 
 
