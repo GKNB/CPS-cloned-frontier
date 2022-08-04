@@ -146,7 +146,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkmultGammaLeft(ntests, tol);
  
 #ifdef USE_GRID
-  if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_params, ntests, nthreads);
+  if(0) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_params, ntests, nthreads);
   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkMultiShiftMFcontract<GridA2ApoliciesType>(a2a_args, opt.nshift);
 
@@ -171,7 +171,9 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
   if(0) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
   if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
+  if(1) benchmarkKtoSigmaType12offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
 
+  
   if(0) benchmarkDeflation<GridA2ApoliciesType>(lattice ,opt.nlowmodes, argc, argv);
 
   if(0) benchmarkMfTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
@@ -298,15 +300,16 @@ int main(int argc,char *argv[])
       if(!UniqueID()) printf("Set mesonfield burst buffer file stub to %s\n", argv[i+1]);
       i+=2;
     }else if( cmd == "-tsep_k_pi"){ //provide a list in Grid's  a.b.c.d  format
+      opt.tsep_k_pi.clear();
       std::istringstream iss(argv[i+1]);
       std::string token;
       while (std::getline(iss, token, '.')) {
 	if (!token.empty())
 	  opt.tsep_k_pi.push_back(toInt(token.c_str()));
       }
-      std::cout << "Set tsep_k_pi to {";
+      std::cout << "Set tsep_k_pi to { ";
       for(int v: opt.tsep_k_pi){ std::cout << v << " "; }
-      std::cout <<std::endl;      
+      std::cout << " }" << std::endl;      
       i+=2;
     }else if( cmd == "-vMv_partial_timerange"){
       opt.vMv_partial_timestart = std::stoi(argv[i+1]);

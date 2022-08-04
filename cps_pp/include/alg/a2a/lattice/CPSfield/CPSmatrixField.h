@@ -80,6 +80,22 @@ auto unop_v(const CPSmatrixField<T> &in, const Functor &l)-> CPSmatrixField<type
 		    );
   return out;
 }
+template<typename T, typename Functor>
+void unop_v(CPSmatrixField<typename Functor::OutputType> &out, const CPSmatrixField<T> &in, const Functor &l){
+  using namespace Grid;
+  constexpr int nsimd = T::scalar_type::Nsimd();
+  auto ov = out.view();
+  auto iv = in.view();
+  accelerator_for(x4d, iv.size(), nsimd,
+		    {
+		      int lane = Grid::acceleratorSIMTlane(nsimd);
+		      l(*ov.site_ptr(x4d), *iv.site_ptr(x4d), lane);
+		    }
+		    );
+}
+
+
+
 
 template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
 struct _trV{
@@ -222,7 +238,7 @@ inline auto TraceIndex(const CPSmatrixField<VectorMatrixType> &a)->decltype( uno
 }
 
 template<typename ComplexType>
-inline CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > ColorTrace(CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in){
+inline CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > ColorTrace(const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in){
   return TraceIndex<1>(in);
 }
 
@@ -233,9 +249,21 @@ inline auto TraceTwoIndices(const CPSmatrixField<VectorMatrixType> &a)->decltype
 }
 
 template<typename ComplexType>
-inline CPSmatrixField<CPScolorMatrix<ComplexType> > SpinFlavorTrace(CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in){
+inline CPSmatrixField<CPScolorMatrix<ComplexType> > SpinFlavorTrace(const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in){
   return TraceTwoIndices<0,2>(in);
 }
+
+template<int Index1, int Index2, typename VectorMatrixType>
+inline void TraceTwoIndices(CPSmatrixField<typename _trTwoIndicesV<Index1,Index2,VectorMatrixType>::OutputType > &out, const CPSmatrixField<VectorMatrixType> &in){
+  unop_v(out, in, _trTwoIndicesV<Index1,Index2,VectorMatrixType>());
+}
+
+template<typename ComplexType>
+inline void SpinFlavorTrace(CPSmatrixField<CPScolorMatrix<ComplexType> > &out, const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in){
+  TraceTwoIndices<0,2>(out,in);
+}
+
+
 
 template<typename VectorMatrixType>
 inline CPSmatrixField<VectorMatrixType> Transpose(const CPSmatrixField<VectorMatrixType> &a){
@@ -243,14 +271,26 @@ inline CPSmatrixField<VectorMatrixType> Transpose(const CPSmatrixField<VectorMat
 }
 
 template<int Index, typename VectorMatrixType>
-inline CPSmatrixField<VectorMatrixType> TransposeOnIndex(CPSmatrixField<VectorMatrixType> &in){
+inline CPSmatrixField<VectorMatrixType> TransposeOnIndex(const CPSmatrixField<VectorMatrixType> &in){
   return unop_v(in, _transIdx<Index,VectorMatrixType>());
 }
 
 template<typename ComplexType>
-inline CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > TransposeColor(CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in){
+inline CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > TransposeColor(const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in){
   return TransposeOnIndex<1>(in);
 }
+
+template<int Index, typename VectorMatrixType>
+inline void TransposeOnIndex(CPSmatrixField<VectorMatrixType> &out, const CPSmatrixField<VectorMatrixType> &in){
+  unop_v(out, in, _transIdx<Index,VectorMatrixType>());
+}
+
+template<typename ComplexType>
+inline void TransposeColor(CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &out, const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in){
+  return TransposeOnIndex<1>(out, in);
+}
+
+
 
 //Left multiplication by gamma matrix
 template<typename ComplexType>
@@ -267,10 +307,10 @@ template<typename ComplexType>
 inline CPSmatrixField<CPSspinMatrix<ComplexType> > gr_r(const CPSmatrixField<CPSspinMatrix<ComplexType> > &in, const int dir){
   return unop_v(in,_gr_r_V<ComplexType>(dir));
 }
-template<typename ComplexType>
-inline CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > gr_r(const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in, const int dir){
-  return unop_v(in,_gr_r_scf_V<ComplexType>(dir));
-}
+/* template<typename ComplexType> */
+/* inline CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > gr_r(const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in, const int dir){ */
+/*   return unop_v(in,_gr_r_scf_V<ComplexType>(dir)); */
+/* } */
 
 
 //Left multiplication by gamma(dir)gamma(5)
@@ -288,9 +328,104 @@ template<typename ComplexType>
 inline CPSmatrixField<CPSspinMatrix<ComplexType> > grAx_r(const CPSmatrixField<CPSspinMatrix<ComplexType> > &in, const int dir){
   return unop_v(in,_grAx_r_V<ComplexType>(dir));
 }
+// template<typename ComplexType>
+// inline CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > grAx_r(const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in, const int dir){
+//   return unop_v(in,_grAx_r_scf_V<ComplexType>(dir));
+// }
+
+
+
+
+/*
+  Expect a functor that acts on SIMD data, pulling out the SIMD lane as appropriate. The per-site work should be divided over some number of parallel operations
+  Example:
+
+  template<typename VectorMatrixType>
+  struct mystruct{
+     typedef typename VectorMatrixType::scalar_type OutputType;  //must contain OutputType typedef
+     accelerator_inline int nParallel() const; //amount of parallel work per site
+
+     accelerator_inline void operator()(OutputType &out, const VectorMatrixType &in, const int widx, const int lane) const;  //widx=work idx inside site, lane = simd lane
+  };
+*/  
+
+template<typename T, typename Functor>
+auto unop_v_2d(const CPSmatrixField<T> &in, const Functor &l)-> CPSmatrixField<typename Functor::OutputType>{
+  using namespace Grid;
+  constexpr int nsimd = T::scalar_type::Nsimd();
+  CPSmatrixField<typename Functor::OutputType> out(in.getDimPolParams());
+  auto ov = out.view();
+  auto iv = in.view();
+  accelerator_for2d(x4d, iv.size(), widx, l.nParallel(), nsimd,
+		    {
+		      int lane = Grid::acceleratorSIMTlane(nsimd);
+		      l(*ov.site_ptr(x4d), *iv.site_ptr(x4d), widx, lane);
+		    }
+		    );
+  return out;
+}
+template<typename ComplexType>
+struct _gr_r_scf_V_2d{
+  typedef CPSspinColorFlavorMatrix<ComplexType> OutputType;
+  int dir;
+  _gr_r_scf_V_2d(int dir): dir(dir){}
+
+  accelerator_inline int nParallel() const{ return 144; } //spin, (color * flavor)^2
+  
+  accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &out, const CPSspinColorFlavorMatrix<ComplexType> &in, const int widx, const int lane) const{
+    int ffcc = widx % 36;
+    int s1 = widx / 36;
+    gr_r<gl_spinColorFlavorMatrixIterator<ComplexType> >(out, in, dir, s1, ffcc, lane);
+  }
+};
+template<typename ComplexType>
+struct _grAx_r_scf_V_2d{
+  typedef CPSspinColorFlavorMatrix<ComplexType> OutputType;
+  int dir;
+  _grAx_r_scf_V_2d(int dir): dir(dir){}
+
+  accelerator_inline int nParallel() const{ return 144; } //spin, (color * flavor)^2
+  
+  accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &out, const CPSspinColorFlavorMatrix<ComplexType> &in, const int widx, const int lane) const{
+    int ffcc = widx % 36;
+    int s1 = widx / 36;
+    grAx_r<gl_spinColorFlavorMatrixIterator<ComplexType> >(out, in, dir, s1, ffcc, lane);
+  }
+};
+
+
+
+template<typename ComplexType>
+inline CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > gr_r(const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in, const int dir){
+  return unop_v_2d(in,_gr_r_scf_V_2d<ComplexType>(dir));
+}
 template<typename ComplexType>
 inline CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > grAx_r(const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in, const int dir){
-  return unop_v(in,_grAx_r_scf_V<ComplexType>(dir));
+  return unop_v_2d(in,_grAx_r_scf_V_2d<ComplexType>(dir));
+}
+
+
+template<typename T, typename Functor>
+void unop_v_2d(CPSmatrixField<typename Functor::OutputType> &out, const CPSmatrixField<T> &in, const Functor &l){
+  using namespace Grid;
+  constexpr int nsimd = T::scalar_type::Nsimd();
+  auto ov = out.view();
+  auto iv = in.view();
+  accelerator_for2d(x4d, iv.size(), widx, l.nParallel(), nsimd,
+		    {
+		      int lane = Grid::acceleratorSIMTlane(nsimd);
+		      l(*ov.site_ptr(x4d), *iv.site_ptr(x4d), widx, lane);
+		    }
+		    );
+}
+
+template<typename ComplexType>
+inline void gr_r(CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &out, const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in, const int dir){
+  unop_v_2d(out,in,_gr_r_scf_V_2d<ComplexType>(dir));
+}
+template<typename ComplexType>
+inline void grAx_r(CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &out, const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &in, const int dir){
+  unop_v_2d(out,in,_grAx_r_scf_V_2d<ComplexType>(dir));
 }
 
 

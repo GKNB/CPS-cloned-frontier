@@ -272,7 +272,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(0) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-  if(0) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(0) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
@@ -328,7 +328,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(0) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);
 
-  if(1) testA2AvectorWnorm<A2Apolicies_grid>(a2a_arg);
+  if(0) testA2AvectorWnorm<A2Apolicies_grid>(a2a_arg);
 }
 
 

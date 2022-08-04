@@ -216,7 +216,37 @@ void benchmarkCPSmatrixField(const int ntests){
     printf("gl_r(SCFmatrixField, 0) %d iters: %g secs\n",ntests,tavg);
   }
 
+  if(0){
+    //gr_r
+    SCFmatrixField m3 = gr_r(m1,0);
 
+    Float total_time = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      m3 = gr_r(m1, 0);
+    }
+    total_time += dclock();
+    double tavg = total_time/ntests;
+    
+    printf("gr_r(SCFmatrixField, 0) %d iters: %g secs\n",ntests,tavg);
+  } 
+
+  if(1){
+    //gr_r
+    SCFmatrixField m3(m1);
+    gr_r(m3,m1,0);
+
+    Float total_time = -dclock();
+    for(int iter=0;iter<ntests;iter++){
+      gr_r(m3,m1, 0);
+    }
+    total_time += dclock();
+    double tavg = total_time/ntests;
+    
+    printf("gr_r(SCFmatrixField, SCFmatrixField, 0) %d iters: %g secs\n",ntests,tavg);
+  } 
+
+
+  
   if(0){
     //Trace(M1*M2)
     tr_m1 = Trace(m1,m2);
@@ -236,7 +266,7 @@ void benchmarkCPSmatrixField(const int ntests){
   }
 
 
-  if(1){    
+  if(0){    
     //Trace(M1*Ms)  where Ms is not a field
     CPSspinColorFlavorMatrix<ComplexType> Ms = *m2.site_ptr(size_t(0));
     tr_m1 = Trace(m1,Ms);

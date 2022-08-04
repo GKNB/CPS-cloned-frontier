@@ -413,14 +413,37 @@ public:
 #ifdef GRID_CUDA
     //Perlmutter MPI calls on UVM are currently broken
     //To workaround we copy to a temp buffer
+
+    double alloc_time = -dclock();
     size_t bsize = thread_size * sizeof(mf_Complex);
     mf_Complex* p = (mf_Complex*)malloc(bsize);
+    alloc_time += dclock();
+
+    double copy_time = 0;
+    double reduce_time = 0;
+    
     for(int t=0;t<con.size();t++){
+      copy_time -= dclock();
       memcpy(p, this->con[t], bsize);
+      copy_time += dclock();
+
+      reduce_time -= dclock();
       globalSum(p,thread_size);
+      reduce_time += dclock();
+
+      copy_time -= dclock();
       memcpy(this->con[t], p, bsize);
+      copy_time += dclock();
     }
+
+    double free_time = -dclock();    
     free(p);
+    free_time += dclock();
+
+    print_time("basicComplexArraySplitAlloc","nodeSum alloc",alloc_time);
+    print_time("basicComplexArraySplitAlloc","nodeSum copy",copy_time);     
+    print_time("basicComplexArraySplitAlloc","nodeSum reduce",reduce_time);     
+    print_time("basicComplexArraySplitAlloc","nodeSum free",free_time);     
 #else
     for(int t=0;t<con.size();t++){
       globalSum(this->con[t],thread_size);
