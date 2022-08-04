@@ -176,8 +176,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
     Type1FieldTimings::timer().part1 -= dclock();
     std::vector<SCFmatrixField> part1(2, SCFmatrixField(field_params)); //part1 goes from insertion to pi1, pi2 (x_4 = t_pi1, t_pi2)
     //Only compute in window between kaon and inner pion to save computation
-    mult(part1[0], vL, mf_pi1[t_pi1], wL, false, true, tK_min, t_pi1);
-    mult(part1[1], vL, mf_pi2[t_pi2], wL, false, true, tK_min, t_pi1);
+    mult(part1[0], vL, mf_pi1[t_pi1], wL, false, true, tK_min, tsep_k_pi_largest);
+    mult(part1[1], vL, mf_pi2[t_pi2], wL, false, true, tK_min, tsep_k_pi_largest);
     Type1FieldTimings::timer().part1 += dclock();    
 
     for(int tkpi_idx : t_it->second){
@@ -197,8 +197,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
       //\Gamma_2 vL_i(x_op;y_4) [[ wL_i^dag(y) S_2 vL_j(y;t_K) ]] [[ wL_j^dag(x_K)\gamma^5 \gamma^5 wH_k(x_K) ) ]] vH_k^\dagger(x_op;t_K)\gamma^5
       Type1FieldTimings::timer().part2 -= dclock();
       std::vector<SCFmatrixField> part2(2, SCFmatrixField(field_params)); //part2 has pi1, pi2 at y_4 = t_pi1, t_pi2
-      mult(part2[0], vL, con_pi1_K, vH, false, true, t_K, t_pi1);
-      mult(part2[1], vL, con_pi2_K, vH, false, true, t_K, t_pi1);
+      mult(part2[0], vL, con_pi1_K, vH, false, true, t_K, tsep_k_pi[tkpi_idx]);
+      mult(part2[1], vL, con_pi2_K, vH, false, true, t_K, tsep_k_pi[tkpi_idx]);
       gr(part2[0], -5); //right multiply by g5
       gr(part2[1], -5);
       Type1FieldTimings::timer().part2 += dclock();

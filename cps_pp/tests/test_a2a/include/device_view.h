@@ -253,7 +253,7 @@ void testAutoView(){
   assert( t1.free_called == false );
 
   autoViewTest2 t2;
-  t1.v = 6.28;
+  t2.v = 6.28;
   
   {  
     CPSautoView(t2_v, t2);

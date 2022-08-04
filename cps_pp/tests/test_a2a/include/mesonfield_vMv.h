@@ -615,7 +615,7 @@ void testvMvFieldTimesliceRange(const A2AArg &a2a_args, const double tol){
   typedef CPSfield<cps::ComplexD, N, FourDpolicy<OneFlavorPolicy>, Aligned128AllocPolicy> ScalarComplexField;
   typedef CPSfield<vComplex, N, FourDSIMDPolicy<OneFlavorPolicy>, Aligned128AllocPolicy> VectorComplexField;
   NullObject null;
-  ScalarComplexField tmp1(null), tmp2(null);
+  ScalarComplexField tmp1(null), tmp2(null), tmp3(null);
 
   //Check propagator field conversion working
   PropagatorField test(simd_dims);
@@ -633,26 +633,49 @@ void testvMvFieldTimesliceRange(const A2AArg &a2a_args, const double tol){
   assert( tmp1.equals(tmp2, tol, false) );
   std::cout << "Full Lt test passed" << std::endl;
 
-  int tmax = Lt/2 - 1;
-  vMvFieldImpl::optimized(pfield_got, V, mf, W, false, true, 0, tmax);
+  int tdis = Lt/2 - 1;
+  vMvFieldImpl::optimized(pfield_got, V, mf, W, false, true, 0, tdis);
   tmp1.importField( (VectorComplexField const &)pfield_got );
 
   //Zero timeslices in comparison data
-  for(size_t xx = 0; xx < tmp2.nfsites(); xx++){
+  tmp3 = tmp2;
+  for(size_t xx = 0; xx < tmp3.nfsites(); xx++){
     int f; int x[4];
-    tmp2.fsiteUnmap(xx,x,f);
+    tmp3.fsiteUnmap(xx,x,f);
     int t = x[3] + GJP.TnodeCoor()*GJP.TnodeSites();
-    if(t>tmax){
-      cps::ComplexD *p = tmp2.fsite_ptr(xx);
+    if(t>tdis){
+      cps::ComplexD *p = tmp3.fsite_ptr(xx);
       for(int i=0;i<N;i++)
 	p[i] = 0;
     }
   }
   
-  assert( compare(tmp1,tmp2,tol,false) );
+  assert( compare(tmp1,tmp3,tol,false) ); 
+  std::cout << "Partial Lt test passed 0 <= t <= Lt/2-1" << std::endl;
+
+
+  //Do the same but start from second half of lattice to ensure periodic logic is correct
+  tdis = 2;
+  vMvFieldImpl::optimized(pfield_got, V, mf, W, false, true, Lt-1, tdis);
+  tmp1.importField( (VectorComplexField const &)pfield_got );
+ 
+  //Zero timeslices in comparison data
+  tmp3 = tmp2;
+  for(size_t xx = 0; xx < tmp3.nfsites(); xx++){
+    int f; int x[4];
+    tmp3.fsiteUnmap(xx,x,f);
+    int t = x[3] + GJP.TnodeCoor()*GJP.TnodeSites();
+
+    if(!(t == Lt-1 || t == 0 || t==1)){    
+      cps::ComplexD *p = tmp3.fsite_ptr(xx);
+      for(int i=0;i<N;i++)
+	p[i] = 0;
+    }
+  }
   
-  //assert( tmp1.equals(tmp2, tol, true) );
-  std::cout << "Partial Lt test passed" << std::endl;
+  assert( compare(tmp1,tmp3,tol,false) ); 
+  std::cout << "Partial Lt test passed Lt-1 <= t <= 1" << std::endl;
+
   
   std::cout << "testvMvFieldTimesliceRange passed" << std::endl;
 }

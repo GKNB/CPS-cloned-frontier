@@ -35,6 +35,8 @@ void testVVgridOrigGparity(const A2AArg &a2a_args, const int nthreads, const dou
   for(int i=0;i<nthreads;i++){
     orig_sum[i].zero(); orig_slow_sum[i].zero(); grid_sum[i].zero();
   }
+
+  std::cout << "Running CPU threaded versions" << std::endl;
   
   int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
   int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
@@ -68,6 +70,8 @@ void testVVgridOrigGparity(const A2AArg &a2a_args, const int nthreads, const dou
     orig_slow_sum[0] += orig_slow_sum[i];
     grid_sum[0] += grid_sum[i];
   }
+
+  std::cout << "Running GPU version" << std::endl;
   
   //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
   typedef typename mult_vv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw>::PropagatorField PropagatorField;
@@ -81,6 +85,8 @@ void testVVgridOrigGparity(const A2AArg &a2a_args, const int nthreads, const dou
     vmv_offload_sum4 += *pfield.fsite_ptr(i);
   }
 
+  std::cout << "Comparing results" << std::endl;
+  
   //Do the comparison
   if(!compare(orig_sum[0],orig_slow_sum[0],tol)) ERR.General("","","Standard vs Slow implementation test failed\n");
   else if(!UniqueID()) printf("Standard vs Slow implementation test pass\n");

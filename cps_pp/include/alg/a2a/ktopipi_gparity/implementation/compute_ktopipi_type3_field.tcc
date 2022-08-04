@@ -195,8 +195,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(ResultsContainerType r
       //Construct part 1:
       // = vL(x_op) [[ wL^dag(x_pi1) S_2 vL(x_pi1) ]] [[ wL^dag(x_pi2) S_2 vL(x_pi2) ]] [[ wL^dag(x_K) wH(x_K) ]] vH^dag(x_op) \gamma^5
       Type3FieldTimings::timer().part1 -= dclock();	
-      mult(part1[0], vL, con_pi1_pi2_K, vH, false, true, t_K, t_pi1);
-      mult(part1[1], vL, con_pi2_pi1_K, vH, false, true, t_K, t_pi1);
+      mult(part1[0], vL, con_pi1_pi2_K, vH, false, true, t_K, tsep_k_pi[tkp]);
+      mult(part1[1], vL, con_pi2_pi1_K, vH, false, true, t_K, tsep_k_pi[tkp]);
       gr(part1[0], -5);
       gr(part1[1], -5);
       Type3FieldTimings::timer().part1 += dclock();	

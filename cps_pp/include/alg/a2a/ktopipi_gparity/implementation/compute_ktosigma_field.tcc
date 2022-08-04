@@ -101,7 +101,7 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
     
     pt2_time -= dclock();
     std::cout << Grid::GridLogMessage << "Part2 vMv " << t_range_start << "->" << tS_glb << std::endl;
-    mult(pt2_store[tS_idx], vL, mf_S[tS_glb], wL, false, true, t_range_start, tS_glb); //result is field in xop
+    mult(pt2_store[tS_idx], vL, mf_S[tS_glb], wL, false, true, t_range_start, tsep_k_sigma_lrg); //result is field in xop
     pt2_time += dclock();
   }
 
@@ -117,7 +117,7 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
     
     pt1_time -= dclock();
     std::cout << Grid::GridLogMessage << "Part1 t_K=" << tK_glb << " vMv " << tK_glb << "->" << t_range_end << std::endl;
-    mult(pt1, vL, mf_ls_WW[tK_glb], vH, false, true, tK_glb, t_range_end);
+    mult(pt1, vL, mf_ls_WW[tK_glb], vH, false, true, tK_glb, tsep_k_sigma_lrg);
     pt1_time += dclock();
 
     //loop over K->sigma seps, reuse precomputed pt2
@@ -353,7 +353,7 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
       pt1_time -= dclock();
       mult(mf_prod, mf_S[tS_glb], mf_ls_WW[tK_glb], true);      //node local because the tK,tS pairings are specific to this node
       std::cout << Grid::GridLogMessage << "vMv "<< tK_glb << "->" << tS_glb << std::endl; 
-      mult(pt1, vL, mf_prod, vH, false, true, tK_glb, tS_glb); //only compute between kaon and sigma
+      mult(pt1, vL, mf_prod, vH, false, true, tK_glb, tsep_k_sigma[i]); //only compute between kaon and sigma
       pt1_time += dclock();
       
       contract_time -= dclock();

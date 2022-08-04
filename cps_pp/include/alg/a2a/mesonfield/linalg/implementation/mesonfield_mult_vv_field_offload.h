@@ -163,15 +163,13 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			  nsimd, 
 			  shmem_max,
 			{
-//FIXME: For HIP, it seems like this is necessary, since SIMTcomplexType will be different between host and device, because of GRID_SIMT shows up in its definition, which makes the host code different from device code
-#ifdef GRID_SIMT
 			  typedef SIMT<VectorComplexType> ACC; //this will use scalar data as on device
 			  typedef typename ACC::value_type SIMTcomplexType; //=ScalarComplexType on GPU
-
-			  extern __shared__ ScalarComplexType shared_all[];
-			  //ScalarComplexType* shared_t = shared_all + (threadIdx.z + nsimd * threadIdx.x)*2*3*shmem_iblock_size; //OLD MAPPING IN GRID
-			  ScalarComplexType* shared_t = shared_all + (threadIdx.x + nsimd * threadIdx.y)*2*3*shmem_iblock_size; //New mapping uses threadIdx.x for simd lane
-
+			  
+			  extern __shared__ SIMTcomplexType shared_all[];
+                          //ScalarComplexType* shared_t = shared_all + (threadIdx.z + nsimd * threadIdx.x)*2*3*shmem_iblock_size; //OLD MAPPING IN GRID
+                          SIMTcomplexType* shared_t = shared_all + (threadIdx.x + nsimd * threadIdx.y)*2*3*shmem_iblock_size; //New mapping uses threadIdx.x for simd lan
+			  
 			  SIMTcomplexType *matA = shared_t;
 			  SIMTcomplexType *matB = shared_t + 3*shmem_iblock_size;
 
@@ -240,9 +238,6 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			      }//sl
 			    }//fl
 			  }//iprimeb_subblock
-#else 
-#warning "The run_VV_kernel_GPU is compiled for host! We don't want that happen!"
-#endif
 			});
   }
 #endif

@@ -463,8 +463,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			const MesonFieldType &M,
 			const rA2AfieldType &r,
 			bool conj_l, bool conj_r,
-			const int t_start, const int t_end){
-    if(!UniqueID()) std::cout << "Starting field vMv multiplication between t=" << t_start << " and " << t_end << std::endl;
+			const int t_start, const int t_dis){
+    if(!UniqueID()) std::cout << "Starting field vMv multiplication between t=" << t_start << " and " << t_start + t_dis << " (mod Lt)" << std::endl;
 #if defined(GRID_CUDA)
     cudaFuncCache cache_default;
     assert(cudaDeviceGetCacheConfig(&cache_default) == cudaSuccess );
@@ -499,13 +499,13 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     //Which local timeslices do we need?
     std::vector<int> local_timeslices_v;
     {
-      int tsep_start_end = (t_end - t_start + 10*Lt) % Lt; //wrap periodically
-      for(int tlcl = 0; tlcl < GJP.TnodeSites(); tlcl++){
-	int tglb = tlcl + GJP.TnodeCoor() * GJP.TnodeSites();
-	if( (tglb - t_start + 3*Lt) % Lt <= tsep_start_end )
-	  local_timeslices_v.push_back(tlcl);
+      int toff = GJP.TnodeCoor() * GJP.TnodeSites();
+      for(int tlin=t_start; tlin<=t_start + t_dis; tlin++){
+	int tprd = tlin % Lt;
+	int tlcl = tprd - toff;
+	if(tlcl >=0 && tlcl < GJP.TnodeSites()) local_timeslices_v.push_back(tlcl);
       }
-      std::cout << "t_start=" << t_start << " t_end=" << t_end << " tsep=" << tsep_start_end << ". This node doing timeslices: ";
+      std::cout << "t_start=" << t_start << " tsep=" << t_dis << ". This node doing timeslices: ";
       for(auto v: local_timeslices_v) std::cout << v << " ";
       std::cout << std::endl;
     }
@@ -695,8 +695,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			     const MesonFieldType &M,
 			     const rA2AfieldType &r,
 			     bool conj_l, bool conj_r,
-			     const int t_start, const int t_end){
-    optimized(into, l, M, r, conj_l, conj_r, t_start, t_end);
+			     const int t_start, const int t_dis){
+    optimized(into, l, M, r, conj_l, conj_r, t_start, t_dis);
   }
 
   
