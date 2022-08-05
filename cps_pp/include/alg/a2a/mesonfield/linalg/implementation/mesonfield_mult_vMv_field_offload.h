@@ -501,23 +501,28 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     assert(into.nodeSites(3) == GJP.TnodeSites()); //cannot be SIMD packed in t-direction
 
     //Which local timeslices do we need?
-    std::vector<int> local_timeslices_v;
+    std::set<int> local_timeslices_v; //use a set to avoid duplicate values ; this leads to subtle errors!
     {
+      std::cout << "t_start=" << t_start << " tsep=" << t_dis << ". This node doing timeslices: ";
       int toff = GJP.TnodeCoor() * GJP.TnodeSites();
       for(int tlin=t_start; tlin<=t_start + t_dis; tlin++){
 	int tprd = tlin % Lt;
 	int tlcl = tprd - toff;
-	if(tlcl >=0 && tlcl < GJP.TnodeSites()) local_timeslices_v.push_back(tlcl);
+	if(tlcl >=0 && tlcl < GJP.TnodeSites()){
+	  local_timeslices_v.insert(tlcl);
+	  std::cout << tlcl << " ";
+	}
       }
-      std::cout << "t_start=" << t_start << " tsep=" << t_dis << ". This node doing timeslices: ";
-      for(auto v: local_timeslices_v) std::cout << v << " ";
       std::cout << std::endl;
     }
     int nt_do = local_timeslices_v.size();
     if(nt_do == 0) return;
     
     hostDeviceMirroredContainer<int> local_timeslices(nt_do);
-    memcpy( local_timeslices.getHostWritePtr(), local_timeslices_v.data(), nt_do * sizeof(int));
+    {
+      int i=0;
+      for(int e: local_timeslices_v) local_timeslices.getHostWritePtr()[i++] = e;
+    }
         
     CPSautoView(l_v, l);
     CPSautoView(r_v, r);

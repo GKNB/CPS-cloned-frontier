@@ -248,16 +248,17 @@ inline void printTimeStats(const std::string &descr, double time){
   }
 }
 
-//Return true if this node has timeslices that lie between tstart and tend
-//Supports periodic coordinates, e.g.  tstart=Lt-1 , tend=1 maps to the timeslices  Lt-1 , 0 , 1
-inline bool onNodeTimeslicesInRange(const int tstart, const int tend){
+//Return true if this node has timeslices that lie between tstart and tstart + tsep  (mod Lt) . Range is inclusive
+inline bool onNodeTimeslicesInRange(const int tstart, const int tsep){
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
-  int toff = GJP.TnodeCoor()*GJP.TnodeSites();  
-  int tsep_max = (tend - tstart + 10*Lt) % Lt; //wrap
-  for(int tlcl=0;tlcl<GJP.TnodeSites();tlcl++){
-    int tglb = tlcl + toff;
-    int tsep = (tglb - tstart + 10*Lt) % Lt;
-    if(tsep <= tsep_max) return true;
+  int toff = GJP.TnodeCoor()*GJP.TnodeSites();
+  std::cout << "Checking for on-node timeslices tstart=" << tstart << " tsep=" << tsep << std::endl;
+  for(int tlin=tstart;tlin<=tstart+tsep;tlin++){
+    int tprd = tlin % Lt;
+    int tlcl = tprd - toff;
+    std::cout << "tlin=" << tlin << " tprd=" << tprd << " tlcl=" << tlcl << " on-node ? " << (tlcl >= 0 && tlcl < GJP.TnodeSites()) << std::endl;
+    
+    if(tlcl >= 0 && tlcl < GJP.TnodeSites()) return true;
   }
   return false;
 }

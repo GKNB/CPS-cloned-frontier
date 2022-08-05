@@ -115,19 +115,18 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
   
   //Start loop over tK
   for(int tK_glb=0;tK_glb< Lt; tK_glb++){
-    int t_range_end = modLt(tK_glb + tsep_k_sigma_lrg, Lt); 
-    if(!onNodeTimeslicesInRange(tK_glb, t_range_end)) continue; //no point computing outside of range between kaon and sigma operator
-    
+    if(!onNodeTimeslicesInRange(tK_glb, tsep_k_sigma_lrg)){  continue; }//no point computing outside of range between kaon and sigma operator
+      
     pt1_time -= dclock();
-    std::cout << Grid::GridLogMessage << "Part1 t_K=" << tK_glb << " vMv " << tK_glb << "->" << t_range_end << std::endl;
+    std::cout << Grid::GridLogMessage << "Part1 t_K=" << tK_glb << " vMv " << tK_glb << "->" << tK_glb + tsep_k_sigma_lrg << " (mod Lt)" << std::endl;
     mult(pt1, vL, mf_ls_WW[tK_glb], vH, false, true, tK_glb, tsep_k_sigma_lrg);
     pt1_time += dclock();
 
     //loop over K->sigma seps, reuse precomputed pt2
     for(int i=0;i<ntsep_k_sigma;i++){
+      if(!onNodeTimeslicesInRange(tK_glb, tsep_k_sigma[i])) continue; //no point computing outside of range between kaon and sigma operator
       int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
-      if(!onNodeTimeslicesInRange(tK_glb, tS_glb)) continue; //no point computing outside of range between kaon and sigma operator
-            
+      
       const SCFmatrixField &pt2 = pt2_store[tS_subset_inv_map[tS_glb]];
 
       std::cout << Grid::GridLogMessage << "Contract t_K=" << tK_glb << " t_sigma=" << tS_glb << std::endl;
@@ -359,10 +358,9 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
   
   for(int tK_glb=0;tK_glb<Lt;tK_glb++){
     for(int i=0;i<ntsep_k_sigma;i++){
-      int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
+      if(!onNodeTimeslicesInRange(tK_glb, tsep_k_sigma[i])) continue; //no point computing outside of range between kaon and sigma operator
 
-      if(!onNodeTimeslicesInRange(tK_glb, tS_glb)) continue; //no point computing outside of range between kaon and sigma operator
-      
+      int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
       pt1_time -= dclock();
       mult(mf_prod, mf_S[tS_glb], mf_ls_WW[tK_glb], true);      //node local because the tK,tS pairings are specific to this node
       std::cout << Grid::GridLogMessage << "vMv "<< tK_glb << "->" << tS_glb << std::endl; 
