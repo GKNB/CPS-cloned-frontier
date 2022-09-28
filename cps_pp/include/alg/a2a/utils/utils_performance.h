@@ -76,7 +76,7 @@ double gridBenchmark(Lattice &lat){
   int ncall =1000;
 
   FGrid->Barrier();
-  Ddwf.ZeroCounters();
+  //Ddwf.ZeroCounters(); no longer supported
   Ddwf.Dhop(src,result,0);
   std::cout<<Grid::GridLogMessage<<"Called warmup"<<std::endl;
   double t0=Grid::usecond();
@@ -93,7 +93,7 @@ double gridBenchmark(Lattice &lat){
   std::cout<<Grid::GridLogMessage << "mflop/s =   "<< flops/(t1-t0)<<std::endl;
   std::cout<<Grid::GridLogMessage << "mflop/s per rank =  "<< flops/(t1-t0)/NP<<std::endl;
   std::cout<<Grid::GridLogMessage << "mflop/s per node =  "<< flops/(t1-t0)/NN<<std::endl;
-  Ddwf.Report();
+  //Ddwf.Report(); no longer supported
   return flops/(t1-t0)/NN; //node performance in Mflops
 }
 
@@ -190,7 +190,7 @@ std::pair<double,double> gridBenchmarkSinglePrec(Lattice &lat){
   {
     std::cout << "Dirac operator type is : " << printType<GridDiracF>() << std::endl;
     FGrid_f->Barrier();
-    Ddwf_F.ZeroCounters();
+    //Ddwf_F.ZeroCounters(); no longer supporte
     Ddwf_F.Dhop(src,result,0);
     std::cout<<Grid::GridLogMessage<<"Called warmup"<<std::endl;
     double t0=Grid::usecond();
@@ -204,13 +204,13 @@ std::pair<double,double> gridBenchmarkSinglePrec(Lattice &lat){
     std::cout<<Grid::GridLogMessage << "mflop/s =   "<< flops/(t1-t0)<<std::endl;
     std::cout<<Grid::GridLogMessage << "mflop/s per rank =  "<< flops/(t1-t0)/NP<<std::endl;
     std::cout<<Grid::GridLogMessage << "mflop/s per node =  "<< flops/(t1-t0)/NN<<std::endl;
-    Ddwf_F.Report();
+    //Ddwf_F.Report(); no longer supported
     perf_F = flops/(t1-t0)/NN; 
   }
   {
     std::cout << "Dirac operator type is : " << printType<GridDiracFH>() << std::endl;
     FGrid_f->Barrier();
-    Ddwf_FH.ZeroCounters();
+    //Ddwf_FH.ZeroCounters();  no longer supported
     Ddwf_FH.Dhop(src,result,0);
     std::cout<<Grid::GridLogMessage<<"Called warmup"<<std::endl;
     double t0=Grid::usecond();
@@ -224,7 +224,7 @@ std::pair<double,double> gridBenchmarkSinglePrec(Lattice &lat){
     std::cout<<Grid::GridLogMessage << "mflop/s =   "<< flops/(t1-t0)<<std::endl;
     std::cout<<Grid::GridLogMessage << "mflop/s per rank =  "<< flops/(t1-t0)/NP<<std::endl;
     std::cout<<Grid::GridLogMessage << "mflop/s per node =  "<< flops/(t1-t0)/NN<<std::endl;
-    Ddwf_FH.Report();
+    //Ddwf_FH.Report();  no longer supported
     perf_FH = flops/(t1-t0)/NN; 
   }
   return std::pair<double,double>(perf_F,perf_FH); //node performance in Mflops
