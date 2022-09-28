@@ -3,7 +3,7 @@
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &filename, FP_FORMAT fileformat) const{
-  if(!UniqueID()) printf("Writing meson field of size %d kB to file %s\n",byte_size()/1024,filename.c_str());
+  if(!UniqueID()) printf("Writing meson field of size %f kB to file %s\n",double(byte_size())/1024,filename.c_str());
   std::ofstream *file = !UniqueID() ? new std::ofstream(filename.c_str(),std::ofstream::out) : NULL;
 
   write(file,fileformat);
@@ -29,10 +29,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(std::ostream *file_pt
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
   
-  if(!this->isOnNode())
-    ERR.General("A2AmesonField","write","Mesonfield must be present on head node\n");
-
   if(!UniqueID()){
+    if(!this->isOnNode())
+      ERR.General("A2AmesonField","write","Mesonfield must be present on head node\n");
+    
     FP_FORMAT dataformat = FPformat<ScalarComplexType>::get();
     FPConv conv;
     if(fileformat == FP_AUTOMATIC)

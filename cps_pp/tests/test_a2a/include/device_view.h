@@ -87,15 +87,18 @@ void testCPSfieldArray(){
 
   ComplexType* expect_p = farray[0]->fsite_ptr(size_t(0));
   std::cout << "Site 0 ptr " << expect_p << std::endl;
-  
-  accelerator_for(x, farray[0]->size(), nsimd,
-		  {
-		    if(x == 0){
-		      ComplexType* site_ptr = av[0].fsite_ptr(x);
-		      auto v = ACC::read(*site_ptr);
-		      ACC::write(*into, v);
-		    }
-		  });
+
+  {
+    using namespace Grid;
+    accelerator_for(x, farray[0]->size(), nsimd,
+		    {
+		      if(x == 0){
+			ComplexType* site_ptr = av[0].fsite_ptr(x);
+			auto v = ACC::read(*site_ptr);
+			ACC::write(*into, v);
+		      }
+		    });
+  }
 
   std::cout << "Got " << *into << " expect " << expect << std::endl;
   
@@ -196,14 +199,17 @@ void testA2AfieldAccess(){
   size_t fsize = field.size();
  
   std::cout << "Starting kernel, fsize " << fsize << std::endl;
-  accelerator_for(x, fsize, nsimd,
-  		  {
-  		    if(x==0){
-		      const ComplexType &val_vec = *vv.getMode(0).fsite_ptr(x);
-		      auto val_lane = ACC::read(val_vec);
- 		      ACC::write(*into, val_lane);
-		    }
-  		  });
+  {
+    using namespace Grid;
+    accelerator_for(x, fsize, nsimd,
+		    {
+		      if(x==0){
+			const ComplexType &val_vec = *vv.getMode(0).fsite_ptr(x);
+			auto val_lane = ACC::read(val_vec);
+			ACC::write(*into, val_lane);
+		      }
+		    });
+  }
 
   std::cout << "Got " << *into << " expect " << expect << std::endl;
   
@@ -288,13 +294,16 @@ void testViewArray(){
   using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
   #endif
 #endif
- 
-  accelerator_for(x, 100, 1,
-		  {
-		    if(x==0 || x==1){
-		      into[x] = t1_v[x].v;
-		    }
-		  });
+
+  {
+    using namespace Grid;
+    accelerator_for(x, 100, 1,
+		    {
+		      if(x==0 || x==1){
+			into[x] = t1_v[x].v;
+		      }
+		    });
+  }
   assert(into[0] == 3.14);
   assert(into[1] == 6.28);
 
@@ -307,12 +316,15 @@ void testViewArray(){
   std::vector<autoViewTest2*> t2_p = { &t2[0], &t2[1] };
   ViewArray<typename autoViewTest2::View> t2_v(t2_p);
 
-  accelerator_for(x, 100, 1,
-		  {
-		    if(x==0 || x==1){
-		      into[x] = t2_v[x].v;
-		    }
-		  });
+  {
+    using namespace Grid;
+    accelerator_for(x, 100, 1,
+		    {
+		      if(x==0 || x==1){
+			into[x] = t2_v[x].v;
+		      }
+		    });
+  }
   assert(into[0] == 31.4);
   assert(into[1] == 62.8);
 
@@ -365,12 +377,15 @@ void testCPSfieldDeviceCopy(){
 #endif
  
   auto field_v = field.view();
-  
-  accelerator_for(x, 1, nsimd,
-		  {
-		    auto v = ACC::read(*field_v.site_ptr(x));
-		    ACC::write(*into, v);
-		  });
+
+  {
+    using namespace Grid;
+    accelerator_for(x, 1, nsimd,
+		    {
+		      auto v = ACC::read(*field_v.site_ptr(x));
+		      ACC::write(*into, v);
+		    });
+  }
 
   std::cout << "Got " << *into << " expect " << expect << std::endl;
   
@@ -382,11 +397,14 @@ void testCPSfieldDeviceCopy(){
   memset(into, 0, sizeof(ComplexType));
 
   auto wrp_v = wrp.view();
-  accelerator_for(x, 1, nsimd,
-  		  {
-  		    auto v = ACC::read(*wrp_v->site_ptr(x));
-  		    ACC::write(*into, v);
-  		  });
+  {
+    using namespace Grid;
+    accelerator_for(x, 1, nsimd,
+		    {
+		      auto v = ACC::read(*wrp_v->site_ptr(x));
+		      ACC::write(*into, v);
+		    });
+  }
 
   std::cout << "Got " << *into << " expect " << expect << std::endl;
   
@@ -447,18 +465,20 @@ void testMultiSourceDeviceCopy(){
  
   ComplexType* into = (ComplexType*)managed_alloc_check(sizeof(ComplexType));
   typedef SIMT<ComplexType> ACC;
- 
-  
-  accelerator_for(x, 100, nsimd,
-		  {
-		    if(x==0){
-		      auto v1 = ACC::read(src_v.template getSource<0>().siteComplex(x));
-		      ACC::write(into[0], v1);
-		      
-		      auto v2 = ACC::read(src_v.template getSource<1>().siteComplex(x));
-		      ACC::write(into[1], v2);
-		    }
-		  });
+
+  {
+    using namespace Grid;
+    accelerator_for(x, 100, nsimd,
+		    {
+		      if(x==0){
+			auto v1 = ACC::read(src_v.template getSource<0>().siteComplex(x));
+			ACC::write(into[0], v1);
+			
+			auto v2 = ACC::read(src_v.template getSource<1>().siteComplex(x));
+			ACC::write(into[1], v2);
+		      }
+		    });
+  }
 
   std::cout << "Got " << into[0] << " expect " << expect1 << std::endl;
   assert( Reduce(expect1 == into[0]) );
@@ -507,7 +527,7 @@ void testFlavorProjectedSourceView(){
     std::cout << "Checking site access" << std::endl;
     using namespace Grid;
     ComplexType *into_c = (ComplexType*)into;
-    
+   
     accelerator_for(x, 100, nsimd,
 		  {
 		    if(x==0){

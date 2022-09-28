@@ -28,10 +28,11 @@ void testMesonFieldNormGridStd(const A2AArg &a2a_args, const double tol){
 
 template<typename ScalarA2Apolicies>
 void testMesonFieldReadWrite(const A2AArg &a2a_args){
+  std::cout << "Running testMesonFieldReadWrite" << std::endl;
   A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
   A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
   
-  A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
+  A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf(W,V);
   mf.testRandom();
   
   {
@@ -93,6 +94,7 @@ void testMesonFieldReadWrite(const A2AArg &a2a_args){
       assert( mfrv[i].equals(mfv[i], 1e-18, true) );
     if(!UniqueID()) printf("Passed mf vector IO test\n");
   }
+  std::cout << "Passed testMesonFieldReadWrite" << std::endl;
 }	
 
 

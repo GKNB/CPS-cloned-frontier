@@ -618,7 +618,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
 #endif
 	
 #ifndef MEMTEST_MODE
-      __SSC_MARK(0x1);
+      //__SSC_MARK(0x1);
 
 #pragma omp parallel
       {
@@ -681,7 +681,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
       
       }//end of parallel region
 
-      __SSC_MARK(0x2);
+      //__SSC_MARK(0x2);
 #endif //memtest mode
       std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << nmodes_l << "*" <<  nmodes_r << " modes and inner p loop of size " <<  size_3d <<  " divided over " << omp_get_max_threads() << " threads";
       print_time("A2AmesonField",os.str().c_str(),ttime + dclock());

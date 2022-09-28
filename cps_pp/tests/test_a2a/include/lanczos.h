@@ -41,7 +41,7 @@ void testLanczosIO(typename GridA2Apolicies::FgridGFclass &lattice){
       for(int s=0;s<lanc.evec[i].Grid()->oSites();s++)
 	assert( GridTensorEquals(view[s] , view2[s]) );
       
-      
+      view.ViewClose(); view2.ViewClose();      
     }
   }
 
@@ -71,6 +71,8 @@ void testLanczosIO(typename GridA2Apolicies::FgridGFclass &lattice){
 
       for(int s=0;s<lanc.evec_f[i].Grid()->oSites();s++)
 	assert( GridTensorEquals(view[s] , view2[s]) );
+
+      view.ViewClose(); view2.ViewClose();      
     }
   }
 }
@@ -99,7 +101,7 @@ void testCompressedEvecInterface(typename GridA2Apolicies::FgridGFclass &lattice
   std::cout << "5d coarse lattice is ";
   for (int i=0;i<4;i++){
     std::cout << coarseLatt[i]<<"x";
-  }
+  } 
   int cLs = Ls/blockSize[4]; assert(cLs*blockSize[4]==Ls);
   std::cout << cLs<<std::endl;
 
@@ -110,7 +112,6 @@ void testCompressedEvecInterface(typename GridA2Apolicies::FgridGFclass &lattice
   Grid::GridCartesian         * CoarseGrid4F    = Grid::SpaceTimeGrid::makeFourDimGrid(coarseLatt, UGridF->_simd_layout, UGridF->_processors);
   Grid::GridRedBlackCartesian * CoarseGrid4rbF  = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid(CoarseGrid4F);
   Grid::GridCartesian         * CoarseGrid5F  = Grid::SpaceTimeGrid::makeFiveDimGrid(cLs,CoarseGrid4F);
-
 
   constexpr int basis_size = 20;
   

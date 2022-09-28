@@ -12,6 +12,15 @@ CPS_START_NAMESPACE
 template<typename VectorMatrixType>
 using CPSmatrixField = CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, Aligned128AllocPolicy>;
 
+template<typename VectorMatrixType>
+double CPSmatrixFieldNorm2(const CPSmatrixField<VectorMatrixType> &f){
+  typedef typename VectorMatrixType::scalar_type scalar_type;
+  constexpr int nscalar= VectorMatrixType::nScalarType();
+  CPSfield<scalar_type,nscalar, FourDSIMDPolicy<OneFlavorPolicy>, Aligned128AllocPolicy> tmp(f.getDimPolParams());
+  memcpy(tmp.ptr(), f.ptr(), f.byte_size());
+  return tmp.norm2();
+}
+
 
 //These structs allow the same interface for operators that are applicable for matrix and complex types
 define_test_has_enum(isDerivedFromCPSsquareMatrix);

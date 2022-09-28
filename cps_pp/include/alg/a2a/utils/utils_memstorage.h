@@ -116,6 +116,7 @@ public:
 	ptr = NULL; 
       }
     }
+    assert(ptr == NULL);
     
     if(use_external_buffer){
       if(external_buffer_size != size || external_buffer_alignment != alignment)
@@ -128,7 +129,8 @@ public:
       ptr = memalign_check(alignment, size);
 #endif
     }
-
+    assert(ptr != NULL);
+    
     _size = size;
     _alignment = alignment;
   }

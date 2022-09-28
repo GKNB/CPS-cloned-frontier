@@ -269,15 +269,14 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   A2AvectorW<ManualAllocA2Apolicies> W(a2a_args,fp);
   A2AvectorV<ManualAllocA2Apolicies> V(a2a_args,fp);
   
-  for(int i=0;i<V.getNmodes();i++) assert( &V.getMode(i) == NULL);
+  for(int i=0;i<V.getNmodes();i++) assert( !V.modeIsAssigned(i) );
   V.allocModes();
-  for(int i=0;i<V.getNmodes();i++) assert( &V.getMode(i) != NULL);
-  
+  for(int i=0;i<V.getNmodes();i++) assert( V.modeIsAssigned(i) );  
   V.testRandom();
 
+  for(int i=0;i<W.getNmodes();i++) assert( !W.modeIsAssigned(i) );
   W.allocModes();
-  for(int i=0;i<W.getNl();i++) assert( &W.getWl(i) != NULL);
-  for(int i=0;i<W.getNhits();i++) assert( &W.getWh(i) != NULL);
+  for(int i=0;i<W.getNmodes();i++) assert( W.modeIsAssigned(i) );
   W.testRandom();
 
   
@@ -293,15 +292,15 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   A2AvectorVfftw<ManualAllocA2Apolicies> Vfft(a2a_args,fp); //no allocation yet performed
   Vfft.destructivefft(V, &fft_op);
 
-  for(int i=0;i<V.getNmodes();i++) assert( &V.getMode(i) == NULL);
-  for(int i=0;i<Vfft.getNmodes();i++) assert( &Vfft.getMode(i) != NULL);
+  for(int i=0;i<V.getNmodes();i++) assert( !V.modeIsAssigned(i) );
+  for(int i=0;i<Vfft.getNmodes();i++) assert( Vfft.modeIsAssigned(i) );
 
   
   A2AvectorV<ManualAllocA2Apolicies> Vrec(a2a_args,fp);
   Vfft.destructiveInversefft(Vrec, &invfft_op);
 
-  for(int i=0;i<Vrec.getNmodes();i++) assert( &Vrec.getMode(i) != NULL);
-  for(int i=0;i<Vfft.getNmodes();i++) assert( &Vfft.getMode(i) == NULL); 
+  for(int i=0;i<Vrec.getNmodes();i++) assert( Vrec.modeIsAssigned(i) );
+  for(int i=0;i<Vfft.getNmodes();i++) assert( !Vfft.modeIsAssigned(i) ); 
 
   for(int i=0;i<Vrec.getNmodes();i++) assert( Vrec.getMode(i).equals( Vcopy.getMode(i), 1e-08, true) );
 
@@ -311,18 +310,14 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   A2AvectorWfftw<ManualAllocA2Apolicies> Wfft(a2a_args,fp);
   Wfft.destructiveGaugeFixTwistFFT(W,pp,lat);
 
-  for(int i=0;i<W.getNl();i++) assert( &W.getWl(i) == NULL);
-  for(int i=0;i<W.getNhits();i++) assert( &W.getWh(i) == NULL);
-  
-  for(int i=0;i<Wfft.getNmodes();i++) assert( &Wfft.getMode(i) != NULL);
+  for(int i=0;i<W.getNmodes();i++) assert( !W.modeIsAssigned(i) );
+  for(int i=0;i<Wfft.getNmodes();i++) assert( Wfft.modeIsAssigned(i) );
   
   A2AvectorW<ManualAllocA2Apolicies> Wrec(a2a_args,fp);
   Wfft.destructiveUnapplyGaugeFixTwistFFT(Wrec, pp,lat);
   
-  for(int i=0;i<Wfft.getNmodes();i++) assert( &Wfft.getMode(i) == NULL);
-
-  for(int i=0;i<Wrec.getNl();i++) assert( &Wrec.getWl(i) != NULL);
-  for(int i=0;i<Wrec.getNhits();i++) assert( &Wrec.getWh(i) != NULL);
+  for(int i=0;i<Wfft.getNmodes();i++) assert( !Wfft.modeIsAssigned(i) );
+  for(int i=0;i<Wrec.getNmodes();i++) assert( Wrec.modeIsAssigned(i) );
   
   for(int i=0;i<Wrec.getNl();i++){
     assert( Wrec.getWl(i).equals( Wcopy.getWl(i), 1e-08, true) ); 

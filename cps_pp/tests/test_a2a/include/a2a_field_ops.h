@@ -389,8 +389,13 @@ void testA2AvectorWnorm(const A2AArg &a2a_args){
 
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
-  assert(GJP.Tnodes() == 1); //lazy
-
+  //LAZY
+  //assert(GJP.Tnodes() == 1); //lazy
+  if(GJP.Tnodes()!=1){
+    std::cout << "WARNING (testA2AvectorWnorm) : Test does not presently support >1 node in time direction, skipping test" <<std::endl;
+    return;
+  }        
+  
   size_t x3d = 0;
 
   //Check that W is correctly normalized such that \sum_i \eta_i(x0,t1) \eta^\dag_i(x0,t2)  produces a unit matrix in spin-color,flavor and time for some arbitrary x0

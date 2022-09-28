@@ -83,6 +83,9 @@ public:
     if(!v[0].assigned()) ERR.General("A2AvectorV","getFieldInputParams","Zeroth field is unassigned\n");
     return v[0]->getDimPolParams();
   }    
+
+  //Return true if the mode has been allocated
+  inline bool modeIsAssigned(const int i) const{ return v[i].assigned(); }
   
   inline const FermionFieldType & getMode(const int i) const{ return *v[i]; }
   inline FermionFieldType & getMode(const int i){ return *v[i]; }  
@@ -227,6 +230,9 @@ public:
     if(!v[0].assigned()) ERR.General("A2AvectorVfftw","getFieldInputParams","Zeroth field is unassigned\n");
     return v[0]->getDimPolParams();
   }   
+
+  //Return true if the mode has been allocated
+  inline bool modeIsAssigned(const int i) const{ return v[i].assigned(); }
   
   inline const FermionFieldType & getMode(const int i) const{ return *v[i]; }
   inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
@@ -399,6 +405,9 @@ public:
     
     ERR.General("A2AvectorW","getFieldInputParams","Neither of the zeroth fields are assigned\n");
   }   
+
+  //Return true if the mode has been allocated
+  inline bool modeIsAssigned(const int i) const{ return i<nl ? wl[i].assigned() : wh[i-nl].assigned(); }
   
   inline const FermionFieldType & getWl(const int i) const{ return *wl[i]; }
   inline const ComplexFieldType & getWh(const int hit) const{ return *wh[hit]; }
@@ -579,6 +588,9 @@ public:
     
     ERR.General("A2AvectorWfftw","getFieldInputParams","Neither of the zeroth fields are assigned\n");
   }   
+
+  //Return true if the mode has been allocated
+  inline bool modeIsAssigned(const int i) const{ return i<nl ? wl[i].assigned() : wh[i-nl].assigned(); }
   
   inline const FermionFieldType & getWl(const int i) const{ return *wl[i]; }
   inline const FermionFieldType & getWh(const int hit, const int spin_color) const{ return *wh[spin_color + 12*hit]; }

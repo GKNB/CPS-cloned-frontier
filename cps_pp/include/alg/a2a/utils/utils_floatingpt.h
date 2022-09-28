@@ -79,6 +79,15 @@ template<>
 struct FPformat<Grid::vComplexF>{
   inline static FP_FORMAT get(){ return FPformat<float>::get(); }
 };
+
+# if defined(GRID_CUDA) || defined(GRID_HIP)
+//Grid uses thrust on CUDA/HIP
+template<typename T>
+struct FPformat<Grid::complex<T> >{
+  inline static FP_FORMAT get(){ return FPformat<T>::get(); }
+};
+# endif
+
 #endif
 
 template<typename T>
