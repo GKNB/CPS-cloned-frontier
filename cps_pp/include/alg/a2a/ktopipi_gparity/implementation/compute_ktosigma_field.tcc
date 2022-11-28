@@ -492,15 +492,23 @@ void ComputeKtoSigma<mf_Policies>::type4_contract(ResultsContainerType &result, 
 
   auto pt1_G5 = gr_r(part1, -5);
 
+  auto dimpol = part1.getDimPolParams();
+  SCFmatrixField pt1_G5_M1(dimpol);
+  SCFmatrixField pt1_G5_M2(dimpol);
+  SCFmatrixField pt2L_M2(dimpol);
+  SCFmatrixField pt2H_M1(dimpol);
+  SCFmatrixField pt2H_M2(dimpol);  
+  SCFmatrixField ctrans_pt2L_M2(dimpol);
+  
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
-      auto pt1_G5_M1 = multGammaRight(pt1_G5, 1, gcombidx,mu);
-      auto pt1_G5_M2 = multGammaRight(pt1_G5, 2, gcombidx,mu);
-      auto pt2L_M2 = multGammaRight(part2_L, 2, gcombidx,mu);
-      auto pt2H_M1 = multGammaRight(part2_H, 1, gcombidx,mu);
-      auto pt2H_M2 = multGammaRight(part2_H, 2, gcombidx,mu);
+      multGammaRight(pt1_G5_M1, pt1_G5, 1, gcombidx,mu);
+      multGammaRight(pt1_G5_M2, pt1_G5, 2, gcombidx,mu);
+      multGammaRight(pt2L_M2, part2_L, 2, gcombidx,mu);
+      multGammaRight(pt2H_M1, part2_H, 1, gcombidx,mu);
+      multGammaRight(pt2H_M2, part2_H, 2, gcombidx,mu);
 
-      auto ctrans_pt2L_M2 = TransposeColor(pt2L_M2);
+      TransposeColor(ctrans_pt2L_M2, pt2L_M2);
 	
       int c = 0;
 

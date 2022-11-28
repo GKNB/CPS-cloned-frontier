@@ -92,6 +92,15 @@ struct _benchmarkKtoSigmaOffload<A2Apolicies, 1>{
     if(!UniqueID()){ printf("End of timing of K->sigma type 3 field version\n"); fflush(stdout); }
   }
 
+  void type4(){
+    if(!UniqueID()){ printf("Timing K->sigma type 4 field version\n"); fflush(stdout); }
+    ComputeKtoSigma<A2Apolicies> compute(*V, *W, *Vh, *Wh, tmp_WW, tsep_k_s);
+    ResultsContainerType result;
+    MixDiagResultsContainerType mix4_result;
+    compute.type4(result, mix4_result);
+    if(!UniqueID()){ printf("End of timing of K->sigma type 4 field version\n"); fflush(stdout); }
+  }
+
   
 };
 
@@ -106,6 +115,12 @@ template<typename A2Apolicies>
 void benchmarkKtoSigmaType3offload(const A2AArg &a2a_args,Lattice &lat, const std::vector<int> &tsep_k_s){
   _benchmarkKtoSigmaOffload<A2Apolicies, A2Apolicies::GPARITY> calc(a2a_args,lat,tsep_k_s);
   calc.type3();
+}
+
+template<typename A2Apolicies>
+void benchmarkKtoSigmaType4offload(const A2AArg &a2a_args,Lattice &lat, const std::vector<int> &tsep_k_s){
+  _benchmarkKtoSigmaOffload<A2Apolicies, A2Apolicies::GPARITY> calc(a2a_args,lat,tsep_k_s);
+  calc.type4();
 }
 
 

@@ -173,6 +173,8 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
   if(0) benchmarkKtoSigmaType12offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi); 
   if(1) benchmarkKtoSigmaType3offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
+  
+  if(1) benchmarkKtoSigmaType4offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
  
   if(0) benchmarkDeflation<GridA2ApoliciesType>(lattice ,opt.nlowmodes, argc, argv);
 
