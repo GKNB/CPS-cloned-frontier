@@ -155,7 +155,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkCPSfieldIO();
 
 #ifdef USE_GRID
-  if(1) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
+  if(0) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
 #endif
 
   if(0) timeAllReduce(false);
@@ -171,9 +171,9 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
   if(0) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
   if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
-  if(1) benchmarkKtoSigmaType12offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
-
-  
+  if(0) benchmarkKtoSigmaType12offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi); 
+  if(1) benchmarkKtoSigmaType3offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
+ 
   if(0) benchmarkDeflation<GridA2ApoliciesType>(lattice ,opt.nlowmodes, argc, argv);
 
   if(0) benchmarkMfTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
