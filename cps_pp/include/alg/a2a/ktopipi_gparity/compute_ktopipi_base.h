@@ -332,6 +332,40 @@ public:
     return tmp;
   }
 
+
+  template<typename ComplexType>
+  static void multGammaLeft(CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &out,
+			    const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &M, const int whichGamma, 
+			    const int i, const int mu){
+    assert(whichGamma == 1 || whichGamma==2);
+    static int g1[8] = {0,1,0,1,2,3,2,3};
+    static int g2[8] = {1,0,3,2,1,0,3,2};
+
+    int gg = whichGamma == 1 ? g1[i] : g2[i];
+    switch(gg){
+    case 0:
+      gl_r(out, M, mu);
+      pl( out, F0 );
+      break;
+    case 1:
+      glAx_r(out, M, mu);
+      pl(out , F0 );
+      break;
+    case 2:
+      gl_r(out, M,mu);
+      timesMinusOne( pl(out , F1 ) );      
+      break;
+    case 3:
+      glAx_r(out, M,mu);
+      timesMinusOne( pl(out, F1 ) );
+      break;
+    default:
+      ERR.General("ComputeKtoPiPiGparityBase","multGammaLeft","Invalid idx\n");
+      break;
+    }
+  }
+
+  
   template<typename ComplexType>
   static CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > multGammaRight(const CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> > &M, const int whichGamma, 
 									       const int i, const int mu){

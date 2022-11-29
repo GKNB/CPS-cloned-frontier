@@ -20,8 +20,18 @@
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type1_contract(ResultsContainerType &result, const int t_K, const std::vector<SCFmatrixField> &part1, const std::vector<SCFmatrixField> &part2){
 #ifndef MEMTEST_MODE
+  std::cout << "Starting K->pipi type 1 contractions with tK=" << t_K << std::endl;
   static const int n_contract = 6; //six type1 diagrams
   static const int con_off = 1; //index of first contraction in set
+  auto dimpol = part1[0].getDimPolParams();
+  SCFmatrixField G1_pt1(dimpol);
+  SCFmatrixField G2_pt2(dimpol);
+  SCFmatrixField ctrans_G2_pt2(dimpol);
+  CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_G1_pt1(dimpol);
+  CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_G2_pt2(dimpol);
+  CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > tr_c_G1_pt1(dimpol);
+  CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > tr_c_G2_pt2(dimpol);
+  
   for(int pt1_pion=0; pt1_pion<2; pt1_pion++){ //which pion is associated with part 1?
     int pt2_pion = (pt1_pion + 1) % 2;
 
@@ -30,18 +40,20 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_contract(ResultsContainerType &re
 
 	Type1FieldTimings::timer().contraction_time_geninputs_multgamma -= dclock();     
 
-	auto G1_pt1 = multGammaLeft(part1[pt1_pion],1,gcombidx,mu);
-	auto G2_pt2 = multGammaLeft(part2[pt2_pion],2,gcombidx,mu);
+	multGammaLeft(G1_pt1, part1[pt1_pion],1,gcombidx,mu);
+	multGammaLeft(G2_pt2, part2[pt2_pion],2,gcombidx,mu);
 
 	Type1FieldTimings::timer().contraction_time_geninputs_multgamma += dclock();     
 
 	Type1FieldTimings::timer().contraction_time_geninputs_other -= dclock();     
 
-	auto tr_sf_G1_pt1 = SpinFlavorTrace(G1_pt1);
+	SpinFlavorTrace(tr_sf_G1_pt1, G1_pt1);
+	SpinFlavorTrace(tr_sf_G2_pt2, G2_pt2);
 
-	auto tr_sf_G2_pt2 = SpinFlavorTrace(G2_pt2);
+	TransposeColor(ctrans_G2_pt2, G2_pt2);
 
-	auto ctrans_G2_pt2 = TransposeColor(G2_pt2);
+	ColorTrace(tr_c_G1_pt1, G1_pt1);
+	ColorTrace(tr_c_G2_pt2, G2_pt2);
 
 	Type1FieldTimings::timer().contraction_time_geninputs_other += dclock();     
 
@@ -63,13 +75,14 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_contract(ResultsContainerType &re
 	    Trace( G1_pt1, ctrans_G2_pt2 ) 
 	    );
 	add(6, result, t_K, gcombidx, con_off, 
-	    Trace( ColorTrace(G1_pt1) , ColorTrace(G2_pt2) )
+	    Trace( tr_c_G1_pt1 , tr_c_G2_pt2 )
 	    );
 
 	Type1FieldTimings::timer().contraction_time_opcon += dclock();     
       }
     }
   }
+  std::cout << "Finished K->pipi type 1 contractions with tK=" << t_K << std::endl;
 #endif
 }
 
@@ -82,7 +95,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
 						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 						     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
   Type1FieldTimings::timer().reset();
-  Type1FieldTimings::timer().total -= dclock();
+  timerStart(Type1FieldTimings::timer().total,"Start");
 
   auto field_params = vL.getMode(0).getDimPolParams();  
   
@@ -103,7 +116,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
 
   for(int i=0;i<ntsep_k_pi;i++)
     result[i].resize(n_contract); //Resize also zeroes 'result'
-    
+
   std::vector<mf_WV > &mf_pi1 = mf_pions.get(p_pi_1); //*mf_pi1_ptr;
   std::vector<mf_WV > &mf_pi2 = mf_pions.get(p_pi_2); //*mf_pi2_ptr;
 
@@ -153,60 +166,68 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
   if(!UniqueID()) printf("Memory after fetching meson fields type1 K->pipi:\n");
   printMem();
 #endif
+
+  std::vector<SCFmatrixField> part1(2, SCFmatrixField(field_params)); //part1 goes from insertion to pi1, pi2 (x_4 = t_pi1, t_pi2)
+  std::vector<SCFmatrixField> part2(2, SCFmatrixField(field_params)); //part2 has pi1, pi2 at y_4 = t_pi1, t_pi2
+  mf_WW con_pi1_K, con_pi2_K;
   
-  for(auto t_it = map_used_tpi1_lin_to_tsep_k_pi.begin(); t_it != map_used_tpi1_lin_to_tsep_k_pi.end(); ++t_it){
+  int titer = 0;
+  for(auto t_it = map_used_tpi1_lin_to_tsep_k_pi.begin(); t_it != map_used_tpi1_lin_to_tsep_k_pi.end(); ++t_it, ++titer){
+    _Type1FieldTimings ttimer; //timings for this loop iteration
+    timerStart(ttimer.total, "Loop iteration start");
+
     int t_pi1_lin = t_it->first;
     
     int t_pi1 = modLt(t_pi1_lin,Lt);
     int t_pi2 = modLt(t_pi1 + tsep_pion, Lt);
 
+    //Check the meson fields are available!
     assert(mf_pi1[t_pi1].isOnNode());
     assert(mf_pi2[t_pi2].isOnNode());
 
-    //Determine what node timeslices are actually needed
-    //std::vector<bool> node_top_used;
-    //getUsedTimeslices(node_top_used,tsep_k_pi,t_pi1);
-
     //Get lowest value of t_K, i.e. from largest sep
     int tK_min = modLt(t_pi1 - tsep_k_pi_largest, Lt);
-
+    
     //Compute part1 and part2
     //Construct part 1 (no dependence on t_K):
     //\Gamma_1 vL_i(x_op; x_4) [[\sum_{\vec x} wL_i^dag(x) S_2 vL_j(x;top)]] wL_j^dag(x_op)
-    Type1FieldTimings::timer().part1 -= dclock();
-    std::vector<SCFmatrixField> part1(2, SCFmatrixField(field_params)); //part1 goes from insertion to pi1, pi2 (x_4 = t_pi1, t_pi2)
+    timerStart(ttimer.part1, "Part 1");
     //Only compute in window between kaon and inner pion to save computation
     mult(part1[0], vL, mf_pi1[t_pi1], wL, false, true, tK_min, tsep_k_pi_largest);
     mult(part1[1], vL, mf_pi2[t_pi2], wL, false, true, tK_min, tsep_k_pi_largest);
-    Type1FieldTimings::timer().part1 += dclock();    
+    timerEnd(ttimer.part1, "Part 1");
 
     for(int tkpi_idx : t_it->second){
-      int t_K = modLt(t_pi1 - tsep_k_pi[tkpi_idx], Lt);
-      
+      int t_K = modLt(t_pi1 - tsep_k_pi[tkpi_idx], Lt);     
       assert(mf_kaon[t_K].isOnNode());
-
+      
       //Form contraction  con_pi_K(y_4, t_K) =   [[ wL_i^dag(y_4) S_2 vL_j(y_4) ]] [[ wL_j^dag(t_K) wH_k(t_K) ) ]]
       //y_4 = t_K + tsep_k_pi
-      Type1FieldTimings::timer().piK_mfproducts -= dclock();
-      mf_WW con_pi1_K, con_pi2_K;
+      timerStart(ttimer.piK_mfproducts, "MFproducts");
       mult(con_pi1_K, mf_pi1[t_pi1], mf_kaon[t_K], true); //node local
       mult(con_pi2_K, mf_pi2[t_pi2], mf_kaon[t_K], true);
-      Type1FieldTimings::timer().piK_mfproducts += dclock();
+      timerEnd(ttimer.piK_mfproducts, "MFproducts");
 
       //Construct part 2:
       //\Gamma_2 vL_i(x_op;y_4) [[ wL_i^dag(y) S_2 vL_j(y;t_K) ]] [[ wL_j^dag(x_K)\gamma^5 \gamma^5 wH_k(x_K) ) ]] vH_k^\dagger(x_op;t_K)\gamma^5
-      Type1FieldTimings::timer().part2 -= dclock();
-      std::vector<SCFmatrixField> part2(2, SCFmatrixField(field_params)); //part2 has pi1, pi2 at y_4 = t_pi1, t_pi2
+      timerStart(ttimer.part2, "Part 2");
       mult(part2[0], vL, con_pi1_K, vH, false, true, t_K, tsep_k_pi[tkpi_idx]);
       mult(part2[1], vL, con_pi2_K, vH, false, true, t_K, tsep_k_pi[tkpi_idx]);
       gr(part2[0], -5); //right multiply by g5
       gr(part2[1], -5);
-      Type1FieldTimings::timer().part2 += dclock();
+      timerEnd(ttimer.part2, "Part 2");
 
-      Type1FieldTimings::timer().total_contraction_time -= dclock();     
+      timerStart(ttimer.total_contraction_time, "Contractions");
       type1_contract(result[tkpi_idx],t_K,part1,part2);
-      Type1FieldTimings::timer().total_contraction_time += dclock();     
+      timerEnd(ttimer.total_contraction_time, "Contractions");
     }//end of loop over k->pi seps
+
+    //For development, timings during outer tpi1 loop
+    timerEnd(ttimer.total, "Loop iteration end");
+    std::cout << "Type 1 end of tpi1=" << t_pi1 << "(iter " << (titer+1) << "/" << map_used_tpi1_lin_to_tsep_k_pi.size() << ") report:" << std::endl;
+    ttimer.report();
+
+    ttimer.total = 0; Type1FieldTimings::timer() += ttimer;    
   }//tpi loop
 
   if(!UniqueID()) printf("Memory before finishing up type1 K->pipi:\n");
@@ -214,7 +235,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
 
 
   if(!UniqueID()){ printf("Type 1 finishing up results\n"); fflush(stdout); }
-  Type1FieldTimings::timer().finish_up -= dclock();
+  timerStart(Type1FieldTimings::timer().finish_up, "Finish up");
   for(int tkpi_idx =0; tkpi_idx< ntsep_k_pi; tkpi_idx++){
     result[tkpi_idx].nodeSum();
     result[tkpi_idx] *= Float(0.5); //coefficient of 0.5 associated with average over pt1_pion loop
@@ -232,8 +253,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
       }
     }
   }
-
-  Type1FieldTimings::timer().finish_up += dclock();
+  timerEnd(Type1FieldTimings::timer().finish_up, "Finish up");
 
   if(!UniqueID()) printf("Memory after finishing up type1 K->pipi:\n");
   printMem();
@@ -244,7 +264,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
   if(!UniqueID()) printf("Memory after redistributing meson fields type1 K->pipi:\n");
   printMem();
 #endif
-  Type1FieldTimings::timer().total += dclock();
+  timerEnd(Type1FieldTimings::timer().total,"End");
   Type1FieldTimings::timer().report();
 }
 

@@ -34,6 +34,36 @@ struct _trtrV{
 };
 
 
+template<typename PropagatorField, typename FieldOp, typename SiteOp>
+void testCPSmatrixFieldPropagatorFieldUnOp(const FieldOp &field_op, const SiteOp &site_op, PropagatorField &in, const std::string &descr, const double tol){
+  PropagatorField pla(in); pla.zero();
+  field_op(pla,in);
+
+  bool fail = false;
+  for(size_t x4d=0; x4d< in.size(); x4d++){
+    auto aa=*in.site_ptr(x4d);
+    site_op(aa);
+    for(int i=0;i<aa.nScalarType();i++){
+      auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
+      auto expect = Reduce( aa.scalarTypePtr()[i] );
+      
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: %s Got (%g,%g) Expect (%g,%g) Diff (%g,%g)\n",descr.c_str(),got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }     
+    }
+  }
+  std::string err = std::string("CPSmatrixField ") + descr + " failed\n";
+  
+  if(fail) ERR.General("","",err.c_str());
+}
+
+
+
+
+
 template<typename GridA2Apolicies>
 void testCPSmatrixField(const double tol){
   std::cout << "Starting testCPSmatrixField" << std::endl;
@@ -72,16 +102,9 @@ void testCPSmatrixField(const double tol){
 	      for(int f2=0;f2<2;f2++){
 		ComplexType &v = (*a.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
 		for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
-		
-		//ScalarComplexType to[nsimd];
-		//for(int s=0;s<nsimd;s++) to[s] = ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) );
-		//Grid::vset(v,to);
 
 		ComplexType &u = (*b.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
 		for(int s=0;s<nsimd;s++) u.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
-
-		//for(int s=0;s<nsimd;s++) to[s] = ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) );
-		//Grid::vset(u,to);
 	      }
 	    }
 	  }
@@ -285,71 +308,14 @@ void testCPSmatrixField(const double tol){
 
 
   //Test unop_self_v using unit
-  unop_self_v(c, _unitV<VectorMatrixType>());
-  
-  fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    VectorMatrixType v;
-    v.unit();
-    for(int s1=0;s1<4;s1++){
-    for(int c1=0;c1<3;c1++){
-    for(int f1=0;f1<2;f1++){
-    for(int s2=0;s2<4;s2++){
-    for(int c2=0;c2<3;c2++){
-    for(int f2=0;f2<2;f2++){
-      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
-      auto expect = Reduce( v(s1,s2)(c1,c2)(f1,f2) );
-      
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: unop_self_v (unit) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
-      }
-    }
-    }
-    }
-    }
-    }
-    }
-  }
-  if(fail) ERR.General("","","CPSmatrixField unop_self_v unit failed\n");
-
-
-
+  testCPSmatrixFieldPropagatorFieldUnOp( [](PropagatorField &out, const PropagatorField &in){ out = in; unop_self_v(out, _unitV<VectorMatrixType>()); },
+					 [](VectorMatrixType &inout){ inout.unit(); },
+					 c, "unop_self_v unit", tol);
+ 
   //Test unop_v using timesI
-  c = unop_v(a, _timesIV_unop<VectorMatrixType>());
-  
-  fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    aa.timesI();
-
-    for(int s1=0;s1<4;s1++){
-    for(int c1=0;c1<3;c1++){
-    for(int f1=0;f1<2;f1++){
-    for(int s2=0;s2<4;s2++){
-    for(int c2=0;c2<3;c2++){
-    for(int f2=0;f2<2;f2++){
-      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
-      auto expect = Reduce( aa(s1,s2)(c1,c2)(f1,f2) );
-      
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: unop_v (timesI) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
-      }
-    }
-    }
-    }
-    }
-    }
-    }
-  }
-  if(fail) ERR.General("","","CPSmatrixField unop_v timesI failed\n");
-
-
+  testCPSmatrixFieldPropagatorFieldUnOp( [](PropagatorField &out, const PropagatorField &in){ out = unop_v(in, _timesIV_unop<VectorMatrixType>()); },
+					 [](VectorMatrixType &inout){ inout.timesI(); },
+					 c, "unop_v timesI", tol);
   //Test Trace
   typedef CPSmatrixField<ComplexType> ComplexField;
  
@@ -607,307 +573,139 @@ void testCPSmatrixField(const double tol){
 
   
   //Test TimesMinusI
-  PropagatorField tmIa(a);
-  timesMinusI(tmIa);
-
-  fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    aa.timesMinusI();
-    for(int s1=0;s1<4;s1++){
-    for(int c1=0;c1<3;c1++){
-    for(int f1=0;f1<2;f1++){
-    for(int s2=0;s2<4;s2++){
-    for(int c2=0;c2<3;c2++){
-    for(int f2=0;f2<2;f2++){
-      auto got = Reduce( (*tmIa.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
-      auto expect = Reduce( aa(s1,s2)(c1,c2)(f1,f2) );
-      
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: timesMinusI (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
-      }
-    }
-    }
-    }
-    }
-    }
-    }
-  }
-  if(fail) ERR.General("","","CPSmatrixField timesMinusI failed\n");
-
+  testCPSmatrixFieldPropagatorFieldUnOp( [](PropagatorField &out, const PropagatorField &in){ out = in; timesMinusI(out); },
+					 [](VectorMatrixType &inout){ inout.timesMinusI(); },
+					 c, "timesMinusI", tol);
 
   //Test gl
   int gl_dirs[5] = {0,1,2,3,-5};
   for(int gg=0;gg<5;gg++){
     int dir = gl_dirs[gg];
-
-    PropagatorField pla(a);
-    gl(pla, dir);
-
-    fail = false;
-    for(size_t x4d=0; x4d< a.size(); x4d++){
-      auto aa=*a.site_ptr(x4d);
-      aa.gl(dir);
-      for(int i=0;i<aa.nScalarType();i++){
-	auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
-	auto expect = Reduce( aa.scalarTypePtr()[i] );
-	
-	double rdiff = fabs(got.real()-expect.real());
-	double idiff = fabs(got.imag()-expect.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: gl[%d] (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",dir,got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	  fail = true;
-	}
-      }
-    }
+    std::stringstream descr; descr << "gl[" << dir << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [dir](PropagatorField &out, const PropagatorField &in){ out = in; gl(out,dir); },
+					   [dir](VectorMatrixType &inout){ inout.gl(dir); },
+					   c, descr.str(), tol);
   }
-  if(fail) ERR.General("","","CPSmatrixField gl failed\n");
-
 
   //Test gr
   for(int gg=0;gg<5;gg++){
     int dir = gl_dirs[gg];
-
-    PropagatorField pla(a);
-    gr(pla, dir);
-
-    fail = false;
-    for(size_t x4d=0; x4d< a.size(); x4d++){
-      auto aa=*a.site_ptr(x4d);
-      aa.gr(dir);
-      for(int i=0;i<aa.nScalarType();i++){
-	auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
-	auto expect = Reduce( aa.scalarTypePtr()[i] );
-	
-	double rdiff = fabs(got.real()-expect.real());
-	double idiff = fabs(got.imag()-expect.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: gr[%d] (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",dir,got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	  fail = true;
-	}
-      }
-    }
+    std::stringstream descr; descr << "gr[" << dir << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [dir](PropagatorField &out, const PropagatorField &in){ out = in; gr(out,dir); },
+					   [dir](VectorMatrixType &inout){ inout.gr(dir); },
+					   c, descr.str(), tol);
   }
-  if(fail) ERR.General("","","CPSmatrixField gr failed\n");
-
 
   //Test glAx
   int glAx_dirs[4] = {0,1,2,3};
   for(int gg=0;gg<4;gg++){
     int dir = glAx_dirs[gg];
-
-    PropagatorField pla(a);
-    glAx(pla, dir);
-
-    fail = false;
-    for(size_t x4d=0; x4d< a.size(); x4d++){
-      auto aa=*a.site_ptr(x4d);
-      aa.glAx(dir);
-      for(int i=0;i<aa.nScalarType();i++){
-	auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
-	auto expect = Reduce( aa.scalarTypePtr()[i] );
-	
-	double rdiff = fabs(got.real()-expect.real());
-	double idiff = fabs(got.imag()-expect.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: glAx[%d] (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",dir,got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	  fail = true;
-	}
-      }
-    }
+    std::stringstream descr; descr << "glAx[" << dir << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [dir](PropagatorField &out, const PropagatorField &in){ out = in; glAx(out,dir); },
+					   [dir](VectorMatrixType &inout){ inout.glAx(dir); },
+					   c, descr.str(), tol);
   }
-  if(fail) ERR.General("","","CPSmatrixField glAx failed\n");
-
-
+    
   //Test grAx
   for(int gg=0;gg<4;gg++){
     int dir = glAx_dirs[gg];
-
-    PropagatorField pla(a);
-    grAx(pla, dir);
-
-    fail = false;
-    for(size_t x4d=0; x4d< a.size(); x4d++){
-      auto aa=*a.site_ptr(x4d);
-      aa.grAx(dir);
-      for(int i=0;i<aa.nScalarType();i++){
-	auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
-	auto expect = Reduce( aa.scalarTypePtr()[i] );
-	
-	double rdiff = fabs(got.real()-expect.real());
-	double idiff = fabs(got.imag()-expect.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: grAx[%d] (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",dir,got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	  fail = true;
-	}
-      }
-    }
+    std::stringstream descr; descr << "grAx[" << dir << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [dir](PropagatorField &out, const PropagatorField &in){ out = in; grAx(out,dir); },
+					   [dir](VectorMatrixType &inout){ inout.grAx(dir); },
+					   c, descr.str(), tol);
   }
-  if(fail) ERR.General("","","CPSmatrixField grAx failed\n");
-
-
-
+    
   //Test gl_r
   for(int gg=0;gg<5;gg++){
     int dir = gl_dirs[gg];
-
-    PropagatorField pla = gl_r(a, dir);
-
-    fail = false;
-    for(size_t x4d=0; x4d< a.size(); x4d++){
-      auto aa=*a.site_ptr(x4d);
-      aa.gl(dir);
-      for(int i=0;i<aa.nScalarType();i++){
-	auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
-	auto expect = Reduce( aa.scalarTypePtr()[i] );
-	
-	double rdiff = fabs(got.real()-expect.real());
-	double idiff = fabs(got.imag()-expect.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: gl_r[%d] (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",dir,got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	  fail = true;
-	}
-      }
-    }
+    std::stringstream descr; descr << "gl_r[" << dir << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [dir](PropagatorField &out, const PropagatorField &in){ out = gl_r(in,dir); },
+					   [dir](VectorMatrixType &inout){ inout.gl(dir); },
+					   c, descr.str(), tol);
   }
-  if(fail) ERR.General("","","CPSmatrixField gl_r failed\n");
+
+  //Test gl_r in-place
+  for(int gg=0;gg<5;gg++){
+    int dir = gl_dirs[gg];
+    std::stringstream descr; descr << "inplace gl_r[" << dir << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [dir](PropagatorField &out, const PropagatorField &in){ gl_r(out,in,dir); },
+					   [dir](VectorMatrixType &inout){ inout.gl(dir); },
+					   c, descr.str(), tol);
+  }
 
 
   //Test gr_r
   for(int gg=0;gg<5;gg++){
     int dir = gl_dirs[gg];
-
-    PropagatorField pla = gr_r(a, dir);
-
-    fail = false;
-    for(size_t x4d=0; x4d< a.size(); x4d++){
-      auto aa=*a.site_ptr(x4d);
-      aa.gr(dir);
-      for(int i=0;i<aa.nScalarType();i++){
-	auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
-	auto expect = Reduce( aa.scalarTypePtr()[i] );
-	
-	double rdiff = fabs(got.real()-expect.real());
-	double idiff = fabs(got.imag()-expect.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: gr_r[%d] (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",dir,got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	  fail = true;
-	}
-      }
-    }
+    std::stringstream descr; descr << "gr_r[" << dir << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [dir](PropagatorField &out, const PropagatorField &in){ out = gr_r(in,dir); },
+					   [dir](VectorMatrixType &inout){ inout.gr(dir); },
+					   c, descr.str(), tol);
   }
-  if(fail) ERR.General("","","CPSmatrixField gr_r failed\n");
 
+  //Test gr_r in-place
+  for(int gg=0;gg<5;gg++){
+    int dir = gl_dirs[gg];
+    std::stringstream descr; descr << "inplace gr_r[" << dir << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [dir](PropagatorField &out, const PropagatorField &in){ gr_r(out, in,dir); },
+					   [dir](VectorMatrixType &inout){ inout.gr(dir); },
+					   c, descr.str(), tol);
+  }
 
   //Test glAx_r
   for(int gg=0;gg<4;gg++){
     int dir = glAx_dirs[gg];
-
-    PropagatorField pla = glAx_r(a, dir);
-
-    fail = false;
-    for(size_t x4d=0; x4d< a.size(); x4d++){
-      auto aa=*a.site_ptr(x4d);
-      aa.glAx(dir);
-      for(int i=0;i<aa.nScalarType();i++){
-	auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
-	auto expect = Reduce( aa.scalarTypePtr()[i] );
-	
-	double rdiff = fabs(got.real()-expect.real());
-	double idiff = fabs(got.imag()-expect.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: glAx_r[%d] (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",dir,got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	  fail = true;
-	}
-      }
-    }
+    std::stringstream descr; descr << "glAx_r[" << dir << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [dir](PropagatorField &out, const PropagatorField &in){ out = glAx_r(in,dir); },
+					   [dir](VectorMatrixType &inout){ inout.glAx(dir); },
+					   c, descr.str(), tol);
   }
-  if(fail) ERR.General("","","CPSmatrixField glAx_r failed\n");
 
+  //Test glAx_r in-place
+  for(int gg=0;gg<4;gg++){
+    int dir = glAx_dirs[gg];
+    std::stringstream descr; descr << "inplace glAx_r[" << dir << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [dir](PropagatorField &out, const PropagatorField &in){ glAx_r(out,in,dir); },
+					   [dir](VectorMatrixType &inout){ inout.glAx(dir); },
+					   c, descr.str(), tol);
+  }
 
   //Test grAx_r
   for(int gg=0;gg<4;gg++){
     int dir = glAx_dirs[gg];
-
-    PropagatorField pla = grAx_r(a, dir);
-
-    fail = false;
-    for(size_t x4d=0; x4d< a.size(); x4d++){
-      auto aa=*a.site_ptr(x4d);
-      aa.grAx(dir);
-      for(int i=0;i<aa.nScalarType();i++){
-	auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
-	auto expect = Reduce( aa.scalarTypePtr()[i] );
-	
-	double rdiff = fabs(got.real()-expect.real());
-	double idiff = fabs(got.imag()-expect.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: grAx_r[%d] (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",dir,got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	  fail = true;
-	}
-      }
-    }
+    std::stringstream descr; descr << "grAx_r[" << dir << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [dir](PropagatorField &out, const PropagatorField &in){ out = grAx_r(in,dir); },
+					   [dir](VectorMatrixType &inout){ inout.grAx(dir); },
+					   c, descr.str(), tol);
   }
-  if(fail) ERR.General("","","CPSmatrixField grAx_r failed\n");
 
+  //Test grAx_r in-place
+  for(int gg=0;gg<4;gg++){
+    int dir = glAx_dirs[gg];
+    std::stringstream descr; descr << "inplace grAx_r[" << dir << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [dir](PropagatorField &out, const PropagatorField &in){ grAx_r(out, in,dir); },
+					   [dir](VectorMatrixType &inout){ inout.grAx(dir); },
+					   c, descr.str(), tol);
+  }
 
   //Test pl
   FlavorMatrixType ftypes[7] = {F0, F1, Fud, sigma0, sigma1, sigma2, sigma3};
   for(int tt=0;tt<7;tt++){
     FlavorMatrixType type = ftypes[tt];
-
-    PropagatorField pla(a);
-    pl(pla, type);
-
-    fail = false;
-    for(size_t x4d=0; x4d< a.size(); x4d++){
-      auto aa=*a.site_ptr(x4d);
-      aa.pl(type);
-      for(int i=0;i<aa.nScalarType();i++){
-	auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
-	auto expect = Reduce( aa.scalarTypePtr()[i] );
-	
-	double rdiff = fabs(got.real()-expect.real());
-	double idiff = fabs(got.imag()-expect.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: pl[%d] (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",tt,got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	  fail = true;
-	}
-      }
-    }
+    std::stringstream descr; descr << "pl[" << tt << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [type](PropagatorField &out, const PropagatorField &in){ out = in; pl(out,type); },
+					   [type](VectorMatrixType &inout){ inout.pl(type); },
+					   c, descr.str(), tol);
   }
-  if(fail) ERR.General("","","CPSmatrixField pl failed\n");
-
 
   //Test pr
   for(int tt=0;tt<7;tt++){
     FlavorMatrixType type = ftypes[tt];
-
-    PropagatorField pla(a);
-    pr(pla, type);
-
-    fail = false;
-    for(size_t x4d=0; x4d< a.size(); x4d++){
-      auto aa=*a.site_ptr(x4d);
-      aa.pr(type);
-      for(int i=0;i<aa.nScalarType();i++){
-	auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
-	auto expect = Reduce( aa.scalarTypePtr()[i] );
-	
-	double rdiff = fabs(got.real()-expect.real());
-	double idiff = fabs(got.imag()-expect.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: pr[%d] (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",tt,got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	  fail = true;
-	}
-      }
-    }
+    std::stringstream descr; descr << "pr[" << tt << "]";
+    testCPSmatrixFieldPropagatorFieldUnOp( [type](PropagatorField &out, const PropagatorField &in){ out = in; pr(out,type); },
+					   [type](VectorMatrixType &inout){ inout.pr(type); },
+					   c, descr.str(), tol);
   }
-  if(fail) ERR.General("","","CPSmatrixField pr failed\n");
-
 
   //Test local reduction
   {

@@ -3,6 +3,7 @@
 
 #include <cstdarg>
 #include <cxxabi.h>
+#include <chrono>
 #include <util/lattice.h>
 #include <alg/fix_gauge_arg.h>
 
@@ -106,6 +107,20 @@ inline std::string stringize(const char* format, ...){
   return std::string(buf);
 }
 
+//Seconds since first call with us accuracy
+double secs_since_first_call(){
+  static std::chrono::time_point<std::chrono::high_resolution_clock> start;
+  static bool start_set = false;
+
+  auto now = std::chrono::high_resolution_clock::now();
+  if(!start_set){
+    start = now; start_set = true; return 0;
+  }else{
+    auto elapsed = std::chrono::high_resolution_clock::now() - start;
+    long long us = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+    return double(us)/1e6;
+  }
+}
 
 CPS_END_NAMESPACE
 
