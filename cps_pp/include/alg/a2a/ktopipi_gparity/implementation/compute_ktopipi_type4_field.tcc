@@ -23,27 +23,41 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &re
 #ifndef MEMTEST_MODE
   static const int con_off = 23; //index of first contraction in set
 
+  auto dimpol = part1.getDimPolParams();
+  SCFmatrixField G1_pt1(dimpol);
+  SCFmatrixField G2_pt2_L(dimpol);
+  SCFmatrixField G2_pt2_H(dimpol); 
+  SCFmatrixField ctrans_G2_pt2_L(dimpol);
+  
+  CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_G1_pt1(dimpol);
+  CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_G2_pt2_L(dimpol);
+  CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_G2_pt2_H(dimpol);
+
+  CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > tr_c_G1_pt1(dimpol);
+  CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > tr_c_G2_pt2_L(dimpol);
+  CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > tr_c_G2_pt2_H(dimpol);
+  
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
       Type4FieldTimings::timer().contraction_time_geninputs_multgamma -= dclock();
 
-      auto G1_pt1 = multGammaLeft(part1,1,gcombidx,mu);
-      auto G2_pt2_L = multGammaLeft(part2_L,2,gcombidx,mu);
-      auto G2_pt2_H = multGammaLeft(part2_H,2,gcombidx,mu);
+      multGammaLeft(G1_pt1, part1,1,gcombidx,mu);
+      multGammaLeft(G2_pt2_L, part2_L,2,gcombidx,mu);
+      multGammaLeft(G2_pt2_H, part2_H,2,gcombidx,mu);
 
       Type4FieldTimings::timer().contraction_time_geninputs_multgamma += dclock();
 
       Type4FieldTimings::timer().contraction_time_geninputs_other -= dclock();
 
-      auto tr_sf_G1_pt1 = SpinFlavorTrace(G1_pt1);
-
-      auto tr_sf_G2_pt2_L = SpinFlavorTrace(G2_pt2_L);
-
-      auto tr_sf_G2_pt2_H = SpinFlavorTrace(G2_pt2_H);
+      SpinFlavorTrace(tr_sf_G1_pt1, G1_pt1);
+      SpinFlavorTrace(tr_sf_G2_pt2_L, G2_pt2_L);
+      SpinFlavorTrace(tr_sf_G2_pt2_H, G2_pt2_H);
 	    
-      auto ctrans_G2_pt2_L = TransposeColor(G2_pt2_L);  //speedup by transposing part 1
+      TransposeColor(ctrans_G2_pt2_L, G2_pt2_L);  //speedup by transposing part 1
 	
-      auto tr_c_G1_pt1 = ColorTrace(G1_pt1);
+      ColorTrace(tr_c_G1_pt1, G1_pt1);
+      ColorTrace(tr_c_G2_pt2_L, G2_pt2_L);
+      ColorTrace(tr_c_G2_pt2_H, G2_pt2_H);
 
       Type4FieldTimings::timer().contraction_time_geninputs_other += dclock();
 
@@ -68,7 +82,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &re
 	  Trace( G1_pt1 , ctrans_G2_pt2_L ) 
 	  );
       add(28, result, t_K, gcombidx, con_off,       
-	  Trace( tr_c_G1_pt1 , ColorTrace(G2_pt2_L) ) 
+	  Trace( tr_c_G1_pt1 , tr_c_G2_pt2_L ) 
 	  );
 	      
       //Second 4 have strange loop
@@ -82,7 +96,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &re
 	  Trace( G1_pt1 , G2_pt2_H ) 
 	  );
       add(32, result, t_K, gcombidx, con_off,       
-	  Trace( tr_c_G1_pt1 , ColorTrace(G2_pt2_H) ) 
+	  Trace( tr_c_G1_pt1 , tr_c_G2_pt2_H ) 
 	  );
 
       Type4FieldTimings::timer().contraction_time_opcon += dclock();
@@ -103,7 +117,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_field_SIMD(ResultsContainerType &
 						     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
   
   Type4FieldTimings::timer().reset();
-  Type4FieldTimings::timer().total -= dclock();
+  timerStart(Type4FieldTimings::timer().total,"Start");
   SCFmat mix4_Gamma[2];
   mix4_Gamma[0].unit().pr(F0).gr(-5);
   mix4_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
@@ -122,23 +136,23 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_field_SIMD(ResultsContainerType &
 
   //Construct part 2 (doesn't care about kaon timeslice):
   //vL(x_op) wL^dag(x_op)   or  vH(x_op) wH^dag(x_op)  (CK: should re-use these from type-3)
-  Type4FieldTimings::timer().part2 -= dclock();
+  timerStart(Type4FieldTimings::timer().part2,"Part 2");
   SCFmatrixField part2_L(field_params), part2_H(field_params);
   mult(part2_L, vL, wL, false, true);
   mult(part2_H, vH, wH, false, true);
-  Type4FieldTimings::timer().part2 += dclock();
-   
-  for(int t_K = 0; t_K < Lt; t_K += tstep){ //global times
+  timerEnd(Type4FieldTimings::timer().part2,"Part 2");
 
+  SCFmatrixField part1(field_params);
+  
+  for(int t_K = 0; t_K < Lt; t_K += tstep){ //global times
     //Construct part 1:
     // = vL(x_op) [[ wL^dag(x_K) wH(x_K) ]] vH^dag(x_op) \gamma_5
-    Type4FieldTimings::timer().part1 -= dclock();
-    SCFmatrixField part1(field_params);
+    timerStart(Type4FieldTimings::timer().part1,"Part 1");
     mult(part1, vL,mf_kaon[t_K],vH, false,true);
     gr(part1, -5);
-    Type4FieldTimings::timer().part1 += dclock();
+    timerEnd(Type4FieldTimings::timer().part1,"Part 1");
     
-    Type4FieldTimings::timer().total_contraction_time -= dclock();
+    timerStart(Type4FieldTimings::timer().total_contraction_time,"Contractions");
     type4_contract(result,t_K,part1,part2_L,part2_H);
 
     //Compute mix4 diagram
@@ -150,15 +164,15 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_field_SIMD(ResultsContainerType &
 	  );
 #endif
     }
-    Type4FieldTimings::timer().total_contraction_time += dclock();
+    timerEnd(Type4FieldTimings::timer().total_contraction_time,"Contractions");
 
   }//t_K loop
 
-  Type4FieldTimings::timer().finish_up -= dclock();
+  timerStart(Type4FieldTimings::timer().finish_up,"Finish up");
   result.nodeSum();
   mix4.nodeSum();
-  Type4FieldTimings::timer().finish_up += dclock();
-  Type4FieldTimings::timer().total += dclock();  
+  timerEnd(Type4FieldTimings::timer().finish_up,"Finish up");
+  timerEnd(Type4FieldTimings::timer().total,"End");
   Type4FieldTimings::timer().report();  
 }
 

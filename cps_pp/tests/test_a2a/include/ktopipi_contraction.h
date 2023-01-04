@@ -437,6 +437,8 @@ void testKtoPiPiType4FieldFull(const A2AArg &a2a_args, const double tol){
   }
 
   if(fail) ERR.General("","","KtoPiPi mix4 contract full failed\n");
+
+  std::cout << "testKtoPiPiType4FieldFull passed" << std::endl;
 }
 
 
@@ -720,6 +722,7 @@ void testKtoPiPiType2FieldFull(const A2AArg &a2a_args, const double tol){
   }
   if(fail) ERR.General("","","KtoPiPi type2 contract full failed\n");
 
+  std::cout << "testKtoPiPiType2FieldFull passed" << std::endl;
 }
 
 
@@ -830,6 +833,8 @@ void testKtoPiPiType3FieldFull(const A2AArg &a2a_args, const double tol){
   }
 
   if(fail) ERR.General("","","KtoPiPi mix3 contract full failed\n");
+
+  std::cout << "testKtoPiPiType3FieldFull passed" << std::endl;
 }
 
 

@@ -131,65 +131,65 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
     if(UniqueID()==0) printf("Config written.\n");
   }
 
-  if(0) benchmarkMmapMemoryStorage(ntests, opt.nlowmodes);
+//   if(0) benchmarkMmapMemoryStorage(ntests, opt.nlowmodes);
   
-  if(0) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
+//   if(0) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
 
-#ifdef USE_GRID
-  if(0) benchmarkMFcontractKernel<GridA2ApoliciesType>(ntests,nthreads);
-#endif
+// #ifdef USE_GRID
+//   if(0) benchmarkMFcontractKernel<GridA2ApoliciesType>(ntests,nthreads);
+// #endif
  
-  if(0) benchmarkTrace(ntests,tol);
-  if(0) benchmarkSpinFlavorTrace(ntests,tol);
-  if(0) benchmarkTraceProd(ntests,tol);
-  if(0) benchmarkColorTranspose(ntests,tol);
-  if(0) benchmarkmultGammaLeft(ntests, tol);
+//   if(0) benchmarkTrace(ntests,tol);
+//   if(0) benchmarkSpinFlavorTrace(ntests,tol);
+//   if(0) benchmarkTraceProd(ntests,tol);
+//   if(0) benchmarkColorTranspose(ntests,tol);
+//   if(0) benchmarkmultGammaLeft(ntests, tol);
  
-#ifdef USE_GRID
-  if(0) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_params, ntests, nthreads);
-  if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
-  if(0) benchmarkMultiShiftMFcontract<GridA2ApoliciesType>(a2a_args, opt.nshift);
+// #ifdef USE_GRID
+//   if(0) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_params, ntests, nthreads);
+//   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+//   if(0) benchmarkMultiShiftMFcontract<GridA2ApoliciesType>(a2a_args, opt.nshift);
 
-#endif
+// #endif
 
-  if(0) benchmarkCPSfieldIO();
+//   if(0) benchmarkCPSfieldIO();
 
-#ifdef USE_GRID
-  if(0) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
-#endif
+// #ifdef USE_GRID
+//   if(0) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
+// #endif
 
-  if(0) timeAllReduce(false);
-  if(0) timeAllReduce(true);
+//   if(0) timeAllReduce(false);
+//   if(0) timeAllReduce(true);
 
-#ifdef USE_GRID
-  if(0) benchmarkvMvGridOrig<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+// #ifdef USE_GRID
+//   if(0) benchmarkvMvGridOrig<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 
-  if(0) benchmarkvMvGridOffload<GridA2ApoliciesType,A2AvectorVfftw,A2AvectorWfftw>(a2a_args, ntests, nthreads);
-  if(0) benchmarkvMvPartialTimeGridOffload<GridA2ApoliciesType>(a2a_args, ntests, opt.vMv_partial_timestart, opt.vMv_partial_timeend, opt.vMv_partial_compare_full);
+//   if(0) benchmarkvMvGridOffload<GridA2ApoliciesType,A2AvectorVfftw,A2AvectorWfftw>(a2a_args, ntests, nthreads);
+//   if(0) benchmarkvMvPartialTimeGridOffload<GridA2ApoliciesType>(a2a_args, ntests, opt.vMv_partial_timestart, opt.vMv_partial_timeend, opt.vMv_partial_compare_full);
   
-  if(0) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
-  if(0) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
-  if(0) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
-  if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
-  if(0) benchmarkKtoSigmaType12offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi); 
-  if(1) benchmarkKtoSigmaType3offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
+//   if(0) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+//   if(0) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
+  if(1) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
+//   if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
+//   if(0) benchmarkKtoSigmaType12offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi); 
+//   if(1) benchmarkKtoSigmaType3offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
   
-  if(1) benchmarkKtoSigmaType4offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
+//   if(1) benchmarkKtoSigmaType4offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
  
-  if(0) benchmarkDeflation<GridA2ApoliciesType>(lattice ,opt.nlowmodes, argc, argv);
+//   if(0) benchmarkDeflation<GridA2ApoliciesType>(lattice ,opt.nlowmodes, argc, argv);
 
-  if(0) benchmarkMfTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
-  if(0) benchmarkMfTraceProdGPU<GridA2ApoliciesType>(a2a_args, ntests);
-  if(0) benchmarkMfVectorTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
-  if(0) benchmarkPiPiContractions<GridA2ApoliciesType>(a2a_args);
+//   if(0) benchmarkMfTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
+//   if(0) benchmarkMfTraceProdGPU<GridA2ApoliciesType>(a2a_args, ntests);
+//   if(0) benchmarkMfVectorTraceProd<GridA2ApoliciesType>(a2a_args, ntests);
+//   if(0) benchmarkPiPiContractions<GridA2ApoliciesType>(a2a_args);
 
-  if(0) benchmarkMesonFieldUnpack<GridA2ApoliciesType>(a2a_args, ntests);
-  if(0) benchmarkMesonFieldPack<GridA2ApoliciesType>(a2a_args, ntests);
-  if(0) benchmarkMesonFieldUnpackDevice<GridA2ApoliciesType>(a2a_args, ntests);
-  if(0) benchmarkMesonFieldPackDevice<GridA2ApoliciesType>(a2a_args, ntests);
-#endif
+//   if(0) benchmarkMesonFieldUnpack<GridA2ApoliciesType>(a2a_args, ntests);
+//   if(0) benchmarkMesonFieldPack<GridA2ApoliciesType>(a2a_args, ntests);
+//   if(0) benchmarkMesonFieldUnpackDevice<GridA2ApoliciesType>(a2a_args, ntests);
+//   if(0) benchmarkMesonFieldPackDevice<GridA2ApoliciesType>(a2a_args, ntests);
+// #endif
 
-  if(0) benchmarkMesonFieldGather(a2a_args, ntests);
+//   if(0) benchmarkMesonFieldGather(a2a_args, ntests);
 }
 
 int main(int argc,char *argv[])

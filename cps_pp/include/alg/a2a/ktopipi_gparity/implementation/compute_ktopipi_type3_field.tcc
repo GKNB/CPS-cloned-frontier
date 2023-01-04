@@ -18,23 +18,37 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(ResultsContainerType &re
 #ifndef MEMTEST_MODE
   static const int con_off = 13; //index of first contraction in set
 
+  auto dimpol = part1[0].getDimPolParams();
+  SCFmatrixField G1_pt1(dimpol);
+  SCFmatrixField G2_pt2_L(dimpol);
+  SCFmatrixField G2_pt2_H(dimpol);
+  SCFmatrixField ctrans_G2_pt2_L(dimpol);
+  
+  CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_G1_pt1(dimpol);
+  CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_G2_pt2_L(dimpol);
+  CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_G2_pt2_H(dimpol);
+
+  CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > tr_c_G1_pt1(dimpol);
+  CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > tr_c_G2_pt2_L(dimpol);
+  CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > tr_c_G2_pt2_H(dimpol);
+    
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
       for(int pt1_pion=0; pt1_pion<2; pt1_pion++){  //which pion comes first in part 1?
-	auto G1_pt1 = multGammaLeft(part1[pt1_pion],1,gcombidx,mu);
-	auto G2_pt2_L = multGammaLeft(part2_L,2,gcombidx,mu);
-	auto G2_pt2_H = multGammaLeft(part2_H,2,gcombidx,mu);
+	multGammaLeft(G1_pt1, part1[pt1_pion],1,gcombidx,mu);
+	multGammaLeft(G2_pt2_L, part2_L,2,gcombidx,mu);
+	multGammaLeft(G2_pt2_H, part2_H,2,gcombidx,mu);
 
-	auto tr_sf_G1_pt1 = SpinFlavorTrace(G1_pt1);
+	SpinFlavorTrace(tr_sf_G1_pt1, G1_pt1);
+	SpinFlavorTrace(tr_sf_G2_pt2_L, G2_pt2_L);
+	SpinFlavorTrace(tr_sf_G2_pt2_H, G2_pt2_H);
 
-	auto tr_sf_G2_pt2_L = SpinFlavorTrace(G2_pt2_L);
-
-	auto tr_sf_G2_pt2_H = SpinFlavorTrace(G2_pt2_H);
-
-	auto ctrans_G2_pt2_L = TransposeColor(G2_pt2_L); //speedup by transposing part 1
+	TransposeColor(ctrans_G2_pt2_L, G2_pt2_L); //speedup by transposing part 1
 		
-	auto tr_c_G1_pt1 = ColorTrace(G1_pt1);
-
+	ColorTrace(tr_c_G1_pt1, G1_pt1);
+	ColorTrace(tr_c_G2_pt2_L, G2_pt2_L);
+	ColorTrace(tr_c_G2_pt2_H, G2_pt2_H);
+	
 	//First 6 have a light-quark loop
 	add(13, result, t_K, gcombidx, con_off, 
 	    Trace(G1_pt1) * Trace(G2_pt2_L)
@@ -52,7 +66,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(ResultsContainerType &re
 	    Trace( G1_pt1 , ctrans_G2_pt2_L )
 	    );
 	add(18, result, t_K, gcombidx, con_off, 
-	    Trace( tr_c_G1_pt1 , ColorTrace(G2_pt2_L) )
+	    Trace( tr_c_G1_pt1 , tr_c_G2_pt2_L )
 	    );
 	      
 	//Second 4 have strange loop
@@ -66,7 +80,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(ResultsContainerType &re
 	    Trace( G1_pt1 , G2_pt2_H )
 	    );
 	add(22, result, t_K, gcombidx, con_off, 
-	    Trace( tr_c_G1_pt1 , ColorTrace(G2_pt2_H) )
+	    Trace( tr_c_G1_pt1 , tr_c_G2_pt2_H )
 	    );
       }
     }
@@ -83,7 +97,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(ResultsContainerType r
 						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 						     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
   Type3FieldTimings::timer().reset();
-  Type3FieldTimings::timer().total -= dclock();
+  timerStart(Type3FieldTimings::timer().total,"Start");
   SCFmat mix3_Gamma[2];
   mix3_Gamma[0].unit().pr(F0).gr(-5);
   mix3_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
@@ -153,11 +167,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(ResultsContainerType r
 
   //Construct part 2 (independent of kaon position):
   //vL(x_op) wL^dag(x_op)   or  vH(x_op) wH^dag(x_op)
-  Type3FieldTimings::timer().part2 -= dclock();  
+  timerStart(Type3FieldTimings::timer().part2,"Part 2");
   SCFmatrixField part2_L(field_params), part2_H(field_params);
   mult(part2_L, vL, wL, false, true);
   mult(part2_H, vH, wH, false, true);
-  Type3FieldTimings::timer().part2 += dclock();
+  timerEnd(Type3FieldTimings::timer().part2,"Part 2");
 
   mf_WV con_pi1_pi2, con_pi2_pi1, tmp_WV;
   mf_WW con_pi1_pi2_K, con_pi2_pi1_K;
@@ -172,7 +186,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(ResultsContainerType r
     //con_*_*_k = [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] [[ wL^dag(x_K) wH(x_K) ]]
 
     //Compute pion MF product first and average over momenta to project onto appropriate rotational rep
-    Type3FieldTimings::timer().mfproducts -= dclock();
+    timerStart(Type3FieldTimings::timer().mfproducts,"MFproducts");
     mult(con_pi1_pi2, mf_pi1[0]->at(t_pi1), mf_pi2[0]->at(t_pi2), true); //node local
     mult(con_pi2_pi1, mf_pi2[0]->at(t_pi2), mf_pi1[0]->at(t_pi1), true);
     for(int pp=1;pp<nmom;pp++){
@@ -182,26 +196,26 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(ResultsContainerType r
     if(nmom > 1){
       con_pi1_pi2.times_equals(1./nmom);  con_pi2_pi1.times_equals(1./nmom);
     }
-    Type3FieldTimings::timer().mfproducts += dclock();      
+    timerEnd(Type3FieldTimings::timer().mfproducts,"MFproducts");
 
     for(int tkp = 0; tkp < ntsep_k_pi; tkp++){	  
       int t_K = modLt(t_pi1 - tsep_k_pi[tkp], Lt);
 
-      Type3FieldTimings::timer().mfproducts -= dclock();	
+      timerStart(Type3FieldTimings::timer().mfproducts,"MFproducts tkP");
       mult(con_pi1_pi2_K, con_pi1_pi2, mf_kaon[t_K], true);
       mult(con_pi2_pi1_K, con_pi2_pi1, mf_kaon[t_K], true);
-      Type3FieldTimings::timer().mfproducts += dclock();	
+      timerEnd(Type3FieldTimings::timer().mfproducts,"MFproducts tkP");
 
       //Construct part 1:
       // = vL(x_op) [[ wL^dag(x_pi1) S_2 vL(x_pi1) ]] [[ wL^dag(x_pi2) S_2 vL(x_pi2) ]] [[ wL^dag(x_K) wH(x_K) ]] vH^dag(x_op) \gamma^5
-      Type3FieldTimings::timer().part1 -= dclock();	
+      timerStart(Type3FieldTimings::timer().part1,"Part 1");
       mult(part1[0], vL, con_pi1_pi2_K, vH, false, true, t_K, tsep_k_pi[tkp]);
       mult(part1[1], vL, con_pi2_pi1_K, vH, false, true, t_K, tsep_k_pi[tkp]);
       gr(part1[0], -5);
       gr(part1[1], -5);
-      Type3FieldTimings::timer().part1 += dclock();	
+      timerEnd(Type3FieldTimings::timer().part1,"Part 1");
 	  
-      Type3FieldTimings::timer().contraction_time -= dclock();
+      timerStart(Type3FieldTimings::timer().contraction_time,"Contractions");
       type3_contract(result[tkp], t_K, part1, part2_L, part2_H);
       
       //Compute mix3 diagram
@@ -215,11 +229,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(ResultsContainerType r
 #endif
 	}
       }
-      Type3FieldTimings::timer().contraction_time += dclock();
+      timerEnd(Type3FieldTimings::timer().contraction_time,"Contractions");
     }//tkp
   }//tpi1_lin	
   
-  Type3FieldTimings::timer().finish_up -= dclock();
+  timerStart(Type3FieldTimings::timer().finish_up,"Finish up");
   for(int tkp = 0; tkp < ntsep_k_pi; tkp++){
     result[tkp].nodeSum();
     mix3[tkp].nodeSum();
@@ -247,8 +261,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(ResultsContainerType r
     }
   }
 				    
-  Type3FieldTimings::timer().finish_up += dclock();
-  Type3FieldTimings::timer().total += dclock();
+  timerEnd(Type3FieldTimings::timer().finish_up,"Finish up");
+  timerEnd(Type3FieldTimings::timer().total,"End");
   Type3FieldTimings::timer().report();  
 } 
 

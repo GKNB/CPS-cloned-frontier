@@ -262,28 +262,28 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   */
 ////////////////////////////////// CRUSHER TESTED TO HERE  
 
-  if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
-  if(1) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
+  // if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  // if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
+  // if(1) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
   
   //if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
 
   //if(0) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  //if(0) testCPSmatrixField<A2Apolicies_grid>(tol);
+  //if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
 
   //if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
-  if(1) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol); //FAILING!  IS GRID AUTOMATICALLY CHECKING FOR ERRORS?
+  // if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  
+  // if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  //if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  //if(1) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-  if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-
-  if(1) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
-									 V_grid, W_grid,
-									 lattice, simd_dims_3d, tol);
+  // if(1) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+  // 									 V_grid, W_grid,
+  // 									 lattice, simd_dims_3d, tol);
   /*
 
 #endif

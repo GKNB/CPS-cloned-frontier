@@ -18,19 +18,33 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &re
 #ifndef MEMTEST_MODE
   static const int n_contract = 6; //six type2 diagrams
   static const int con_off = 7; //index of first contraction in set
+
+  auto dimpol = part1.getDimPolParams();
+  SCFmatrixField G1_pt1(dimpol);
+  SCFmatrixField G2_pt2(dimpol);
+  SCFmatrixField ctrans_G2_pt2(dimpol);
+  
+  CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_G1_pt1(dimpol);
+  CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_G2_pt2(dimpol);
+
+  CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > tr_c_G1_pt1(dimpol);
+  CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > tr_c_G2_pt2(dimpol);
+  
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
-      auto G1_pt1 = multGammaLeft(part1,1,gcombidx,mu);
-
-      auto tr_sf_G1_pt1 = SpinFlavorTrace(G1_pt1);
+      multGammaLeft(G1_pt1,part1,1,gcombidx,mu);
+      
+      SpinFlavorTrace(tr_sf_G1_pt1,G1_pt1);
+      ColorTrace(tr_c_G1_pt1,G1_pt1);
       
       for(int pt2_pion=0; pt2_pion<2; pt2_pion++){ //which pion comes first in part 2?
-	auto G2_pt2 = multGammaLeft(part2[pt2_pion],2,gcombidx,mu);
+	multGammaLeft(G2_pt2,part2[pt2_pion],2,gcombidx,mu);
+	
+	SpinFlavorTrace(tr_sf_G2_pt2,G2_pt2);	
+	TransposeColor(ctrans_G2_pt2,G2_pt2);//speedup by transposing part 1
+	ColorTrace(tr_c_G2_pt2,G2_pt2);
 
-	auto tr_sf_G2_pt2 = SpinFlavorTrace(G2_pt2);
-		
-	auto ctrans_G2_pt2 = TransposeColor(G2_pt2);//speedup by transposing part 1
-		
+	
 	add(7, result, t_K, gcombidx, con_off, 
 	    Trace(G1_pt1) * Trace(G2_pt2)
 	    );
@@ -47,7 +61,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &re
 	    Trace( G1_pt1, ctrans_G2_pt2 )
 	    );
 	add(12, result, t_K, gcombidx, con_off, 
-	  Trace( ColorTrace(G1_pt1) , ColorTrace(G2_pt2) )
+	  Trace( tr_c_G1_pt1 , tr_c_G2_pt2 )
 	    );
       }
     }
@@ -63,7 +77,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
 						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 						     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
   Type2FieldTimings::timer().reset();
-  Type2FieldTimings::timer().total -= dclock();
+  timerStart(Type2FieldTimings::timer().total,"Start");
     
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
   assert(Lt % tstep == 0);
@@ -133,7 +147,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
   //Compute part 1	  
   //    = \sum_{ \vec x_K  }   vL(x_op) [[ wL^dag(x_K) wH(x_K) ]] [vH(x_op)]^dag \gamma^5 
   //Part 1 does not care about the location of the pion, only that of the kaon. It may be used multiple times if we have multiple K->pi seps, so compute it separately
-  Type2FieldTimings::timer().part1 -= dclock();
+  timerStart(Type2FieldTimings::timer().part1,"Part 1");
   std::map<int,std::unique_ptr<SCFmatrixField> > part1_storage;
   for(auto it=t_K_all.begin(); it != t_K_all.end(); ++it){
     int t_K = *it;
@@ -147,7 +161,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
     mult(into, vL, mf_kaon[t_K], vH, false, true, t_K, tsep_k_pi_largest);
     gr(into, -5);
   }
-  Type2FieldTimings::timer().part1 += dclock();
+  timerEnd(Type2FieldTimings::timer().part1,"Part 1");
   
   //Compute pi1<->pi2 contractions
   mf_WV con_pi1_pi2, con_pi2_pi1, tmp;
@@ -162,7 +176,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
     //Form the product of the two meson fields
     //con_*_* = \sum_{\vec y,\vec z} [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]]
     //Average over all momenta provided (i.e. to the A1 projection)
-    Type2FieldTimings::timer().mfproducts -= dclock();
+    timerStart(Type2FieldTimings::timer().mfproducts,"MFproducts");
     mult(con_pi1_pi2, mf_pi1[0]->at(t_pi1), mf_pi2[0]->at(t_pi2), true); //node local
     mult(con_pi2_pi1, mf_pi2[0]->at(t_pi2), mf_pi1[0]->at(t_pi1), true);
     for(int pp=1;pp<nmom;pp++){
@@ -172,28 +186,28 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
     if(nmom > 1){
       con_pi1_pi2.times_equals(1./nmom);  con_pi2_pi1.times_equals(1./nmom);
     }
-    Type2FieldTimings::timer().mfproducts += dclock();
+    timerEnd(Type2FieldTimings::timer().mfproducts,"MFproducts");
 
     //Construct part 2 (this doesn't involve the kaon):
     // \sum_{ \vec y, \vec z  }  vL(x_op) [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] wL^dag(x_op)
     int tK_min = modLt(t_pi1 - tsep_k_pi_largest, Lt); //only compute for timeslices between kaon and inner pion
     
-    Type2FieldTimings::timer().part2 -= dclock();
+    timerStart(Type2FieldTimings::timer().part2,"Part 2");
     mult(part2[0], vL, con_pi1_pi2, wL, false, true, tK_min, tsep_k_pi_largest); //part2 goes from insertion to pi1 to pi2 and back to insertion
     mult(part2[1], vL, con_pi2_pi1, wL, false, true, tK_min, tsep_k_pi_largest); //part2 goes from insertion to pi2 to pi1 and back to insertion
-    Type2FieldTimings::timer().part2 += dclock();
+    timerEnd(Type2FieldTimings::timer().part2,"Part 2");
 
     for(int tkpi_idx : t_pair.second){
       int t_K = modLt(t_pi1 - tsep_k_pi[tkpi_idx], Lt);
       
       const SCFmatrixField &part1 = *part1_storage[t_K];
-      Type2FieldTimings::timer().contraction_time -= dclock();
+      timerStart(Type2FieldTimings::timer().contraction_time,"Contractions");
       type2_contract(result[tkpi_idx],t_K,part1,part2);
-      Type2FieldTimings::timer().contraction_time += dclock();
+      timerEnd(Type2FieldTimings::timer().contraction_time,"Contractions");
     }
   }
 
-  Type2FieldTimings::timer().finish_up -= dclock();
+  timerStart(Type2FieldTimings::timer().finish_up,"Finish up");
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   for(int i=0;i<nmom;i++)
@@ -222,8 +236,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
     }
   }
 
-  Type2FieldTimings::timer().finish_up += dclock();
-  Type2FieldTimings::timer().total += dclock();
+  timerEnd(Type2FieldTimings::timer().finish_up,"Finish up");
+  timerEnd(Type2FieldTimings::timer().total,"End");
   Type2FieldTimings::timer().report();
 }
 
