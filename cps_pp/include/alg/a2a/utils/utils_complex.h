@@ -145,15 +145,11 @@ inline bool equals(const T &a, const T &b){ return a == b; }
 
 #ifdef USE_GRID
 inline bool equals(const Grid::vComplexD &a, const Grid::vComplexD &b){
-  Grid::vComplexD::conv_t ac, bc;
-  ac.v = a.v; bc.v = b.v;
-  for(int i=0;i<Grid::vComplexD::Nsimd();i++) if(ac.s[i] != bc.s[i]) return false;
+  for(int i=0;i<Grid::vComplexD::Nsimd();i++) if(a.getlane(i) != b.getlane(i)) return false;
   return true;
 }
 inline bool equals(const Grid::vComplexF &a, const Grid::vComplexF &b){
-  Grid::vComplexF::conv_t ac, bc;
-  ac.v = a.v; bc.v = b.v;
-  for(int i=0;i<Grid::vComplexF::Nsimd();i++) if(ac.s[i] != bc.s[i]) return false;
+  for(int i=0;i<Grid::vComplexF::Nsimd();i++) if(a.getlane(i) != b.getlane(i)) return false;
   return true;
 }
 #endif
