@@ -31,7 +31,7 @@ void setupJob(int argc, char **argv, const Parameters &params, const CommandLine
 
 #ifdef BNL_KNL_PERFORMANCE_CHECK
 void bnl_knl_performance_check(const CommandLineArgs &args,const Parameters &params){
-  A2ALattice* lat = createLattice<A2ALattice,A2A_LATMARK>::doit(A2A_LATARGS);
+  auto lat = createFgridLattice<typename A2Apolicies::FgridGFclass>(params.jp);
   lat->SetGfieldOrd(); //so we don't interfere with the RNG state
   double node_perf = gridBenchmark<A2Apolicies>(*lat);  
   delete lat;
@@ -42,8 +42,7 @@ void bnl_knl_performance_check(const CommandLineArgs &args,const Parameters &par
 void runInitialGridBenchmarks(const CommandLineArgs &cmdline, const Parameters &params){
 #if defined(USE_GRID) && defined(USE_GRID_A2A)
   if(cmdline.run_initial_grid_benchmarks){
-    typedef typename A2Apolicies::FgridGFclass A2ALattice;
-    A2ALattice* lat = createLattice<A2ALattice,isGridtype>::doit(params.jp);
+    auto lat = createFgridLattice<typename A2Apolicies::FgridGFclass>(params.jp);
     gridBenchmark<A2Apolicies>(*lat);
     gridBenchmarkSinglePrec<A2Apolicies>(*lat);
     delete lat;

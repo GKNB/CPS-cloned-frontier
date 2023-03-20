@@ -63,23 +63,3 @@ void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
 #endif
 }
 
-
-
-#ifdef USE_GRID_LANCZOS
-#endif
-
-#ifdef USE_BFM_LANCZOS
-template< typename Policies>
-void computeVWhigh(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, const CGcontrols &cg_controls, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
-  bool mixed_prec_cg = dwf_fp != NULL; 
-  if(mixed_prec_cg){
-    //NOT IMPLEMENTED YET
-    ERR.General("A2AvectorW","computeVWhigh","No grid implementation of mixed precision CG with BFM evecs\n");
-  }
-
-  if(mixed_prec_cg && !singleprec_evecs){ ERR.General("A2AvectorW","computeVWhigh","If using mixed precision CG, input eigenvectors must be stored in single precision"); }
-
-  EvecInterfaceBFM<Policies> ev(eig,dwf_d,lat,singleprec_evecs);
-  return computeVWhigh(V,W,lat,ev,dwf_d.mass,cg_controls);
-}
-#endif

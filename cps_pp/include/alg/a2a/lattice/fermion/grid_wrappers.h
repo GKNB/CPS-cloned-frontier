@@ -3,8 +3,25 @@
 #ifdef USE_GRID
 
 #include "grid_lanczos.h"
+#include<alg/a2a/base/utils_main.h>
 
 CPS_START_NAMESPACE
+
+//Return a pointer to a CPS FGrid derived lattice type. Handles the BCs correctly
+template<typename LatticeType>
+LatticeType* createFgridLattice(const JobParams &jp){
+  assert(jp.solver == BFM_HmCayleyTanh);
+  FgridParams grid_params; 
+  grid_params.mobius_scale = jp.mobius_scale;
+  LatticeType* lat = new LatticeType(grid_params);
+        
+  NullObject null_obj;
+  lat->BondCond();
+  CPSfield<cps::ComplexD,4*9,FourDpolicy<OneFlavorPolicy> > cps_gauge((cps::ComplexD*)lat->GaugeField(),null_obj);
+  cps_gauge.exportGridField(*lat->getUmu());
+  lat->BondCond();
+  return lat;
+}
 
 //Generates and stores evecs and evals
 template<typename GridPolicies>
@@ -43,6 +60,15 @@ struct GridLanczosWrapper{
 #  endif
 
 # endif    
+  }
+
+  //This version creates a FGrid lattice using CPS factory and uses it in the above
+  void compute(const JobParams &jp, const LancArg &lanc_arg){
+    auto lanczos_lat = createFgridLattice<typename GridPolicies::FgridGFclass>(jp);
+    A2Apreconditioning precond = SchurOriginal;
+    if(lanc_arg.precon && jp.cg_controls.CGalgorithm == AlgorithmMixedPrecisionMADWF) precond = jp.cg_controls.madwf_params.precond; //SchurDiagTwo often used for ZMADWF
+    compute(lanc_arg, *lanczos_lat, precond);
+    delete lanczos_lat;
   }
 
   //Test double prec eigenvectors (TODO: generalize to test single prec)
@@ -141,6 +167,13 @@ struct GridLanczosWrapper{
     singleprec_evecs = false;
   }
   
+  //This version creates a FGrid lattice using CPS factory and uses it in the above
+  void randomizeEvecs(const JobParams &jp, const LancArg &lanc_arg){
+    auto lanczos_lat = createFgridLattice<typename GridPolicies::FgridGFclass>(jp);
+    randomizeEvecs(lanc_arg, *lanczos_lat);
+    delete lanczos_lat;
+  }
+
   //Convert double to single precision eigenvectors
   void toSingle(){
     if(singleprec_evecs) return;

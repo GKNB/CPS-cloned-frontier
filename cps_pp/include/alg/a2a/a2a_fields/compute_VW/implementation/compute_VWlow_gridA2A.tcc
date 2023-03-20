@@ -30,19 +30,3 @@ void computeVWlow(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const 
 #endif
 }
 
-
-
-
-#ifdef USE_GRID_LANCZOS
-#endif
-
-
-#ifdef USE_BFM_LANCZOS
-//Compute the low mode part of the W and V vectors. In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
-//Set 'singleprec_evecs' if this has been done
-template< typename Policies>
-void computeVWlow(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs, const CGcontrols &cg_controls){
-  EvecInterfaceBFM<Policies> ev(eig,dwf,lat,singleprec_evecs);
-  return computeVWlow(V,W,lat,ev,dwf.mass,cg_controls);
-}
-#endif

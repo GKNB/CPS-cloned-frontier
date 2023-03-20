@@ -7,7 +7,6 @@
 #include <util/lattice/fgrid.h>
 #include <alg/meas_arg.h>
 #include <alg/ktopipi_jobparams.h>
-#include <alg/a2a/lattice/fermion/bfm_wrappers.h>
 #include <alg/a2a/lattice/CPSfield.h>
 #include <alg/alg_fix_gauge.h>
 
@@ -47,47 +46,7 @@ void readGaugeRNG(const DoArg &do_arg, const MeasArg &meas_arg, const bool doubl
 //Rotate the temporal boundary links by a phase exp(i degrees/180 *pi)
 void TboundaryTwist(const double degrees);
 
-
-//template-factory for CPS lattice class
-struct isGridtype{};
-struct isBFMtype{};
-
-template<typename LatticeType, typename BFMorGrid>
-struct createLattice{};
-
-#ifdef USE_BFM
-template<typename LatticeType>
-struct createLattice<LatticeType, isBFMtype>{
-  static LatticeType* doit(BFMsolvers &bfm_solvers){
-    LatticeType* lat = new LatticeType;
-    bfm_solvers.importLattice(lat);
-    return lat;
-  }
-};
-#endif
-
-#ifdef USE_GRID
-template<typename LatticeType>
-struct createLattice<LatticeType, isGridtype>{
-  static LatticeType* doit(const JobParams &jp){
-    assert(jp.solver == BFM_HmCayleyTanh);
-    FgridParams grid_params; 
-    grid_params.mobius_scale = jp.mobius_scale;
-    LatticeType* lat = new LatticeType(grid_params);
-        
-    NullObject null_obj;
-    lat->BondCond();
-    CPSfield<cps::ComplexD,4*9,FourDpolicy<OneFlavorPolicy> > cps_gauge((cps::ComplexD*)lat->GaugeField(),null_obj);
-    cps_gauge.exportGridField(*lat->getUmu());
-    lat->BondCond();
-    
-    return lat;
-  }
-};
-#endif
-
-
-//Initialize OpenMP, GJP and QDP (if using BFM)
+//Initialize OpenMP, GJP and QDP
 void initCPS(int argc, char **argv, const DoArg &do_arg, const int nthreads);
 
 //Do the gauge fixing if !skip_gauge_fix

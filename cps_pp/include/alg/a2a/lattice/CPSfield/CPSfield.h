@@ -5,10 +5,6 @@
 #include<comms/scu.h>
 
 #include "CPSfield_policies.h"
-#ifdef USE_BFM
-#include<util/lattice/bfm_evo.h>
-#endif
-
 #include<alg/a2a/lattice/spin_color_matrices.h>
 #include<alg/a2a/utils.h>
 
@@ -454,14 +450,6 @@ public:
   INHERIT_TYPEDEFS(BaseType);
   CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion5D);
     
-#ifdef USE_BFM
-  template<typename FloatExt>
-  void importFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf);
-
-  template<typename FloatExt>
-  void exportFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf) const;
-#endif
-
   void setGaussianRandom();
   
   DEFINE_ADDSUB_DERIVED(CPSfermion5D);
