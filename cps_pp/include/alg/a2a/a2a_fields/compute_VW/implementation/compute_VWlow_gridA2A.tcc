@@ -1,15 +1,12 @@
-template<typename A2Apolicies, typename FermionOperatorTypeD>
-void computeVWlow(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const EvecInterface<typename FermionOperatorTypeD::FermionField> &evecs,  
-		  const A2AlowModeCompute<FermionOperatorTypeD> &impl){  
+template<typename A2Apolicies, typename GridFermionFieldD>
+void computeVWlow(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const EvecInterface<GridFermionFieldD> &evecs,  
+		  const A2AlowModeCompute<GridFermionFieldD> &impl){  
   int nl = V.getNl();
   if(nl == 0) return;
   assert(nl <= evecs.nEvecs());
   
-  typedef typename FermionOperatorTypeD::FermionField GridFermionFieldD;
-
-  FermionOperatorTypeD & OpD = impl.getOp();
   Grid::GridBase *EvecGrid = evecs.getEvecGridD(); //may be regular or checkerboarded Grid
-  Grid::GridBase *UGrid = OpD.GaugeGrid();
+  Grid::GridBase *UGrid = impl.get4Dgrid();
 
   GridFermionFieldD evec(EvecGrid);
   GridFermionFieldD tmp_full_4d(UGrid);

@@ -154,7 +154,9 @@ struct computeVW_impl{
       A2Ainverter4dSchurPreconditionedMADWF<GridDiracD, GridDiracZMobiusF, GridFermionFieldD, GridFermionFieldF> inv4d(*OpD, *SchurOpF_inner, evecs, *UmuD,  
 														       cg.CG_tolerance, cg.mixedCG_init_inner_tolerance, cg.CG_max_iters);
 
-      computeVWhigh(V,W,evecs,vwlowimpl_inner,inv4d, cg.multiCG_block_size);
+      A2AhighModeComputeGeneric<GridFermionFieldD> vwhighimpl(vwlowimpl_inner, inv4d);
+
+      computeVWhigh(V,W,evecs,vwhighimpl, cg.multiCG_block_size);
     }else{
       A2ASchurOriginalOperatorImpl<GridDiracD> SchurOpD(*OpD);
       A2ASchurOriginalOperatorImpl<GridDiracF> SchurOpF(*OpF);
@@ -162,9 +164,12 @@ struct computeVW_impl{
       A2AlowModeComputeSchurPreconditioned<GridDiracD> vwlowimpl(SchurOpD);
       computeVWlow(V,W,evecs,vwlowimpl);
 
-      std::unique_ptr<A2Ainverter5dBase<GridFermionFieldD> > inv5d;
+      std::unique_ptr<A2AdeflatedInverter5dBase<GridFermionFieldD> > inv5d;
+
+      /////Required only for split CG
       std::unique_ptr<A2ASchurOriginalOperatorImpl<GridDiracD> > SSchurOpD;
       std::unique_ptr<A2ASchurOriginalOperatorImpl<GridDiracF> > SSchurOpF;
+      /////
 
       if(cg.CGalgorithm == AlgorithmCG){
 	std::cout << Grid::GridLogMessage << "Using double precision CG solver" << std::endl;
@@ -190,8 +195,15 @@ struct computeVW_impl{
 	assert(0);
       }
 
-      A2Ainverter4dSchurPreconditioned<GridDiracD> inv4d(SchurOpD, *inv5d);  
-      computeVWhigh(V,W,evecs,vwlowimpl,inv4d, cg.multiCG_block_size);
+      //A2Ainverter4dSchurPreconditioned<GridDiracD> inv4d(SchurOpD, *inv5d);  
+      //A2AhighModeComputeGeneric<GridFermionFieldD> vwhighimpl(vwlowimpl, inv4d);
+
+      //Use the high mode implementation that combines the low mode part calculation with computing the guess
+      //We should disable the initial deflation on the 5D solvers as it will already be performed
+      inv5d->enableInitialDeflation(false);
+      A2AhighModeComputeSchurPreconditioned<GridDiracD> vwhighimpl(SchurOpD, *inv5d);
+
+      computeVWhigh(V,W,evecs,vwhighimpl, cg.multiCG_block_size);
     }
   }
 };
