@@ -49,7 +49,6 @@ public:
   }
 
   static void mult_onemkl(A2AmesonField<mf_Policies,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
-    if(l.getArgs().src_width != 1 || r.getArgs().src_width != 1) ERR.General("mesonfield_mult_impl_onemkl","mult","Does not support non-unit src width");
     getTimers().calls++;
     getTimers().t_init -= dclock();
 
@@ -77,9 +76,9 @@ public:
     typedef typename A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR>::LeftDilutionType RightDilutionType;
 
     ModeContractionIndices<LeftDilutionType,RightDilutionType> j_ind2(l.getColParams()); //these maps could be cached somewhere
-    
-    modeIndexSet lmodeparams; lmodeparams.time = l.getColTimeslice();
-    modeIndexSet rmodeparams; rmodeparams.time = r.getRowTimeslice();
+
+    modeIndexSet lmodeparams; lmodeparams.time = l.getColParams().tblock(l.getColTimeslice());
+    modeIndexSet rmodeparams; rmodeparams.time = r.getRowParams().tblock(r.getRowTimeslice());
     
     const int nj = j_ind2.getNindices(lmodeparams,rmodeparams);
 

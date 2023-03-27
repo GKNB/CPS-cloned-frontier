@@ -463,7 +463,7 @@ void testMultiSourceDeviceCopy(){
   #endif
 #endif
  
-  ComplexType* into = (ComplexType*)managed_alloc_check(sizeof(ComplexType));
+  ComplexType* into = (ComplexType*)managed_alloc_check(2*sizeof(ComplexType));
   typedef SIMT<ComplexType> ACC;
 
   {

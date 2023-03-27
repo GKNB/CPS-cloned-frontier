@@ -309,10 +309,11 @@ public:
     reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); inversefft(to, &op);
   }
   
-  //Use the relations between FFTs to obtain the FFT for a chosen quark momentum
+  //Use the relations between FFTs under translations to compute the FFT for a chosen quark momentum
   //With G-parity BCs there are 2 disjoint sets of momenta hence there are 2 base FFTs
   void getTwistedFFT(const int p[3], A2AvectorVfftw<Policies> const *base_p, A2AvectorVfftw<Policies> const *base_m = NULL);
 
+  //C-shift the fields (with periodic BCs) according to the given shift vector
   void shiftFieldsInPlace(const std::vector<int> &shift);
 
   //A version of the above that directly shifts the base Wfftw rather than outputting into a separate storage

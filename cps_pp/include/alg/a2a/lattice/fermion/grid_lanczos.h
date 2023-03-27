@@ -131,6 +131,8 @@ void gridLanczos(std::vector<Grid::RealD> &eval,
   typedef typename GridPolicies::GridFermionField GridFermionField;
   typedef typename GridPolicies::FgridFclass FgridFclass;
   typedef typename GridPolicies::GridDirac GridDirac;
+
+  if(!lattice.getGridFullyInitted()) ERR.General("","gridLanczos","Grid/Grids are not initialized!");
   
   Grid::GridCartesian *UGrid = lattice.getUGrid();
   Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
@@ -141,11 +143,11 @@ void gridLanczos(std::vector<Grid::RealD> &eval,
   double mob_b = lattice.get_mob_b();
   double mob_c = mob_b - 1.;   //b-c = 1
   double M5 = GJP.DwfHeight();
-  if(!UniqueID()) printf("Grid b=%g c=%g b+c=%g\n",mob_b,mob_c,mob_b+mob_c);
+  if(!UniqueID()) printf("Creating Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5);
 
   typename GridDirac::ImplParams params;
   lattice.SetParams(params);
-
+ 
   GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,lanc_arg.mass,M5,mob_b,mob_c, params);
 
   gridLanczos(eval, evec, lanc_arg, Ddwf, *Umu, UGrid, UrbGrid, FGrid, FrbGrid, precon_type);
@@ -162,6 +164,8 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
   typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
   typedef typename GridPolicies::FgridFclass FgridFclass;
   typedef typename GridPolicies::GridDiracF GridDiracF;
+
+  if(!lattice.getGridFullyInitted()) ERR.General("","gridSinglePrecLanczos","Grid/Grids are not initialized!");
   
   Grid::LatticeGaugeFieldD *Umu = lattice.getUmu();
 
@@ -177,7 +181,7 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
   double mob_b = lattice.get_mob_b();
   double mob_c = mob_b - 1.;   //b-c = 1
   double M5 = GJP.DwfHeight();
-  if(!UniqueID()) printf("Grid b=%g c=%g b+c=%g\n",mob_b,mob_c,mob_b+mob_c);
+  if(!UniqueID()) printf("Creating Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5);
 
   typename GridDiracF::ImplParams params;
   lattice.SetParams(params);

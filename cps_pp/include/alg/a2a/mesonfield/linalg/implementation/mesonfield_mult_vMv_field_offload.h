@@ -656,12 +656,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	//The kernels below takes a while so we may as well prefetch r for the next cycle
 	//Note: these are issued after the kernels are launched because they lock up the CPU; the kernels are still executing at this time
 	prefetch_r(jprimeblock, njprime_blocks, iprimeblock, niprime_blocks, blocksize, njprime, jl_jr_pairs, r, vol3d_node, local_timeslices);
-	
-	{
-	  using namespace Grid;
-	  accelerator_barrier(dummy);
-	}
 
+	device_synchronize_all();
 	time.lMr += dclock();
       }//jprimeblock
 

@@ -37,10 +37,10 @@ void testPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A
     bool fail = false;
     for(int r=0;r<fmat_std.nRows();r++){
       for(int c=0;c<fmat_std.nCols();c++){
-	double rdiff = fmat_std(r,c).real() - fmat_grid(r,c).real();
-	double idiff = fmat_std(r,c).imag() - fmat_grid(r,c).imag();
+	double rdiff = 2*( fmat_std(r,c).real() - fmat_grid(r,c).real() ) / ( fmat_std(r,c).real() + fmat_grid(r,c).real() );
+	double idiff = 2*( fmat_std(r,c).imag() - fmat_grid(r,c).imag() ) / ( fmat_std(r,c).imag() + fmat_grid(r,c).imag() );
 	if(rdiff > tol|| idiff > tol){
-	  printf("Fail Pipi fig %c elem %d %d : (%f,%f) (%f,%f) diff (%g,%g)\n",diags[d],r,c, fmat_std(r,c).real(),  fmat_std(r,c).imag(), fmat_grid(r,c).real(), fmat_grid(r,c).imag(), rdiff, idiff);
+	  printf("Fail Pipi fig %c elem %d %d : (%f,%f) (%f,%f) reldiff (%g,%g)\n",diags[d],r,c, fmat_std(r,c).real(),  fmat_std(r,c).imag(), fmat_grid(r,c).real(), fmat_grid(r,c).imag(), rdiff, idiff);
 	  fail = true;
 	}
       }
@@ -59,10 +59,10 @@ void testPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A
 
     bool fail = false;
     for(int r=0;r<pipi_figV_std.size();r++){
-      double rdiff = pipi_figV_std(r).real() - pipi_figV_grid(r).real();
-      double idiff = pipi_figV_std(r).imag() - pipi_figV_grid(r).imag();
+      double rdiff = 2*( pipi_figV_std(r).real() - pipi_figV_grid(r).real() ) / ( pipi_figV_std(r).real() + pipi_figV_grid(r).real() );
+      double idiff = 2*( pipi_figV_std(r).imag() - pipi_figV_grid(r).imag() ) / ( pipi_figV_std(r).imag() + pipi_figV_grid(r).imag() ) ;
       if(rdiff > tol|| idiff > tol){
-	printf("Fail Pipi fig V elem %d : (%f,%f) (%f,%f) diff (%g,%g)\n",r, pipi_figV_std(r).real(),  pipi_figV_std(r).imag(), pipi_figV_grid(r).real(), pipi_figV_grid(r).imag(), rdiff, idiff);
+	printf("Fail Pipi fig V elem %d : (%f,%f) (%f,%f) reldiff (%g,%g)\n",r, pipi_figV_std(r).real(),  pipi_figV_std(r).imag(), pipi_figV_grid(r).real(), pipi_figV_grid(r).imag(), rdiff, idiff);
 	fail = true;
       }      
     }

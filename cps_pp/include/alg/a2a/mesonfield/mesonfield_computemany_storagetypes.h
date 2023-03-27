@@ -1,8 +1,10 @@
 #ifndef _MESONFIELD_COMPUTEMANY_STORAGETYPES_H
 #define _MESONFIELD_COMPUTEMANY_STORAGETYPES_H
 
+#include <alg/a2a/a2a_fields.h>
 #include "a2a_sources.h"
 #include "mesonfield.h"
+
 
 CPS_START_NAMESPACE
 
