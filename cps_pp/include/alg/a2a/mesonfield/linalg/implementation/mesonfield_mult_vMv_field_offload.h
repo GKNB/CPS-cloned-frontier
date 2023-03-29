@@ -3,11 +3,6 @@
 
 #include<set>
 
-//Not currently defined in Grid for CPU targets
-#ifndef accelerator_for2dNB
-#define accelerator_for2dNB(iter1, num1, iter2, num2, nsimd, ... ) thread_for2d(iter1,num1,iter2,num2,{ __VA_ARGS__ });
-#endif
-
 CPS_START_NAMESPACE
 
 template<typename mf_Policies,
@@ -301,7 +296,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       }
     }
   }    
-  
+
   static void create_vbprime(VectorComplexType* vbprime, typename PropagatorField::View &into_v, typename rA2AfieldType::View &r_v,
 			     ManagedVector<uint8_t>::View &beta_v, ManagedVector< std::pair<int,int> >::View &jl_jr_pairs_v,
 			     int t_off, int src_width, size_t jprimestart, int nf, int ntblocks, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices,
@@ -312,7 +307,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     int const* local_timeslices_v = local_timeslices.getDeviceReadPtr();
     typedef SIMT<VectorComplexType> ACC;
     using namespace Grid;
-    accelerator_for2dNB(xx, nsites4d, jprimeb, njprime_block, nsimd,
+    accelerator_for2d(xx, nsites4d, jprimeb, njprime_block, nsimd,
 			{
 			  size_t jprime = jprimeb + jprimestart;
 			  size_t xop = xx % vol3d_node;
@@ -334,7 +329,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   
   //Mprime * vbprime
   static void Mprime_vbprime(VectorComplexType* Mvbprime, typename MesonFieldType::ScalarComplexType *Mprime, VectorComplexType* vbprime, 
-			     size_t vol4d_node, size_t niprime_block, size_t njprime_block, size_t nsimd, bool verbose = false){
+			     size_t vol4d_node, size_t niprime_block, size_t njprime_block, size_t nsimd, int fourd_block_count, bool verbose = false){
     typedef SIMT<VectorComplexType> ACC;
     typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
     using namespace Grid;
@@ -344,15 +339,15 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     //std::cout << "Changed number of GPU threads from " << orig_t << " to " << Grid::acceleratorThreads() << std::endl;
 #endif
 
-    int nxblocks = BlockedvMvOffloadArgs::bb;
+    int nxblocks = fourd_block_count;
     assert(vol4d_node % nxblocks == 0);
     size_t xblocksz = vol4d_node / nxblocks;
     
     double block_size_MB = double(njprime_block*xblocksz*sizeof(VectorComplexType))/1024./1024.;
     double Mprime_size_MB = double(niprime_block*njprime_block*sizeof(MFcomplexType))/1024./1024.;
     if(verbose) std::cout << "Solving M'* vb' with nxblocks=" << nxblocks << ": block volume " << xblocksz << " = " << block_size_MB << " MB and M' size " << niprime_block << "*" << njprime_block << " = " << Mprime_size_MB << " MB" << std::endl;
-    
-    accelerator_for2dNB(x4d_block, xblocksz, iprimeb_xb, niprime_block*nxblocks, nsimd,
+
+    accelerator_for2d(x4d_block, xblocksz, iprimeb_xb, niprime_block*nxblocks, nsimd,
 			{
 			  size_t iprimeb = iprimeb_xb % niprime_block;
 			  int xblock_idx = iprimeb_xb / niprime_block;
@@ -374,6 +369,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 #if defined(GRID_CUDA) || defined(GRID_HIP) 
     Grid::acceleratorThreads(orig_t);
 #endif
+
   }
   
   //va' (M' vb')
@@ -383,7 +379,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     int const* local_timeslices_v = local_timeslices.getDeviceReadPtr();
     typedef SIMT<VectorComplexType> ACC;
     using namespace Grid;
-    accelerator_for2dNB(xx, nsites4d, scfl, 12*nf, nsimd,
+    accelerator_for2d(xx, nsites4d, scfl, 12*nf, nsimd,
 			{
 			  size_t xop = xx % vol3d_node;
 			  int top = local_timeslices_v[xx / vol3d_node];
@@ -539,10 +535,38 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t nsimd = VectorComplexType::Nsimd();
     size_t vol4d_node = into.size();
     int t_off = GJP.TnodeSites() * GJP.TnodeCoor();
-    size_t blocksize = BlockedvMvOffloadArgs::b;
-    //size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
-
+    size_t blocksize = BlockedvMvOffloadArgs::b; //tuneable: number of mode indices i and j to block over in outer loop
+      
     size_t vol3d_node = vol4d_node / GJP.TnodeSites();
+    size_t vol4d_node_do = vol3d_node * nt_do; //actual number of 4D sites we will be computing upon
+    
+    size_t fourd_block_count = BlockedvMvOffloadArgs::bb; //tuneable: how many blocks do we divide the 4D volume into
+    //4D volume must be evenly divisible by the block count
+    if(vol4d_node_do % fourd_block_count != 0){ 
+      if(!UniqueID()) printf("Initial 4D block count %d does not evenly divide 4D volume %d, adjusting\n",fourd_block_count,vol4d_node_do);
+      
+      //Prefer smaller blocks (larger block count) to avoid memory issues
+      bool found = false;
+      int b = fourd_block_count + 1;
+      while(b <= vol4d_node_do){
+	if(vol4d_node_do % b == 0){
+	  fourd_block_count = b; found = true; break;
+	}
+	++b;
+      }
+      if(!found){
+	b = fourd_block_count - 1;
+	while(b>0){
+	  if(vol4d_node_do % b == 0){
+	    fourd_block_count = b; found = true; break;
+	  }
+	  --b;
+	}
+      }
+      if(!found) ERR.General("_mult_vMv_field_offload_v", "optimized","Could not find a 4D block count");
+      
+      if(!UniqueID()) printf("Adjusted 4D block count to %d with 4D block size %d, adjusting\n",fourd_block_count,vol4d_node_do/fourd_block_count);
+    }
     
     typedef SIMT<VectorComplexType> ACC;
     typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
@@ -578,9 +602,9 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t niprime = nil_ir_pairs, njprime = njl_jr_pairs;
     if(!UniqueID()) std::cout << "niprime=" << niprime << " njprime=" << njprime << std::endl;
     
-    size_t field_size = 12 * nf * vol3d_node * nt_do;
+    size_t field_size = 12 * nf * vol4d_node_do;
     size_t blocked_fermfields_bytes = field_size * blocksize * sizeof(VectorComplexType);
-    size_t blocked_cmplxfields_bytes = vol3d_node * nt_do * blocksize * sizeof(VectorComplexType);    
+    size_t blocked_cmplxfields_bytes = vol4d_node_do * blocksize * sizeof(VectorComplexType);    
     size_t Mprime_bytes = blocksize * blocksize * sizeof(MFcomplexType);
 
     if(!UniqueID()){
@@ -642,9 +666,9 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	      create_vbprime(vbprime, into_v, r_v, beta_v, jl_jr_pairs_v, t_off, r.getArgs().src_width, jprimestart, nf, ntblocks, vol3d_node, local_timeslices, njprime_block, nsimd, conj_r, scr, fr);
 
 	      //Mprime * vbprime
-	      Mprime_vbprime(Mvbprime, Mprime, vbprime, vol3d_node * nt_do, niprime_block, njprime_block, nsimd, scfr==0);
+	      Mprime_vbprime(Mvbprime, Mprime, vbprime, vol4d_node_do, niprime_block, njprime_block, nsimd, fourd_block_count, scfr==0);
 
-	      //va' (M' vb')	      
+	      //va' (M' vb')
 	      vaprime_Mprime_vbprime(into_v, vaprime, Mvbprime, sr, cr, fr, vol3d_node, local_timeslices, niprime_block, nf, nsimd);
 
 	      //if(cr == 0 && sr == 0 && fr == 0 && jprimeblock == 0 && iprimeblock == 0) cudaProfilerStop();
