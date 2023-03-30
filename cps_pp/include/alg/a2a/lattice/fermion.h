@@ -9,6 +9,7 @@
 #include "fermion/grid_4d5d.h"
 
 #include "fermion/evec_interface.h"
+#include "fermion/evec_io.h"
 #include "fermion/a2a_inverter_5d.h"
 #include "fermion/a2a_inverter_4d.h"
 #include "fermion/schur_operator.h"
