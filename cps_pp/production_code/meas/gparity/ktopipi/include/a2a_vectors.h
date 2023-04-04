@@ -1,40 +1,27 @@
 #ifndef _KTOPIPI_MAIN_A2A_VECTORS_H_
 #define _KTOPIPI_MAIN_A2A_VECTORS_H_
 
-
-
-//Tune the Lanczos and exit
-void LanczosTune(bool tune_lanczos_light, bool tune_lanczos_heavy, const Parameters &params){
-  if(tune_lanczos_light){
-    GridLanczosWrapper<A2Apolicies> eig;
-    if(!UniqueID()) printf("Tuning lanczos light with mass %f\n", params.lanc_arg.mass);
-
-    double time = -dclock();
-    eig.compute(params.jp,params.lanc_arg);
-    time += dclock();
-    print_time("main","Lanczos light",time);
-  }
-  if(tune_lanczos_heavy){
-    GridLanczosWrapper<A2Apolicies> eig;      
-    if(!UniqueID()) printf("Tuning lanczos heavy with mass %f\n", params.lanc_arg_s.mass);
-
-    double time = -dclock();
-    eig.compute(params.jp,params.lanc_arg_s);
-    time += dclock();
-    print_time("main","Lanczos heavy",time);
-  }
-  exit(0);
-}
-
-
 enum LightHeavy { Light, Heavy };
 
+typedef EvecManager<typename A2Apolicies::GridFermionField,typename A2Apolicies::GridFermionFieldF> EvecManagerType;
+
 //Compute the eigenvectors and convert to single precision
-void computeEvecs(GridLanczosWrapper<A2Apolicies> &eig, const LancArg &lanc_arg, const JobParams &jp, const char* name, const bool randomize_evecs){
+void computeEvecs(EvecManagerType &eig, const LancArg &lanc_arg, const JobParams &jp, const char* name, const bool randomize_evecs){
   if(!UniqueID()) printf("Running %s quark Lanczos\n",name);
   double time = -dclock();
-  if(randomize_evecs) eig.randomizeEvecs(jp, lanc_arg);
-  else eig.compute(jp, lanc_arg);
+
+  auto lanczos_lat = createFgridLattice<typename A2Apolicies::FgridGFclass>(jp);
+  A2Apreconditioning precond = SchurOriginal;
+  if(lanc_arg.precon && jp.cg_controls.CGalgorithm == AlgorithmMixedPrecisionMADWF) precond = jp.cg_controls.madwf_params.precond; //SchurDiagTwo often used for ZMADWF
+
+  //TEST
+  testXconjAction<A2Apolicies>(*lanczos_lat);
+  //TEST
+
+  if(randomize_evecs) eig.randomizeEvecs(lanc_arg, *lanczos_lat);
+  else eig.compute(lanc_arg, *lanczos_lat, precond);
+
+  delete lanczos_lat;
   time += dclock();
 
   std::ostringstream os; os << name << " quark Lanczos";
@@ -43,47 +30,35 @@ void computeEvecs(GridLanczosWrapper<A2Apolicies> &eig, const LancArg &lanc_arg,
 
   if(!UniqueID()) printf("Memory after %s quark Lanczos:\n",name);
   printMem();
-
-#ifndef A2A_LANCZOS_SINGLE
-  if(jp.convert_evecs_to_single_precision){
-    eig.toSingle();
-    if(!UniqueID()) printf("Memory after single-prec conversion of %s quark evecs:\n",name);
-    printMem();
-  }
-#endif
 }
 
-void computeEvecs(GridLanczosWrapper<A2Apolicies> &eig, const LightHeavy lh, const Parameters &params, const bool randomize_evecs){
+void computeEvecs(EvecManagerType &eig, const LightHeavy lh, const Parameters &params, const bool randomize_evecs){
   const char* name = (lh ==  Light ? "light" : "heavy");
   const LancArg &lanc_arg = (lh == Light ? params.lanc_arg : params.lanc_arg_s);
   return computeEvecs(eig, lanc_arg, params.jp, name, randomize_evecs);
 }
 
-void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const GridLanczosWrapper<A2Apolicies> &eig, const CGcontrols &cg_controls, 
+void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const EvecManagerType &eig, double mass, const CGcontrols &cg_controls, 
 	       typename A2Apolicies::FgridGFclass *lat, bool randomize_vw){
 #ifdef USE_DESTRUCTIVE_FFT
   V.allocModes(); W.allocModes();
 #endif
   if(!randomize_vw){
-    if(eig.singleprec_evecs){
-      cps::computeVW(V, W, *lat, eig.evec_f, eig.eval, eig.mass, cg_controls);
-    }else{
-      cps::computeVW(V, W, *lat, eig.evec, eig.eval, eig.mass, cg_controls);
-    }
+    auto ei = eig.createInterface();
+    cps::computeVW(V,W,*lat,*ei,mass,cg_controls);
   }else randomizeVW<A2Apolicies>(V,W);
 }
 
-void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const LightHeavy lh, const Parameters &params,
-	       const GridLanczosWrapper<A2Apolicies> &eig, const bool randomize_vw){
+void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const LightHeavy lh, const Parameters &params, const EvecManagerType &eig, const bool randomize_vw){
   auto lat = createFgridLattice<typename A2Apolicies::FgridGFclass>(params.jp);
 
-  const A2AArg &a2a_arg = lh == Light ? params.a2a_arg : params.a2a_arg_s;  
+  const LancArg &lanc_arg = (lh == Light ? params.lanc_arg : params.lanc_arg_s);
   const char* name = (lh ==  Light ? "light" : "heavy");
  
   if(!UniqueID()) printf("Computing %s quark A2A vectors\n",name);
   double time = -dclock();
 
-  computeVW(V,W,eig,params.jp.cg_controls,lat,randomize_vw);
+  computeVW(V,W,eig,lanc_arg.mass, params.jp.cg_controls,lat,randomize_vw);
   
   printMem(stringize("Memory after %s A2A vector computation", name));
 

@@ -15,5 +15,6 @@
 #include "fermion/schur_operator.h"
 #include "fermion/a2a_lowmode_compute.h"
 #include "fermion/a2a_highmode_compute.h"
+#include "fermion/grid_Xconj.h"
 
 #endif

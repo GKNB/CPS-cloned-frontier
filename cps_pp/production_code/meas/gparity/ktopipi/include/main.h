@@ -28,15 +28,17 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   //-------------------- Read gauge field --------------------//
   readGaugeRNG(params,cmdline);
-    
   printMem("Memory after gauge and RNG read");
 
   runInitialGridBenchmarks(cmdline,params);
-  
-  if(cmdline.tune_lanczos_light || cmdline.tune_lanczos_heavy) LanczosTune(cmdline.tune_lanczos_light, cmdline.tune_lanczos_heavy, params);    
+
+  GridXconjLanczosDoubleConvSingle<A2Apolicies> eig, eig_s;
+  //GridLanczosDoubleConvSingle<A2Apolicies> eig, eig_s;
+  if(cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, false);
+  if(cmdline.tune_lanczos_heavy) computeEvecs(eig_s, Heavy, params, false);
+  if(cmdline.tune_lanczos_light||cmdline.tune_lanczos_heavy) return; //tune and exit
 
   //-------------------- Light quark Lanczos ---------------------//
-  GridLanczosWrapper<A2Apolicies> eig;
   if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.randomize_evecs);
 
   //-------------------- Light quark v and w --------------------//
@@ -50,7 +52,6 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   printMem("Memory after light evec free");
     
   //-------------------- Strange quark Lanczos ---------------------//
-  GridLanczosWrapper<A2Apolicies> eig_s;
   if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig_s, Heavy, params, cmdline.randomize_evecs);
 
   //-------------------- Strange quark v and w --------------------//
@@ -90,7 +91,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     
     //-------------------- Light quark Lanczos ---------------------//
     {
-      GridLanczosWrapper<A2Apolicies> eig;
+      GridLanczosDoubleConvSingle<A2Apolicies> eig;
       computeEvecs(eig, Light, params, cmdline.randomize_evecs);
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;
       if(!UniqueID()){ printf("Writing light Lanczos to %s\n",os.str().c_str()); fflush(stdout); }
@@ -109,7 +110,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     }
     
     //-------------------- Strange quark Lanczos ---------------------//
-    GridLanczosWrapper<A2Apolicies> eig_s;
+    GridLanczosDoubleConvSingle<A2Apolicies> eig_s;
     computeEvecs(eig_s, Heavy, params, cmdline.randomize_evecs);
 
     //-------------------- Strange quark v and w --------------------//
@@ -138,7 +139,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
   }else if(cmdline.split_job_part == 1){
     //Do light CG and contractions
 
-    GridLanczosWrapper<A2Apolicies> eig;
+    GridLanczosDoubleConvSingle<A2Apolicies> eig;
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;
       if(!UniqueID()) printf("Reading light Lanczos from %s\n",os.str().c_str());
@@ -205,15 +206,12 @@ void doConfigurationLLprops(const int conf, Parameters &params, const CommandLin
   readGaugeRNG(params,cmdline);
     
   printMem("Memory after gauge and RNG read");
-
-  runInitialGridBenchmarks(cmdline,params);
   
-  if(cmdline.tune_lanczos_light || cmdline.tune_lanczos_heavy) LanczosTune(cmdline.tune_lanczos_light, cmdline.tune_lanczos_heavy, params);    
-
   //-------------------- Light quark Lanczos ---------------------//
-  GridLanczosWrapper<A2Apolicies> eig;
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.randomize_evecs);
-
+  GridLanczosDoubleConvSingle<A2Apolicies> eig;
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute || cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, cmdline.randomize_evecs);
+  if(cmdline.tune_lanczos_light) return;
+  
   //-------------------- Light quark v and w --------------------//
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
@@ -258,13 +256,12 @@ void doConfigurationLLpropsSplit(const int conf, Parameters &params, const Comma
     
   printMem("Memory after gauge and RNG read");
 
-  runInitialGridBenchmarks(cmdline,params);
-  
-  if(cmdline.tune_lanczos_light || cmdline.tune_lanczos_heavy) LanczosTune(cmdline.tune_lanczos_light, cmdline.tune_lanczos_heavy, params);    
+  GridLanczosDoubleConvSingle<A2Apolicies> eig;
+  if(cmdline.tune_lanczos_light){ computeEvecs(eig, Light, params, false); return; }
 
   if(cmdline.split_job_part == 0){
     //-------------------- Light quark Lanczos ---------------------//
-    GridLanczosWrapper<A2Apolicies> eig;
+    
     if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.randomize_evecs);
 
     //Write to disk
@@ -277,7 +274,6 @@ void doConfigurationLLpropsSplit(const int conf, Parameters &params, const Comma
       print_time("main","Light Lanczos write",time);
     }
   }else if(cmdline.split_job_part == 1){
-    GridLanczosWrapper<A2Apolicies> eig;
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;
       if(!UniqueID()) printf("Reading light Lanczos from %s\n",os.str().c_str());
