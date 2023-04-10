@@ -162,6 +162,7 @@ public:
   EvecInterfaceMixedPrecGuesser(const EvecInterfaceMixedPrec<FieldD,FieldF> &interface): interface(interface){}
 
   void operator()(const Field &src,Field &guess) {
+    std::cout << "Tianle: DEBUG: Will call EvecInterfaceMixedPrecGuesser::operator()" << std::endl;
     _choose_deflate<Field,FieldD,FieldF>::doit(interface, src, guess);
   }
 

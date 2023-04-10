@@ -108,7 +108,7 @@ inline std::string stringize(const char* format, ...){
 }
 
 //Seconds since first call with us accuracy
-double secs_since_first_call(){
+inline double secs_since_first_call(){
   static std::chrono::time_point<std::chrono::high_resolution_clock> start;
   static bool start_set = false;
 

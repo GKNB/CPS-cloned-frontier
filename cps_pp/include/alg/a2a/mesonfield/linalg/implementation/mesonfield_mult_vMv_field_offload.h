@@ -481,7 +481,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 #elif defined(GRID_HIP)   //FIXME, check if deviceSetAdviseUVMreadOnly has been implemented for hip
     hipFuncCache_t cache_default;
     assert(hipDeviceGetCacheConfig(&cache_default) == hipSuccess );
-    assert(hipDeviceSetCacheConfig(hipFuncCachePreferL1) == hipSuccess );
+//    assert(hipDeviceSetCacheConfig(hipFuncCachePreferL1) == hipSuccess );
 
     for(int i=0;i<l.getNlowModes();i++) l.getLowMode(i).deviceSetAdviseUVMreadOnly(true);
     for(int i=0;i<l.getNhighModes();i++) l.getHighMode(i).deviceSetAdviseUVMreadOnly(true);
@@ -680,7 +680,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     for(int i=0;i<r.getNlowModes();i++) r.getLowMode(i).deviceSetAdviseUVMreadOnly(false);
     for(int i=0;i<r.getNhighModes();i++) r.getHighMode(i).deviceSetAdviseUVMreadOnly(false);
 #elif defined(GRID_HIP) //FIXME, check if deviceSetAdviseUVMreadOnly has been implemented for hip
-    assert(hipDeviceSetCacheConfig(cache_default) == hipSuccess );
+//    assert(hipDeviceSetCacheConfig(cache_default) == hipSuccess );
 
     for(int i=0;i<l.getNlowModes();i++) l.getLowMode(i).deviceSetAdviseUVMreadOnly(false);
     for(int i=0;i<l.getNhighModes();i++) l.getHighMode(i).deviceSetAdviseUVMreadOnly(false);

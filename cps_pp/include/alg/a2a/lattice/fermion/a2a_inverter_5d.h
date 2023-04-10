@@ -97,11 +97,18 @@ public:
 
   //Invert 5D source -> 5D solution
   void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
+    std::cout << "Tianle: DEBUG: inside A2Ainverter5dMixedPrecCG::invert5Dto5D, in.size = " << in.size() << std::endl;
     assert(out.size() == in.size());
+    std::cout << "Tianle: DEBUG: Will call evecs.deflatedGuessD(out, in) inside A2Ainverter5dMixedPrecCG::invert5Dto5D" << std::endl;
     evecs.deflatedGuessD(out, in);
+    std::cout << "Tianle: DEBUG: Will create Grid::MixedPrecisionConjugateGradient inst inside A2Ainverter5dMixedPrecCG::invert5Dto5D" << std::endl;
     Grid::MixedPrecisionConjugateGradient<GridFermionFieldD,GridFermionFieldF> &mCG_ = const_cast<Grid::MixedPrecisionConjugateGradient<GridFermionFieldD,GridFermionFieldF> &>(mCG); //grr
     for(int i=0;i<in.size();i++)
+    {
+      std::cout << "Tianle: DEBUG: Will call mCG_(in[i], out[i]) inside A2Ainverter5dMixedPrecCG::invert5Dto5D with i = " << i << std::endl;
       mCG_(in[i], out[i]);
+    }
+    std::cout << "Tianle: DEBUG: A2Ainverter5dMixedPrecCG::invert5Dto5D finish" << std::endl;
   }
 };
 
