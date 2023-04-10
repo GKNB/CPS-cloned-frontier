@@ -10,11 +10,10 @@
 CPS_START_NAMESPACE
 
 //Base class for 4D->4D inverters
-template<typename _FermionOperatorTypeD>
+template<typename _GridFermionFieldD>
 class A2Ainverter4dBase{
 public:
-  typedef _FermionOperatorTypeD FermionOperatorTypeD; //Double precision operator
-  typedef typename _FermionOperatorTypeD::FermionField GridFermionFieldD;
+  typedef _GridFermionFieldD GridFermionFieldD;
 
   virtual void invert4Dto4D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const = 0;
 
@@ -23,7 +22,7 @@ public:
 
 //4D->4D inversion with internal Schur preconditioning
 template<typename _FermionOperatorTypeD>
-class A2Ainverter4dSchurPreconditioned: public A2Ainverter4dBase<_FermionOperatorTypeD>{
+class A2Ainverter4dSchurPreconditioned: public A2Ainverter4dBase<typename _FermionOperatorTypeD::FermionField>{
 public:
   typedef _FermionOperatorTypeD FermionOperatorTypeD; //Double precision operator
   typedef typename _FermionOperatorTypeD::FermionField GridFermionFieldD;
@@ -64,7 +63,7 @@ public:
 //4D->4D inversion using (Z)MADWF with internal Schur preconditioning
 //Outer Dirac operator should be double precision, inner could be either double or single
 template<typename _OuterFermionOperatorTypeD, typename _InnerFermionOperatorType, typename _InnerGridFermionFieldD, typename _InnerGridFermionFieldF>
-class A2Ainverter4dSchurPreconditionedMADWF: public A2Ainverter4dBase<_OuterFermionOperatorTypeD>{
+class A2Ainverter4dSchurPreconditionedMADWF: public A2Ainverter4dBase<typename _OuterFermionOperatorTypeD::FermionField>{
 public:
   typedef _OuterFermionOperatorTypeD OuterFermionOperatorTypeD; //Double precision operator
   typedef typename _OuterFermionOperatorTypeD::FermionField OuterGridFermionFieldD;

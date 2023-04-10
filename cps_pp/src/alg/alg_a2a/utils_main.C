@@ -92,7 +92,7 @@ void TboundaryTwist(const double degrees){
 }
 
 
-//Initialize OpenMP, GJP and QDP (if using BFM)
+//Initialize OpenMP, GJP and QDP
 void initCPS(int argc, char **argv, const DoArg &do_arg, const int nthreads){
   if(!UniqueID()) printf("Initializing CPS\n");
   
@@ -104,11 +104,6 @@ void initCPS(int argc, char **argv, const DoArg &do_arg, const int nthreads){
   GJP.Initialize(do_arg_tmp);
   LRG.Initialize();
  
-#ifdef USE_BFM
-  cps_qdp_init(&argc,&argv);
-  //Chroma::initialize(&argc,&argv);
-#endif
-
 #if defined(USE_OMP) && !defined(_OPENMP)
 
   //This error can trigger when compiling for accelerators in the device compilation stage

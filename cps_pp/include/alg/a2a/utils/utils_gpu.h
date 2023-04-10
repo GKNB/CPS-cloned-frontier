@@ -124,6 +124,14 @@ inline void device_UVM_advise_unset_readonly(const void* ptr, size_t count){
 #endif
 }
 
+//Synchronize the compute and copy stream ensuring all asynchronous copies and kernels have completed
+inline void device_synchronize_all(){
+#ifdef GPU_VEC
+  using namespace Grid;
+  accelerator_barrier(); //computeStream
+  acceleratorCopySynchronise(); //copyStream
+#endif
+}
 
 
 //Check if a class T has a method "free"
@@ -325,6 +333,9 @@ public:
 #endif
   }
 
+  bool hostInSync() const{ return host_in_sync; }
+  bool deviceInSync() const{ return device_in_sync; }
+  
   //Return the status to its original, allowing the container to forget about its state and be reused
   void reset(){
     host_in_sync = device_in_sync = true;
@@ -386,8 +397,18 @@ public:
       hipMemcpyAsync(device,host,byte_size(), hipMemcpyDeviceToHost,Grid::copyStream);
       host_in_sync = true;
     }
+#elif defined(GRID_SYCL)
+    if(!device_in_sync && !host_in_sync) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Invalid state");
+    if(!device_in_sync){
+      Grid::theCopyAccelerator->memcpy(device,host,byte_size());
+      device_in_sync = true;
+    }
+    if(!host_in_sync){
+      Grid::theCopyAccelerator->memcpy(host,device,byte_size());
+      host_in_sync = true;
+    }   
 #else    
-    ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Asynchronous copies only currently supported for CUDA and HIP");
+    ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Asynchronous copies only currently supported for CUDA, HIP and SYCL");
 #endif
   }
   

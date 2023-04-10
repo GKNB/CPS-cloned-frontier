@@ -78,6 +78,11 @@ struct BaseGridPolicies{
   typedef GridDiracF GridDiracFMixedCGInner;
   typedef Grid::ZMobiusFermionF GridDiracFZMobiusInner;
 #endif
+
+  typedef void GridDiracXconj;
+  typedef void GridDiracXconjF;
+  typedef void GridXconjFermionField;
+  typedef void GridXconjFermionFieldF;
 };
 
 struct BaseGridPoliciesGparity{
@@ -101,6 +106,11 @@ struct BaseGridPoliciesGparity{
   typedef GridDiracF GridDiracFMixedCGInner;
   typedef Grid::ZGparityMobiusFermionF GridDiracFZMobiusInner;
 #endif
+
+  typedef Grid::XconjugateMobiusFermionD GridDiracXconj;
+  typedef Grid::XconjugateMobiusFermionF GridDiracXconjF;
+  typedef typename GridDiracXconj::FermionField GridXconjFermionField;
+  typedef typename GridDiracXconjF::FermionField GridXconjFermionFieldF;
 };
 
 #define INHERIT_BASE_GRID_TYPEDEFS(BGP)					\
@@ -114,6 +124,10 @@ struct BaseGridPoliciesGparity{
   typedef typename BGP::GridFermionFieldF GridFermionFieldF; \
   typedef typename BGP::GridDiracFMixedCGInner GridDiracFMixedCGInner; \
   typedef typename BGP::GridDiracFZMobiusInner GridDiracFZMobiusInner; \
+  typedef typename BGP::GridDiracXconj GridDiracXconj;		       \
+  typedef typename BGP::GridDiracXconjF GridDiracXconjF;		       \
+  typedef typename BGP::GridXconjFermionField GridXconjFermionField;	\
+  typedef typename BGP::GridXconjFermionFieldF GridXconjFermionFieldF;	\
   enum { FGRID_CLASS_NAME=BGP::FGRID_CLASS_NAME }
 
 #endif

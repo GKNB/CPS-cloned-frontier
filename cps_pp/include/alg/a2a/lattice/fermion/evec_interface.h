@@ -7,6 +7,7 @@
 #if defined(USE_GRID) && defined(USE_GRID_A2A)
 #include<Grid/Grid.h>
 #include <Grid/algorithms/iterative/LocalCoherenceLanczos.h>
+#include "grid_Xconj.h"
 
 CPS_START_NAMESPACE
 
@@ -92,20 +93,27 @@ public:
   }
 };
 
-//Guesser for single prec fields that converts to double prec for the intermediate computation
+//Guesser for single prec fields that converts to double prec for the intermediate computation using double prec evecs
 template<class FieldF, class FieldD>
 class EvecInterfaceSinglePrecGuesser: public Grid::LinearFunction<FieldF> {
   const EvecInterface<FieldD> &interface;
   Grid::GridBase* doublePrecGrid;
+  Grid::GridBase* singlePrecGrid;
   FieldD tmp1D, tmp2D;
+  Grid::precisionChangeWorkspace pc_d_to_f;
+  Grid::precisionChangeWorkspace pc_f_to_d;
 public:
-  EvecInterfaceSinglePrecGuesser(const EvecInterface<FieldD> &interface): interface(interface), doublePrecGrid(interface.getEvecGridD()), 
-									    tmp1D(doublePrecGrid),tmp2D(doublePrecGrid){}
+  EvecInterfaceSinglePrecGuesser(const EvecInterface<FieldD> &interface, Grid::GridBase* singlePrecGrid): interface(interface), doublePrecGrid(interface.getEvecGridD()), 
+													  singlePrecGrid(singlePrecGrid), tmp1D(doublePrecGrid),tmp2D(doublePrecGrid),
+													  pc_d_to_f(singlePrecGrid,doublePrecGrid),
+													  pc_f_to_d(doublePrecGrid,singlePrecGrid)
+  {}
 
   void operator()(const FieldF &src,FieldF &guess) {
-    precisionChange(tmp1D,src);
+    assert(src.Grid() == singlePrecGrid && guess.Grid() == singlePrecGrid);
+    precisionChange(tmp1D,src,pc_f_to_d);
     interface.deflatedGuessDp(&tmp2D, &tmp1D, 1);
-    precisionChange(guess,tmp2D);
+    precisionChange(guess,tmp2D,pc_d_to_f);
   }
 };
 
@@ -210,10 +218,10 @@ private:
   Grid::GridBase* m_evecGridF;
   const std::vector<GridFermionFieldF> &m_evecsF;
   const std::vector<double> &m_evals;
-
+  Grid::precisionChangeWorkspace pc_f_to_d;
 public:
   EvecInterfaceSinglePrec(const std::vector<GridFermionFieldF> &evecsF, const std::vector<double> &evals, Grid::GridBase* evecGridD, Grid::GridBase* evecGridF): 
-    m_evecsF(evecsF), m_evals(evals), m_evecGridD(evecGridD), m_evecGridF(evecGridF){
+    m_evecsF(evecsF), m_evals(evals), m_evecGridD(evecGridD), m_evecGridF(evecGridF), pc_f_to_d(m_evecGridD,m_evecGridF){
     assert(m_evecsF.size() == m_evals.size());
   }
   
@@ -222,7 +230,7 @@ public:
 
   //Get an eigenvector and eigenvalue
   double getEvecD(GridFermionFieldD &into, const int idx) const override{
-    precisionChange(into, m_evecsF[idx]);
+    precisionChange(into, m_evecsF[idx], pc_f_to_d);
     return m_evals[idx];
   }
 
@@ -247,10 +255,10 @@ private:
   Grid::GridBase* m_evecGridF;
   const std::vector<GridFermionFieldD> &m_evecsD;
   const std::vector<double> &m_evals;
-
+  Grid::precisionChangeWorkspace pc_d_to_f;
 public:
   EvecInterfaceMixedDoublePrec(const std::vector<GridFermionFieldD> &evecsD, const std::vector<double> &evals, Grid::GridBase* evecGridD, Grid::GridBase* evecGridF): 
-    m_evecsD(evecsD), m_evals(evals), m_evecGridD(evecGridD), m_evecGridF(evecGridF){
+    m_evecsD(evecsD), m_evals(evals), m_evecGridD(evecGridD), m_evecGridF(evecGridF), pc_d_to_f(m_evecGridF,m_evecGridD){
     assert(m_evecsD.size() == m_evals.size());
   }
   
@@ -264,7 +272,7 @@ public:
   }
 
   double getEvecF(GridFermionFieldF &into, const int idx) const override{
-    precisionChange(into, m_evecsD[idx]);
+    precisionChange(into, m_evecsD[idx], pc_d_to_f);
     return m_evals[idx];
   }
 
@@ -346,10 +354,13 @@ private:
   const std::vector<double> &m_evals;
 
   mutable GridFermionFieldD tmpD;
+  Grid::precisionChangeWorkspace pc_d_to_f;
+  Grid::precisionChangeWorkspace pc_f_to_d;
 public:
   EvecInterfaceCompressedMixedDoublePrec( const std::vector<CoarseField> &coarseEvecsD, const std::vector<GridFermionFieldD> &basisD, 
 				const std::vector<double> &evals, Grid::GridBase* evecGridD, Grid::GridBase* evecGridF): 
-    m_coarseEvecsD(coarseEvecsD), m_basisD(basisD), m_evals(evals), m_evecGridD(evecGridD), m_evecGridF(evecGridF), tmpD(evecGridD){
+    m_coarseEvecsD(coarseEvecsD), m_basisD(basisD), m_evals(evals), m_evecGridD(evecGridD), m_evecGridF(evecGridF), tmpD(evecGridD), 
+    pc_d_to_f(evecGridF,evecGridD), pc_f_to_d(evecGridD,evecGridF){
     assert(m_basisD.size() == basis_size);
     assert(m_coarseEvecsD.size() == m_evals.size());
   }
@@ -365,7 +376,7 @@ public:
 
   double getEvecF(GridFermionFieldF &into, const int idx) const override{
     Grid::blockPromote(m_coarseEvecsD[idx],tmpD,m_basisD); 
-    precisionChange(into, tmpD);
+    precisionChange(into, tmpD, pc_d_to_f);
     return m_evals[idx];
   }
 
@@ -396,8 +407,8 @@ public:
     //use double precision fields internally
     compressedDeflatedGuess<GridFermionFieldF,CoarseField>(out, in, Nfield, use_Nevecs, coarseGrid,
 							   [&](CoarseField &into, const int idx){ into = m_coarseEvecsD[idx]; return m_evals[idx]; },
-							   [&](CoarseField &out, const GridFermionFieldF &in){ precisionChange(tmpD,in); Grid::blockProject(out,tmpD, m_basisD); },
-							   [&](GridFermionFieldF &out, const CoarseField &in){ Grid::blockPromote(in, tmpD, m_basisD); precisionChange(out,tmpD); }
+							   [&](CoarseField &out, const GridFermionFieldF &in){ precisionChange(tmpD,in,pc_f_to_d); Grid::blockProject(out,tmpD, m_basisD); },
+							   [&](GridFermionFieldF &out, const CoarseField &in){ Grid::blockPromote(in, tmpD, m_basisD); precisionChange(out,tmpD,pc_d_to_f); }
 							   );
   }
 
@@ -425,10 +436,15 @@ private:
   const std::vector<CoarseField> &m_coarseEvecsF;
   const std::vector<double> &m_evals;
   mutable GridFermionFieldF tmpF;
+
+  Grid::precisionChangeWorkspace pc_d_to_f;
+  Grid::precisionChangeWorkspace pc_f_to_d;
 public:
   EvecInterfaceCompressedSinglePrec( const std::vector<CoarseField> &coarseEvecsF, const std::vector<GridFermionFieldF> &basisF, 
 				     const std::vector<double> &evals, Grid::GridBase* evecGridD, Grid::GridBase* evecGridF): 
-    m_coarseEvecsF(coarseEvecsF), m_basisF(basisF), m_evals(evals), m_evecGridD(evecGridD), m_evecGridF(evecGridF), tmpF(evecGridF){
+    m_coarseEvecsF(coarseEvecsF), m_basisF(basisF), m_evals(evals), m_evecGridD(evecGridD), m_evecGridF(evecGridF), tmpF(evecGridF),
+    pc_d_to_f(evecGridF,evecGridD), pc_f_to_d(evecGridD,evecGridF){
+
     assert(m_basisF.size() == basis_size);
     assert(m_coarseEvecsF.size() == m_evals.size());
   }
@@ -439,7 +455,7 @@ public:
   //Get an eigenvector and eigenvalue
   double getEvecD(GridFermionFieldD &into, const int idx) const override{
     Grid::blockPromote(m_coarseEvecsF[idx],tmpF,m_basisF); 
-    precisionChange(into,tmpF);
+    precisionChange(into,tmpF,pc_f_to_d);
     return m_evals[idx];
   }
 
@@ -461,8 +477,8 @@ public:
     //use single precision fields internally
     compressedDeflatedGuess<GridFermionFieldD,CoarseField>(out, in, Nfield, use_Nevecs, coarseGrid,
 							   [&](CoarseField &into, const int idx){ into = m_coarseEvecsF[idx]; return m_evals[idx]; },
-							   [&](CoarseField &out, const GridFermionFieldD &in){ precisionChange(tmpF,in); Grid::blockProject(out,tmpF, m_basisF); },
-							   [&](GridFermionFieldD &out, const CoarseField &in){ Grid::blockPromote(in, tmpF, m_basisF); precisionChange(out, tmpF); }
+							   [&](CoarseField &out, const GridFermionFieldD &in){ precisionChange(tmpF,in,pc_d_to_f); Grid::blockProject(out,tmpF, m_basisF); },
+							   [&](GridFermionFieldD &out, const CoarseField &in){ Grid::blockPromote(in, tmpF, m_basisF); precisionChange(out, tmpF,pc_f_to_d); }
 							   );
   }
 
@@ -479,6 +495,78 @@ public:
 							   [&](GridFermionFieldF &out, const CoarseField &in){ Grid::blockPromote(in, out, m_basisF); }
 							   );
   }
+};
+
+
+
+
+//Implementation of container for array of double precision X-conjugate evecs
+template<typename _GridFermionFieldD, typename _GridXconjFermionFieldD>
+class EvecInterfaceXconjDoublePrec : public EvecInterface<_GridFermionFieldD>{
+public:
+  typedef _GridFermionFieldD GridFermionFieldD;
+  typedef _GridXconjFermionFieldD GridXconjFermionFieldD;
+private:
+  Grid::GridBase* m_evecGridD;
+  const std::vector<GridXconjFermionFieldD> &m_evecs;
+  const std::vector<double> &m_evals;
+
+public:
+  EvecInterfaceXconjDoublePrec(const std::vector<GridXconjFermionFieldD> &evecs, const std::vector<double> &evals, Grid::GridBase* evecGridD): 
+    m_evecs(evecs), m_evals(evals), m_evecGridD(evecGridD){
+    assert(m_evecs.size() == m_evals.size());
+  }
+  
+  Grid::GridBase* getEvecGridD() const override{ return m_evecGridD; }
+
+  //Get an eigenvector and eigenvalue
+  double getEvecD(GridFermionFieldD &into, const int idx) const override{
+    XconjugateBoost(into, m_evecs[idx]);
+    return m_evals[idx];
+  }
+
+  int nEvecs() const override{ return m_evals.size(); }
+};
+
+
+//Implementation of mixed prec container for array of single precision evecs
+template<typename _GridFermionFieldD, typename _GridXconjFermionFieldD,
+	 typename _GridFermionFieldF, typename _GridXconjFermionFieldF>
+class EvecInterfaceXconjSinglePrec : public EvecInterfaceMixedPrec<_GridFermionFieldD, _GridFermionFieldF>{
+public:
+  typedef _GridFermionFieldD GridFermionFieldD;
+  typedef _GridFermionFieldF GridFermionFieldF;
+  typedef _GridXconjFermionFieldD GridXconjFermionFieldD;
+  typedef _GridXconjFermionFieldF GridXconjFermionFieldF;
+private:
+  Grid::GridBase* m_evecGridD;
+  Grid::GridBase* m_evecGridF;
+  const std::vector<GridXconjFermionFieldF> &m_evecsF;
+  const std::vector<double> &m_evals;
+  Grid::precisionChangeWorkspace pc_f_to_d;
+public:
+  EvecInterfaceXconjSinglePrec(const std::vector<GridXconjFermionFieldF> &evecsF, const std::vector<double> &evals, Grid::GridBase* evecGridD, Grid::GridBase* evecGridF): 
+    m_evecsF(evecsF), m_evals(evals), m_evecGridD(evecGridD), m_evecGridF(evecGridF), pc_f_to_d(m_evecGridD,m_evecGridF){
+    assert(m_evecsF.size() == m_evals.size());
+  }
+  
+  Grid::GridBase* getEvecGridD() const override{ return m_evecGridD; }
+  Grid::GridBase* getEvecGridF() const override{ return m_evecGridF; }
+
+  //Get an eigenvector and eigenvalue
+  double getEvecD(GridFermionFieldD &into, const int idx) const override{
+    GridXconjFermionFieldD tmp(m_evecGridD);
+    precisionChange(tmp, m_evecsF[idx], pc_f_to_d);
+    XconjugateBoost(into,tmp);
+    return m_evals[idx];
+  }
+
+  double getEvecF(GridFermionFieldF &into, const int idx) const override{
+    XconjugateBoost(into,m_evecsF[idx]);
+    return m_evals[idx];
+  }
+
+  int nEvecs() const override{ return m_evals.size(); }
 };
 
 

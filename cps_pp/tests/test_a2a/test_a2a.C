@@ -1,4 +1,5 @@
 #include <alg/a2a/ktopipi_gparity.h>
+#include <alg/a2a/a2a_fields.h>
 
 using namespace cps;
 
@@ -161,181 +162,188 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   std::cout << "Starting tests" << std::endl;
 
   /*
-  if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
-  if(0) testAutoView();
-  if(0) testViewArray();
-  if(0) testCPSfieldArray<A2Apolicies_grid>();
+  if(1) testCPSfieldDeviceCopy<A2Apolicies_grid>();
+  if(1) testAutoView();
+  if(1) testViewArray();
+  if(1) testCPSfieldArray<A2Apolicies_grid>();
 
-  if(0) testMemoryStorageBase();
-  if(0) testBurstBufferMemoryStorage();
-  if(0) testDistributedStorage();
-  if(0) testDistributedStorageOneSided();
-  if(0) testMmapMemoryStorage();
+  if(1) testMemoryStorageBase();
+  if(1) testBurstBufferMemoryStorage();
+  if(1) testDistributedStorage();
+  if(1) testDistributedStorageOneSided();
+  if(1) testMmapMemoryStorage();
 
-  if(0) testA2AfieldAccess<A2Apolicies_grid>();
-  if(0) testCPSfieldDeviceCopy<A2Apolicies_grid>();
-  if(0) testMultiSourceDeviceCopy<A2Apolicies_grid>();
+  if(1) testA2AfieldAccess<A2Apolicies_grid>();
+  if(1) testCPSfieldDeviceCopy<A2Apolicies_grid>();
+  if(1) testMultiSourceDeviceCopy<A2Apolicies_grid>();
   
-  if(0) testCPSsquareMatrix();
-  if(0) testCPSspinColorMatrix();
+  if(1) testCPSsquareMatrix();
+  if(1) testCPSspinColorMatrix();
 
-  if(0) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
+  if(1) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
   
 #ifdef USE_GRID
 #ifdef GRID_SYCL
-  if(0) testOneMKLwrapper();
+  if(1) testOneMKLwrapper();
 #endif
 #endif
+  */
 
-  if(0) testFlavorProjectedSourceView<A2Apolicies_grid>();
   
-  if(0) testMFmult<A2Apolicies_std>(a2a_arg,tol);
+  /*
+  if(1) testFlavorProjectedSourceView<A2Apolicies_grid>();
+  
+  if(1) testMFmult<A2Apolicies_std>(a2a_arg,tol);
 #ifdef USE_GRID
-  if(0) testMFmult<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testMFmult<A2Apolicies_grid>(a2a_arg,tol);
 #endif
 
  
-  if(0) testMFmultTblock<A2Apolicies_std>(a2a_arg,tol);
+  if(1) testMFmultTblock<A2Apolicies_std>(a2a_arg,tol);
 #ifdef USE_GRID
-  if(0) testMFmultTblock<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testMFmultTblock<A2Apolicies_grid>(a2a_arg,tol);
 #endif
 
   
-  if(0) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
+  if(1) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
 
   
-  if(0) testFlavorMatrixSCcontractStd<A2Apolicies_std>(tol);
-  if(0) testGparityInnerProduct<A2Apolicies_std>(tol);
+  if(1) testFlavorMatrixSCcontractStd<A2Apolicies_std>(tol);
+  if(1) testGparityInnerProduct<A2Apolicies_std>(tol);
 
-  if(0) testA2AfieldGetFlavorDilutedVect<A2Apolicies_std>(a2a_arg, tol);
+  if(1) testA2AfieldGetFlavorDilutedVect<A2Apolicies_std>(a2a_arg, tol);
 
-  if(0) testMesonFieldNormGridStd<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, tol);
-  
-  if(0) testMesonFieldComputeReference<A2Apolicies_std>(a2a_arg, tol);
+  if(1) testMesonFieldNormGridStd<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, tol);
 
-  if(0) testMesonFieldComputePackedReference<A2Apolicies_std>(a2a_arg, tol);
+  if(1) testMesonFieldComputeReference<A2Apolicies_std>(a2a_arg, tol);
+
+  if(1) testMesonFieldComputePackedReference<A2Apolicies_std>(a2a_arg, tol);
     
-  if(0) testMesonFieldComputeSingleReference<A2Apolicies_std>(a2a_arg, tol);
+  if(1) testMesonFieldComputeSingleReference<A2Apolicies_std>(a2a_arg, tol);
   
-  if(0) testMesonFieldComputeSingleMulti<A2Apolicies_std>(a2a_arg, tol);
+  if(1) testMesonFieldComputeSingleMulti<A2Apolicies_std>(a2a_arg, tol);
 
  
-  if(0) testGridMesonFieldCompute<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(0) testGridMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(0) testGridShiftMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testGridMesonFieldCompute<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testGridMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testGridShiftMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
 
-  if(0) testFFTopt<A2Apolicies_std>();
+  if(1) testFFTopt<A2Apolicies_std>();
 #ifdef USE_GRID
-  if(0) testFFTopt<A2Apolicies_grid>();
+  if(1) testFFTopt<A2Apolicies_grid>();
 #endif
 
 #ifdef USE_GRID
-  if(0) testGridGetTwistedFFT<A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testGridGetTwistedFFT<A2Apolicies_grid>(a2a_arg, nthreads, tol);
 #endif
   
 #ifdef USE_GRID
-  if(0) testGridMesonFieldComputeManySimple<A2Apolicies_grid>(V_grid,W_grid,a2a_arg,lattice,simd_dims_3d,simd_dims,tol);
+  if(1) testGridMesonFieldComputeManySimple<A2Apolicies_grid>(V_grid,W_grid,a2a_arg,lattice,simd_dims_3d,simd_dims,tol);
 #endif
   
-  if(0) testPionContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+  if(1) testPionContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
 							 V_grid, W_grid,
 							 lattice, simd_dims_3d, tol);
 
-  if(0) testKaonContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+  if(1) testKaonContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
 							 V_grid, W_grid,
 							 lattice, simd_dims_3d, tol);
 
-  if(0) testPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+  if(1) testPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
 								V_grid, W_grid,
 								lattice, simd_dims_3d, tol);
- 
-#ifdef USE_GRID
-  if(0) testConvertComplexD();
+  */
 
-  if(0) testBasicComplexArray<A2Apolicies_grid>();
+  //#ifdef USE_GRID
+  /*
+  if(1) testConvertComplexD();
+
+  if(1) testBasicComplexArray<A2Apolicies_grid>();
   
   //Test the openmp Grid vs non-Grid implementation
-  if(0) testKtoPiPiType1GridOmpStd<A2Apolicies_std, A2Apolicies_grid>(a2a_arg,
+  if(1) testKtoPiPiType1GridOmpStd<A2Apolicies_std, A2Apolicies_grid>(a2a_arg,
 								      W_grid, V_grid, Wh_grid, Vh_grid,
 								      W_std, V_std, Wh_std, Vh_std,
-								      tol);
-  */
-////////////////////////////////// CRUSHER TESTED TO HERE  
+  								      tol);
 
-  // if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  // if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
-  // if(1) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
-  
-  //if(0) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testhostDeviceMirroredContainer();
+  if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
+  if(1) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
 
-  //if(0) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  //if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
 
-  //if(0) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
-  // if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+
+  if(1) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
+
+  if(1) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
+  if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   
-  // if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  //if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  //if(1) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-  // if(1) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
-  // 									 V_grid, W_grid,
-  // 									 lattice, simd_dims_3d, tol);
-  /*
+  if(1) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+  									 V_grid, W_grid,
+  									 lattice, simd_dims_3d, tol);
+  */  
+// #endif
 
-#endif
 
-  if(1) testModeMappingTranspose(a2a_arg);
+//   if(1) testModeMappingTranspose(a2a_arg);
 
-#ifdef USE_GRID
-  if(1) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
-#endif
+// #ifdef USE_GRID
+//   if(1) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
+// #endif
 
-#ifdef USE_GRID
-  if(1) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
-#endif
+// #ifdef USE_GRID
+//   if(1) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
+// #endif
   
-  if(1) testCyclicPermute();
-  if(1) demonstrateFFTreln<A2Apolicies_std>(a2a_arg);
-  if(1) testA2AvectorFFTrelnGparity<A2Apolicies_grid>(a2a_arg, lattice);
-  if(1) testMultiSource<A2Apolicies_grid>(a2a_arg, lattice);
-  if(1) testSumSource<A2Apolicies_grid>(a2a_arg, lattice);
-  if(1) testMfFFTreln<A2Apolicies_grid>(a2a_arg, lattice);
-  if(1) testA2AFFTinv<A2Apolicies_grid>(a2a_arg, lattice);
-  if(1) testGridg5Contract<grid_Complex>();
-  if(1) testGaugeFixInvertible<A2Apolicies_grid>(lattice);
-  if(1) testDestructiveFFT<A2ApoliciesSIMDdoubleManualAllocGparity>(a2a_arg, lattice);
-  if(1) testMesonFieldReadWrite<A2Apolicies_std>(a2a_arg);
-  if(1) testMesonFieldTraceSingle<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testMesonFieldTraceSingleTblock<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testMesonFieldTraceProduct<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testMesonFieldTraceProductTblock<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testMesonFieldTraceProductAllTimes<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testCPSfieldImpex();
-  if(1) testGridFieldImpex<A2Apolicies_grid>(lattice);
-  if(1) testCPSfieldIO();
-  if(1) testA2AvectorIO<A2Apolicies_grid>(a2a_arg);
+  // if(1) testCyclicPermute();
+  // if(1) demonstrateFFTreln<A2Apolicies_std>(a2a_arg);
+  // if(1) testA2AvectorFFTrelnGparity<A2Apolicies_grid>(a2a_arg, lattice);
+  // if(1) testMultiSource<A2Apolicies_grid>(a2a_arg, lattice);
+  // if(1) testSumSource<A2Apolicies_grid>(a2a_arg, lattice);
+  // if(1) testMfFFTreln<A2Apolicies_grid>(a2a_arg, lattice);
+  // if(1) testA2AFFTinv<A2Apolicies_grid>(a2a_arg, lattice);
+  // if(1) testGridg5Contract<grid_Complex>();
+  // if(1) testGaugeFixInvertible<A2Apolicies_grid>(lattice);
+  // if(1) testDestructiveFFT<A2ApoliciesSIMDdoubleManualAllocGparity>(a2a_arg, lattice);
+  // if(1) testMesonFieldReadWrite<A2Apolicies_std>(a2a_arg);
+  // if(1) testMesonFieldTraceSingle<A2Apolicies_grid>(a2a_arg,tol);
+  // if(1) testMesonFieldTraceSingleTblock<A2Apolicies_grid>(a2a_arg,tol);
+  // if(1) testMesonFieldTraceProduct<A2Apolicies_grid>(a2a_arg,tol);
+  // if(1) testMesonFieldTraceProductTblock<A2Apolicies_grid>(a2a_arg,tol);
+  // if(1) testMesonFieldTraceProductAllTimes<A2Apolicies_grid>(a2a_arg,tol);
+  // if(1) testCPSfieldImpex();
+  // if(1) testGridFieldImpex<A2Apolicies_grid>(lattice);
+  // if(1) testCPSfieldIO();
+  // if(1) testA2AvectorIO<A2Apolicies_grid>(a2a_arg);
   if(1) testLanczosIO<A2Apolicies_grid>(lattice);
-  if(1) testSCFmat();
-  if(1) testMesonFieldUnpackPack<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testMesonFieldUnpackPackTblock<A2Apolicies_grid>(a2a_arg,tol);
+//   if(1) testSCFmat();
+//   if(1) testMesonFieldUnpackPack<A2Apolicies_grid>(a2a_arg,tol);
+//   if(1) testMesonFieldUnpackPackTblock<A2Apolicies_grid>(a2a_arg,tol);
   
-#ifdef USE_GRID
-  if(1) testGaugeFixOrigNew<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
-#endif
+// #ifdef USE_GRID
+//   if(1) testGaugeFixOrigNew<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
+// #endif
 
-  if(1) testMesonFieldNodeDistributeUnique(a2a_arg);
-  if(1) testMesonFieldNodeDistributeOneSided(a2a_arg);
+//   if(1) testMesonFieldNodeDistributeUnique(a2a_arg);
+//   if(1) testMesonFieldNodeDistributeOneSided(a2a_arg);
 
-  if(1) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
+//   if(1) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
 
-  if(1) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);
+//   //if(1) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);  Current compilation issues on Intel
 
-  if(1) testA2AvectorWnorm<A2Apolicies_grid>(a2a_arg);
-  */
+//   if(1) testA2AvectorWnorm<A2Apolicies_grid>(a2a_arg);
+
+  if(1) testXconjAction<A2Apolicies_grid>(lattice, tol);  
 }
 
 
@@ -407,10 +415,10 @@ void testPeriodic(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
 
-  if(0) testCPSspinColorMatrix();
+  if(1) testCPSspinColorMatrix();
 #ifdef USE_GRID
-  if(0) testvMvGridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  if(0) testVVgridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(1) testvMvGridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  if(1) testVVgridOrigPeriodic<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
 #endif
 
 #endif
@@ -456,6 +464,20 @@ int main(int argc,char *argv[])
 
   int nl = 10;
 
+  const int ngrid_arg = 16;
+  const std::string grid_args[ngrid_arg] = { "--debug-signals", "--dslash-generic", "--dslash-unroll",
+					     "--dslash-asm", "--shm", "--lebesgue",
+					     "--cacheblocking", "--comms-concurrent", "--comms-sequential",
+					     "--comms-overlap", "--log", "--comms-threads",
+					     "--shm-hugepages", "--accelerator-threads",
+					     "--device-mem", "--shm-mpi"};
+  const int grid_args_skip[ngrid_arg] =    { 1  , 1 , 1,
+					     1  , 2 , 1,
+					     2  , 1 , 1,
+					     1  , 2 , 2,
+					     1  , 2,
+					     2  , 2};
+  
   printf("Argc is %d\n",argc);
   int i=3;
   while(i<argc){
@@ -470,6 +492,9 @@ int main(int argc,char *argv[])
       load_config=true;
       load_config_file = argv[i+1];
       i+=2;
+    }else if( cmd == "-old_gparity_cfg"){
+      LatticeHeader::GparityMultPlaqByTwo() = true;
+      i+=1;
     }else if( cmd == "-latt" ){
       if(i>argc-6){
 	printf("Did not specify enough arguments for 'latt' (require 5 dimensions)\n"); exit(-1);
@@ -526,13 +551,20 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss  << argv[i+1]; ss >> nl;
       if(!UniqueID()) printf("Set nl to %d\n", nl);
       i+=2;
-    }else if(cmd == "--shm"){
-      i+=2;
-    }else if(cmd == "--accelerator-threads"){
-      i+=2;
     }else{
-      if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd.c_str());
-      exit(-1);
+      bool is_grid_arg = false;
+      for(int ii=0;ii<ngrid_arg;ii++){
+	if( cmd == grid_args[ii] ){
+	  if(!UniqueID()){ printf("main.C: Ignoring Grid argument %s\n",cmd.c_str()); fflush(stdout); }
+	  i += grid_args_skip[ii];
+	  is_grid_arg = true;
+	  break;
+	}
+      }
+      if(!is_grid_arg){
+	if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd.c_str());
+	exit(-1);
+      }
     }
   }
 
@@ -578,7 +610,7 @@ int main(int argc,char *argv[])
   GJP.SetNthreads(nthreads);
   assert(omp_get_max_threads() == nthreads);
   std::cout << "Using " << nthreads << " threads" << std::endl;
-  
+
 #if TARGET == BGQ
   LRG.setSerial();
 #endif

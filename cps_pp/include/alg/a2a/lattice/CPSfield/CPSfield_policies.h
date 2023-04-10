@@ -190,6 +190,26 @@ public:
   accelerator_inline bool hasFlavor(int flav) const{ return flav == 0 || nf == 2; }
 };
 
+
+//Mappings from Grid fields to the appropriate flavor policy
+template<bool isFlavorScalar>
+struct _GridCPSfieldFermionFlavorPolicyMap{};
+
+template<>
+struct _GridCPSfieldFermionFlavorPolicyMap<true>{
+  typedef FixedFlavorPolicy<1> value;
+};
+template<>
+struct _GridCPSfieldFermionFlavorPolicyMap<false>{
+  typedef FixedFlavorPolicy<2> value;
+};
+template<typename GridFermionField>
+struct GridCPSfieldFermionFlavorPolicyMap{
+  typedef typename _GridCPSfieldFermionFlavorPolicyMap<!Grid::isGridScalar<typename GridFermionField::vector_object>::notvalue>::value value;
+};
+
+
+
 #define _DEF_REBASE(P) \
   template<typename T> \
   struct Rebase{ \

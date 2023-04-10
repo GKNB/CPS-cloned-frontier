@@ -12,10 +12,6 @@
 #include <vector>
 #include <fftw3.h>
 
-#ifdef USE_BFM
-#include <alg/eigen/Krylov_5d.h>
-#endif
-
 #include <alg/a2a/base/a2a_params.h>
 
 

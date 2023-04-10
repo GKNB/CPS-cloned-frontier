@@ -84,34 +84,6 @@ inline void compareField(const FieldType &A, const FieldType &B, const std::stri
 }
 
 
-
-#ifdef USE_BFM
-//Convert from a BFM field to a CPSfield
-inline void exportBFMcb(CPSfermion5D<cps::ComplexD> &into, Fermion_t from, bfm_evo<double> &dwf, int cb, bool singleprec_evec = false){
-  Fermion_t zero_a = dwf.allocFermion();
-#pragma omp parallel
-  {   
-    dwf.set_zero(zero_a); 
-  }
-  Fermion_t etmp = dwf.allocFermion(); 
-  Fermion_t tmp[2];
-  tmp[!cb] = zero_a;
-  if(singleprec_evec){
-    const int len = 24 * dwf.node_cbvol * (1 + dwf.gparity) * dwf.cbLs;
-#pragma omp parallel for
-    for(int j = 0; j < len; j++) {
-      ((double*)etmp)[j] = ((float*)(from))[j];
-    }
-    tmp[cb] = etmp;
-  }else tmp[cb] = from;
-
-  dwf.cps_impexFermion((double*)into.ptr(),tmp,0);
-  dwf.freeFermion(zero_a);
-  dwf.freeFermion(etmp);
-}
-#endif
-
-
 #ifdef USE_GRID
 //Export a checkerboarded Grid field to an un-checkerboarded CPS field
 template<typename GridPolicies>

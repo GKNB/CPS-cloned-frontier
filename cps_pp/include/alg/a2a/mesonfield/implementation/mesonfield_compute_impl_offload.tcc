@@ -909,10 +909,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 			       bx, nf, nl_l, nl_r, l, r, mf_ref);
 		gather_chunk_time += dclock();
 	      }
-	      {
-		using namespace Grid;			    
-		accelerator_barrier(dummy);
-	      }
+	      device_synchronize_all(); //barrier all streams until initial copies are complete
 	    }
 	    
 	    using namespace Grid;
@@ -927,7 +924,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	      kernel_time -= dclock();
 	      CPSautoView(M_v,M);
 	      
-	      accelerator_forNB(elem, nwork, Nsimd, 
+	      accelerator_for(elem, nwork, Nsimd, 
 			      {
 #ifdef MF_OFFLOAD_INNER_BLOCKING
 				//item = xs + sbx_use*( js + sbj_use * ( is + sbi_use * ( xblk + nxblk * (jblk + njblk * iblk))))
@@ -999,7 +996,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    }
 
 	    //Wait for kernel and copy to finish
-	    accelerator_barrier(dummy);	    
+	    device_synchronize_all();
 	    kernel_time += dclock();
 
 	    ++kernel_exec_it;

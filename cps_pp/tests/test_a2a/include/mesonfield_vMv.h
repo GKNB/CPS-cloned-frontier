@@ -4,11 +4,12 @@ CPS_START_NAMESPACE
 
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const double tol){
-#define BASIC_VMV
-#define BASIC_GRID_VMV
+  //#define BASIC_VMV
+  //#define BASIC_GRID_VMV
 #define GRID_VMV
 #define GRID_SPLIT_LITE_VMV;
-
+  //#define GRID_FIELD_SIMPLE
+  
   std::cout << "Starting testvMvGridOrigGparity : vMv tests\n";
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
@@ -127,22 +128,27 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
   }
   
   //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
-  if(!UniqueID()){ printf("Field vMv\n"); fflush(stdout); }
-
   typedef mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vMvFieldImpl;
   typedef typename vMvFieldImpl::PropagatorField PropagatorField;
   PropagatorField pfield(simd_dims);
 
   //mult(pfield, Vgrid, mf_grid, Wgrid, false, true);
+  if(!UniqueID()){ printf("Field vMv\n"); fflush(stdout); }
   vMvFieldImpl::optimized(pfield, Vgrid, mf_grid, Wgrid, false, true, 0, GJP.Tnodes()*GJP.TnodeSites()-1);
 
+  std::cout << Grid::GridLogMessage << " vMv field optimized timings" << std::endl;
+  mult_vMv_field_offload_timers::get().print();
+
+  
   CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
   vmv_offload_sum4.zero();
   for(size_t i=0;i<pfield.size();i++){
     vmv_offload_sum4 += *pfield.fsite_ptr(i);
   }
 
+#ifdef GRID_FIELD_SIMPLE
   //Same for simple field version
+  if(!UniqueID()){ printf("Field vMv (simple)\n"); fflush(stdout); }
   vMvFieldImpl::simple(pfield, Vgrid, mf_grid, Wgrid, false, true);
 
   CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_simple_sum4;
@@ -150,7 +156,7 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
   for(size_t i=0;i<pfield.size();i++){
     vmv_offload_simple_sum4 += *pfield.fsite_ptr(i);
   }
-  
+#endif
   
 #ifdef BASIC_VMV
   if(!compare(orig_sum[0],basic_sum[0],tol)) ERR.General("","","Standard vs Basic implementation test failed\n");
@@ -172,11 +178,13 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
   else if(!UniqueID()) printf("Standard vs Grid Split Lite implementation test pass\n");
 #endif
 
-  if(!compare(orig_sum[0],vmv_offload_sum4,tol)) ERR.General("","","Standard vs Grid field offload optimized implementation test failed\n");
-  else if(!UniqueID()) printf("Standard vs Grid field offload optimized implementation test pass\n");
-
+#ifdef GRID_FIELD_SIMPLE
   if(!compare(orig_sum[0],vmv_offload_simple_sum4,tol)) ERR.General("","","Standard vs Grid field offload simple implementation test failed\n");
   else if(!UniqueID()) printf("Standard vs Grid field offload simple implementation test pass\n");
+#endif
+  
+  if(!compare(orig_sum[0],vmv_offload_sum4,tol)) ERR.General("","","Standard vs Grid field offload optimized implementation test failed\n");
+  else if(!UniqueID()) printf("Standard vs Grid field offload optimized implementation test pass\n");
   
   std::cout << "testvMvGridOrigGparity passed" << std::endl;
 }
@@ -191,12 +199,13 @@ void testvMvGridOrigGparityTblock(A2AArg a2a_args, const int nthreads, const dou
   std::cout << "Starting testvMvGridOrigGparityTblock : vMv tests\n";
   a2a_args.src_width = 2;
 
-  #define BASIC_VMV
-  #define BASIC_GRID_VMV
+  //#define BASIC_VMV
+  //#define BASIC_GRID_VMV
   #define GRID_VMV
   #define GRID_SPLIT_LITE_VMV;
   #define FIELD
-
+  #define GRID_FIELD_SIMPLE
+    
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
   typename FourDSIMDPolicy<typename ScalarA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::ParamType simd_dims;
@@ -331,6 +340,7 @@ void testvMvGridOrigGparityTblock(A2AArg a2a_args, const int nthreads, const dou
     vmv_offload_sum4 += *pfield.fsite_ptr(i);
   }
 
+#ifdef GRID_FIELD_SIMPLE
   //Same for simple field version
   vMvFieldImpl::simple(pfield, Vgrid, mf_grid, Wgrid, false, true);
 
@@ -339,6 +349,9 @@ void testvMvGridOrigGparityTblock(A2AArg a2a_args, const int nthreads, const dou
   for(size_t i=0;i<pfield.size();i++){
     vmv_offload_simple_sum4 += *pfield.fsite_ptr(i);
   }
+#endif
+
+  
 #endif
   
 #ifdef BASIC_VMV
@@ -362,11 +375,13 @@ void testvMvGridOrigGparityTblock(A2AArg a2a_args, const int nthreads, const dou
 #endif
 
 #ifdef FIELD
-  if(!compare(orig_sum[0],vmv_offload_sum4,tol)) ERR.General("","","Standard vs Grid field offload optimized implementation test failed\n");
-  else if(!UniqueID()) printf("Standard vs Grid field offload optimized implementation test pass\n");
-
+#ifdef GRID_FIELD_SIMPLE
   if(!compare(orig_sum[0],vmv_offload_simple_sum4,tol)) ERR.General("","","Standard vs Grid field offload simple implementation test failed\n");
   else if(!UniqueID()) printf("Standard vs Grid field offload simple implementation test pass\n");
+#endif
+  
+  if(!compare(orig_sum[0],vmv_offload_sum4,tol)) ERR.General("","","Standard vs Grid field offload optimized implementation test failed\n");
+  else if(!UniqueID()) printf("Standard vs Grid field offload optimized implementation test pass\n");
 #endif
   std::cout << "testvMvGridOrigGparityTblock passed" << std::endl;
 }
@@ -951,7 +966,7 @@ void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, c
   std::cout << "Got   Expect   Diff" << std::endl;
   for(int i=0;i<new_Lt;i++){
     cps::ComplexD diff = tline_got[i]-tline_expect[i];
-    std::cout << i << " " << tline_got[i] << " " << tline_expect[i] << " " << diff << std::endl;
+    std::cout << i << " " << tline_got[i] << " " << tline_expect[i] << " " << diff << " " << (i>=orig_Lt ? "(expect diff)" : "(expect same)") <<  std::endl;
     if(i < orig_Lt && ( fabs(diff.real()) > tol || fabs(diff.imag()) > tol) ) ERR.General("","","Comparison failed");      
   }
   GJP.Initialize(do_arg);

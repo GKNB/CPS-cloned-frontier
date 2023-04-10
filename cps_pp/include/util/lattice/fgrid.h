@@ -135,7 +135,9 @@ public:
 
   //Check if Grid and the Grids have been initialized
   static bool getGridInitted(){ return grid_initted; }
-
+  static bool getGridLayoutsInitted(){ return grid_layouts_initted; }
+  static bool getGridFullyInitted(){ return grid_initted && grid_layouts_initted; }
+  
   inline double get_mob_b () const{
     return mob_b;
   };

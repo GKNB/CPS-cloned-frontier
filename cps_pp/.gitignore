@@ -12,3 +12,4 @@ misc/vml_encode/rpcgenvml/rpcgenvml
 *.py
 *.pyc
 \#*#
+*.d

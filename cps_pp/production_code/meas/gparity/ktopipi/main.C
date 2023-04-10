@@ -1,7 +1,7 @@
 #ifndef DISABLE_NODE_DISTRIBUTE_MESONFIELDS
 #define NODE_DISTRIBUTE_MESONFIELDS //Save memory by keeping meson fields only on single node until needed
 #endif
-
+#include <alg/a2a/a2a_fields.h>
 #include <alg/a2a/ktopipi_gparity.h>
 
 #include "include/main.h"
@@ -21,7 +21,7 @@ int main (int argc,char **argv )
   Parameters params(argv[1]);
 
   setupJob(argc, argv, params, cmdline);
-
+  
   assert(GJP.Gparity());
 
 #ifdef BNL_KNL_PERFORMANCE_CHECK
@@ -29,13 +29,7 @@ int main (int argc,char **argv )
 #endif
   
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-
-#if defined(USE_BFM_A2A) || defined(USE_BFM_LANCZOS)
-  BFMGridSolverWrapper solvers(cmdline.nthreads, 0.01, 1e-08, 20000, params.jp.solver, params.jp.mobius_scale); //for BFM holds a double and single precision bfm instance. Mass is not important as it is changed when necessary
-#else
-  BFMGridSolverWrapper solvers;
-#endif
-  
+ 
   if(chdir(params.meas_arg.WorkDirectory)!=0) ERR.General("",fname,"Unable to switch to work directory '%s'\n",params.meas_arg.WorkDirectory);
   double time;
 
@@ -56,14 +50,14 @@ int main (int argc,char **argv )
 
     if(cmdline.do_LL_props_only){
       if(cmdline.do_split_job)
-	doConfigurationLLpropsSplit(conf,params,cmdline,field3dparams,field4dparams, solvers);
+	doConfigurationLLpropsSplit(conf,params,cmdline,field3dparams,field4dparams);
       else
-	doConfigurationLLprops(conf,params,cmdline,field3dparams,field4dparams, solvers);
+	doConfigurationLLprops(conf,params,cmdline,field3dparams,field4dparams);
     }else{
       if(cmdline.do_split_job)
-	doConfigurationSplit(conf,params,cmdline,field3dparams,field4dparams, solvers);
+	doConfigurationSplit(conf,params,cmdline,field3dparams,field4dparams);
       else
-	doConfiguration(conf,params,cmdline,field3dparams,field4dparams, solvers);
+	doConfiguration(conf,params,cmdline,field3dparams,field4dparams);
     }
     
     conf_time += dclock();

@@ -26,3 +26,5 @@
 #include "include/complex.h"
 #include "include/lanczos.h"
 #include "include/memstorage.h"
+#include "include/utils_gpu.h"
+#include "include/cps_Xconj.h"

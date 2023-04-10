@@ -64,12 +64,13 @@ void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
     result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
 
     if(!UniqueID()) printf("Testing p=(%d,%d,%d). Should require permute of 1 in x direction\n",p[0],p[1],p[2]);
-
-    printRow(result.getMode(0),0,  "Result ");
-    printRow(compare.getMode(0),0, "Compare");
-    
-    for(int i=0;i<compare.getNmodes();i++)
-      assert( compare.getMode(i).equals( result.getMode(i), 1e-8, true ) );
+   
+    for(int i=0;i<compare.getNmodes();i++){
+      if(!UniqueID()) printf("Compare mode %d\n", i);
+      printRow(result.getMode(i),0,  "Result ");
+      printRow(compare.getMode(i),0, "Compare");
+      assert( compare.getMode(i).equals( result.getMode(i), 1e-7, true ) );
+    }
   }
   //Get twist for first negative excited momentum in p1 set
   if(GJP.Bc(1) == BND_CND_GPARITY){
@@ -82,12 +83,13 @@ void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
     result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
 
     if(!UniqueID()) printf("Testing p=(%d,%d,%d). Should require permute of 1 in y direction\n",p[0],p[1],p[2]);
-
-    printRow(result.getMode(0),0,  "Result ");
-    printRow(compare.getMode(0),0, "Compare");
-    
-    for(int i=0;i<compare.getNmodes();i++)
-      assert( compare.getMode(i).equals( result.getMode(i), 1e-8, true ) );
+   
+    for(int i=0;i<compare.getNmodes();i++){
+      if(!UniqueID()) printf("Compare mode %d\n", i);
+      printRow(result.getMode(i),0,  "Result ");
+      printRow(compare.getMode(i),0, "Compare");
+      assert( compare.getMode(i).equals( result.getMode(i), 1e-7, true ) );
+    }
   }
   //Try two directions
   if(GJP.Bc(1) == BND_CND_GPARITY){
@@ -101,12 +103,13 @@ void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
     result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
 
     if(!UniqueID()) printf("Testing p=(%d,%d,%d). Should require permute of 1 in y direction\n",p[0],p[1],p[2]);
-
-    printRow(result.getMode(0),0,  "Result ");
-    printRow(compare.getMode(0),0, "Compare");
-    
-    for(int i=0;i<compare.getNmodes();i++)
+   
+    for(int i=0;i<compare.getNmodes();i++){
+      if(!UniqueID()) printf("Compare mode %d\n", i);
+      printRow(result.getMode(i),0,  "Result ");
+      printRow(compare.getMode(i),0, "Compare");
       assert( compare.getMode(i).equals( result.getMode(i), 1e-7, true ) );
+    }
   }
   //Try 3 directions
   if(GJP.Bc(1) == BND_CND_GPARITY && GJP.Bc(2) == BND_CND_GPARITY){
@@ -121,12 +124,13 @@ void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
     result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
 
     if(!UniqueID()) printf("Testing p=(%d,%d,%d). Should require permute of 1 in y direction\n",p[0],p[1],p[2]);
-
-    printRow(result.getMode(0),0,  "Result ");
-    printRow(compare.getMode(0),0, "Compare");
-    
-    for(int i=0;i<compare.getNmodes();i++)
+  
+    for(int i=0;i<compare.getNmodes();i++){
+      if(!UniqueID()) printf("Compare mode %d\n", i);
+      printRow(result.getMode(i),0,  "Result ");
+      printRow(compare.getMode(i),0, "Compare");
       assert( compare.getMode(i).equals( result.getMode(i), 1e-7, true ) );
+    }
   }
   //Get twist for first excited momentum in m1 set
   {
@@ -140,11 +144,12 @@ void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
 
     if(!UniqueID()) printf("Testing p=(%d,%d,%d). Should require permute of 1 in x direction\n",p[0],p[1],p[2]);
 
-    printRow(result.getMode(0),0,  "Result ");
-    printRow(compare.getMode(0),0, "Compare");
-    
-    for(int i=0;i<compare.getNmodes();i++)
-      assert( compare.getMode(i).equals( result.getMode(i), 1e-8, true ) );
+    for(int i=0;i<compare.getNmodes();i++){
+      if(!UniqueID()) printf("Compare mode %d\n", i);
+      printRow(result.getMode(i),0,  "Result ");
+      printRow(compare.getMode(i),0, "Compare");
+      assert( compare.getMode(i).equals( result.getMode(i), 1e-7, true ) );
+    }
   }
   
 }

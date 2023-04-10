@@ -10,13 +10,12 @@
 CPS_START_NAMESPACE
 
 //Class for abstracting computational elements required for the low-mode contributions
-template<typename _FermionOperatorTypeD>
+template<typename _GridFermionFieldD>
 class A2AlowModeCompute{
 public:
-  typedef _FermionOperatorTypeD FermionOperatorTypeD; //Double precision operator
-  typedef typename _FermionOperatorTypeD::FermionField GridFermionFieldD;
+  typedef _GridFermionFieldD GridFermionFieldD;
 
-  virtual FermionOperatorTypeD & getOp() const = 0;
+  virtual Grid::GridBase* get4Dgrid() const = 0;
 
   //Out is a *4D* field defined on the full, unpreconditioned Grid. evec resides on either a checkerboarded or full Grid in whatever space appropriate for the implementation
   virtual void computeVl(GridFermionFieldD &out, const GridFermionFieldD &evec, const Grid::RealD eval) const = 0;
@@ -33,7 +32,7 @@ public:
 
 //Common code for Schur preconditioned operators
 template<typename _FermionOperatorTypeD>
-class A2AlowModeComputeSchurPreconditioned: public A2AlowModeCompute<_FermionOperatorTypeD>{
+class A2AlowModeComputeSchurPreconditioned: public A2AlowModeCompute<typename _FermionOperatorTypeD::FermionField>{
 public:
   typedef _FermionOperatorTypeD FermionOperatorTypeD; //Double precision operator
   typedef typename _FermionOperatorTypeD::FermionField GridFermionFieldD;
@@ -44,7 +43,7 @@ protected:
 public:
   A2AlowModeComputeSchurPreconditioned(A2ASchurOperatorImpl<FermionOperatorTypeD> &OpD): OpD(OpD){}
 
-  FermionOperatorTypeD & getOp() const override{ return OpD.getOp(); }
+  Grid::GridBase* get4Dgrid() const override{ return OpD.getOp().GaugeGrid(); }
 
   //Apply operations in Eqs 21 and 27 of https://rbc.phys.columbia.edu/rbc_ukqcd/individual_postings/ckelly/Gparity/note_a2a_v5.pdf
   void computeVl(GridFermionFieldD &out, const GridFermionFieldD &evec, const Grid::RealD eval) const override{

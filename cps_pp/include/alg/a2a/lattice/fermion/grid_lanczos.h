@@ -15,6 +15,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
 		 GridDirac &Ddwf, const GridGaugeField& Umu,
 		 Grid::GridCartesian *UGrid, Grid::GridRedBlackCartesian *UrbGrid,
 		 Grid::GridCartesian *FGrid, Grid::GridRedBlackCartesian *FrbGrid,
+		 Grid::innerProductImplementation<GridFermionField> &inner_prod,
 		 A2Apreconditioning precon_type = SchurOriginal){
   
   if(lanc_arg.N_true_get == 0){
@@ -49,17 +50,11 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   if(!UniqueID()) printf("Chebyshev lo=%g hi=%g ord=%d\n",lo,hi,ord);
   
   Grid::Chebyshev<GridFermionField> Cheb(lo,hi,ord);
-#ifdef USE_CHULWOOS_LANCZOS
-#warning "Using Chulwoo's Grid Lanczos implementation"
-  Grid::ImplicitlyRestartedLanczosCJ<GridFermionField> IRL(*HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
-#else
-#warning "Using default Grid Lanczos implementation"
   Grid::PlainHermOp<GridFermionField> HermOpF(*HermOp);
   Grid::FunctionHermOp<GridFermionField> ChebF(Cheb,*HermOp); 
-  Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(ChebF,HermOpF,Nstop,Nk,Nm,resid,MaxIt);
+  Grid::ImplicitlyRestartedLanczosHermOpTester<GridFermionField> tester(HermOpF, inner_prod);
+  Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(ChebF,HermOpF,tester,inner_prod,Nstop,Nk,Nm,resid,MaxIt);
   
-  //Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
-#endif
   //if(lanc_arg.lock) IRL.lock = 1;
   if(lanc_arg.lock) ERR.General("::","gridLanczos","Grid Lanczos does not currently support locking\n");
   
@@ -76,30 +71,28 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   if(!UniqueID()) printf("Starting Grid RNG seeding for Lanczos\n");
   double time = -dclock();
   
-# if 0
-  std::vector<int> seeds5({5,6,7,8});
-  Grid::GridParallelRNG RNG5rb(FrbGrid);  RNG5rb.SeedFixedIntegers(seeds5);
-
-  print_time("gridLanczos","RNG seeding",time+dclock());
-  time = -dclock();
-
-  if(!UniqueID()) printf("Initializing Gaussian src\n");
-  gaussian(RNG5rb,src);
-  src.checkerboard = Grid::Odd;
-# else
   {
-    LatRanGen lrgbak(LRG);
-    
-    CPSfermion5D<cps::ComplexD> tmp;
-    tmp.setGaussianRandom();
-
-    LRG = lrgbak;
-    
-    GridFermionField src_all(FGrid);
-    tmp.exportGridField(src_all);
-    pickCheckerboard(Grid::Odd,src,src_all);
+    Grid::GridParallelRNG RNG(FGrid);  
+    RNG.SeedFixedIntegers({1,2,3,4});
+    GridFermionField gauss(FGrid);
+    gaussian(RNG, gauss);
+    pickCheckerboard(Odd, src, gauss);
   }
-# endif
+
+  // //Use CPS RNG to generate the initial field
+  // {
+  //   LatRanGen lrgbak(LRG);
+
+  //   typedef typename GridCPSfieldFermionFlavorPolicyMap<GridFermionField>::value FlavorPolicy;   
+  //   CPSfermion5D<cps::ComplexD, FiveDpolicy<FlavorPolicy> > tmp;
+  //   tmp.setGaussianRandom();
+
+  //   LRG = lrgbak;
+    
+  //   GridFermionField src_all(FGrid);
+  //   tmp.exportGridField(src_all);
+  //   pickCheckerboard(Grid::Odd,src,src_all);
+  // }
 
   print_time("gridLanczos","Gaussian src",time+dclock());
   time = -dclock();
@@ -107,18 +100,25 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   
   if(!UniqueID()) printf("Starting Lanczos algorithm with %d threads (omp_get_max_threads %d)\n", Grid::GridThread::GetThreads(),omp_get_max_threads());
   int Nconv;
-  IRL.normalise(src);
+  //IRL.normalise(src);
   IRL.calc(eval,evec,
 	   src,
 	   Nconv
-#ifndef USE_CHULWOOS_LANCZOS
 	   , true
-#endif
 	   );
   
   print_time("gridLanczos","Algorithm",time+dclock());
 #endif
   delete HermOp;
+}
+template<typename GridFermionField, typename GridGaugeField, typename GridDirac>
+void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &evec, const LancArg &lanc_arg,		 
+		 GridDirac &Ddwf, const GridGaugeField& Umu,
+		 Grid::GridCartesian *UGrid, Grid::GridRedBlackCartesian *UrbGrid,
+		 Grid::GridCartesian *FGrid, Grid::GridRedBlackCartesian *FrbGrid,
+		 A2Apreconditioning precon_type = SchurOriginal){
+  Grid::innerProductImplementation<GridFermionField> inner;
+  gridLanczos(eval,evec,lanc_arg,Ddwf,Umu,UGrid,UrbGrid,FGrid,FrbGrid,inner,precon_type);
 }
 
   
@@ -131,6 +131,8 @@ void gridLanczos(std::vector<Grid::RealD> &eval,
   typedef typename GridPolicies::GridFermionField GridFermionField;
   typedef typename GridPolicies::FgridFclass FgridFclass;
   typedef typename GridPolicies::GridDirac GridDirac;
+
+  if(!lattice.getGridFullyInitted()) ERR.General("","gridLanczos","Grid/Grids are not initialized!");
   
   Grid::GridCartesian *UGrid = lattice.getUGrid();
   Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
@@ -141,11 +143,11 @@ void gridLanczos(std::vector<Grid::RealD> &eval,
   double mob_b = lattice.get_mob_b();
   double mob_c = mob_b - 1.;   //b-c = 1
   double M5 = GJP.DwfHeight();
-  if(!UniqueID()) printf("Grid b=%g c=%g b+c=%g\n",mob_b,mob_c,mob_b+mob_c);
+  if(!UniqueID()) printf("Creating Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5);
 
   typename GridDirac::ImplParams params;
   lattice.SetParams(params);
-
+ 
   GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,lanc_arg.mass,M5,mob_b,mob_c, params);
 
   gridLanczos(eval, evec, lanc_arg, Ddwf, *Umu, UGrid, UrbGrid, FGrid, FrbGrid, precon_type);
@@ -162,6 +164,8 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
   typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
   typedef typename GridPolicies::FgridFclass FgridFclass;
   typedef typename GridPolicies::GridDiracF GridDiracF;
+
+  if(!lattice.getGridFullyInitted()) ERR.General("","gridSinglePrecLanczos","Grid/Grids are not initialized!");
   
   Grid::LatticeGaugeFieldD *Umu = lattice.getUmu();
 
@@ -177,7 +181,7 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
   double mob_b = lattice.get_mob_b();
   double mob_c = mob_b - 1.;   //b-c = 1
   double M5 = GJP.DwfHeight();
-  if(!UniqueID()) printf("Grid b=%g c=%g b+c=%g\n",mob_b,mob_c,mob_b+mob_c);
+  if(!UniqueID()) printf("Creating Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5);
 
   typename GridDiracF::ImplParams params;
   lattice.SetParams(params);
@@ -188,6 +192,43 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
 
   //Ddwf.Report();
 }
+
+template<typename GridPolicies>
+void gridLanczosXconj(std::vector<Grid::RealD> &eval, 
+		      std::vector<typename GridPolicies::GridXconjFermionField> &evec, 
+		      const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lattice,
+		      A2Apreconditioning precon_type = SchurOriginal){
+  typedef typename GridPolicies::GridXconjFermionField GridFermionField;
+  typedef typename GridPolicies::FgridFclass FgridFclass;
+  typedef typename GridPolicies::GridDiracXconj GridDirac;
+  typedef typename GridPolicies::GridDirac GridDiracGP;
+  typedef typename GridPolicies::GridFermionField GridFermionFieldGP;
+
+  if(!lattice.getGridFullyInitted()) ERR.General("","gridLanczosXconj","Grid/Grids are not initialized!");
+  
+  Grid::GridCartesian *UGrid = lattice.getUGrid();
+  Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
+  Grid::GridCartesian *FGrid = lattice.getFGrid();
+  Grid::GridRedBlackCartesian *FrbGrid = lattice.getFrbGrid();
+  Grid::LatticeGaugeFieldD *Umu = lattice.getUmu();
+
+  double mob_b = lattice.get_mob_b();
+  double mob_c = mob_b - 1.;   //b-c = 1
+  double M5 = GJP.DwfHeight();
+  typename GridDiracGP::ImplParams gp_params;
+  lattice.SetParams(gp_params);
+
+  typename GridDirac::ImplParams params;
+  params.twists = gp_params.twists;
+  params.boundary_phase = 1.0;
+
+  if(!UniqueID()) printf("Creating X-conjugate Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g phase=(%f,%f) twists=(%d,%d,%d,%d)\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5,params.boundary_phase.real(),params.boundary_phase.imag(),params.twists[0],params.twists[1],params.twists[2],params.twists[3]);
+
+  GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,lanc_arg.mass,M5,mob_b,mob_c, params);
+  Grid::innerProductImplementationXconjugate<GridFermionField> inner;
+  gridLanczos(eval,evec,lanc_arg,Ddwf,Umu,UGrid,UrbGrid,FGrid,FrbGrid,inner,precon_type);
+}
+
 
 
 
