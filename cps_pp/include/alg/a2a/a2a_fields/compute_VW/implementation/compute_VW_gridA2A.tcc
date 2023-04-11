@@ -92,6 +92,9 @@ struct computeVW_impl{
     UGridD(lattice.getUGrid()), UGridF(lattice.getUGridF()), UrbGridD(lattice.getUrbGrid()), UrbGridF(lattice.getUrbGridF()),
     UmuD(lattice.getUmu()),
     use_split_grid(false){
+
+    //Setup the W src policy
+    A2AhighModeSourceOriginal<Policies> Wsrc_impl;
     
     UmuF.reset(new Grid::LatticeGaugeFieldF(UGridF));
     precisionChange(*UmuF, *UmuD);
@@ -156,7 +159,7 @@ struct computeVW_impl{
 
       A2AhighModeComputeGeneric<GridFermionFieldD> vwhighimpl(vwlowimpl_inner, inv4d);
 
-      computeVWhigh(V,W,evecs,vwhighimpl, cg.multiCG_block_size);
+      computeVWhigh(V,W,Wsrc_impl,evecs,vwhighimpl, cg.multiCG_block_size);
     }else{
       A2ASchurOriginalOperatorImpl<GridDiracD> SchurOpD(*OpD);
       A2ASchurOriginalOperatorImpl<GridDiracF> SchurOpF(*OpF);
@@ -203,7 +206,7 @@ struct computeVW_impl{
       inv5d->enableInitialDeflation(false);
       A2AhighModeComputeSchurPreconditioned<GridDiracD> vwhighimpl(SchurOpD, *inv5d);
 
-      computeVWhigh(V,W,evecs,vwhighimpl, cg.multiCG_block_size);
+      computeVWhigh(V,W,Wsrc_impl,evecs,vwhighimpl, cg.multiCG_block_size);
     }
   }
 };

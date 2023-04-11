@@ -195,6 +195,63 @@ public:
   }
 };
 
+//This wrapper takes a 2f G-parity field and converts back and forth to an X-conjugate field
+//It requires an X-conjugate solver
+//NOTE: the deflation (if enabled) will be performed prior to converting the src/sol to an X-conj field
+//so the inner solver should not do the deflation
+template<typename _GridFermionFieldD>
+class A2Ainverter5dXconjWrapper: public A2AdeflatedInverter5dBase<_GridFermionFieldD>{
+public:
+  typedef _GridFermionFieldD GridFermionFieldD;
+  typedef decltype( Grid::PeekIndex<GparityFlavourIndex>( *( (GridFermionFieldD*)nullptr), 0) ) GridXconjFermionFieldD;
+
+private:
+  const A2Ainverter5dBase<GridXconjFermionFieldD> &inner_inv;
+  bool check_Xconj;
+  
+public:
+  //if check_Xconj is enabled, the sources will be checked as being in X-conjugate form
+  //NOTE: We do *not* by default check the input fields are X-conjugate! Please use wisely
+  A2Ainverter5dXconjWrapper(const A2Ainverter5dBase<GridXconjFermionFieldD> &inner_inv, const EvecInterface<GridFermionFieldD> &evecs, bool check_Xconj = false): inner_inv(inner_inv), A2AdeflatedInverter5dBase<_GridFermionFieldD>(evecs), check_Xconj(check_Xconj){}
+
+  const Grid::Gamma & Xmatrix() const{
+    static Grid::Gamma C = Grid::Gamma(Grid::Gamma::Algebra::MinusGammaY) * Grid::Gamma(Grid::Gamma::Algebra::GammaT);
+    static Grid::Gamma g5 = Grid::Gamma(Grid::Gamma::Algebra::Gamma5);
+    static Grid::Gamma X = C*g5;
+    return X;
+  }
+
+  //Invert 5D source -> 5D solution with optional deflation through the evec interface
+  void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
+    assert(in.size() == out.size());
+    if(in.size() == 0) return;
+    int N = in.size();
+    Grid::GridBase* grid = in[0].Grid();
+
+    this->deflate(out,in);
+    
+    std::vector<GridXconjFermionFieldD> outX(N,grid);
+    std::vector<GridXconjFermionFieldD> inX(N,grid);
+    for(int i=0;i<N;i++){
+      outX[i] = Grid::PeekIndex<GparityFlavourIndex>(out[i],0);
+      inX[i] = Grid::PeekIndex<GparityFlavourIndex>(in[i],0);
+      
+      if(check_Xconj){
+	if(!XconjugateCheck(in[i],1e-8,true)) ERR.General("A2Ainverter5dXconjWrapper","invert5Dto5D","Source %d is not X-conjugate",i);
+	if(!XconjugateCheck(out[i],1e-8,true)) ERR.General("A2Ainverter5dXconjWrapper","invert5Dto5D","Guess %d is not X-conjugate",i);
+      }
+
+    }
+    inner_inv.invert5Dto5D(outX,inX);
+    GridXconjFermionFieldD tmp(grid);
+    for(int i=0;i<N;i++){
+      Grid::PokeIndex<GparityFlavourIndex>(out[i], outX[i], 0);
+      tmp = -(Xmatrix()*conjugate(outX[i]));
+      Grid::PokeIndex<GparityFlavourIndex>(out[i], tmp, 1);
+    }        
+  }
+};
+
 CPS_END_NAMESPACE
 
 #endif

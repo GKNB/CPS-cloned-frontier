@@ -467,6 +467,15 @@ accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type o
   return into;
 }
 template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type operator*(const typename U::scalar_type &a, const U &b){
+  U into;
+  into.zero();
+  for(int i=0;i<U::Size;i++)
+    for(int j=0;j<U::Size;j++)
+      into(i,j) = a * b(i,j);
+  return into;
+}
+template<typename U> 
 accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type operator+(const U &a, const U &b){
   U into;
   for(int i=0;i<U::Size;i++)
@@ -482,7 +491,14 @@ accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type o
       into(i,j) = a(i,j) - b(i,j);
   return into;
 }
-
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type operator-(const U &a){
+  U into;
+  for(int i=0;i<U::Size;i++)
+    for(int j=0;j<U::Size;j++)
+      into(i,j) = -a(i,j);
+  return into;
+}
 
 
 template<typename U>

@@ -7,6 +7,7 @@
 #include "a2a_fields/a2a_fields.h"
 #include "a2a_fields/a2a_policies.h"
 #include "a2a_fields/a2a_convert.h"
+#include "a2a_fields/a2a_randomsrc.h"
 #include "a2a_fields/compute_VW.h"
 
 #endif

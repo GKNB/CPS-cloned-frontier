@@ -144,6 +144,32 @@ public:
   virtual ~EvecInterfaceMixedPrec(){}
 };
 
+//An implementation of the interface for the case of unused evecs
+template<typename _GridFermionFieldD, typename _GridFermionFieldF>
+class EvecInterfaceMixedPrecNone: public EvecInterfaceMixedPrec<_GridFermionFieldD,_GridFermionFieldF>{
+public:
+  typedef _GridFermionFieldD GridFermionFieldD;
+  typedef _GridFermionFieldF GridFermionFieldF;
+private:
+  Grid::GridBase* grid_d;
+  Grid::GridBase* grid_f;
+public:
+  EvecInterfaceMixedPrecNone(Grid::GridBase* grid_d, Grid::GridBase* grid_f): grid_d(grid_d), grid_f(grid_f){}
+
+  Grid::GridBase* getEvecGridD() const override{ return grid_d; }
+  Grid::GridBase* getEvecGridF() const override{ return grid_f; }
+
+  //Get the double precision evec and eval
+  double getEvecD(GridFermionFieldD &into, const int idx) const override { assert(0); } //should not get here! 
+  double getEvecF(GridFermionFieldF &into, const int idx) const override { assert(0); }
+
+  //Get the number of evecs
+  int nEvecs() const override{ return 0; }
+};
+
+
+
+
 template<typename Field, class FieldD, class FieldF>
 struct _choose_deflate{};
 

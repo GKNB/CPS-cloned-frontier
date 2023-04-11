@@ -118,89 +118,17 @@ void A2AvectorWfftw<mf_Policies>::inversefft(A2AvectorW<mf_Policies> &to, fieldO
   _W_invfft_impl<A2AvectorW<mf_Policies>, const A2AvectorWfftw<mf_Policies>, WFFTfieldPolicyBasic>::inversefft(to,*this,mode_postop);
 }
 
-//Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
-//For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
-template<typename ComplexFieldType, typename complex_class>
-struct _set_wh_random_impl{};
-
-template<typename ComplexFieldType>
-struct _set_wh_random_impl<ComplexFieldType, complex_double_or_float_mark>{
-  static void doit(CPSfieldArray<ComplexFieldType> &wh, const RandomType &type, const int nhits){
-    typedef typename ComplexFieldType::FieldSiteType FieldSiteType;
-    LRG.SetInterval(1, 0);
-    size_t sites = wh[0]->nsites(), flavors = wh[0]->nflavors();
-    
-    for(size_t i = 0; i < sites*flavors; ++i) {
-      int flav = i / sites;
-      size_t st = i % sites;
-      
-      LRG.AssignGenerator(st,flav);
-      for(int j = 0; j < nhits; ++j) {
-	FieldSiteType* p = wh[j]->site_ptr(st,flav);
-	RandomComplex<FieldSiteType>::rand(p,type,FOUR_D);
-      }
-    }
-  }
-  static void doit(CPSfieldArray<ComplexFieldType> &wh, const std::vector<ComplexFieldType> &to, const int nhits){
-    assert(to.size() == nhits);
-    for(int i=0;i<nhits;i++)
-      *wh[i] = to[i];
-  }
-};
-
-#ifdef USE_GRID
-//Randomization of wh fields must have handled with care to ensure order preservation
-template<typename ComplexFieldType>
-struct _set_wh_random_impl<ComplexFieldType, grid_vector_complex_mark>{
-  typedef typename Grid::GridTypeMapper<typename ComplexFieldType::FieldSiteType>::scalar_type ScalarComplexType;
-      
-  typedef CPSfield<ScalarComplexType, ComplexFieldType::FieldSiteSize,
-		   typename ComplexFieldType::FieldMappingPolicy::EquivalentScalarPolicy, typename ComplexFieldType::FieldAllocPolicy>
-  ScalarComplexFieldType;
-
-  static void doit(CPSfieldArray<ComplexFieldType> &wh, const RandomType &type, const int nhits){
-    NullObject null_obj;
-    
-    //Use scalar generation code and import
-    CPSfieldArray<ScalarComplexFieldType> wh_scalar(nhits); for(int i=0;i<nhits;i++) wh_scalar[i].emplace(null_obj);
-    _set_wh_random_impl<ScalarComplexFieldType, complex_double_or_float_mark>::doit(wh_scalar,type,nhits);
-    for(int i=0;i<nhits;i++) wh[i]->importField(*wh_scalar[i]);
-  }
-  static void doit(CPSfieldArray<ComplexFieldType> &wh, const std::vector<ScalarComplexFieldType> &to, const int nhits){
-    assert(to.size() == nhits);
-    for(int i=0;i<nhits;i++) wh[i]->importField(to[i]);
-  }
-};
-#endif
-
-
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::setWhRandom(){
-  if(!wh_rand_performed){
-    _set_wh_random_impl<typename mf_Policies::ComplexFieldType, typename ComplexClassify<typename mf_Policies::ComplexFieldType::FieldSiteType>::type>::doit(wh,args.rand_type,nhits);
-    wh_rand_performed = true;
-  }
+void A2AvectorW<mf_Policies>::setWh(const std::vector<ScalarComplexFieldType> &to){
+  assert(to.size() == nhits);
+  for(int i=0;i<nhits;i++) wh[i]->importField(to[i]);
+  wh_rand_performed = true;
 }
-
-
-
-
-template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::setWhRandom(const std::vector<ScalarComplexFieldType> &to){
-   _set_wh_random_impl<typename mf_Policies::ComplexFieldType, typename ComplexClassify<typename mf_Policies::ComplexFieldType::FieldSiteType>::type>::doit(wh,to,nhits);
-   wh_rand_performed = true;
-}
-
 
 
 //Get the diluted source with index id.
-//We use the same set of random numbers for each spin and dilution as we do not need to rely on stochastic cancellation to separate them
-//For legacy reasons we use different random numbers for the two G-parity flavors, although this is not strictly necessary
-
 //We allow for time dilution into Lt/src_width blocks of size src_width in the time direction
 //Alongside the spin/color/flavor index upon which to place the random numbers, the index dil_id also contains the time block index
-
-
 template< typename mf_Policies>
 template<typename TargetFermionFieldType>
 void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, const int dil_id) const{

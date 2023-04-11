@@ -1,6 +1,7 @@
 //block_size is the number of sources deflated simultaneously, and if the inverter supports it, inverted concurrently
 template<typename A2Apolicies, typename GridFermionFieldD>
 void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, 
+		   const A2AhighModeSource<A2Apolicies> &Wsrc_impl,
 		   const EvecInterface<GridFermionFieldD> &evecs,  
 		   const A2AhighModeCompute<GridFermionFieldD> &impl,
 		   size_t block_size){  
@@ -8,7 +9,7 @@ void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
 
   //cf https://rbc.phys.columbia.edu/rbc_ukqcd/individual_postings/ckelly/Gparity/note_a2a_v4.pdf  section D
 #ifndef MEMTEST_MODE
-  W.setWhRandom();
+  if(!W.WhRandPerformed()) Wsrc_impl.setHighModeSources(W); //set the sources if not previously done
 #endif
   size_t nh = W.getNh();
   size_t nl = W.getNl();
@@ -16,9 +17,6 @@ void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
 
   std::vector<GridFermionFieldD> grid_src_v(block_size,UGrid);
   std::vector<GridFermionFieldD> grid_sol_v(block_size,UGrid);
-
-  CPSfermion4D<typename A2Apolicies::ComplexTypeD,typename A2Apolicies::FermionFieldType::FieldMappingPolicy, 
-	       typename A2Apolicies::FermionFieldType::FieldAllocPolicy> v4dfield(V.getFieldInputParams());
 
   int Nblocks = (nh + block_size - 1)/block_size;
   std::cout << Grid::GridLogMessage << "Computing V,W high mode contribution in " << Nblocks << " blocks of " << block_size << std::endl;
@@ -36,11 +34,7 @@ void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
 
     for(size_t ii=0;ii<ni;ii++){
       //Get the diluted W vector to invert upon
-      W.getDilutedSource(v4dfield, istart+ii);
-
-      //Export to Grid field
-      v4dfield.exportGridField(grid_src_v[ii]);
-
+      Wsrc_impl.get4DinverseSource(grid_src_v[ii],istart+ii,W);
       grid_sol_v[ii] = Grid::Zero();      
     }
     //Compute the high mode contribution
@@ -52,6 +46,8 @@ void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
       V.getVh(istart+ii).importGridField(grid_sol_v[ii]);
     }
   }
+
+  Wsrc_impl.solutionPostOp(V);
 #endif
 }
 

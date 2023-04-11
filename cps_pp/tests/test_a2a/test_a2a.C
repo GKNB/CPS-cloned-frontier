@@ -325,7 +325,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   // if(1) testGridFieldImpex<A2Apolicies_grid>(lattice);
   // if(1) testCPSfieldIO();
   // if(1) testA2AvectorIO<A2Apolicies_grid>(a2a_arg);
-  if(1) testLanczosIO<A2Apolicies_grid>(lattice);
+  //if(1) testLanczosIO<A2Apolicies_grid>(lattice);
 //   if(1) testSCFmat();
 //   if(1) testMesonFieldUnpackPack<A2Apolicies_grid>(a2a_arg,tol);
 //   if(1) testMesonFieldUnpackPackTblock<A2Apolicies_grid>(a2a_arg,tol);
@@ -343,7 +343,14 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
 //   if(1) testA2AvectorWnorm<A2Apolicies_grid>(a2a_arg);
 
-  if(1) testXconjAction<A2Apolicies_grid>(lattice, tol);  
+  //if(1) testXconjAction<A2Apolicies_grid>(lattice, tol);  
+
+  ///if(1) test_gamma_CPS_vs_Grid();
+
+  //if(1) testXconjWsrc<A2Apolicies_grid>(lattice);
+  if(1) testXconjWsrcPostOp<A2Apolicies_grid>(lattice);
+  //if(1) testXconjWsrcInverse<A2Apolicies_grid>(lattice);
+  if(1) testXconjWsrcFull<A2Apolicies_grid>(lattice);
 }
 
 

@@ -389,13 +389,11 @@ public:
   A2AvectorW(const A2Aparams &_args);
   A2AvectorW(const A2Aparams &_args, const FieldInputParamType &field_setup_params);
 
-  //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
-  //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
-  //Note - this does not have to be called manually; it will be called by computeVWhigh if not previously called
-  void setWhRandom();
-  
   //Manually set the Wh random fields. Expects a vector of size nhits
-  void setWhRandom(const std::vector<ScalarComplexFieldType> &to);
+  void setWh(const std::vector<ScalarComplexFieldType> &to);
+
+  //Return whether the random sources have been set
+  bool WhRandPerformed() const{ return wh_rand_performed; }
 
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 
@@ -506,8 +504,6 @@ public:
   }
 
   //Get the diluted source with StandardIndex high-mode index dil_id.
-  //We use the same set of random numbers for each spin and dilution as we do not need to rely on stochastic cancellation to separate them
-  //For legacy reasons we use different random numbers for the two G-parity flavors, although this is not strictly necessary
   //Here dil_id is the combined spin-color/flavor/hit/tblock index
   template<typename TargetFermionFieldType>
   void getDilutedSource(TargetFermionFieldType &into, const int dil_id) const;

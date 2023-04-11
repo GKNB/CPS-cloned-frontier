@@ -352,5 +352,72 @@ void testSCFmat(){
 }
 
 
+#ifdef USE_GRID
+
+Grid::SpinVector operator*(CPSspinMatrix<cps::ComplexD> &M, const Grid::SpinVector &v){
+  Grid::SpinVector out;
+  for(int i=0;i<4;i++){
+    out()(i)() = M(i,0)*v()(0)();
+    for(int j=1;j<4;j++){
+      out()(i)() = out()(i)() + M(i,j)*v()(j)();
+    }
+  }
+  return out;
+}
+#endif
+
+void test_gamma_CPS_vs_Grid(){
+#ifdef USE_GRID  
+  Grid::GridSerialRNG rng;
+  rng.SeedFixedIntegers(std::vector<int>({45,12,81,9}));
+
+  Grid::SpinVector v;
+  Grid::random(rng,v);
+  
+  Grid::Gamma ggrid[4] = { Grid::Gamma(Grid::Gamma::Algebra::GammaX) ,Grid::Gamma(Grid::Gamma::Algebra::GammaY), Grid::Gamma(Grid::Gamma::Algebra::GammaZ), Grid::Gamma(Grid::Gamma::Algebra::GammaT) };
+  for(int i=0;i<4;i++){
+    CPSspinMatrix<cps::ComplexD> cg; cg.unit(); cg.gr(i);
+    Grid::SpinVector rg = ggrid[i] * v;
+    Grid::SpinVector rc = cg * v;
+    Grid::SpinVector d = rg - rc;
+    std::cout << "Test g" << i << " " << norm2(d) << std::endl;
+  }
+  Grid::Gamma g5grid(Grid::Gamma::Algebra::Gamma5);
+  {
+    CPSspinMatrix<cps::ComplexD> cg; cg.unit(); cg.gr(-5);
+    Grid::SpinVector rg = g5grid * v;
+    Grid::SpinVector rc = cg * v;
+    Grid::SpinVector d = rg - rc;
+    std::cout << "Test g5 " << norm2(d) << std::endl;
+  }
+
+  CPSspinMatrix<cps::ComplexD> C; C.unit(); C.gl(1).gl(3); //C=-gY gT = gT gY
+  CPSspinMatrix<cps::ComplexD> X = C; X.gr(-5);
+  CPSspinMatrix<cps::ComplexD> one; one.unit();
+  cps::ComplexD _i(0,1);
+  CPSspinMatrix<cps::ComplexD> Pplus = 0.5*(one + _i*X);
+  CPSspinMatrix<cps::ComplexD> Pminus = 0.5*(one - _i*X);
+
+  Grid::Gamma Cgrid = Grid::Gamma(Grid::Gamma::Algebra::MinusGammaY) * Grid::Gamma(Grid::Gamma::Algebra::GammaT);      
+  {
+
+    Grid::SpinVector rg = Cgrid * v;
+    Grid::SpinVector rc = C * v;
+    Grid::SpinVector d = rg - rc;
+    std::cout << "Test C " << norm2(d) << std::endl;
+  }
+
+  Grid::Gamma Xgrid = Cgrid * g5grid;
+  {
+    Grid::SpinVector rg = Xgrid * v;
+    Grid::SpinVector rc = X * v;
+    Grid::SpinVector d = rg - rc;
+    std::cout << "Test X " << norm2(d) << std::endl;
+  }
+
+
+#endif
+}
+
 
 CPS_END_NAMESPACE

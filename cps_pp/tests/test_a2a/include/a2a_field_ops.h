@@ -372,7 +372,8 @@ void testA2AvectorWnorm(const A2AArg &a2a_args){
   setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
 
   A2AvectorW<A2Apolicies> W(a2a_args, p.params);
-  W.setWhRandom();
+  A2AhighModeSourceOriginal<A2Apolicies> impl;
+  impl.setHighModeSources(W);
   
   StandardIndexDilution stdidx(a2a_args);
 
@@ -520,6 +521,499 @@ void testA2AvectorWnorm(const A2AArg &a2a_args){
 }
     
 
+template<typename A2Apolicies>
+void testXconjWsrc(typename A2Apolicies::FgridGFclass &lat){
+  std::cout << "Starting testXconjWsrc" << std::endl;
+  assert(GJP.Gparity());
+
+  A2AArg a2a_args;
+  a2a_args.nl = 100;
+  a2a_args.nhits = 1;
+  a2a_args.rand_type = UONE;
+  a2a_args.src_width = 1;
+
+  typedef typename A2AvectorW<A2Apolicies>::FieldInputParamType FieldParams;  
+  setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
+
+  A2AhighModeSourceXconj<A2Apolicies> impl;
+  A2AvectorW<A2Apolicies> W(a2a_args, p.params);
+  impl.setHighModeSources(W);
+  
+  typedef typename A2Apolicies::GridFermionField GridField;
+  GridField tmp(lat.getUGrid());
+  
+  //Check Kronecker deltas
+  StandardIndexDilution dil(a2a_args);
+  int Lt = GJP.TnodeSites()*GJP.Tnodes();
+ 
+  int hit = 0;
+  for(int tcol=0;tcol<GJP.TnodeSites()*GJP.Tnodes();tcol++){
+    for(int scol=0;scol<4;scol++){
+      for(int ccol=0;ccol<3;ccol++){
+	for(int fcol=0;fcol<2;fcol++){	
+	  std::cout << "fcol:" << fcol << " ccol:" << ccol << " scol:" << scol << " tcol:" << tcol << std::endl;
+
+	  int id = dil.indexMap(hit,tcol,ccol+3*scol,fcol);
+	  tmp = Grid::Zero();
+	  impl.get4DinverseSource(tmp, id, W);
+	
+	  //Check temporal delta
+	  //Grid::Coordinate site(
+	  typedef typename GridField::scalar_object sobj;
+	  std::vector<sobj> slice_sums;
+	  Grid::sliceSum(tmp,slice_sums,3);
+
+	  std::cout << "Check temporal delta" << std::endl;
+	  assert(slice_sums.size() == Lt);
+	  for(int trow=0;trow<Lt;trow++){
+	    double n = norm2(slice_sums[trow]);
+	    std::cout << trow << " " << n << " expect " << (trow == tcol ? "non-zero" : "zero") << std::endl; 
+	    if(trow == tcol) assert(n > 1e-8);
+	    else assert(n < 1e-8);
+	  }
+	
+	  //Check color delta
+	  std::cout << "Check color delta" << std::endl;
+	  for(int crow=0;crow<3;crow++){
+	    auto v = Grid::PeekIndex<ColourIndex>(tmp,crow);
+	    double n = norm2(v);
+	    std::cout << crow << " " << n << " expect " << (crow == ccol ? "non-zero" : "zero") << std::endl;
+	    if(crow == ccol) assert(n > 1e-8);
+	    else assert(n < 1e-8);
+	  }
+
+	  //Check source is X-conjugate
+	  Grid::Gamma C = Grid::Gamma(Grid::Gamma::Algebra::MinusGammaY) * Grid::Gamma(Grid::Gamma::Algebra::GammaT);
+	  Grid::Gamma g5 = Grid::Gamma(Grid::Gamma::Algebra::Gamma5);
+	  Grid::Gamma X = C*g5;
+	  
+	  auto field_f0 = Grid::PeekIndex<GparityFlavourIndex>(tmp,0);
+	  auto field_f1 = Grid::PeekIndex<GparityFlavourIndex>(tmp,1);
+	  decltype(field_f0) tmp_grid(field_f0.Grid());
+	  tmp_grid = -(X*conjugate(field_f0));
+	  tmp_grid = field_f1 - tmp_grid;
+	  double n = norm2(tmp_grid);
+	  std::cout << "Check source is X-conjugate " << n << " expect 0" << std::endl;
+	  assert(n < 1e-8);
+	}
+      }
+    }
+  }
+
+  std::cout << "testXconjWsrc passed" << std::endl;
+}
+
+
+
+template<typename GridFermionFieldD>
+class A2AhighModeComputeDoNothing: public A2AhighModeCompute<GridFermionFieldD>{
+public:
+  Grid::GridBase* grid;  
+
+  A2AhighModeComputeDoNothing(Grid::GridBase* grid): grid(grid){}
+
+  Grid::GridBase* get4Dgrid() const override{return grid; }
+
+  void highModeContribution4D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in, 
+			      const EvecInterface<GridFermionFieldD> &evecs, const int nl) const override{
+    out.resize(in.size(),grid);
+    for(int i=0;i<in.size();i++) out[i]=in[i];
+  }
+};
+
+template<typename A2Apolicies>
+void testXconjWsrcPostOp(typename A2Apolicies::FgridGFclass &lat){
+  std::cout << "Starting testXconjWsrcPostOp" << std::endl;
+  assert(GJP.Gparity());
+
+  int nl = 0; //10
+  A2AArg a2a_args;
+  a2a_args.nl = nl;
+  a2a_args.nhits = 1;
+  a2a_args.rand_type = UONE;
+  a2a_args.src_width = 1;
+
+  typedef typename A2AvectorW<A2Apolicies>::FieldInputParamType FieldParams;  
+  setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
+
+  A2AhighModeSourceXconj<A2Apolicies> Wsrc_impl;
+  A2AvectorW<A2Apolicies> W(a2a_args, p.params);
+  Wsrc_impl.setHighModeSources(W);
+
+  LancArg lanc_arg;
+  lanc_arg.N_get=nl;
+  lanc_arg.N_use=nl+4;
+  lanc_arg.N_true_get=nl;
+  lanc_arg.precon=1;
+
+  GridLanczosDoubleConvSingle<A2Apolicies> evecs;
+  evecs.randomizeEvecs(lanc_arg,lat);
+
+  auto iface = evecs.createInterface();
+  
+  A2AhighModeComputeDoNothing<typename A2Apolicies::GridFermionField> highmode_donothin(lat.getUGrid());
+  
+  A2AvectorV<A2Apolicies> V(a2a_args, p.params);
+
+  computeVWhigh(V,W,Wsrc_impl,*iface,highmode_donothin,1);
+
+  //Because we didn't apply the inverse, the solutions should have the form
+  //V =  (rho , 0)    H   H^dag   = (rho , 0)
+  //     ( 0,  rho*)                ( 0 , rho*)  
+
+  typedef typename A2Apolicies::GridFermionField GridField;
+  GridField Vf(lat.getUGrid()), Wf(lat.getUGrid());
+  typedef typename A2AvectorW<A2Apolicies>::FermionFieldType CPSFieldType;
+  CPSFieldType Wf_cps(W.getFieldInputParams());
+
+  typedef decltype( Grid::PeekIndex<GparityFlavourIndex>(Vf,0) ) GridFlavourField;
+  GridFlavourField src_00(Vf.Grid()), src_10(Vf.Grid());
+
+  //Check Kronecker deltas
+  StandardIndexDilution dil(a2a_args);
+  int Lt = GJP.TnodeSites()*GJP.Tnodes();
+
+  int hit = 0;
+  for(int tcol=0;tcol<GJP.TnodeSites()*GJP.Tnodes();tcol++){
+    for(int scol=0;scol<4;scol++){
+      for(int ccol=0;ccol<3;ccol++){
+	for(int fcol=0;fcol<2;fcol++){	
+	  std::cout << "fcol:" << fcol << " ccol:" << ccol << " scol:" << scol << " tcol:" << tcol << std::endl;
+
+	  int id = dil.indexMap(hit,tcol,ccol+3*scol,fcol);
+	  Vf = Grid::Zero();
+	  V.getMode(nl + id).exportGridField(Vf);
+
+	  W.getDilutedSource(Wf_cps,id);
+	  Wf_cps.exportGridField(Wf);
+
+	  //Check same as original diluted source
+	  double n = norm2(GridField(Vf-Wf));
+	  std::cout << "Check V=W : " << n << " expect 0" << std::endl;
+
+	  double n2 = norm2(GridField(Vf-conjugate(Wf)));
+	  std::cout << "Check V!=W* : " << n2 << " expect !0" << std::endl;
+
+	  assert(n<1e-8);
+	  assert(n2>1e-8);
+
+	  typedef typename GridField::scalar_object sobj;
+	  std::vector<sobj> slice_sums;
+	  Grid::sliceSum(Vf,slice_sums,3);
+
+	  std::cout << "Check temporal delta" << std::endl;
+	  assert(slice_sums.size() == Lt);
+	  for(int trow=0;trow<Lt;trow++){
+	    double n = norm2(slice_sums[trow]);
+	    std::cout << trow << " " << n << " expect " << (trow == tcol ? "non-zero" : "zero") << std::endl; 
+	    if(trow == tcol) assert(n > 1e-8);
+	    else assert(n < 1e-8);
+	  }
+	
+	  //Check color delta
+	  std::cout << "Check color delta" << std::endl;
+	  for(int crow=0;crow<3;crow++){
+	    auto v = Grid::PeekIndex<ColourIndex>(Vf,crow);
+	    double n = norm2(v);
+	    std::cout << crow << " " << n << " expect " << (crow == ccol ? "non-zero" : "zero") << std::endl;
+	    if(crow == ccol) assert(n > 1e-8);
+	    else assert(n < 1e-8);
+	  }
+
+	  //Check spin delta
+	  std::cout << "Check spin delta" << std::endl;
+	  for(int srow=0;srow<4;srow++){
+	    auto v = Grid::PeekIndex<SpinIndex>(Vf,srow);
+	    double n = norm2(v);
+	    std::cout << srow << " " << n << " expect " << (srow == scol ? "non-zero" : "zero") << std::endl;
+	    if(srow == scol) assert(n > 1e-8);
+	    else assert(n < 1e-8);
+	  }
+	  
+	  //Check flavor delta
+	  std::cout << "Check flavor delta" << std::endl;
+	  for(int frow=0;frow<2;frow++){
+	    auto v = Grid::PeekIndex<GparityFlavourIndex>(Vf,frow);
+	    double n = norm2(v);
+	    std::cout << frow << " " << n << " expect " << (frow == fcol ? "non-zero" : "zero") << std::endl;
+	    if(frow == fcol) assert(n > 1e-8);
+	    else assert(n < 1e-8);
+
+	    if(fcol == 0)
+	      if(frow==0) src_00 = v;
+	      else src_10 = v;
+	  }
+	  
+	  //Check flavor structure
+	  if(fcol == 1){	    
+	    auto src_01 = Grid::PeekIndex<GparityFlavourIndex>(Vf,0);
+	    auto src_11 = Grid::PeekIndex<GparityFlavourIndex>(Vf,1);
+
+	    double n01 = norm2(src_01);
+	    double n10 = norm2(src_10);
+
+	    std::cout << "Check flavor structure: off diagonal " << n01 << " " << n10 << " expect 0 for both" << std::endl;
+	    assert(n01<1e-8 && n10 < 1e-8);
+	    
+	    GridFlavourField diff = src_00 - conjugate(src_11);
+	    double nd = norm2(diff);
+	    std::cout << "Check flavor structure: diagonals are complex conjugate pair " << norm2(src_00) << " " << norm2(src_11) << " norm conj-diff " << nd << " expect 0" << std::endl;
+	    assert(nd < 1e-8);
+	  }
+
+	}//fcol
+      }//ccol
+    }//scol
+  }//tcol
+  
+  //Should get the same result if we apply the *nothing* operation to the unrotated source
+  A2AhighModeSourceOriginal<A2Apolicies> Wsrc_impl_unrot;
+  A2AvectorV<A2Apolicies> V_unrot(a2a_args, p.params);
+
+  computeVWhigh(V_unrot,W,Wsrc_impl_unrot,*iface,highmode_donothin,1);
+  //Compare the V vectors
+  int N =  V_unrot.getNmodes();
+  assert(V.getNmodes() == N);
+
+  StandardIndexDilution stdidx(W.getArgs());  
+  int dhit,dtblock,dspin_color,dflavor,dspin,dcolor;
+
+  for(int i=0;i<N;i++){
+    auto const & mode_rot = V.getMode(i);
+    auto const & mode_unrot = V_unrot.getMode(i);
+    
+    if(i<a2a_args.nl){
+      std::cout << "Testing low mode " << i << std::endl;
+    }else{
+      int h = i - a2a_args.nl;
+      stdidx.indexUnmap(h,dhit,dtblock,dspin_color,dflavor);  
+      dspin = dspin_color / 3; //c+3*s
+      dcolor = dspin_color % 3;
+      std::cout << "Testing high mode " << h << ": hit=" << dhit << " tblock=" << dtblock << " spin=" << dspin << " color=" << dcolor << " flavor=" << dflavor << std::endl;
+    }
+    assert( mode_rot.equals(mode_unrot,1e-5,true));
+  }
+
+  std::cout << "testXconjWsrcPostOp passed" << std::endl;
+}
+
+
+//Inverting upon the 2f 5D X-conj vectors should be achievable with either the Xconj or original Gparity Dirac operator
+template<typename A2Apolicies>
+void testXconjWsrcInverse(typename A2Apolicies::FgridGFclass &lattice){
+  std::cout << "Starting testXconjWsrcInverse" << std::endl;
+  assert(GJP.Gparity());
+
+  typedef typename A2Apolicies::GridFermionField Field2f;
+  typedef typename A2Apolicies::GridXconjFermionField Field1f;
+
+  typedef typename A2Apolicies::GridFermionFieldF Field2fF;
+  typedef typename A2Apolicies::GridXconjFermionFieldF Field1fF;
+
+  typedef typename A2Apolicies::GridDirac Dirac2f;
+  typedef typename A2Apolicies::GridDiracXconj Dirac1f;
+  
+  Grid::GridCartesian *UGrid = lattice.getUGrid();
+  Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
+  Grid::GridCartesian *FGrid = lattice.getFGrid();
+  Grid::GridRedBlackCartesian *FrbGrid = lattice.getFrbGrid();
+  Grid::GridRedBlackCartesian *FrbGridF = lattice.getFrbGridF();
+  Grid::LatticeGaugeFieldD *Umu = lattice.getUmu();
+
+  double b = lattice.get_mob_b();
+  double c = b - 1.;   //b-c = 1
+  double M5 = GJP.DwfHeight();
+
+  double mass = 0.01;
+
+  typename Dirac2f::ImplParams params_gp;
+  lattice.SetParams(params_gp);
+
+  typename Dirac1f::ImplParams params_x;
+  params_x.twists = params_gp.twists;
+  params_x.boundary_phase = 1.0;
+
+  //Don't need eigenvectors for 5D solves as we setup the guess at the same time as computing the low-mode contribution
+  EvecInterfaceMixedPrecNone<Field2f,Field2fF> eveci2f_none(FrbGrid,FrbGridF);
+  EvecInterfaceMixedPrecNone<Field1f,Field1fF> eveci1f_none(FrbGrid,FrbGridF);  
+
+  Dirac1f actionX(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c, params_x);
+  Dirac2f actionGP(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c, params_gp);
+
+  A2ASchurOriginalOperatorImpl<Dirac2f> SchurOpGP(actionGP);
+  A2ASchurOriginalOperatorImpl<Dirac1f> SchurOpX(actionX);
+
+  //We don't do the initial deflation as the high-mode compute implementation used here will set the 
+  A2Ainverter5dCG<Field2f> inv5d_GP(SchurOpGP.getLinOp(),eveci2f_none,1e-8,10000); inv5d_GP.enableInitialDeflation(false);
+  A2Ainverter5dCG<Field1f> inv5d_X(SchurOpX.getLinOp(),eveci1f_none,1e-8,10000);  inv5d_X.enableInitialDeflation(false);
+  A2Ainverter5dXconjWrapper<Field2f> inv5d_Xwrap(inv5d_X,eveci2f_none,true);  inv5d_Xwrap.enableInitialDeflation(false);
+
+  typedef typename A2AvectorW<A2Apolicies>::FieldInputParamType FieldParams;  
+  setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
+
+  A2AArg a2a_args;
+  a2a_args.nl = 10;
+  a2a_args.nhits = 1;
+  a2a_args.rand_type = UONE;
+  a2a_args.src_width = 1;
+
+  A2AvectorW<A2Apolicies> W(a2a_args,p.params);
+  A2AvectorV<A2Apolicies> VX(a2a_args,p.params);
+  A2AvectorV<A2Apolicies> VGP(a2a_args,p.params);
+  
+  //Use some random eigenvectors for the low-mode contribution
+  LancArg lanc_arg;
+  lanc_arg.mass = 0.01;
+  lanc_arg.stop_rsd = 1e-08;
+  lanc_arg.N_true_get = 10;
+  GridXconjLanczosDoubleConvSingle<A2Apolicies> lancGP; //we need eigenvectors that maintain the complex-conjugate symmetry of the Dirac operator (real G-parity evecs would also satisfy)
+  lancGP.randomizeEvecs(lanc_arg,lattice);
+  auto eveci_low = lancGP.createInterface();
+
+  //Do the high modes the same way, but do the inversions in one case with the 2f operator and in the other case the 1f operator
+  A2AhighModeComputeSchurPreconditioned<Dirac2f> highmode_compute_2f(SchurOpGP,inv5d_GP);
+  A2AhighModeComputeSchurPreconditioned<Dirac2f> highmode_compute_1fwrap(SchurOpGP,inv5d_Xwrap); //wrapped 5D inverter
+
+  //Set the high mode sources to the correct form
+  A2AhighModeSourceXconj<A2Apolicies> Wsrc_impl;
+  Wsrc_impl.setHighModeSources(W);
+  
+  //Compute with X-conjugate inverter
+  computeVWhigh(VX,W,Wsrc_impl,*eveci_low,highmode_compute_1fwrap,1);
+
+  //Compute with G-parity inverter
+  computeVWhigh(VGP,W,Wsrc_impl,*eveci_low,highmode_compute_2f,1);
+
+  //Compare the V vectors
+  int N =  VGP.getNmodes();
+  assert(VX.getNmodes() == N);
+  for(int i=0;i<N;i++){
+    auto const & mode_X = VX.getMode(i);
+    auto const & mode_GP = VGP.getMode(i);
+    
+    std::cout << "Testing mode " << i << std::endl;
+    assert( mode_X.equals(mode_GP,1e-5,true));
+  }
+
+  std::cout << "testXconjWsrcInverse passed" << std::endl;
+}
+
+
+
+
+//Test the complete new source implementation by inverting on the unmodified source with the GP operator
+//and on the rotated source with the Xconj operator, rotating the results
+template<typename A2Apolicies>
+void testXconjWsrcFull(typename A2Apolicies::FgridGFclass &lattice){
+  std::cout << "Starting testXconjWsrcFull" << std::endl;
+  assert(GJP.Gparity());
+
+  typedef typename A2Apolicies::GridFermionField Field2f;
+  typedef typename A2Apolicies::GridXconjFermionField Field1f;
+
+  typedef typename A2Apolicies::GridFermionFieldF Field2fF;
+  typedef typename A2Apolicies::GridXconjFermionFieldF Field1fF;
+
+  typedef typename A2Apolicies::GridDirac Dirac2f;
+  typedef typename A2Apolicies::GridDiracXconj Dirac1f;
+  
+  Grid::GridCartesian *UGrid = lattice.getUGrid();
+  Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
+  Grid::GridCartesian *FGrid = lattice.getFGrid();
+  Grid::GridRedBlackCartesian *FrbGrid = lattice.getFrbGrid();
+  Grid::GridRedBlackCartesian *FrbGridF = lattice.getFrbGridF();
+  Grid::LatticeGaugeFieldD *Umu = lattice.getUmu();
+
+  double b = lattice.get_mob_b();
+  double c = b - 1.;   //b-c = 1
+  double M5 = GJP.DwfHeight();
+
+  double mass = 0.01;
+
+  typename Dirac2f::ImplParams params_gp;
+  lattice.SetParams(params_gp);
+
+  typename Dirac1f::ImplParams params_x;
+  params_x.twists = params_gp.twists;
+  params_x.boundary_phase = 1.0;
+
+  //Don't need eigenvectors for 5D solves as we setup the guess at the same time as computing the low-mode contribution
+  EvecInterfaceMixedPrecNone<Field2f,Field2fF> eveci2f_none(FrbGrid,FrbGridF);
+  EvecInterfaceMixedPrecNone<Field1f,Field1fF> eveci1f_none(FrbGrid,FrbGridF);  
+
+  Dirac1f actionX(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c, params_x);
+  Dirac2f actionGP(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c, params_gp);
+
+  A2ASchurOriginalOperatorImpl<Dirac2f> SchurOpGP(actionGP);
+  A2ASchurOriginalOperatorImpl<Dirac1f> SchurOpX(actionX);
+
+  //We don't do the initial deflation as the high-mode compute implementation used here will set the 
+  A2Ainverter5dCG<Field2f> inv5d_GP(SchurOpGP.getLinOp(),eveci2f_none,1e-8,10000); inv5d_GP.enableInitialDeflation(false);
+  A2Ainverter5dCG<Field1f> inv5d_X(SchurOpX.getLinOp(),eveci1f_none,1e-8,10000);  inv5d_X.enableInitialDeflation(false);
+  A2Ainverter5dXconjWrapper<Field2f> inv5d_Xwrap(inv5d_X,eveci2f_none,true);  inv5d_Xwrap.enableInitialDeflation(false);
+
+  typedef typename A2AvectorW<A2Apolicies>::FieldInputParamType FieldParams;  
+  setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
+
+  A2AArg a2a_args;
+  a2a_args.nl = 10;
+  a2a_args.nhits = 1;
+  a2a_args.rand_type = UONE;
+  a2a_args.src_width = 1;
+
+  A2AvectorW<A2Apolicies> W(a2a_args,p.params);
+  A2AvectorV<A2Apolicies> VX(a2a_args,p.params);
+  A2AvectorV<A2Apolicies> VGP(a2a_args,p.params);
+  
+  //Use some random eigenvectors for the low-mode contribution
+  LancArg lanc_arg;
+  lanc_arg.mass = 0.01;
+  lanc_arg.stop_rsd = 1e-08;
+  lanc_arg.N_true_get = 10;
+  GridXconjLanczosDoubleConvSingle<A2Apolicies> lancGP; //we need eigenvectors that maintain the complex-conjugate symmetry of the Dirac operator (real G-parity evecs would also satisfy)
+  lancGP.randomizeEvecs(lanc_arg,lattice);
+  auto eveci_low = lancGP.createInterface();
+
+  //Do the high modes the same way, but do the inversions in one case with the 2f operator and in the other case the 1f operator
+  A2AhighModeComputeSchurPreconditioned<Dirac2f> highmode_compute_2f(SchurOpGP,inv5d_GP);
+  A2AhighModeComputeSchurPreconditioned<Dirac2f> highmode_compute_1fwrap(SchurOpGP,inv5d_Xwrap); //wrapped 5D inverter
+
+  //Set the high mode sources to the correct form
+  A2AhighModeSourceXconj<A2Apolicies> Wsrc_impl;
+  Wsrc_impl.setHighModeSources(W); //do it now so it won't be called again internally
+  
+  //Compute with X-conjugate inverter
+  computeVWhigh(VX,W,Wsrc_impl,*eveci_low,highmode_compute_1fwrap,1);
+
+  //Compute with G-parity inverter
+  A2AhighModeSourceOriginal<A2Apolicies> Wsrc_impl_GP; //no rotation, inversion on unmodified source
+  computeVWhigh(VGP,W,Wsrc_impl_GP,*eveci_low,highmode_compute_2f,1);
+
+  //Compare the V vectors
+  int N =  VGP.getNmodes();
+  assert(VX.getNmodes() == N);
+
+  StandardIndexDilution stdidx(W.getArgs());  
+  int dhit,dtblock,dspin_color,dflavor,dspin,dcolor;
+
+  for(int i=0;i<N;i++){
+    auto const & mode_X = VX.getMode(i);
+    auto const & mode_GP = VGP.getMode(i);
+    
+    if(i<a2a_args.nl){
+      std::cout << "Testing low mode " << i << std::endl;
+    }else{
+      int h = i - a2a_args.nl;
+      stdidx.indexUnmap(h,dhit,dtblock,dspin_color,dflavor);  
+      dspin = dspin_color / 3; //c+3*s
+      dcolor = dspin_color % 3;
+      std::cout << "Testing high mode " << h << ": hit=" << dhit << " tblock=" << dtblock << " spin=" << dspin << " color=" << dcolor << " flavor=" << dflavor << std::endl;
+    }
+    assert( mode_X.equals(mode_GP,1e-5,true));
+  }
+
+  std::cout << "testXconjWsrcFull passed" << std::endl;
+}
 
 
 CPS_END_NAMESPACE
