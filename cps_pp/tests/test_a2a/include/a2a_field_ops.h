@@ -626,7 +626,7 @@ void testXconjWsrcPostOp(typename A2Apolicies::FgridGFclass &lat){
   std::cout << "Starting testXconjWsrcPostOp" << std::endl;
   assert(GJP.Gparity());
 
-  int nl = 0; //10
+  int nl = 10;
   A2AArg a2a_args;
   a2a_args.nl = nl;
   a2a_args.nhits = 1;
@@ -1014,6 +1014,144 @@ void testXconjWsrcFull(typename A2Apolicies::FgridGFclass &lattice){
 
   std::cout << "testXconjWsrcFull passed" << std::endl;
 }
+
+
+
+
+//Demonstrate the A2A propagator with the new W source form satisfies the complex conjugate relationship
+//even for 1 hit
+template<typename A2Apolicies>
+void testXconjWsrcCConjReln(typename A2Apolicies::FgridGFclass &lattice){
+  std::cout << "Starting testXconjWsrcCConjReln" << std::endl;
+  assert(GJP.Gparity());
+
+  typedef typename A2Apolicies::GridFermionField Field2f;
+  typedef typename A2Apolicies::GridXconjFermionField Field1f;
+
+  typedef typename A2Apolicies::GridFermionFieldF Field2fF;
+  typedef typename A2Apolicies::GridXconjFermionFieldF Field1fF;
+
+  typedef typename A2Apolicies::GridDirac Dirac2f;
+  typedef typename A2Apolicies::GridDiracXconj Dirac1f;
+  
+  Grid::GridCartesian *UGrid = lattice.getUGrid();
+  Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
+  Grid::GridCartesian *FGrid = lattice.getFGrid();
+  Grid::GridRedBlackCartesian *FrbGrid = lattice.getFrbGrid();
+  Grid::GridRedBlackCartesian *FrbGridF = lattice.getFrbGridF();
+  Grid::LatticeGaugeFieldD *Umu = lattice.getUmu();
+
+  double b = lattice.get_mob_b();
+  double c = b - 1.;   //b-c = 1
+  double M5 = GJP.DwfHeight();
+
+  double mass = 0.01;
+
+  typename Dirac2f::ImplParams params_gp;
+  lattice.SetParams(params_gp);
+
+  typename Dirac1f::ImplParams params_x;
+  params_x.twists = params_gp.twists;
+  params_x.boundary_phase = 1.0;
+
+  //Don't need eigenvectors for 5D solves as we setup the guess at the same time as computing the low-mode contribution
+  EvecInterfaceMixedPrecNone<Field2f,Field2fF> eveci2f_none(FrbGrid,FrbGridF);
+  EvecInterfaceMixedPrecNone<Field1f,Field1fF> eveci1f_none(FrbGrid,FrbGridF);  
+
+  Dirac1f actionX(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c, params_x);
+  Dirac2f actionGP(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c, params_gp);
+
+  A2ASchurOriginalOperatorImpl<Dirac2f> SchurOpGP(actionGP);
+  A2ASchurOriginalOperatorImpl<Dirac1f> SchurOpX(actionX);
+
+  //We don't do the initial deflation as the high-mode compute implementation used here will set the 
+  A2Ainverter5dCG<Field1f> inv5d_X(SchurOpX.getLinOp(),eveci1f_none,1e-8,10000);  inv5d_X.enableInitialDeflation(false);
+  A2Ainverter5dXconjWrapper<Field2f> inv5d_Xwrap(inv5d_X,eveci2f_none,true);  inv5d_Xwrap.enableInitialDeflation(false);
+
+  typedef typename A2AvectorW<A2Apolicies>::FieldInputParamType FieldParams;  
+  setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
+
+  A2AArg a2a_args;
+  a2a_args.nl = 10;
+  a2a_args.nhits = 1;
+  a2a_args.rand_type = UONE;
+  a2a_args.src_width = 1;
+
+  A2AvectorW<A2Apolicies> W(a2a_args,p.params);
+  A2AvectorV<A2Apolicies> V(a2a_args,p.params);
+  
+  //Use some random eigenvectors for the low-mode contribution
+  LancArg lanc_arg;
+  lanc_arg.mass = 0.01;
+  lanc_arg.stop_rsd = 1e-08;
+  lanc_arg.N_true_get = 10;
+  GridXconjLanczosDoubleConvSingle<A2Apolicies> lancGP; //we need eigenvectors that maintain the complex-conjugate symmetry of the Dirac operator (real G-parity evecs would also satisfy)
+  lancGP.randomizeEvecs(lanc_arg,lattice);
+  auto eveci_low = lancGP.createInterface();
+
+  A2AhighModeComputeSchurPreconditioned<Dirac2f> highmode_compute_1fwrap(SchurOpGP,inv5d_Xwrap); //wrapped 5D inverter
+  A2AhighModeSourceXconj<A2Apolicies> Wsrc_impl;
+  computeVWhigh(V,W,Wsrc_impl,*eveci_low,highmode_compute_1fwrap,1);
+  
+  typedef typename A2Apolicies::ComplexType VectorComplexType;
+  typedef CPSspinColorFlavorMatrix<VectorComplexType> SCFmat;
+  typedef CPSmatrixField<SCFmat> SCFmatrixField;
+
+  typedef typename A2AvectorV<A2Apolicies>::FermionFieldType CPSfermionField;
+
+  SCFmatrixField prop(p.params);
+  StandardIndexDilution stdidx(a2a_args);
+
+  for(int hit=0;hit<stdidx.getNhits();hit++){
+    for(int tcol=0;tcol<stdidx.getNtBlocks();tcol++){
+      
+      for(int scol=0;scol<4;scol++){
+	for(int ccol=0;ccol<3;ccol++){
+	  for(int fcol=0;fcol<2;fcol++){
+	    const CPSfermionField & vv = V.getMode(a2a_args.nl + stdidx.indexMap(hit,tcol,ccol+3*scol,fcol) );
+	    
+#pragma omp parallel for
+	    for(size_t x=0;x<vv.nsites();x++){
+	      SCFmat &into = *prop.site_ptr(x);
+	      for(int frow=0;frow<2;frow++){
+		VectorComplexType const* from_base = vv.site_ptr(x,frow);
+		for(int srow=0;srow<4;srow++)
+		  for(int crow=0;crow<3;crow++)
+		    into(srow,scol)(crow,ccol)(frow,fcol) = *(from_base + crow + 3*srow);
+	      }
+	    }
+	  }
+	}
+      }
+      
+      SCFmatrixField propconj = cconj(prop);
+      //Xi = -i s2 X
+      //X = C g5
+      //C=-gY gT = gT gY
+      //CConj rel:   M = Xi M* Xi
+      
+      gr(propconj,3);
+      gr(propconj,1);
+      gr(propconj,-5);
+      pr(propconj,sigma2);
+      
+      gl(propconj,-5);
+      gl(propconj,1);
+      gl(propconj,3);
+      pl(propconj,sigma2);
+
+      timesMinusOne(propconj);
+      
+      SCFmatrixField diff = prop - propconj;
+
+      std::cout << "Check propagator cconj reln hit=" << hit << " tcol=" << tcol << " result=" << CPSmatrixFieldNorm2(diff) << " (expect 0)" << std::endl;
+
+    }//tcol
+  }//hit
+
+  std::cout << "testXconjWsrcCConjReln passed" << std::endl;
+}
+
 
 
 CPS_END_NAMESPACE

@@ -234,7 +234,13 @@ struct _grAx_r_scf_V{
   }
 };
 
-
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+struct _cconjV{
+  typedef VectorMatrixType OutputType;
+  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &in, const int lane) const{ 
+    cconj(out, in, lane);
+  }
+};
 
 template<typename VectorMatrixType>
 inline auto Trace(const CPSmatrixField<VectorMatrixType> &a)->decltype( unop_v(a, _trV<VectorMatrixType>()) ){
@@ -309,7 +315,11 @@ inline void TransposeColor(CPSmatrixField<CPSspinColorFlavorMatrix<ComplexType> 
   return TransposeOnIndex<1>(out, in);
 }
 
-
+//Complex conjugate
+template<typename VectorMatrixType>
+inline CPSmatrixField<VectorMatrixType> cconj(const CPSmatrixField<VectorMatrixType> &a){
+  return unop_v(a, _cconjV<VectorMatrixType>());
+}
 
 //Left multiplication by gamma matrix
 template<typename ComplexType>

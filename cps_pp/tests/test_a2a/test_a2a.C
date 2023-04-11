@@ -348,9 +348,10 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   ///if(1) test_gamma_CPS_vs_Grid();
 
   //if(1) testXconjWsrc<A2Apolicies_grid>(lattice);
-  if(1) testXconjWsrcPostOp<A2Apolicies_grid>(lattice);
+  //if(1) testXconjWsrcPostOp<A2Apolicies_grid>(lattice);
   //if(1) testXconjWsrcInverse<A2Apolicies_grid>(lattice);
-  if(1) testXconjWsrcFull<A2Apolicies_grid>(lattice);
+  //if(1) testXconjWsrcFull<A2Apolicies_grid>(lattice);
+  if(1) testXconjWsrcCConjReln<A2Apolicies_grid>(lattice);
 }
 
 

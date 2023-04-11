@@ -323,7 +323,29 @@ accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::typ
   _timespmI_SIMT<U, cps_square_matrix_mark>::timesMinusOne(out, in, lane);
 }
 
+////////////////////// COMPLEX CONJUGATE ////////////////////////////////////////
+template<typename T, typename Tclass>
+struct _cconj_SIMT{};
 
+template<typename T>
+struct _cconj_SIMT<T, no_mark>{
+  accelerator_inline static void doit(T &out, const T &in, int lane){
+    SIMT<T>::write(out, cps::cconj(SIMT<T>::read(in, lane)), lane);
+  }  
+};
+template<typename T>
+struct _cconj_SIMT<T,cps_square_matrix_mark>{
+  accelerator_inline static void doit(T &out, const T &in, int lane){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_cconj_SIMT<typename T::value_type, typename ClassifyMatrixOrNotMatrix<typename T::value_type>::type>::doit(out(i,j), in(i,j), lane);
+  }    
+};
+
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type cconj(U &out, const U &in, const int lane){
+  _cconj_SIMT<U, cps_square_matrix_mark>::doit(out, in, lane);
+}
 
 ////////////////////// PARTIAL TRACE ////////////////////////////////////////////////
 
