@@ -833,20 +833,14 @@ void testXconjWsrcInverse(typename A2Apolicies::FgridGFclass &lattice){
   params_x.twists = params_gp.twists;
   params_x.boundary_phase = 1.0;
 
-  //Don't need eigenvectors for 5D solves as we setup the guess at the same time as computing the low-mode contribution
-  EvecInterfaceMixedPrecNone<Field2f,Field2fF> eveci2f_none(FrbGrid,FrbGridF);
-  EvecInterfaceMixedPrecNone<Field1f,Field1fF> eveci1f_none(FrbGrid,FrbGridF);  
-
   Dirac1f actionX(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c, params_x);
   Dirac2f actionGP(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c, params_gp);
 
   A2ASchurOriginalOperatorImpl<Dirac2f> SchurOpGP(actionGP);
   A2ASchurOriginalOperatorImpl<Dirac1f> SchurOpX(actionX);
-
-  //We don't do the initial deflation as the high-mode compute implementation used here will set the 
-  A2Ainverter5dCG<Field2f> inv5d_GP(SchurOpGP.getLinOp(),eveci2f_none,1e-8,10000); inv5d_GP.enableInitialDeflation(false);
-  A2Ainverter5dCG<Field1f> inv5d_X(SchurOpX.getLinOp(),eveci1f_none,1e-8,10000);  inv5d_X.enableInitialDeflation(false);
-  A2Ainverter5dXconjWrapper<Field2f> inv5d_Xwrap(inv5d_X,eveci2f_none,true);  inv5d_Xwrap.enableInitialDeflation(false);
+  A2Ainverter5dCG<Field2f> inv5d_GP(SchurOpGP.getLinOp(),1e-8,10000);
+  A2Ainverter5dCG<Field1f> inv5d_X(SchurOpX.getLinOp(),1e-8,10000);
+  A2Ainverter5dXconjWrapper<Field2f> inv5d_Xwrap(inv5d_X,true);
 
   typedef typename A2AvectorW<A2Apolicies>::FieldInputParamType FieldParams;  
   setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
@@ -937,20 +931,15 @@ void testXconjWsrcFull(typename A2Apolicies::FgridGFclass &lattice){
   params_x.twists = params_gp.twists;
   params_x.boundary_phase = 1.0;
 
-  //Don't need eigenvectors for 5D solves as we setup the guess at the same time as computing the low-mode contribution
-  EvecInterfaceMixedPrecNone<Field2f,Field2fF> eveci2f_none(FrbGrid,FrbGridF);
-  EvecInterfaceMixedPrecNone<Field1f,Field1fF> eveci1f_none(FrbGrid,FrbGridF);  
-
   Dirac1f actionX(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c, params_x);
   Dirac2f actionGP(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c, params_gp);
 
   A2ASchurOriginalOperatorImpl<Dirac2f> SchurOpGP(actionGP);
   A2ASchurOriginalOperatorImpl<Dirac1f> SchurOpX(actionX);
 
-  //We don't do the initial deflation as the high-mode compute implementation used here will set the 
-  A2Ainverter5dCG<Field2f> inv5d_GP(SchurOpGP.getLinOp(),eveci2f_none,1e-8,10000); inv5d_GP.enableInitialDeflation(false);
-  A2Ainverter5dCG<Field1f> inv5d_X(SchurOpX.getLinOp(),eveci1f_none,1e-8,10000);  inv5d_X.enableInitialDeflation(false);
-  A2Ainverter5dXconjWrapper<Field2f> inv5d_Xwrap(inv5d_X,eveci2f_none,true);  inv5d_Xwrap.enableInitialDeflation(false);
+  A2Ainverter5dCG<Field2f> inv5d_GP(SchurOpGP.getLinOp(),1e-8,10000);
+  A2Ainverter5dCG<Field1f> inv5d_X(SchurOpX.getLinOp(),1e-8,10000);
+  A2Ainverter5dXconjWrapper<Field2f> inv5d_Xwrap(inv5d_X,true);
 
   typedef typename A2AvectorW<A2Apolicies>::FieldInputParamType FieldParams;  
   setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
@@ -1054,10 +1043,6 @@ void testXconjWsrcCConjReln(typename A2Apolicies::FgridGFclass &lattice){
   params_x.twists = params_gp.twists;
   params_x.boundary_phase = 1.0;
 
-  //Don't need eigenvectors for 5D solves as we setup the guess at the same time as computing the low-mode contribution
-  EvecInterfaceMixedPrecNone<Field2f,Field2fF> eveci2f_none(FrbGrid,FrbGridF);
-  EvecInterfaceMixedPrecNone<Field1f,Field1fF> eveci1f_none(FrbGrid,FrbGridF);  
-
   Dirac1f actionX(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c, params_x);
   Dirac2f actionGP(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c, params_gp);
 
@@ -1065,8 +1050,8 @@ void testXconjWsrcCConjReln(typename A2Apolicies::FgridGFclass &lattice){
   A2ASchurOriginalOperatorImpl<Dirac1f> SchurOpX(actionX);
 
   //We don't do the initial deflation as the high-mode compute implementation used here will set the 
-  A2Ainverter5dCG<Field1f> inv5d_X(SchurOpX.getLinOp(),eveci1f_none,1e-8,10000);  inv5d_X.enableInitialDeflation(false);
-  A2Ainverter5dXconjWrapper<Field2f> inv5d_Xwrap(inv5d_X,eveci2f_none,true);  inv5d_Xwrap.enableInitialDeflation(false);
+  A2Ainverter5dCG<Field1f> inv5d_X(SchurOpX.getLinOp(),1e-8,10000);
+  A2Ainverter5dXconjWrapper<Field2f> inv5d_Xwrap(inv5d_X,true);
 
   typedef typename A2AvectorW<A2Apolicies>::FieldInputParamType FieldParams;  
   setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;

@@ -19,28 +19,28 @@ public:
   virtual ~A2Ainverter5dBase(){}
 };
 
-//Base class for 5D deflated multi-src inverters
+//A wrapper implementation that performs an initial deflation given an EvecInterface
 template<typename _GridFermionFieldD>
-class A2AdeflatedInverter5dBase: public A2Ainverter5dBase<_GridFermionFieldD>{
+class A2AdeflatedInverter5dWrapper: public A2Ainverter5dBase<_GridFermionFieldD>{
 public:
   typedef _GridFermionFieldD GridFermionFieldD;
 private:
+  const A2Ainverter5dBase<GridFermionFieldD> &inverter;
   const EvecInterface<GridFermionFieldD> &evecs;
-  bool do_deflate; //control whether the initial deflation (to produce the guess) is performed or not
-protected:
-  void deflate(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const{
-    if(do_deflate) evecs.deflatedGuessD(out, in);
-  }
+
 public:
-  A2AdeflatedInverter5dBase(const EvecInterface<GridFermionFieldD> &evecs): evecs(evecs), do_deflate(true){}
+  A2AdeflatedInverter5dWrapper(const EvecInterface<GridFermionFieldD> &evecs, const A2Ainverter5dBase<GridFermionFieldD> &inverter): evecs(evecs), inverter(inverter){}
 
-  void enableInitialDeflation(bool val){ do_deflate = val; }
-
-  bool doInitialDeflation() const{ return do_deflate; }
+  void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{ 
+    std::cout << "A2AdeflatedInverter5dWrapper deflating " << in.size() << " fields" << std::endl;
+    evecs.deflatedGuessD(out, in); //note this discards the input value of 'out'
+    inverter.invert5Dto5D(out,in);
+  }
+  
 };
 
 template<typename _GridFermionFieldD>
-class A2Ainverter5dCG: public A2AdeflatedInverter5dBase<_GridFermionFieldD>{
+class A2Ainverter5dCG: public A2Ainverter5dBase<_GridFermionFieldD>{
 public:
   typedef _GridFermionFieldD GridFermionFieldD;
 private:
@@ -48,12 +48,11 @@ private:
   Grid::ConjugateGradient<GridFermionFieldD> cg;
 public:
   
-  A2Ainverter5dCG(Grid::LinearOperatorBase<GridFermionFieldD> &LinOp, const EvecInterface<GridFermionFieldD> &evecs, double tol, int maxits): LinOp(LinOp), cg(tol,maxits), A2AdeflatedInverter5dBase<_GridFermionFieldD>(evecs){}
+  A2Ainverter5dCG(Grid::LinearOperatorBase<GridFermionFieldD> &LinOp, double tol, int maxits): LinOp(LinOp), cg(tol,maxits){}
 
   //Invert 5D source -> 5D solution
   void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
     assert(out.size() == in.size());
-    this->deflate(out,in);
     Grid::ConjugateGradient<GridFermionFieldD> &cg_ = const_cast<Grid::ConjugateGradient<GridFermionFieldD> &>(cg); //grr
     Grid::LinearOperatorBase<GridFermionFieldD> &LinOp_ = const_cast<Grid::LinearOperatorBase<GridFermionFieldD> &>(LinOp); //grr
 
@@ -63,7 +62,7 @@ public:
 };
 
 template<typename _GridFermionFieldD, typename _GridFermionFieldF>
-class A2Ainverter5dReliableUpdateCG: public A2AdeflatedInverter5dBase<_GridFermionFieldD>{
+class A2Ainverter5dReliableUpdateCG: public A2Ainverter5dBase<_GridFermionFieldD>{
 public:
   typedef _GridFermionFieldD GridFermionFieldD;
   typedef _GridFermionFieldF GridFermionFieldF;
@@ -74,14 +73,13 @@ private:
   Grid::ConjugateGradientReliableUpdate<GridFermionFieldD,GridFermionFieldF> cg;
 public:
   A2Ainverter5dReliableUpdateCG(Grid::LinearOperatorBase<GridFermionFieldD> &LinOpD, Grid::LinearOperatorBase<GridFermionFieldF> &LinOpF,
-				const EvecInterface<GridFermionFieldD> &evecs, Grid::GridBase* singlePrecGrid,
+				Grid::GridBase* singlePrecGrid,
 				double tol, int maxits, double delta):
-    LinOpD(LinOpD), LinOpF(LinOpF), singlePrecGrid(singlePrecGrid), cg(tol,maxits,delta,singlePrecGrid,LinOpF,LinOpD), A2AdeflatedInverter5dBase<_GridFermionFieldD>(evecs){}
+    LinOpD(LinOpD), LinOpF(LinOpF), singlePrecGrid(singlePrecGrid), cg(tol,maxits,delta,singlePrecGrid,LinOpF,LinOpD){}
 
   //Invert 5D source -> 5D solution
   void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
     assert(out.size() == in.size());
-    this->deflate(out,in);
     Grid::ConjugateGradientReliableUpdate<GridFermionFieldD,GridFermionFieldF> &cg_ = const_cast<Grid::ConjugateGradientReliableUpdate<GridFermionFieldD,GridFermionFieldF> &>(cg); //grr
     for(int i=0;i<in.size();i++)
       cg_(in[i], out[i]);
@@ -90,7 +88,7 @@ public:
 
 
 template<typename _GridFermionFieldD, typename _GridFermionFieldF>
-class A2Ainverter5dMixedPrecCG: public A2AdeflatedInverter5dBase<_GridFermionFieldD>{
+class A2Ainverter5dMixedPrecCG: public A2Ainverter5dBase<_GridFermionFieldD>{
 public:
   typedef _GridFermionFieldD GridFermionFieldD;
   typedef _GridFermionFieldF GridFermionFieldF;
@@ -99,33 +97,43 @@ private:
   Grid::LinearOperatorBase<GridFermionFieldF> & LinOpF;
   Grid::GridBase* singlePrecGrid;
   Grid::MixedPrecisionConjugateGradient<GridFermionFieldD,GridFermionFieldF> mCG;
-  EvecInterfaceSinglePrecGuesser<GridFermionFieldF,GridFermionFieldD> guesser;
+  EvecInterfaceSinglePrecGuesser<GridFermionFieldF,GridFermionFieldD> *guesser;
 public:
+  //Version with no internal deflation upon restart
+  A2Ainverter5dMixedPrecCG(Grid::LinearOperatorBase<GridFermionFieldD> &LinOpD, Grid::LinearOperatorBase<GridFermionFieldF> &LinOpF,
+			   Grid::GridBase* singlePrecGrid,
+			   double tol, int maxits, double inner_tol):
+    LinOpD(LinOpD), LinOpF(LinOpF), singlePrecGrid(singlePrecGrid), 
+    mCG(tol, maxits, 50, singlePrecGrid, LinOpF, LinOpD),  guesser(nullptr){
+    mCG.InnerTolerance = inner_tol;
+  }
+  //This version uses the evecs to deflate upon restart
   A2Ainverter5dMixedPrecCG(Grid::LinearOperatorBase<GridFermionFieldD> &LinOpD, Grid::LinearOperatorBase<GridFermionFieldF> &LinOpF,
 			   const EvecInterface<GridFermionFieldD> &evecs, Grid::GridBase* singlePrecGrid,
 			   double tol, int maxits, double inner_tol):
-    LinOpD(LinOpD), LinOpF(LinOpF), singlePrecGrid(singlePrecGrid), 
-    mCG(tol, maxits, 50, singlePrecGrid, LinOpF, LinOpD),
-    guesser(evecs, singlePrecGrid), A2AdeflatedInverter5dBase<_GridFermionFieldD>(evecs){
-
-    mCG.useGuesser(guesser);
-    mCG.InnerTolerance = inner_tol;
+    A2Ainverter5dMixedPrecCG(LinOpD,LinOpF,singlePrecGrid,tol,maxits,inner_tol)
+  {
+    guesser = new EvecInterfaceSinglePrecGuesser<GridFermionFieldF,GridFermionFieldD>(evecs, singlePrecGrid);
+    mCG.useGuesser(*guesser);
   }
 
   //Invert 5D source -> 5D solution
   void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
     assert(out.size() == in.size());
-    this->deflate(out,in);
     Grid::MixedPrecisionConjugateGradient<GridFermionFieldD,GridFermionFieldF> &mCG_ = const_cast<Grid::MixedPrecisionConjugateGradient<GridFermionFieldD,GridFermionFieldF> &>(mCG); //grr
     for(int i=0;i<in.size();i++)
       mCG_(in[i], out[i]);
+  }
+
+  ~A2Ainverter5dMixedPrecCG(){
+    if(guesser) delete guesser;
   }
 };
 
 
 
 template<typename _GridFermionFieldD, typename _GridFermionFieldF>
-class A2Ainverter5dReliableUpdateSplitCG: public A2AdeflatedInverter5dBase<_GridFermionFieldD>{
+class A2Ainverter5dReliableUpdateSplitCG: public A2Ainverter5dBase<_GridFermionFieldD>{
 public:
   typedef _GridFermionFieldD GridFermionFieldD;
   typedef _GridFermionFieldF GridFermionFieldF;
@@ -140,19 +148,16 @@ private:
   int Nsplit; //number of solves that can be performed in parallel
 public:
   A2Ainverter5dReliableUpdateSplitCG(Grid::LinearOperatorBase<GridFermionFieldD> &LinOpD_subgrid, Grid::LinearOperatorBase<GridFermionFieldF> &LinOpF_subgrid,
-				     const EvecInterface<GridFermionFieldD> &evecs_fullgrid, 
 				     Grid::GridBase* doublePrecGrid_subgrid, Grid::GridBase* singlePrecGrid_subgrid, int Nsplit,
 				     double tol, int maxits, double delta):
     LinOpD_subgrid(LinOpD_subgrid), LinOpF_subgrid(LinOpF_subgrid),
     doublePrecGrid_subgrid(doublePrecGrid_subgrid), singlePrecGrid_subgrid(singlePrecGrid_subgrid), Nsplit(Nsplit),
-    cg_subgrid(tol,maxits,delta,singlePrecGrid_subgrid,LinOpF_subgrid,LinOpD_subgrid), A2AdeflatedInverter5dBase<_GridFermionFieldD>(evecs_fullgrid){}
+    cg_subgrid(tol,maxits,delta,singlePrecGrid_subgrid,LinOpF_subgrid,LinOpD_subgrid){}
 
   //Invert 5D source -> 5D solution
   void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
     assert(out.size() == in.size());
     assert(in.size() >= 1);
-    this->deflate(out,in);
-
     std::cout << Grid::GridLogMessage << "Doing split Grid solve with " << in.size() << " sources and " << Nsplit << " split grids" << std::endl;
 
     Grid::ConjugateGradientReliableUpdate<GridFermionFieldD,GridFermionFieldF> &cg_subgrid_ = const_cast<Grid::ConjugateGradientReliableUpdate<GridFermionFieldD,GridFermionFieldF> &>(cg_subgrid); //grr
@@ -200,7 +205,7 @@ public:
 //NOTE: the deflation (if enabled) will be performed prior to converting the src/sol to an X-conj field
 //so the inner solver should not do the deflation
 template<typename _GridFermionFieldD>
-class A2Ainverter5dXconjWrapper: public A2AdeflatedInverter5dBase<_GridFermionFieldD>{
+class A2Ainverter5dXconjWrapper: public A2Ainverter5dBase<_GridFermionFieldD>{
 public:
   typedef _GridFermionFieldD GridFermionFieldD;
   typedef decltype( Grid::PeekIndex<GparityFlavourIndex>( *( (GridFermionFieldD*)nullptr), 0) ) GridXconjFermionFieldD;
@@ -212,7 +217,7 @@ private:
 public:
   //if check_Xconj is enabled, the sources will be checked as being in X-conjugate form
   //NOTE: We do *not* by default check the input fields are X-conjugate! Please use wisely
-  A2Ainverter5dXconjWrapper(const A2Ainverter5dBase<GridXconjFermionFieldD> &inner_inv, const EvecInterface<GridFermionFieldD> &evecs, bool check_Xconj = false): inner_inv(inner_inv), A2AdeflatedInverter5dBase<_GridFermionFieldD>(evecs), check_Xconj(check_Xconj){}
+  A2Ainverter5dXconjWrapper(const A2Ainverter5dBase<GridXconjFermionFieldD> &inner_inv,  bool check_Xconj = false): inner_inv(inner_inv), check_Xconj(check_Xconj){}
 
   const Grid::Gamma & Xmatrix() const{
     static Grid::Gamma C = Grid::Gamma(Grid::Gamma::Algebra::MinusGammaY) * Grid::Gamma(Grid::Gamma::Algebra::GammaT);
@@ -228,8 +233,6 @@ public:
     int N = in.size();
     Grid::GridBase* grid = in[0].Grid();
 
-    this->deflate(out,in);
-    
     std::vector<GridXconjFermionFieldD> outX(N,grid);
     std::vector<GridXconjFermionFieldD> inX(N,grid);
     for(int i=0;i<N;i++){
