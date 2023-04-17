@@ -3,7 +3,6 @@
 
 #include "CPSfield.h"
 #include <alg/a2a/lattice/spin_color_matrices.h>
-#include <alg/a2a/lattice/spin_color_matrices_SIMT.h>
 
 //CPSfields of SIMD-vectorized matrices and associated functionality
 

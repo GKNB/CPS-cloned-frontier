@@ -183,9 +183,20 @@ inline std::complex<double> convertComplexD(const Grid::vComplexF &what){
 #endif
 
 
-
-
-
+template<typename T>
+accelerator_inline void CPSsetZero(T &what){
+  what = 0.;
+}
+#ifdef USE_GRID
+template<>
+accelerator_inline void CPSsetZero(Grid::vComplexD &what){
+  zeroit(what);
+}
+template<>
+accelerator_inline void CPSsetZero(Grid::vComplexF &what){
+  zeroit(what);
+}
+#endif
 
 CPS_END_NAMESPACE
 
