@@ -153,7 +153,7 @@ struct _gl_r_V{
   _gl_r_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinMatrix<ComplexType> &out, const CPSspinMatrix<ComplexType> &in, const int lane) const{ 
-    gl_r<gl_spinMatrixIterator<ComplexType> >(out, in, dir, lane);
+    gl_r(out, in, dir, lane);
   }
 };
 template<typename ComplexType>
@@ -163,7 +163,7 @@ struct _gl_r_scf_V{
   _gl_r_scf_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &out, const CPSspinColorFlavorMatrix<ComplexType> &in, const int lane) const{ 
-    gl_r<gl_spinColorFlavorMatrixIterator<ComplexType> >(out, in, dir, lane);
+    gl_r(out, in, dir, lane);
   }
 };
 
@@ -174,7 +174,7 @@ struct _gr_r_V{
   _gr_r_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinMatrix<ComplexType> &out, const CPSspinMatrix<ComplexType> &in, const int lane) const{ 
-    gr_r<gl_spinMatrixIterator<ComplexType> >(out, in, dir, lane);
+    gr_r(out, in, dir, lane);
   }
 };
 template<typename ComplexType>
@@ -184,7 +184,7 @@ struct _gr_r_scf_V{
   _gr_r_scf_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &out, const CPSspinColorFlavorMatrix<ComplexType> &in, const int lane) const{ 
-    gr_r<gl_spinColorFlavorMatrixIterator<ComplexType> >(out, in, dir, lane);
+    gr_r(out, in, dir, lane);
   }
 };
 
@@ -197,7 +197,7 @@ struct _glAx_r_V{
   _glAx_r_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinMatrix<ComplexType> &out, const CPSspinMatrix<ComplexType> &in, const int lane) const{ 
-    glAx_r<gl_spinMatrixIterator<ComplexType> >(out, in, dir, lane);
+    glAx_r(out, in, dir, lane);
   }
 };
 template<typename ComplexType>
@@ -207,7 +207,7 @@ struct _glAx_r_scf_V{
   _glAx_r_scf_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &out, const CPSspinColorFlavorMatrix<ComplexType> &in, const int lane) const{ 
-    glAx_r<gl_spinColorFlavorMatrixIterator<ComplexType> >(out, in, dir, lane);
+    glAx_r(out, in, dir, lane);
   }
 };
 
@@ -219,7 +219,7 @@ struct _grAx_r_V{
   _grAx_r_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinMatrix<ComplexType> &out, const CPSspinMatrix<ComplexType> &in, const int lane) const{ 
-    grAx_r<gl_spinMatrixIterator<ComplexType> >(out, in, dir, lane);
+    grAx_r(out, in, dir, lane);
   }
 };
 template<typename ComplexType>
@@ -229,7 +229,7 @@ struct _grAx_r_scf_V{
   _grAx_r_scf_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &out, const CPSspinColorFlavorMatrix<ComplexType> &in, const int lane) const{ 
-    grAx_r<gl_spinColorFlavorMatrixIterator<ComplexType> >(out, in, dir, lane);
+    grAx_r(out, in, dir, lane);
   }
 };
 
@@ -403,7 +403,7 @@ struct _gl_r_scf_V_2d{
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &out, const CPSspinColorFlavorMatrix<ComplexType> &in, const int widx, const int lane) const{
     int ffcc = widx % 36;
     int s2 = widx / 36;
-    gl_r<gl_spinColorFlavorMatrixIterator<ComplexType> >(out, in, dir, s2, ffcc, lane);
+    gl_r(out, in, dir, s2, ffcc, lane);
   }
 };
 template<typename ComplexType>
@@ -417,7 +417,7 @@ struct _glAx_r_scf_V_2d{
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &out, const CPSspinColorFlavorMatrix<ComplexType> &in, const int widx, const int lane) const{
     int ffcc = widx % 36;
     int s2 = widx / 36;
-    glAx_r<gl_spinColorFlavorMatrixIterator<ComplexType> >(out, in, dir, s2, ffcc, lane);
+    glAx_r(out, in, dir, s2, ffcc, lane);
   }
 };
 
@@ -433,7 +433,7 @@ struct _gr_r_scf_V_2d{
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &out, const CPSspinColorFlavorMatrix<ComplexType> &in, const int widx, const int lane) const{
     int ffcc = widx % 36;
     int s1 = widx / 36;
-    gr_r<gl_spinColorFlavorMatrixIterator<ComplexType> >(out, in, dir, s1, ffcc, lane);
+    gr_r(out, in, dir, s1, ffcc, lane);
   }
 };
 template<typename ComplexType>
@@ -447,7 +447,7 @@ struct _grAx_r_scf_V_2d{
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &out, const CPSspinColorFlavorMatrix<ComplexType> &in, const int widx, const int lane) const{
     int ffcc = widx % 36;
     int s1 = widx / 36;
-    grAx_r<gl_spinColorFlavorMatrixIterator<ComplexType> >(out, in, dir, s1, ffcc, lane);
+    grAx_r(out, in, dir, s1, ffcc, lane);
   }
 };
 
@@ -652,7 +652,7 @@ struct _gl_V{
   _gl_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinMatrix<ComplexType> &in, const int lane) const{ 
-    gl<gl_spinMatrixIterator<ComplexType> >(in, dir, lane);
+    gl(in, dir, lane);
   }
 };
 template<typename ComplexType>
@@ -661,7 +661,7 @@ struct _gl_scf_V{
   _gl_scf_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &in, const int lane) const{ 
-    gl<gl_spinColorFlavorMatrixIterator<ComplexType> >(in, dir, lane);
+    gl(in, dir, lane);
   }
 };
 
@@ -671,7 +671,7 @@ struct _gr_V{
   _gr_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinMatrix<ComplexType> &in, const int lane) const{ 
-    gr<gl_spinMatrixIterator<ComplexType> >(in, dir, lane);
+    gr(in, dir, lane);
   }
 };
 template<typename ComplexType>
@@ -680,7 +680,7 @@ struct _gr_scf_V{
   _gr_scf_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &in, const int lane) const{ 
-    gr<gl_spinColorFlavorMatrixIterator<ComplexType> >(in, dir, lane);
+    gr(in, dir, lane);
   }
 };
 
@@ -691,7 +691,7 @@ struct _glAx_V{
   _glAx_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinMatrix<ComplexType> &in, const int lane) const{ 
-    glAx<gl_spinMatrixIterator<ComplexType> >(in, dir, lane);
+    glAx(in, dir, lane);
   }
 };
 template<typename ComplexType>
@@ -700,7 +700,7 @@ struct _glAx_scf_V{
   _glAx_scf_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &in, const int lane) const{ 
-    glAx<gl_spinColorFlavorMatrixIterator<ComplexType> >(in, dir, lane);
+    glAx(in, dir, lane);
   }
 };
 
@@ -710,7 +710,7 @@ struct _grAx_V{
   _grAx_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinMatrix<ComplexType> &in, const int lane) const{ 
-    grAx<gl_spinMatrixIterator<ComplexType> >(in, dir, lane);
+    grAx(in, dir, lane);
   }
 };
 template<typename ComplexType>
@@ -719,7 +719,7 @@ struct _grAx_scf_V{
   _grAx_scf_V(int dir): dir(dir){}
 
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &in, const int lane) const{ 
-    grAx<gl_spinColorFlavorMatrixIterator<ComplexType> >(in, dir, lane);
+    grAx(in, dir, lane);
   }
 };
 
@@ -730,7 +730,7 @@ struct _pl_V{
   _pl_V(const FlavorMatrixType type): type(type){}
 
   accelerator_inline void operator()(CPSflavorMatrix<ComplexType> &in, const int lane) const{ 
-    pl<pl_flavorMatrixIterator<ComplexType> >(in, type, lane);
+    pl(in, type, lane);
   }
 };
 template<typename ComplexType>
@@ -739,7 +739,7 @@ struct _pl_scf_V{
   _pl_scf_V(const FlavorMatrixType type): type(type){}
 
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &in, const int lane) const{ 
-    pl<pl_spinColorFlavorMatrixIterator<ComplexType> >(in, type, lane);
+    pl(in, type, lane);
   }
 };
 
@@ -749,7 +749,7 @@ struct _pr_V{
   _pr_V(const FlavorMatrixType type): type(type){}
 
   accelerator_inline void operator()(CPSflavorMatrix<ComplexType> &in, const int lane) const{ 
-    pr<pl_flavorMatrixIterator<ComplexType> >(in, type, lane);
+    pr(in, type, lane);
   }
 };
 template<typename ComplexType>
@@ -758,7 +758,7 @@ struct _pr_scf_V{
   _pr_scf_V(const FlavorMatrixType type): type(type){}
 
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &in, const int lane) const{ 
-    pr<pl_spinColorFlavorMatrixIterator<ComplexType> >(in, type, lane);
+    pr(in, type, lane);
   }
 };
 
