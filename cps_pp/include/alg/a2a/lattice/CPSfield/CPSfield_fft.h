@@ -38,7 +38,7 @@ void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, cons
 	 ){
   typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
   typedef typename CPSfieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarMapPol;
-  typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarMapPol, StandardAllocPolicy> ScalarFieldType;
+  typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarMapPol> ScalarFieldType;
 
   NullObject null_obj;
   ScalarFieldType tmp_in(null_obj);
@@ -205,6 +205,8 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   //Gather send data
   ComplexType* send_bufs[munodes];
   size_t send_buf_sizes[munodes];
+  CPSautoView(from_v,from,HostRead);
+  
   for(int i=0;i<munodes;i++){
     send_buf_sizes[i] = munodes_work[i] * munodesites * nf * SiteSize;
     send_bufs[i] = (ComplexType*)malloc_check( send_buf_sizes[i] * sizeof(ComplexType) );
@@ -225,7 +227,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 	for(int xmu=0;xmu<munodesites;xmu++){
 	  ComplexType* to = send_bufs[i] + SiteSize * (w + munodes_work[i]*( f + nf*xmu ) );  //with musite changing slowest
 	  coor_base[mu] = xmu;
-	  ComplexType const* frm = from.site_ptr(coor_base,f);
+	  ComplexType const* frm = from_v.site_ptr(coor_base,f);
 
 	  memcpy(to,frm,SiteSize*sizeof(ComplexType));
 	}
@@ -289,6 +291,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   fft_opt_mu_timings::get().scatter -= dclock();
 
   //Poke into output
+  CPSautoView(into_v,into,HostWrite);
   for(int i=0;i<munodes;i++){
 #pragma omp parallel for
     for(size_t w = 0; w < munodes_work[i]; w++){ //index of orthogonal site within workload for i'th node in mu direction
@@ -305,7 +308,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
       for(int f=0;f<nf;f++){
 	for(int xmu=0;xmu<munodesites;xmu++){	      
 	  coor_base[mu] = xmu;
-	  ComplexType* to = into.site_ptr(coor_base,f);
+	  ComplexType* to = into_v.site_ptr(coor_base,f);
 	  ComplexType const* frm = send_bufs[i] + SiteSize * (w + munodes_work[i]*( f + nf*xmu ) );
 	  if(!inverse_transform) memcpy(to,frm,SiteSize*sizeof(ComplexType));
 	  else for(int s=0;s<SiteSize;s++) to[s] = frm[s]/Lmu;
@@ -342,7 +345,7 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
   //if(!UniqueID()) printf("fft_opt converting Grid SIMD field to scalar field\n");
   typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
   typedef typename CPSfieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarDimPol;
-  typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol, StandardAllocPolicy> ScalarFieldType;
+  typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol> ScalarFieldType;
 
   NullObject null_obj;
   ScalarFieldType tmp_in(null_obj);

@@ -32,12 +32,12 @@ CPS_START_NAMESPACE
 struct GridSIMDSourcePolicies{
   typedef Grid::vComplexD ComplexType;
   typedef ThreeDSIMDPolicy<OneFlavorPolicy> MappingPolicy;
-  typedef Aligned128AllocPolicy AllocPolicy;
+  typedef UVMallocPolicy AllocPolicy;
 };
 struct GridSIMDSourcePoliciesSingle{
   typedef Grid::vComplexF ComplexType;
   typedef ThreeDSIMDPolicy<OneFlavorPolicy> MappingPolicy;
-  typedef Aligned128AllocPolicy AllocPolicy;
+  typedef UVMallocPolicy AllocPolicy;
 };
 #endif
 
@@ -48,7 +48,7 @@ struct StandardSourcePolicies{
   typedef cps::ComplexD ComplexType;
 #endif
   typedef SpatialPolicy<OneFlavorPolicy> MappingPolicy;
-  typedef StandardAllocPolicy AllocPolicy;
+  typedef UVMallocPolicy AllocPolicy;
 };
 
 //These typedefs are needed if Grid is being used at all even if the main program is not using SIMD vectorized data types
@@ -160,7 +160,7 @@ struct BaseGridPoliciesGparity{
 #define A2APOLICIES_TEMPLATE(NAME, IS_GPARITY_POLICY, BASE_GRID_PARAMS, ALLOCATOR_MACRO, MFSTORAGE_MACRO) \
 struct NAME{								\
  A2APOLICIES_SETUP(BASE_GRID_PARAMS)					\
- typedef StandardAllocPolicy AllocPolicy;				\
+ typedef UVMallocPolicy AllocPolicy;				\
  typedef CPSfermion4D<ComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType; \
  typedef CPScomplex4D<ComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> ComplexFieldType; \
  typedef FermionFieldType ScalarFermionFieldType; /*SIMD vectorized and scalar (non-vectorized) fields are the same*/ \
@@ -194,7 +194,7 @@ struct NAME{					\
  typedef Grid::vComplexD ComplexType;		\
  typedef Grid::vComplexD ComplexTypeD;		\
  typedef Grid::vComplexF ComplexTypeF;		\
- typedef Aligned128AllocPolicy AllocPolicy;	\
+ typedef UVMallocPolicy AllocPolicy;	\
  typedef Grid::ComplexD ScalarComplexType;	\
 									\
  typedef CPSfermion4D<ComplexType, FourDSIMDPolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType;	\

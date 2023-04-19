@@ -257,8 +257,8 @@ public:
   }
 
   //Lowest level of blocked matrix mult. Ideally this should fit in L1 cache.
-  template<typename InnerProduct, typename AccumMatrixType>
-  inline static void mult_kernel(AccumMatrixType & mf_accum_m, const InnerProduct &M, const int t,
+  template<typename InnerProductView, typename AccumMatrixType>
+  inline static void mult_kernel(AccumMatrixType & mf_accum_m, const InnerProductView &M_v, const int t,
 			  const int i0, const int iup, const int j0, const int jup, const int p0, const int pup,
 			  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> const *base_ptrs_i,
 			  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> const *base_ptrs_j,
@@ -277,7 +277,7 @@ public:
 	for(int p_3d = p0; p_3d < pup; p_3d++) {
 	  //prefetchAdvanceSite(lscf,rscf,site_offsets_i[i],site_offsets_j[j]);
 
-	  M(mf_accum,lscf,rscf,p_3d,t);	 
+	  M_v(mf_accum,lscf,rscf,p_3d,t);	 
 	  lscf.incrementPointers(site_offsets_i[i]);
 	  rscf.incrementPointers(site_offsets_j[j]);		  
 	}
@@ -286,8 +286,8 @@ public:
   }
   //Do a second layer of blocked dgemm to try to fit in the L1 cache
   //note the i0, iup, etc are the low and high range limits from the outer blocking
-  template<typename InnerProduct, typename AccumMatrixType>
-  inline static void inner_block_mult(AccumMatrixType &mf_accum_m, const InnerProduct &M, const int t,
+  template<typename InnerProductView, typename AccumMatrixType>
+  inline static void inner_block_mult(AccumMatrixType &mf_accum_m, const InnerProductView &M_v, const int t,
 			       const int i0, const int iup, const int j0, const int jup, const int p0, const int pup,
 			       SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> const *base_ptrs_i,
 			       SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> const *base_ptrs_j,
@@ -304,7 +304,7 @@ public:
 	for(int pp0=p0; pp0 < pup; pp0+=bpp){
 	  int ppup = std::min(pp0+bpp,pup);
 
-	  MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_m, M, t,
+	  MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_m, M_v, t,
 								   ii0, iiup, jj0, jjup, pp0, ppup,
 								   base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
 	}
@@ -530,6 +530,10 @@ struct mfComputeGeneral: public mfVectorPolicies{
   void compute(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
     this->setupPolicy(mf_t,l,M,r);
     
+    CPSautoView(l_v,l,HostRead);
+    CPSautoView(r_v,r,HostRead);
+    CPSautoView(M_v,M,HostRead);
+
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     if(!UniqueID()) printf("Starting A2AmesonField::compute (CPU,blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
 #ifdef KNL_OPTIMIZATIONS
@@ -629,13 +633,13 @@ struct mfComputeGeneral: public mfVectorPolicies{
 	thread_work(thr_tabwork, thr_taboff, nmodes_l, me, omp_get_num_threads());
 	for(int i=thr_taboff; i<thr_taboff+thr_tabwork;i++){ //i table
 	  modeIndexSet i_high_unmapped; if(i>=nl_l) mf_ref.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
-	  base_ptrs_i[i] = l.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl);
+	  base_ptrs_i[i] = l_v.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl);
 	  site_offsets_i[i] = std::pair<int,int>( l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) );
 	}
 	thread_work(thr_tabwork, thr_taboff, nmodes_r, me, omp_get_num_threads());
 	for(int j=thr_taboff; j<thr_taboff+thr_tabwork;j++){ //j table
 	  modeIndexSet j_high_unmapped; if(j>=nl_r) mf_ref.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
-	  base_ptrs_j[j] = r.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+	  base_ptrs_j[j] = r_v.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
 	  site_offsets_j[j] = std::pair<int,int>( r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) );
 	}
 #pragma omp barrier
@@ -654,11 +658,11 @@ struct mfComputeGeneral: public mfVectorPolicies{
 
 	      int thr_p0 = p0 + thr_poff;
 #ifdef USE_INNER_BLOCKING
-	      MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::inner_block_mult(mf_accum_thr[me], M, t,
+	      MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::inner_block_mult(mf_accum_thr[me], M_v, t,
 									    i0, iup, j0, jup, thr_p0, thr_p0+thr_pwork,
 									    base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
 #else
-	      MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_thr[me], M, t,
+	      MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_thr[me], M_v, t,
 								       i0, iup, j0, jup, thr_p0, thr_p0+thr_pwork,
 								       base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
 #endif

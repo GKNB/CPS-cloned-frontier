@@ -25,7 +25,7 @@ struct _mult_vMv_field_offload_fields{};
 template<typename mf_Policies>
 struct _mult_vMv_field_offload_fields<mf_Policies,1>{
   typedef CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> VectorMatrixType;
-  typedef CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, Aligned128AllocPolicy> PropagatorField;
+  typedef CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, typename mf_Policies::AllocPolicy> PropagatorField;
   static accelerator_inline typename mf_Policies::ComplexType & access(const int s1, const int c1, const int f1,
 							   const int s2, const int c2, const int f2,
 							   VectorMatrixType &M){
@@ -36,7 +36,7 @@ struct _mult_vMv_field_offload_fields<mf_Policies,1>{
 template<typename mf_Policies>
 struct _mult_vMv_field_offload_fields<mf_Policies,0>{
   typedef CPSspinMatrix<CPScolorMatrix<typename mf_Policies::ComplexType> > VectorMatrixType;
-  typedef CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, Aligned128AllocPolicy> PropagatorField;
+  typedef CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, typename mf_Policies::AllocPolicy> PropagatorField;
   static accelerator_inline typename mf_Policies::ComplexType & access(const int s1, const int c1, const int f1,
 							   const int s2, const int c2, const int f2,
 							   VectorMatrixType &M){
@@ -520,9 +520,9 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       for(int e: local_timeslices_v) local_timeslices.getHostWritePtr()[i++] = e;
     }
         
-    CPSautoView(l_v, l);
-    CPSautoView(r_v, r);
-    auto into_v = into.view(); //doesn't require free
+    CPSautoView(l_v, l, HostRead);
+    CPSautoView(r_v, r, HostRead);
+    auto into_v = into.view(HostWrite); //doesn't require free
 
     //This version is designed for l, r with the same temporal src_width
     int ntblocks = l.getNtBlocks();

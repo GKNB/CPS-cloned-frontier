@@ -23,47 +23,39 @@ inline void checkPolicyName(std::istream &file, const std::string &policy, const
   if(tmp != expect.str()){ printf("checkPolicyName expected \"%s\" got \"%s\"\n",expect.str().c_str(), tmp.c_str()); fflush(stdout); exit(-1); }
 }
 
-
-//AllocPolicy controls mem alloc
-class StandardAllocPolicy{
-protected:
-  inline static void _alloc(void** p, const size_t byte_size){
-    *p = smalloc("CPSfield", "CPSfield", "alloc" , byte_size);
-  }
-  inline static void _free(void* p){
-    sfree("CPSfield","CPSfield","free",p);
-  }
-
-  inline void writeParams(std::ostream &file) const{
-    writePolicyName(file, "ALLOCPOLICY", "StandardAllocPolicy");
-  }
-  inline void readParams(std::istream &file){
-    checkPolicyName(file, "ALLOCPOLICY", "StandardAllocPolicy");
-  }
-public:
-  enum { UVMenabled = 0 }; //doesnt' support UVM
-};
-class Aligned128AllocPolicy{
+class UVMallocPolicy{
   void* _ptr;
   size_t _byte_size;
 
 protected:
-  inline void _alloc(void** p, const size_t byte_size){
-    *p = managed_alloc_check(128,byte_size); //note CUDA ignores alignment
-    _ptr = *p;
+  inline void _alloc(const size_t byte_size){
+    _ptr = managed_alloc_check(128,byte_size); //note CUDA ignores alignment
     _byte_size = byte_size;
   }
-  inline static void _free(void* p){
-    managed_free(p);
+  inline void _free(){
+    if(_ptr) managed_free(_ptr);
   }
   inline void writeParams(std::ostream &file) const{
-    writePolicyName(file, "ALLOCPOLICY", "Aligned128AllocPolicy");
+    writePolicyName(file, "ALLOCPOLICY", "UVMallocPolicy");
   }
   inline void readParams(std::istream &file){
-    checkPolicyName(file, "ALLOCPOLICY", "Aligned128AllocPolicy");
+    checkPolicyName(file, "ALLOCPOLICY", "UVMallocPolicy");
+  }
+
+  inline void* _getPointer(ViewMode mode) const{
+    //Unified memory
+    return _ptr;
+  }
+
+  inline void _move(UVMallocPolicy &into){
+    into._ptr = _ptr;
+    into._byte_size = _byte_size;
+    _ptr = nullptr;
   }
   
 public: 
+  UVMallocPolicy(): _ptr(nullptr){}
+
   inline void deviceSetAdviseUVMreadOnly(const bool to) const{
     if(to) device_UVM_advise_readonly(_ptr, _byte_size);
     else device_UVM_advise_unset_readonly(_ptr, _byte_size);
@@ -71,84 +63,114 @@ public:
   
   enum { UVMenabled = 1 }; //supports UVM
 };
-class NullAllocPolicy{
+
+class ManualUVMallocPolicy{
+  void* _ptr;
+  size_t _byte_size;
 protected:
-  inline static void _alloc(void** p, const size_t byte_size){
-    *p = NULL;
+  inline void _alloc(const size_t byte_size){
+    _byte_size = byte_size; //only record size, do not a
   }
-  inline static void _free(void* p){
+  inline void _free(){
+    if(_ptr) managed_free(_ptr);
   }
 
+  inline void _move(ManualUVMallocPolicy &into){
+    into._ptr = _ptr;
+    into._byte_size = _byte_size;
+    _ptr = nullptr;
+  }
+public:
+  ManualUVMallocPolicy(): _ptr(nullptr){}
+
+  inline void* _getPointer(ViewMode mode) const{
+    //Unified memory
+    assert(_ptr);
+    return _ptr;
+  }
+
+  inline void allocField(){
+    if(!_ptr) _ptr = managed_alloc_check(128,_byte_size);    
+  }
+  inline void freeField(){
+    if(_ptr){ managed_free(_ptr); _ptr = nullptr; }
+  }
   inline void writeParams(std::ostream &file) const{
-    writePolicyName(file, "ALLOCPOLICY", "NullAllocPolicy");
+    writePolicyName(file, "ALLOCPOLICY", "ManualUVMallocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "ManualUVMallocPolicy");
+  }
+  enum { UVMenabled = 1 }; //supports UVM
+};
+
+//This allocator maintains a device-resident copy of the data that is synchronized automatically when required
+class ExplicitCopyAllocPolicy{
+  hostDeviceMirroredContainer<char> *_con;
+
+protected:
+  ExplicitCopyAllocPolicy(): _con(nullptr){}
+
+  inline void _alloc(const size_t byte_size){
+    assert(!_con);
+    _con = new hostDeviceMirroredContainer<char>(byte_size);
+  }
+  inline void _free(){
+    assert(_con);
+    delete _con;
+  }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "ExplicitCopyAllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "ExplicitCopyAllocPolicy");
+  }
+
+  inline void* _getPointer(ViewMode mode) const{
+    assert(_con);
+    switch(mode){
+    case HostRead:
+      return (void*)_con->getHostReadPtr();
+    case HostWrite:
+      return (void*)_con->getHostWritePtr();	
+    case DeviceRead:
+      return (void*)_con->getDeviceReadPtr();
+    case DeviceWrite:
+      return (void*)_con->getDeviceWritePtr();	
+    };
+  }
+  
+public: 
+  inline void deviceSetAdviseUVMreadOnly(const bool to) const{
+    assert(0);
+  }
+  
+  enum { UVMenabled = 0 }; //supports UVM
+};
+
+
+class NullAllocPolicy{
+protected:
+  inline void _alloc(const size_t byte_size){ }
+  inline void _free(){ }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "NullAlocPolicy");
   }
   inline void readParams(std::istream &file){
     checkPolicyName(file, "ALLOCPOLICY", "NullAllocPolicy");
   }
 
-public:
-  enum { UVMenabled = 0 }; //no data so copy is free
-};
-class ManualAllocPolicy{
-  void** ptr;
-  std::size_t bs;
-protected:
-  inline void _alloc(void** p, const size_t byte_size){
-    ptr = p; bs = byte_size; *p = NULL;
-  }
-  inline static void _free(void* p){
-    if(p!=NULL) sfree("CPSfield","CPSfield","free",p);
-  }
+  inline void* _getPointer(ViewMode mode){ return nullptr; }
 
-  inline void writeParams(std::ostream &file) const{
-    writePolicyName(file, "ALLOCPOLICY", "ManualAllocPolicy");
-  }
-  inline void readParams(std::istream &file){
-    checkPolicyName(file, "ALLOCPOLICY", "ManualAllocPolicy");
-  }
+  inline void _move(UVMallocPolicy &into){}
 
-public:
-  inline void allocField(){
-    if(*ptr == NULL)
-      *ptr = smalloc("CPSfield", "CPSfield", "alloc" , bs);
-  }
-  inline void freeField(){
-    if(*ptr != NULL){
-      sfree("CPSfield","CPSfield","free",*ptr);
-      *ptr = NULL;
-    }
-  }
-  enum { UVMenabled = 0 }; //doesnt' support UVM
-};
-class ManualAligned128AllocPolicy{
-  void** ptr;
-  std::size_t bs;
-protected:
-  inline void _alloc(void** p, const size_t byte_size){
-    ptr = p; bs = byte_size; *p = NULL;
-  }
-  inline static void _free(void* p){
-    if(p!=NULL) managed_free(p);
-  }
-public:
-  inline void allocField(){
-    if(*ptr == NULL)
-      *ptr = managed_alloc_check(128,bs);    
-  }
-  inline void freeField(){
-    if(*ptr != NULL){
-      managed_free(*ptr);
-      *ptr = NULL;
-    }
-  }
-  inline void writeParams(std::ostream &file) const{
-    writePolicyName(file, "ALLOCPOLICY", "ManualAligned128AllocPolicy");
-  }
-  inline void readParams(std::istream &file){
-    checkPolicyName(file, "ALLOCPOLICY", "ManualAligned128AllocPolicy");
-  }
+public: 
+
+  inline void deviceSetAdviseUVMreadOnly(const bool to) const{ }
+  
   enum { UVMenabled = 1 }; //supports UVM
 };
+
 
 
 //The FlavorPolicy allows the number of flavors to be fixed or 2/1 if Gparity/noGparity 

@@ -105,6 +105,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_omp(ResultsContainerType &result,
   
   Type4timings::timer().reset();
   Type4timings::timer().total -= dclock();
+
+  CPSautoView(vL_v,vL,HostRead);
+  CPSautoView(vH_v,vH,HostRead);
+  CPSautoView(wL_v,wL,HostRead);
+  CPSautoView(wH_v,wH,HostRead);
+
   SCFmat mix4_Gamma[2];
   mix4_Gamma[0].unit().pr(F0).gr(-5);
   mix4_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
@@ -126,7 +132,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_omp(ResultsContainerType &result,
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
 #ifndef DISABLE_TYPE4_SPLIT_VMV
-    std::vector<vMv_split_VWWV > mult_vMv_split_part1; //[tkidx in Lt/tstep]
+    std::vector<vMv_split_VWWV> mult_vMv_split_part1; //[tkidx in Lt/tstep]
     type4_mult_vMv_setup(mult_vMv_split_part1,mf_kaon,vL,vH,top_loc,tstep,Lt);
 
 # ifndef DISABLE_TYPE4_PRECOMPUTE
@@ -144,8 +150,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_omp(ResultsContainerType &result,
       //Construct part 2 (doesn't care about kaon timeslice):
       //vL(x_op) wL^dag(x_op)   or  vH(x_op) wH^dag(x_op)  (CK: should re-use these from type-3)
       SCFmat part2_L, part2_H;
-      mult(part2_L, vL, wL, xop3d_loc, top_loc, false, true);
-      mult(part2_H, vH, wH, xop3d_loc, top_loc, false, true);
+      mult(part2_L, vL_v, wL_v, xop3d_loc, top_loc, false, true);
+      mult(part2_H, vH_v, wH_v, xop3d_loc, top_loc, false, true);
       
       for(int t_K = 0; t_K < Lt; t_K += tstep){ //global times
 	int t_dis = modLt(top_glb - t_K, Lt); //distance between kaon and operator is the output time coordinate
@@ -155,7 +161,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_omp(ResultsContainerType &result,
 	SCFmat part1;
 
 #if defined(DISABLE_TYPE4_SPLIT_VMV)
-	mult(part1, vL, mf_kaon[t_K], vH, xop3d_loc, top_loc, false, true);
+	mult(part1, vL_v, mf_kaon[t_K], vH_v, xop3d_loc, top_loc, false, true);
 #elif defined(DISABLE_TYPE4_PRECOMPUTE)
 	mult_vMv_split_part1[t_K/tstep].contract(part1,xop3d_loc,false,true);
 #else

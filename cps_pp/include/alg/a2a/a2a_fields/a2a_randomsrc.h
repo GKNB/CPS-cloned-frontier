@@ -49,17 +49,19 @@ public:
 
     LRG.SetInterval(1, 0);
     size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
-    
+    ViewArray<typename ScalarComplexFieldType::View> views(HostWrite,tmp);
     for(size_t i = 0; i < sites*flavors; ++i) {
       int flav = i / sites;
       size_t st = i % sites;
       
       LRG.AssignGenerator(st,flav);
       for(int j = 0; j < nhits; ++j) {
-	FieldSiteType* p = tmp[j].site_ptr(st,flav);
+	FieldSiteType* p = views[j].site_ptr(st,flav);
 	RandomComplex<FieldSiteType>::rand(p,rand_type,FOUR_D);
       }
     }
+    views.free();
+
     into.setWh(tmp);
   }    
 
@@ -105,15 +107,19 @@ public:
 
     LRG.SetInterval(1, 0);
     size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
-    
+
+    ViewArray<typename ScalarComplexFieldType::View> views(HostWrite,tmp);
+
     for(size_t st = 0; st < sites; ++st) {
       LRG.AssignGenerator(st,0);
       for(int j = 0; j < nhits; ++j) {
-	FieldSiteType* p = tmp[j].site_ptr(st,0);
+	FieldSiteType* p = views[j].site_ptr(st,0);
 	RandomComplex<FieldSiteType>::rand(p,rand_type,FOUR_D);
-	*tmp[j].site_ptr(st,1) = Grid::conjugate(*p);
+	*views[j].site_ptr(st,1) = Grid::conjugate(*p);
       }
     }
+    views.free();
+
     into.setWh(tmp);
   }    
 

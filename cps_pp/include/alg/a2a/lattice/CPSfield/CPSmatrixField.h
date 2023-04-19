@@ -10,7 +10,7 @@ CPS_START_NAMESPACE
 
 //Definition of CPSmatrixField
 template<typename VectorMatrixType>
-using CPSmatrixField = CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, Aligned128AllocPolicy>;
+using CPSmatrixField = CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, UVMallocPolicy>;
 
 template<typename VectorMatrixType>
 double CPSmatrixFieldNorm2(const CPSmatrixField<VectorMatrixType> &f);

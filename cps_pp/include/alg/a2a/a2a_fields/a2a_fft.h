@@ -292,9 +292,14 @@ struct _W_invfft_impl{
 	postop_time += dclock()-dtime;
       }
       //Should give a multiple of the 12-component unit vector with 1 on index sc
+      {
+	CPSautoView(to_hit_v,to_hit,HostWrite);
+	CPSautoView(compress_v,(*compress),HostRead);
+
 #pragma omp parallel for
-      for(int i=0;i<to_hit.nfsites();i++)
-	*(to_hit.fsite_ptr(i)) = *(compress->fsite_ptr(i) + sc);
+	for(int i=0;i<to_hit.nfsites();i++)
+	  *(to_hit_v.fsite_ptr(i)) = *(compress_v.fsite_ptr(i) + sc);
+      }
 
       dtime = dclock();
       for(int ssc=0;ssc<12;ssc++) FFTfieldPolicy::actionInputHighMode(from, ssc + 12*hit); //free for all sc

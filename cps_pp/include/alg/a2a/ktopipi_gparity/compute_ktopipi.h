@@ -179,8 +179,8 @@ public:
   typedef typename AlignedVector<SCFmat>::type SCFmatVector;
   typedef CPSmatrixField<SCFmat> SCFmatrixField;
 
-  typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> ResultsContainerType;
-  typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> MixDiagResultsContainerType;
+  typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, Aligned128AllocPolicy> ResultsContainerType;
+  typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, Aligned128AllocPolicy> MixDiagResultsContainerType;
 
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> mf_WW;

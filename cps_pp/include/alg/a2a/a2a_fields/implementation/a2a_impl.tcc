@@ -167,7 +167,8 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
   const int lcl_src_twidth = tblock_lessthant_lcl - tblock_origt_lcl;
   
   const int src_size = src_layout[0]*src_layout[1]*src_layout[2]*lcl_src_twidth;  //size of source 3D*width slice in units of complex numbers  
-  
+  CPSautoView(into_v,into,HostWrite);
+  CPSautoView(wh_v,(*wh[hit]),HostRead);
 #pragma omp parallel for
   for(int i=0;i<src_size;i++){
     int x[4];
@@ -177,8 +178,8 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
     x[2] = rem % src_layout[2]; rem /= src_layout[2];
     x[3] = tblock_origt_lcl + rem;
 
-    TargetComplex *into_site = (TargetComplex*)(into.site_ptr(x,flavor) + spin_color);
-    mf_Complex const* from_site = (mf_Complex*)wh[hit]->site_ptr(x,flavor); //note same random numbers for each spin/color!
+    TargetComplex *into_site = (TargetComplex*)(into_v.site_ptr(x,flavor) + spin_color);
+    mf_Complex const* from_site = (mf_Complex*)wh_v.site_ptr(x,flavor); //note same random numbers for each spin/color!
     *into_site = *from_site;
   }
 }
@@ -190,11 +191,12 @@ void A2AvectorW<mf_Policies>::getSpinColorDilutedSource(FermionFieldType &into, 
   const char* fname = "getSpinColorDilutedSource(...)";
   
   into.zero();
-
+  CPSautoView(into_v,into,HostWrite);
+  CPSautoView(wh_v,(*wh[hit]),HostRead);
 #pragma omp parallel for
   for(int i=0;i<wh[hit]->nfsites();i++){ //same mapping, different site_size
-    FieldSiteType &into_site = *(into.fsite_ptr(i) + sc_id);
-    const FieldSiteType &from_site = *(wh[hit]->fsite_ptr(i));
+    FieldSiteType &into_site = *(into_v.fsite_ptr(i) + sc_id);
+    const FieldSiteType &from_site = *(wh_v.fsite_ptr(i));
     into_site = from_site;
   }
 }
@@ -248,8 +250,8 @@ struct _randomizeVWimpl<mf_Policies,grid_vector_complex_mark>{
   static inline void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
     typedef typename mf_Policies::FermionFieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarMappingPolicy;
   
-    typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, ScalarMappingPolicy, StandardAllocPolicy> ScalarFermionFieldType;
-    typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, ScalarMappingPolicy, StandardAllocPolicy> ScalarComplexFieldType;
+    typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, ScalarMappingPolicy, typename mf_Policies::AllocPolicy> ScalarFermionFieldType;
+    typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, ScalarMappingPolicy, typename mf_Policies::AllocPolicy> ScalarComplexFieldType;
   
     int nl = V.getNl();
     int nh = V.getNh(); //number of fully diluted high-mode indices

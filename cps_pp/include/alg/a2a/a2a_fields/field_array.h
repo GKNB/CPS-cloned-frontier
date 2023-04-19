@@ -31,29 +31,61 @@ public:
   class View{
     FieldView *v;
     size_t sz;
+
+    enum DataLoc { Host, Device };
+    DataLoc loc;
+    
+    void placeData(ViewMode mode, FieldView* host_views, size_t n){
+      freeData();
+      sz = n;
+      size_t byte_size = n*sizeof(FieldView);
+      if(mode == DeviceRead || mode == DeviceWrite){
+	v = (FieldView *)device_alloc_check(byte_size);
+	copy_host_to_device(v, host_views, byte_size);
+	loc = Device;
+      }else{
+	v = (FieldView *)malloc(byte_size);
+	memcpy(v,host_views,byte_size);
+	loc = Host;
+      }
+    }
+  
+    void freeData(){
+      if(v){
+	if(loc == Host){
+	  ::free(v);
+	}else{
+	  device_free(v);
+	}
+	
+      }
+      v=nullptr;
+      sz=0;
+    }
+
+
   public:
     size_t size() const{ return sz; }
 
     View(): v(nullptr), sz(0){}
-    View(const CPSfieldArray &a): View(){ assign(a); }
+    View(ViewMode mode, const CPSfieldArray &a): View(){ assign(mode,a); }
     View(const View &r) = default;
     View(View &&r) = default;
         
-    void assign(const CPSfieldArray &a){
+    void assign(ViewMode mode, const CPSfieldArray &a){
       if(v != nullptr) device_free(v); //could be reused
       
       size_t byte_size = a.size() * sizeof(FieldView);
-      v = (FieldView*)device_alloc_check(byte_size);
-      sz = a.size();
+      int n = a.size();
 
       FieldView* tmpv = (FieldView*)malloc(byte_size);
-      for(size_t i=0;i<sz;i++){
+      for(size_t i=0;i<n;i++){
   	assert(a[i].assigned());
-  	new (tmpv+i) FieldView(a[i]->view());
+  	new (tmpv+i) FieldView(a[i]->view(mode));
       }
-      copy_host_to_device(v, tmpv, byte_size);
+      placeData(mode,tmpv,n);
 
-      for(size_t i=0;i<sz;i++)
+      for(size_t i=0;i<n;i++)
   	tmpv[i].~FieldView();
       ::free(tmpv);
     }
@@ -66,7 +98,7 @@ public:
     accelerator_inline FieldView & operator[](const size_t i) const{ return v[i]; }
   };
 
-  View view() const{ return View(*this); }
+  View view(ViewMode mode) const{ return View(mode, *this); }
 
   //Free all memory
   void free(){

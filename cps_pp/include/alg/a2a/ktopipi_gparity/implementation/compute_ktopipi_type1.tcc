@@ -86,6 +86,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::generateRandomOffsets(std::vector<OneFl
       random_fields[tpi1] = new OneFlavorIntegerField(n);
       random_fields[tpi1]->zero();
     }
+    CPSautoView(r_v,(*random_fields[tpi1]),HostWrite);
 
     for(int t_lcl = 0; t_lcl < GJP.TnodeSites(); t_lcl++) {
       int t_op = t_lcl + GJP.TnodeSites() * GJP.TnodeCoor();
@@ -93,7 +94,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::generateRandomOffsets(std::vector<OneFl
 
       for(int i = 0; i < size_3d / xyzStep; i++){
 	int x = i*xyzStep + GJP.VolNodeSites()/GJP.TnodeSites()*t_lcl; //Generate in same order as Daiqian. He doesn't set the hypercube RNG so it uses whichever one was used last! I know this sucks.
-	*(random_fields[tpi1]->site_ptr(x)) = ((int)(LRG.Urand(FOUR_D) * xyzStep)) % xyzStep;
+	*(r_v.site_ptr(x)) = ((int)(LRG.Urand(FOUR_D) * xyzStep)) % xyzStep;
       }
     }
   }
@@ -104,12 +105,13 @@ void ComputeKtoPiPiGparity<mf_Policies>::generateRandomOffsets(std::vector<OneFl
 
     random_fields[t_pi1] = new OneFlavorIntegerField(n);
     random_fields[t_pi1]->zero();
-    
+    CPSautoView(r_v,(*random_fields[t_pi1]),HostWrite);
+
     for(int t=0;t<GJP.TnodeSites();t++){
       for(int i = 0; i < size_3d / xyzStep; i++){
 	int x = i*xyzStep + GJP.VolNodeSites()/GJP.TnodeSites()*t;
 	LRG.AssignGenerator(x);
-	*(random_fields[t_pi1]->site_ptr(x)) = ((int)(LRG.Urand(FOUR_D) * xyzStep)) % xyzStep;
+	*(r_v.site_ptr(x)) = ((int)(LRG.Urand(FOUR_D) * xyzStep)) % xyzStep;
       }
     }
   }
@@ -171,7 +173,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_mult_vMv_setup(vMv_split_VWVW &mu
 							      const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 							      const A2AvectorW<mf_Policies> & wL,
 							      const ModeContractionIndices<StandardIndexDilution,TimePackedIndexDilution> &i_ind_vw,
-							   const ModeContractionIndices<StandardIndexDilution,FullyPackedIndexDilution> &j_ind_vw,
+							      const ModeContractionIndices<StandardIndexDilution,FullyPackedIndexDilution> &j_ind_vw,
 							      const ModeContractionIndices<TimePackedIndexDilution,StandardIndexDilution> &j_ind_wv,
 							      const int top_loc, const int t_pi1, const int t_pi2, 
 							      const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], const std::vector<bool> &node_top_used){
@@ -360,6 +362,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_omp(ResultsContainerType result[]
       if(is_grid_vector_complex<typename mf_Policies::ComplexType>::value && xyzStep > 1) ERR.General("ComputeKtoPiPiGparity<mf_Policies>","type1","Random offset not implemented for Grid-vectorized fields\n");
       if(xyzStep > 1 && random_fields[t_pi1] == NULL) ERR.General("ComputeKtoPiPiGparity<mf_Policies>","type1","Random field not initialized for t_pi1=%d (got %p) on node %d\n",t_pi1,random_fields[t_pi1],UniqueID());
       OneFlavorIntegerField const* randoff = random_fields[t_pi1];
+      ViewAutoDestructWrapper<typename OneFlavorIntegerField::View> randoff_v_wrp;
+      if(xyzStep > 1) randoff_v_wrp.reset(new typename OneFlavorIntegerField::View(randoff->view(HostRead)));
 
       //Now loop over Q_i insertion location. Each node naturally has its own sublattice to work on. Thread over sites in usual way
       Type1timings::timer().contraction_time -= dclock();
@@ -367,7 +371,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_omp(ResultsContainerType result[]
       for(int xop3d_loc_base = 0; xop3d_loc_base < size_3d; xop3d_loc_base+=xyzStep){
 	int thread_id = omp_get_thread_num();
 
-	int dx = (xyzStep > 1 ? *(randoff->site_ptr(xop3d_loc_base+size_3d*top_loc)) : 0);
+	int dx = (xyzStep > 1 ? *(randoff_v_wrp->site_ptr(xop3d_loc_base+size_3d*top_loc)) : 0);
 	int xop3d_loc = xop3d_loc_base + dx;
 	assert(xop3d_loc < GJP.VolNodeSites()/GJP.TnodeSites());
 

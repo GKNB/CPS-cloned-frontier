@@ -144,6 +144,8 @@ struct hasFreeMethod<T, typename Void<decltype( ((T*)(NULL))->free() )>::type>{
   enum{ value = 1 };
 };
 
+enum ViewMode { HostRead, HostWrite, DeviceRead, DeviceWrite };
+
 //Because View classes cannot have non-trivial destructors, if the view requires a free it needs to be managed externally
 //This class calls free on the view (if it has a free method). It should be constructed after the view (and be destroyed before, which should happen automatically at the end of the scope)
 //Static methods are also provided to wrap the free call if not present
@@ -178,14 +180,48 @@ struct _viewDeallocator<ViewType,1>{
 template<typename ViewType>
 using viewDeallocator = _viewDeallocator<ViewType, hasFreeMethod<ViewType>::value>;  
 
-#define CPSautoView(ViewName, ObjName) \
-  auto ViewName = ObjName .view(); \
+#define CPSautoView(ViewName, ObjName, mode)		\
+  auto ViewName = ObjName .view(mode); \
   viewDeallocator<typename std::decay<decltype(ViewName)>::type> ViewName##_d(ViewName);
 
+//A class that contains a view. This should *not* be copied to the device, it merely holds the view and ensures the view is
+//freed upon destruction. This allows us to have views as class members that are destroyed when the instance is destroyed
+template<typename vtype>
+class ViewAutoDestructWrapper{
+public:
+  typedef vtype ViewType;
+private:
+  ViewType* v;
+public:
+  ViewAutoDestructWrapper(): v(nullptr){}
+  //Note, takes ownership of pointer!
+  ViewAutoDestructWrapper(ViewType *vin): v(vin){}
 
+  //Cannot be copied
+  ViewAutoDestructWrapper(const ViewAutoDestructWrapper &r) = delete;
+  //Can be moved
+  ViewAutoDestructWrapper(ViewAutoDestructWrapper &&r) = default;
 
+  void reset(ViewType *vin){
+    if(v){ 
+      viewDeallocator<ViewType>::free(*v);
+      delete v;
+    }
+    v = vin;
+  }   
 
+  ViewType & operator*(){ return *v; }
+  ViewType const & operator*() const{ return *v; }
+  ViewType* operator->(){ return v; }
+  ViewType const* operator->() const{ return v; }
 
+  ~ViewAutoDestructWrapper(){
+    if(v){ 
+      viewDeallocator<ViewType>::free(*v);
+      delete v;
+    }
+  }
+};
 
 
 
@@ -197,6 +233,48 @@ public:
 private:
   ViewType *v;
   size_t sz;
+
+  enum DataLoc { Host, Device };
+  DataLoc loc;
+
+  void placeData(ViewMode mode, ViewType* host_views, size_t n){
+    freeData();
+    sz = n;
+    size_t byte_size = n*sizeof(ViewType);
+    if(mode == DeviceRead || mode == DeviceWrite){
+      v = (ViewType *)device_alloc_check(byte_size);
+      copy_host_to_device(v, host_views, byte_size);
+      loc = Device;
+    }else{
+      v = (ViewType *)malloc(byte_size);
+      memcpy(v,host_views,byte_size);
+      loc = Host;
+    }
+  }
+  void freeData(){
+    if(v){
+      if(loc == Host){
+	if(hasFreeMethod<ViewType>::value){
+	  for(size_t i=0;i<sz;i++) viewDeallocator<ViewType>::free(v[i]); //so it compiles even if the view doesn't have a free method
+	}
+	::free(v);
+      }else{
+	//The views may have allocs that need to be freed. This can only be done from the host, so we need to copy back
+	if(hasFreeMethod<ViewType>::value){
+	  size_t byte_size = sz*sizeof(ViewType);
+	  ViewType* tmpv = (ViewType*)malloc(byte_size);
+	  copy_device_to_host(tmpv, v, byte_size);
+	  for(size_t i=0;i<sz;i++) viewDeallocator<ViewType>::free(tmpv[i]); //so it compiles even if the view doesn't have a free method
+	  ::free(tmpv);
+	}
+	device_free(v);
+      }
+      
+    }
+    v=nullptr;
+    sz=0;
+  }
+
 public:
   
   accelerator_inline size_t size() const{ return sz; }
@@ -205,53 +283,54 @@ public:
 
   //Create the viewarray object from an array of views vin of size n generated on the host
   //Use inplace new to generate the array because views don't tend to have default constructors
-  ViewArray(ViewType *vin, size_t n): ViewArray(){ assign(vin, n); }
+  ViewArray(ViewMode mode, ViewType *vin, size_t n): ViewArray(){ assign(mode, vin, n); }
 
   //This version generates the host array of views automatically  
   template<typename T>
-  ViewArray(const std::vector<T*> &obj_ptrs) : ViewArray(){ assign(obj_ptrs); }
+  ViewArray(ViewMode mode, const std::vector<T*> &obj_ptrs) : ViewArray(){ assign(mode,obj_ptrs); }
+
+  template<typename T>
+  ViewArray(ViewMode mode, const std::vector<T> &objs) : ViewArray(){ assign(mode,objs); }
+
   
   ViewArray(const ViewArray &r) = default;
   ViewArray(ViewArray &&r) = default;
 
   //This version generates the host array of views automatically
   template<typename T>
-  void assign(const std::vector<T*> &obj_ptrs){
+  void assign(ViewMode mode, const std::vector<T*> &obj_ptrs){
     size_t n = obj_ptrs.size();
     size_t byte_size = n*sizeof(ViewType);
     ViewType* tmpv = (ViewType*)malloc(byte_size);
     for(size_t i=0;i<n;i++){
-      new (tmpv+i) ViewType(obj_ptrs[i]->view());
+      new (tmpv+i) ViewType(obj_ptrs[i]->view(mode));
     }
-    assign(tmpv,n);
+    assign(mode,tmpv,n);
     ::free(tmpv);
   }  
 
+  template<typename T>
+  void assign(ViewMode mode, const std::vector<T> &objs){
+    size_t n = objs.size();
+    size_t byte_size = n*sizeof(ViewType);
+    ViewType* tmpv = (ViewType*)malloc(byte_size);
+    for(size_t i=0;i<n;i++){
+      new (tmpv+i) ViewType(objs[i].view(mode));
+    }
+    assign(mode,tmpv,n);
+    ::free(tmpv);
+  }  
+
+
   //Create the viewarray object from an array of views vin of size n generated on the host
   //Use inplace new to generate the array because views don't tend to have default constructors
-  void assign(ViewType *vin, size_t n){
-    if(v != nullptr) device_free(v); //could be reused
-      
-    size_t byte_size = n * sizeof(ViewType);
-    v = (ViewType*)device_alloc_check(byte_size);
-    sz = n;
-    copy_host_to_device(v, vin, byte_size);
+  void assign(ViewMode mode, ViewType *vin, size_t n){
+    placeData(mode,vin,n);
   }
 
   //Deallocation must be either manually called or use CPSautoView  
   void free(){
-    if(v){
-      //The views may have allocs that need to be freed. This can only be done from the host, so we need to copy back
-      if(hasFreeMethod<ViewType>::value){
-	size_t byte_size = sz*sizeof(ViewType);
-	ViewType* tmpv = (ViewType*)malloc(byte_size);
-	copy_device_to_host(tmpv, v, byte_size);
-	for(size_t i=0;i<sz;i++)
-	  viewDeallocator<ViewType>::free(tmpv[i]); //so it compiles even if the view doesn't have a free method
-	::free(tmpv);
-      }
-      device_free(v);
-    }
+    freeData();
   }
     
   accelerator_inline ViewType & operator[](const size_t i) const{ return v[i]; }
@@ -268,6 +347,47 @@ public:
   typedef vtype ViewType;
 private:
   ViewType *v;
+
+  enum DataLoc { Host, Device };
+  DataLoc loc;
+
+  void placeData(ViewMode mode, ViewType* host_view){
+    freeData();
+    size_t byte_size = sizeof(ViewType);
+    if(mode == DeviceRead || mode == DeviceWrite){
+      v = (ViewType *)device_alloc_check(byte_size);
+      copy_host_to_device(v, host_view, byte_size);
+      loc = Device;
+    }else{
+      v = (ViewType *)malloc(byte_size);
+      memcpy(v,host_view,byte_size);
+      loc = Host;
+    }
+  }
+  void freeData(){
+    if(v){
+      if(loc == Host){
+	if(hasFreeMethod<ViewType>::value){
+	  viewDeallocator<ViewType>::free(*v); //so it compiles even if the view doesn't have a free method
+	}
+	::free(v);
+      }else{
+	//The views may have allocs that need to be freed. This can only be done from the host, so we need to copy back
+	if(hasFreeMethod<ViewType>::value){
+	  size_t byte_size = sizeof(ViewType);
+	  ViewType* tmpv = (ViewType*)malloc(byte_size);
+	  copy_device_to_host(tmpv, v, byte_size);
+	  viewDeallocator<ViewType>::free(*tmpv); //so it compiles even if the view doesn't have a free method
+	  ::free(tmpv);
+	}
+	device_free(v);
+      }
+      
+    }
+    v=nullptr;
+  }
+
+
 public:
   
   ViewPointerWrapper(): v(nullptr){}
@@ -279,27 +399,13 @@ public:
 
   //Create the viewarray object from an array of views vin of size n generated on the host
   //Use inplace new to generate the array because views don't tend to have default constructors
-  void assign(const ViewType &vin){
-    if(v != nullptr) device_free(v); //could be reused
-      
-    size_t byte_size = sizeof(ViewType);
-    v = (ViewType*)device_alloc_check(byte_size);
-    copy_host_to_device(v, &vin, byte_size);
+  void assign(ViewMode mode, const ViewType &vin){
+    placeData(mode, (ViewType*)&vin);
   }
 
   //Deallocation must be either manually called or use CPSautoView  
   void free(){
-    if(v){
-      //The views may have allocs that need to be freed. This can only be done from the host, so we need to copy back
-      if(hasFreeMethod<ViewType>::value){
-	size_t byte_size = sizeof(ViewType);
-	ViewType* tmpv = (ViewType*)malloc(byte_size);
-	copy_device_to_host(tmpv, v, byte_size);
-	viewDeallocator<ViewType>::free(*tmpv); //so it compiles even if the view doesn't have a free method
-	::free(tmpv);
-      }
-      device_free(v);
-    }
+    freeData();
   }
 
   accelerator_inline ViewType* ptr() const{ return v; }

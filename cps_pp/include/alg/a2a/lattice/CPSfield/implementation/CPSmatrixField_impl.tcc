@@ -2,8 +2,10 @@ template<typename VectorMatrixType>
 double CPSmatrixFieldNorm2(const CPSmatrixField<VectorMatrixType> &f){
   typedef typename VectorMatrixType::scalar_type scalar_type;
   constexpr int nscalar= VectorMatrixType::nScalarType();
-  CPSfield<scalar_type,nscalar, FourDSIMDPolicy<OneFlavorPolicy>, Aligned128AllocPolicy> tmp(f.getDimPolParams());
-  memcpy(tmp.ptr(), f.ptr(), f.byte_size());
+  CPSfield<scalar_type,nscalar, FourDSIMDPolicy<OneFlavorPolicy>, UVMallocPolicy> tmp(f.getDimPolParams());
+  CPSautoView(tmp_v,tmp,HostWrite);
+  CPSautoView(f_v,f,HostRead);
+  memcpy(tmp.ptr(), f_v.ptr(), f.byte_size());
   return tmp.norm2();
 }
 

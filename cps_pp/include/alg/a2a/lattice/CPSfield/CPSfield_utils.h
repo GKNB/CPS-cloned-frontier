@@ -16,10 +16,13 @@ inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<C
     int x[5]; int rem = i;
     for(int ii=0;ii<5;ii++){ x[ii] = rem % GJP.NodeSites(ii); rem /= GJP.NodeSites(ii); }
     
+    CPSautoView(A_v,A,HostRead);
+    CPSautoView(B_v,B,HostRead);
+    
     for(int f=0;f<GJP.Gparity()+1;f++){
       for(int sc=0;sc<24;sc++){
-	double vbfm = *((double*)A.site_ptr(i,f) + sc);
-	double vgrid = *((double*)B.site_ptr(i,f) + sc);
+	double vbfm = *((double*)A_v.site_ptr(i,f) + sc);
+	double vgrid = *((double*)B_v.site_ptr(i,f) + sc);
 	    
 	double diff_rat = fabs( 2.0 * ( vbfm - vgrid )/( vbfm + vgrid ) );
 	double rat_grid_bfm = vbfm/vgrid;
@@ -93,7 +96,8 @@ inline void exportGridcb(CPSfermion5D<cps::ComplexD> &into, typename GridPolicie
   tmp_g = Grid::Zero();
 
   setCheckerboard(tmp_g, from);
-  latg.ImportFermion((Vector*)into.ptr(), tmp_g);
+  CPSautoView(into_v,into,HostWrite);
+  latg.ImportFermion((Vector*)into_v.ptr(), tmp_g);
 }
 #endif
 
