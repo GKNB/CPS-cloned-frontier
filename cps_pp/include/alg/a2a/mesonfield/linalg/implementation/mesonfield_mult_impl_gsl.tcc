@@ -434,6 +434,10 @@ public:
     getNodeWork(work,node_work,node_off,do_work,node_local);
     
     if(do_work){    
+      CPSautoView(l_v,l,HostRead);
+      CPSautoView(r_v,r,HostRead);
+      CPSautoView(out_v,out,HostWrite);
+
       Float t1 = dclock();
 
       typename gw::matrix_complex *lreord_gsl = gw::matrix_complex_alloc(ni,nj);
@@ -444,7 +448,7 @@ public:
 #pragma omp parallel for
       for(int i=0;i<ni;i++)
 	for(int j=0;j<nj;j++){
-	  const ScalarComplexType & el = l(i, jlmap[j]);
+	  const ScalarComplexType & el = l_v(i, jlmap[j]);
 	  mf_Float *el_gsl = (mf_Float*)gw::matrix_complex_ptr(lreord_gsl,i,j);
 	  *(el_gsl++) = el.real();
 	  *(el_gsl) = el.imag();
@@ -454,7 +458,7 @@ public:
       for(int j=0;j<nj;j++){
 	int j_actual = jrmap[j];
 	for(int k=0;k<nk;k++){
-	  const ScalarComplexType & el = r(j_actual, k);
+	  const ScalarComplexType & el = r_v(j_actual, k);
 	  mf_Float *el_gsl = (mf_Float*)gw::matrix_complex_ptr(rreord_gsl,j,k);
 	  *(el_gsl++) = el.real();
 	  *(el_gsl) = el.imag();
@@ -490,7 +494,7 @@ public:
 	for(int i=0;i<bi;i++) 
 	  for(int k=0;k<bk;k++){
 	    mf_Float const* el = (mf_Float const*)gw::matrix_complex_ptr(tmp_out,i,k);
-	    out(i0+i,k0+k) = ScalarComplexType(el[0],el[1]);
+	    out_v(i0+i,k0+k) = ScalarComplexType(el[0],el[1]);
 	  }
 #endif	
       }

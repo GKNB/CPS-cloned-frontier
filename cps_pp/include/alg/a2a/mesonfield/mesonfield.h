@@ -61,13 +61,12 @@ public:
 					 tl(r.tl), tr(r.tr), MesonFieldDistributedStorageType(r){ }
 
 
-  //Read-only view class
-  class ReadView{
+  class View{
     int nmodes_l, nmodes_r;
     int tl, tr;
     int fsize; //in units of ScalarComplexType
     ScalarComplexType *data;
-
+    bool device_ptr;
   public:
     //Size in complex
     accelerator_inline int size() const{ return fsize; }
@@ -84,13 +83,82 @@ public:
     accelerator_inline int getNrows() const{ return nmodes_l; }
     accelerator_inline int getNcols() const{ return nmodes_r; }
 
-    ReadView(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf);
+    View(ViewMode mode, const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf);
     
+    accelerator_inline ScalarComplexType* ptr(){ assert(!device_ptr); return (ScalarComplexType*)data; } //Use at your own risk
+    accelerator_inline ScalarComplexType const* ptr() const{ return (ScalarComplexType const*)data; }
+
+    //Access elements with compressed mode index
+    accelerator_inline ScalarComplexType & operator()(const int i, const int j){ //Use at your own risk
+      return data[j + nmodes_r*i]; //right mode index changes most quickly
+    }
+  
+    //A slow implementation to access elements from full unpacked indices
+    inline const ScalarComplexType & elem(const int full_i, const int full_j) const{
+      StaticAssert< _equal<LeftDilutionType,StandardIndexDilution>::value || _equal<LeftDilutionType,TimePackedIndexDilution>::value >();
+      StaticAssert< _equal<RightDilutionType,StandardIndexDilution>::value || _equal<RightDilutionType,TimePackedIndexDilution>::value >();
+    
+      static ScalarComplexType zero(0.0,0.0);
+
+      int nll = lindexdilution.getNl();
+      int nlr = rindexdilution.getNl();
+      int tblockl = lindexdilution.tblock(tl);
+      int tblockr = rindexdilution.tblock(tr);
+
+      int packed_i;
+      if(_equal<LeftDilutionType,StandardIndexDilution>::value || full_i < nll) packed_i = full_i; //  lindexdilution.getModeType() == StandardIndex
+      else{ // W *
+	StandardIndexDilution lfulldil(lindexdilution);
+	modeIndexSet i_idx; lfulldil.indexUnmap(full_i-nll, i_idx);
+	if(i_idx.time != tblockl) return zero; //delta function in time
+	else packed_i = nll + lindexdilution.indexMap(i_idx);
+      }
+      int packed_j;
+      if(_equal<RightDilutionType,StandardIndexDilution>::value || full_j < nlr) packed_j = full_j; //rindexdilution.getModeType() == StandardIndex
+      else{ //* W
+	StandardIndexDilution rfulldil(rindexdilution);
+	modeIndexSet j_idx; rfulldil.indexUnmap(full_j-nlr, j_idx);
+	if(j_idx.time != tblockr) return zero;
+	else packed_j = nlr + rindexdilution.indexMap(j_idx);
+      }
+      return this->operator()(packed_i,packed_j);
+    }
+
+    //Version of the above that returns a pointer so that the element can be modified. A NULL pointer will be returned for elements that are enforced to be zero by the index packing
+    inline ScalarComplexType* elem_ptr(const int full_i, const int full_j){
+      StaticAssert< _equal<LeftDilutionType,StandardIndexDilution>::value || _equal<LeftDilutionType,TimePackedIndexDilution>::value >();
+      StaticAssert< _equal<RightDilutionType,StandardIndexDilution>::value || _equal<RightDilutionType,TimePackedIndexDilution>::value >();
+    
+      int nll = lindexdilution.getNl();
+      int nlr = rindexdilution.getNl();
+      int tblockl = lindexdilution.tblock(tl);
+      int tblockr = rindexdilution.tblock(tr);
+
+      int packed_i;
+      if(_equal<LeftDilutionType,StandardIndexDilution>::value || full_i < nll) packed_i = full_i; //  lindexdilution.getModeType() == StandardIndex
+      else{ // W *
+	StandardIndexDilution lfulldil(lindexdilution);
+	modeIndexSet i_idx; lfulldil.indexUnmap(full_i-nll, i_idx);
+	if(i_idx.time != tblockl) return NULL; //delta function in time
+	else packed_i = nll + lindexdilution.indexMap(i_idx);
+      }
+      int packed_j;
+      if(_equal<RightDilutionType,StandardIndexDilution>::value || full_j < nlr) packed_j = full_j; //rindexdilution.getModeType() == StandardIndex
+      else{ //* W
+	StandardIndexDilution rfulldil(rindexdilution);
+	modeIndexSet j_idx; rfulldil.indexUnmap(full_j-nlr, j_idx);
+	if(j_idx.time != tblockr) return NULL;
+	else packed_j = nlr + rindexdilution.indexMap(j_idx);
+      }
+      return &this->operator()(packed_i,packed_j);
+    }
+
+
     void free();
   };
 
-  //Create a *READ ONLY* view of the mesonfield for device access
-  inline ReadView view() const{ return ReadView(*this); }
+  //Accepts HostRead, HostWrite, DeviceRead,   *NOT* DeviceWrite
+  inline View view(ViewMode mode) const{ return View(mode, *this); }
 
 
   
@@ -134,10 +202,13 @@ public:
   bool equals(const A2AmesonField &r, const double tolerance = 1e-10, bool verbose = false) const{
     if(r.nmodes_l != nmodes_l || r.nmodes_r != nmodes_r) return false;
     
+    CPSautoView(t_v,(*this),HostRead);
+    CPSautoView(r_v,r,HostRead);
+    
     for(int i=0;i<nmodes_l;i++){
       for(int j=0;j<nmodes_r;j++){
-	const ScalarComplexType &lval = (*this)(i,j);
-	const ScalarComplexType &rval = r(i,j);
+	const ScalarComplexType &lval = t_v(i,j);
+	const ScalarComplexType &rval = r_v(i,j);
 	
 	if( fabs(lval.real() - rval.real()) > tolerance || fabs(lval.imag() - rval.imag()) > tolerance ){
 	  if(verbose && !UniqueID()){
@@ -159,10 +230,6 @@ public:
     return *this;
   }
 
-
-  inline ScalarComplexType* ptr(){ return (ScalarComplexType*)this->data(); } //Use at your own risk
-  inline ScalarComplexType const* ptr() const{ return (ScalarComplexType const*)this->data(); }
-
   void move(A2AmesonField &from){
     nmodes_l = from.nmodes_l; nmodes_r = from.nmodes_r; fsize = from.fsize;
     lindexdilution = from.lindexdilution; rindexdilution = from.rindexdilution; 
@@ -173,83 +240,15 @@ public:
   //Size in complex
   inline int size() const{ return fsize; }
 
-  //Access elements with compressed mode index
-  inline ScalarComplexType & operator()(const int i, const int j){ //Use at your own risk
-    return this->ptr()[j + nmodes_r*i]; //right mode index changes most quickly
-  }
-  
-  inline const ScalarComplexType & operator()(const int i, const int j) const{
-    return this->ptr()[j + nmodes_r*i];
-  }
-
   inline double norm2() const{
+    CPSautoView(t_v,(*this),HostRead);
     double out = 0.;
-    for(int i=0;i<size();i++) out += norm(ptr()[i]);
+    for(int i=0;i<size();i++) out += norm(t_v.ptr()[i]);
     return out;
   }
   
   inline int getRowTimeslice() const{ return tl; }
-  inline int getColTimeslice() const{ return tr; }
-  
-  //A slow implementation to access elements from full unpacked indices
-  inline const ScalarComplexType & elem(const int full_i, const int full_j) const{
-    StaticAssert< _equal<LeftDilutionType,StandardIndexDilution>::value || _equal<LeftDilutionType,TimePackedIndexDilution>::value >();
-    StaticAssert< _equal<RightDilutionType,StandardIndexDilution>::value || _equal<RightDilutionType,TimePackedIndexDilution>::value >();
-    
-    static ScalarComplexType zero(0.0,0.0);
-
-    int nll = lindexdilution.getNl();
-    int nlr = rindexdilution.getNl();
-    int tblockl = lindexdilution.tblock(tl);
-    int tblockr = rindexdilution.tblock(tr);
-
-    int packed_i;
-    if(_equal<LeftDilutionType,StandardIndexDilution>::value || full_i < nll) packed_i = full_i; //  lindexdilution.getModeType() == StandardIndex
-    else{ // W *
-      StandardIndexDilution lfulldil(lindexdilution);
-      modeIndexSet i_idx; lfulldil.indexUnmap(full_i-nll, i_idx);
-      if(i_idx.time != tblockl) return zero; //delta function in time
-      else packed_i = nll + lindexdilution.indexMap(i_idx);
-    }
-    int packed_j;
-    if(_equal<RightDilutionType,StandardIndexDilution>::value || full_j < nlr) packed_j = full_j; //rindexdilution.getModeType() == StandardIndex
-    else{ //* W
-      StandardIndexDilution rfulldil(rindexdilution);
-      modeIndexSet j_idx; rfulldil.indexUnmap(full_j-nlr, j_idx);
-      if(j_idx.time != tblockr) return zero;
-      else packed_j = nlr + rindexdilution.indexMap(j_idx);
-    }
-    return this->operator()(packed_i,packed_j);
-  }
-
-  //Version of the above that returns a pointer so that the element can be modified. A NULL pointer will be returned for elements that are enforced to be zero by the index packing
-  inline ScalarComplexType* elem_ptr(const int full_i, const int full_j){
-    StaticAssert< _equal<LeftDilutionType,StandardIndexDilution>::value || _equal<LeftDilutionType,TimePackedIndexDilution>::value >();
-    StaticAssert< _equal<RightDilutionType,StandardIndexDilution>::value || _equal<RightDilutionType,TimePackedIndexDilution>::value >();
-    
-    int nll = lindexdilution.getNl();
-    int nlr = rindexdilution.getNl();
-    int tblockl = lindexdilution.tblock(tl);
-    int tblockr = rindexdilution.tblock(tr);
-
-    int packed_i;
-    if(_equal<LeftDilutionType,StandardIndexDilution>::value || full_i < nll) packed_i = full_i; //  lindexdilution.getModeType() == StandardIndex
-    else{ // W *
-      StandardIndexDilution lfulldil(lindexdilution);
-      modeIndexSet i_idx; lfulldil.indexUnmap(full_i-nll, i_idx);
-      if(i_idx.time != tblockl) return NULL; //delta function in time
-      else packed_i = nll + lindexdilution.indexMap(i_idx);
-    }
-    int packed_j;
-    if(_equal<RightDilutionType,StandardIndexDilution>::value || full_j < nlr) packed_j = full_j; //rindexdilution.getModeType() == StandardIndex
-    else{ //* W
-      StandardIndexDilution rfulldil(rindexdilution);
-      modeIndexSet j_idx; rfulldil.indexUnmap(full_j-nlr, j_idx);
-      if(j_idx.time != tblockr) return NULL;
-      else packed_j = nlr + rindexdilution.indexMap(j_idx);
-    }
-    return &this->operator()(packed_i,packed_j);
-  }
+  inline int getColTimeslice() const{ return tr; } 
 
   //Convert the meson field from the packed default format into an unpacked format
   //(i,j) element of 'into' =  j + getNcolsFull() * i
@@ -261,7 +260,7 @@ public:
   //(i,j) element of 'into' =  j + getNcolsFull() * i
   //size of 'into' = getNrowsFull()*getNcolsFull()
   //** into must be allocated on the device! **
-  void unpack_device(ScalarComplexType* into, ReadView const* view = nullptr) const;
+  void unpack_device(ScalarComplexType* into, View const* view = nullptr) const;
   
   //Convert the meson field from the unpacked format into the packed format
   //(i,j) element of 'from' =  j + getNcolsFull() * i
@@ -278,7 +277,8 @@ public:
   void pack_device(ScalarComplexType const* from);
   
   inline void zero(const bool parallel = true){
-    memset(this->data(), 0, sizeof(ScalarComplexType) * fsize);      
+    CPSautoView(t_v,(*this),HostWrite);
+    memset(t_v.ptr(), 0, sizeof(ScalarComplexType) * fsize);      
   }
   //For all mode indices l_i and r_j, compute the meson field  V^-1 \sum_p l_i^\dagger(p,t) X(p,t) r_j(p,t)
   //It is assumed that A2AfieldL and A2AfieldR are Fourier transformed field containers
@@ -361,7 +361,9 @@ public:
   static void read(std::istream *file_ptr, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs);
 
   void nodeSum(){ //don't call unless you know what you're doing
-    globalSum( (typename ScalarComplexType::value_type*)this->data(),2*fsize);
+    CPSautoView(t_v,(*this),HostWrite);
+    CPSautoView(t_vr,(*this),HostRead);
+    globalSum( (typename ScalarComplexType::value_type*)t_v.ptr(),2*fsize);
   }
 };
 

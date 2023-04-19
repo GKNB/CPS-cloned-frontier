@@ -36,6 +36,9 @@ typename mf_Policies::ScalarComplexType trace_cpu(const A2AmesonField<mf_Policie
   const int n_threads = omp_get_max_threads();
   std::vector<ScalarComplexType, BasicAlignedAllocator<ScalarComplexType> > ret_vec(n_threads,ScalarComplexType(0.,0.));
    
+  CPSautoView(l_v,l,HostRead);
+  CPSautoView(r_v,r,HostRead);
+
 #pragma omp parallel for schedule(static)
   for(int i = 0; i < ni; i++){
     const int id = omp_get_thread_num();
@@ -46,7 +49,7 @@ typename mf_Policies::ScalarComplexType trace_cpu(const A2AmesonField<mf_Policie
       const int lj = j_ind.getLeftIndex(j,ljp,rjp);
       const int rj = j_ind.getRightIndex(j,ljp,rjp);
       
-      ret_vec[id] += l(li,lj) *  r(rj,ri);
+      ret_vec[id] += l_v(li,lj) *  r_v(rj,ri);
     }
   }
 
@@ -349,14 +352,14 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,A2
   const int ni = i_ind.getNindices(lip,rip); //how many indices to loop over
 
 #ifndef MEMTEST_MODE
-
+  CPSautoView(m_v,m,HostRead);
 #pragma omp parallel for schedule(static)
   for(int i = 0; i < ni; i++){
     const int id = omp_get_thread_num();
     const int li = i_ind.getLeftIndex(i,lip,rip);
     const int ri = i_ind.getRightIndex(i,lip,rip);
 
-    ret_vec[id] += m(li,ri);
+    ret_vec[id] += m_v(li,ri);
   }
 
   for(int i=0;i<n_threads;i++) into += ret_vec[i];

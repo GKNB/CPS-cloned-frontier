@@ -124,19 +124,16 @@ void blockReduce(typename ComplexType::scalar_type* into, ComplexType const* fro
 
 #endif //GRID_CUDA
 
-//acc :  (mfVectorType &mf, int m) ->   mesonfield time vector
+//acc(int m):  return a view to the meson field for multiplicity index m
 //m = {0..multiplicity-1}
-template<typename mfVectorType, typename accumType, typename Accessor>
-void mesonFieldComputeReduce(mfVectorType &mf_t, accumType const* accum,
+template<typename accumType, typename Accessor>
+void mesonFieldComputeReduce(accumType const* accum,
 			     const size_t i0, const size_t j0, //block index
 			     const size_t bi_true, const size_t bj_true, //true size of this block
 			     const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
-			     const int t, const size_t size_3d,
+			     const size_t size_3d,
 			     const int multiplicity, const Accessor &acc){
 #ifdef MF_REDUCE_ON_DEVICE
-    //CUDA only currently (HIP newly added)
-    //std::cout << "CUDA/HIP GPU reduce (multi src)" << std::endl;
-
     double talloc_free = 0;
     double tkernel = 0;
     double tpoke = 0;
@@ -159,17 +156,13 @@ void mesonFieldComputeReduce(mfVectorType &mf_t, accumType const* accum,
       size_t i = ii+i0;
       size_t j = jj+j0;
 
-      acc(mf_t,m)[t](i,j) += tmp[m + multiplicity *(jj + bj_true*ii)];
+      acc(m)(i,j) += tmp[m + multiplicity *(jj + bj_true*ii)];
     }
     tpoke += dclock() - time;
 
     time = dclock();
     managed_free(tmp);
     talloc_free += dclock() - time;
-
-     //print_time("CUDA/HIP GPU reduce","alloc_free",talloc_free);
-     //print_time("CUDA/HIP GPU reduce","kernel",tkernel);
-     //print_time("CUDA/HIP GPU reduce","poke",tpoke);
 #else
     //Reduce over size_3d
     //(Do this on host for now) //GENERALIZE ME
@@ -180,7 +173,7 @@ void mesonFieldComputeReduce(mfVectorType &mf_t, accumType const* accum,
 	accumType const* from_base = accum + multiplicity*size_3d*(jj + bj*ii);
 	for(int x=0;x<size_3d;x++)
 	  for(int m=0;m<multiplicity;m++)
-	    acc(mf_t,m)[t](i,j) += Reduce(from_base[m + multiplicity*x]);    
+	    acc(m)(i,j) += Reduce(from_base[m + multiplicity*x]);    
       }
 #endif
 }
@@ -192,7 +185,8 @@ void mesonFieldComputeReduce(mfVectorType &mf_t, accumType const* accum,
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
 struct SingleSrcVectorPoliciesSIMDoffload{
-  typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
+  typedef A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> MesonFieldType;
+  typedef std::vector<MesonFieldType, Allocator > mfVectorType;
   typedef Grid::vComplexD accumType;
   typedef Grid::vComplexD& accessType; //used by the source
   accelerator_inline static accessType getAccessor(accumType *p){ return *p; }
@@ -211,7 +205,8 @@ struct SingleSrcVectorPoliciesSIMDoffload{
     for(int t=0;t<Lt;t++) 
       if(do_setup) mf_t[t].setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
       else{
-	assert(mf_t[t].ptr() != NULL);
+	CPSautoView(mf_t_v,mf_t[t],HostRead);
+	assert(mf_t_v.ptr() != NULL);
 	mf_t[t].zero();
       }
   }
@@ -230,7 +225,8 @@ struct SingleSrcVectorPoliciesSIMDoffload{
 			    const size_t bi_true, const size_t bj_true, //true size of this block
 			    const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 			    const int t, const size_t size_3d){
-    mesonFieldComputeReduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, size_3d, 1, [](mfVectorType &mf, int m)->mfVectorType &{ return mf; });
+    CPSautoView(mf_t_v,mf_t[t],HostWrite);
+    mesonFieldComputeReduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, size_3d, 1, [](int m)->typename MesonFieldType::View &{ return mf_t_v; });
   }
   
 };
@@ -238,7 +234,8 @@ struct SingleSrcVectorPoliciesSIMDoffload{
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
 struct MultiSrcVectorPoliciesSIMDoffload{
-  typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfTimeVector;
+  typedef A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> MesonFieldType;
+  typedef std::vector<MesonFieldType, Allocator > mfTimeVector;
   typedef std::vector<mfTimeVector* > mfVectorType;
   typedef Grid::vComplexD accumType;
   typedef Grid::vComplexD* accessType; //used by the source
@@ -263,7 +260,8 @@ struct MultiSrcVectorPoliciesSIMDoffload{
       for(int t=0;t<Lt;t++) 
 	if(do_setup) mf_st[s]->operator[](t).setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
 	else{
-	  assert(mf_st[s]->operator[](t).ptr() != NULL);
+	  CPSautoView(mf_st_v, (*mf_st[t])[t], HostRead);
+	  assert(mf_st_v.ptr() != NULL);
 	  mf_st[s]->operator[](t).zero();
 	}
     }
@@ -286,7 +284,9 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 		     const size_t bi_true, const size_t bj_true, //true size of this block
 		     const int bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 		     const int t, const size_t size_3d) const{
-    mesonFieldComputeReduce(mf_st, accum, i0, j0, bi_true, bj_true, bj, t, size_3d, mfPerTimeSlice, [](mfVectorType &mf, int m)->mfTimeVector &{ return *mf[m]; });
+    typedef typename MesonFieldType::View ViewType;
+    ViewAutoDestructWrapper<ViewType> views[mfPerTimeSlice]; for(int m=0;m<mfPerTimeSlice;m++) views[m].reset(new ViewType( (*mf_st[m])[t].view(HostWrite)));
+    mesonFieldComputeReduce(mf_st, accum, i0, j0, bi_true, bj_true, bj, t, size_3d, mfPerTimeSlice, [](int m)->ViewType &{ return *views[m]; });
   }
   
 };

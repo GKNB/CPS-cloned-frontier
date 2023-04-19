@@ -91,9 +91,11 @@ class mult_vMv_split_lite{
 
   typedef typename lA2AfieldL<mf_Policies>::View LViewType;
   typedef typename rA2AfieldR<mf_Policies>::View RViewType;
+  typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::View MViewType;
 
   ViewAutoDestructWrapper<LViewType> lview_ptr;
   ViewAutoDestructWrapper<RViewType> rview_ptr;
+  ViewAutoDestructWrapper<MViewType> Mview_ptr;
 
   mult_vMv_split_lite_scratch_space<mf_Policies> *scratch;
   bool own_scratch;
@@ -137,6 +139,7 @@ public:
 
     lview_ptr.reset(new LViewType(l.view(HostRead)));
     rview_ptr.reset(new RViewType(r.view(HostRead)));
+    Mview_ptr.reset(new MViewType(M.view(HostRead)));
 
     top_glb = _top_glb;
     CnumPolicy::checkDecomp(l.getMode(0));
@@ -271,7 +274,7 @@ public:
 	    if(!rowidx_used[i]) continue;
 	    
 	    for(int j=jstart;j<jlessthan;j++){
-	      CnumPolicy::splat(tmp_v, (*Mptr)(i, jlmap[scf][j]) );
+	      CnumPolicy::splat(tmp_v, (*Mview_ptr)(i, jlmap[scf][j]) );
 	      Mr[i][scf] = Mr[i][scf] + tmp_v * rreord_p[j-jstart];
 	    }
 	  }

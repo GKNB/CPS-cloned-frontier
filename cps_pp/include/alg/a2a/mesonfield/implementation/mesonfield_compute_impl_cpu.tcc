@@ -32,6 +32,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
   int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
   if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
 
+    CPSautoView(t_v,(*this),HostWrite);
+
 #pragma omp parallel for
     for(int i = 0; i < nmodes_l; i++){
       typename mf_Policies::ComplexType mf_accum;
@@ -49,7 +51,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 
 	  M(mf_accum,lscf,rscf,p_3d,t);
 	}
-	(*this)(i,j) = mf_accum; //downcast after accumulate      
+	t_v(i,j) = mf_accum; //downcast after accumulate      
       }
     }
   }
@@ -111,6 +113,10 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 void compute_simple(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, const int t){
   into.setup(l,r,t,t); //both vectors have same timeslice
   
+  CPSautoView(l_v,l,HostRead);
+  CPSautoView(r_v,r,HostRead);
+  CPSautoView(into_v,into,HostWrite);
+
   if(!UniqueID()) printf("Starting simple meson field compute for timeslice %d with %d threads\n",t, omp_get_max_threads());
 
   typedef typename mf_Policies::FermionFieldType::FieldSiteType ComplexType;
@@ -131,7 +137,7 @@ void compute_simple(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const 
 
       for(int j = 0; j < nv; j++) {
 
-	typename mf_Policies::ScalarComplexType *into_ij = into.elem_ptr(i,j); //will be null for implicitly zero elements
+	typename mf_Policies::ScalarComplexType *into_ij = into_v.elem_ptr(i,j); //will be null for implicitly zero elements
 	if(into_ij != NULL){	
 	  mf_accum = 0.;
 	  
@@ -139,8 +145,8 @@ void compute_simple(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const 
 	    ComplexType ll[nf*12], rr[nf*12];
 	    for(int f=0;f<nf;f++){
 	      for(int sc=0;sc<12;sc++){
-		ll[sc + 12*f] = l.elem(i,p_3d,t_lcl,sc,f);
-		rr[sc + 12*f] = r.elem(j,p_3d,t_lcl,sc,f);
+		ll[sc + 12*f] = l_v.elem(i,p_3d,t_lcl,sc,f);
+		rr[sc + 12*f] = r_v.elem(j,p_3d,t_lcl,sc,f);
 	      }
 	    }
 	    SCFvectorPtr<ComplexType> lscf(ll,nf==1 ? NULL : (ll+12),false,false);
@@ -336,13 +342,15 @@ struct SingleSrcVectorPolicies{
     for(int t=0;t<Lt;t++) 
       if(do_setup) mf_t[t].setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
       else{
-	assert(mf_t[t].ptr() != NULL);
+	CPSautoView(mf_t_v,mf_t[t],HostRead);
+	assert(mf_t_v.ptr() != NULL);
 	mf_t[t].zero();
       }
   }
   static inline void sumThreadedResults(mfVectorType &mf_t, AccumMatrixType const* mf_accum_thr, const int i, const int j, const int t, const int nthread){
+    CPSautoView(mf_t_v,mf_t[t],HostWrite);
     for(int thr=0;thr<nthread;thr++)
-      mf_t[t](i,j) += mf_accum_thr[thr](i,j);
+      mf_t_v(i,j) += mf_accum_thr[thr](i,j);
   }
 
   //Used to get information about rows and cols
@@ -357,7 +365,8 @@ struct SingleSrcVectorPolicies{
 //Multisrc
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
 struct MultiSrcVectorPolicies{
-  typedef std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
+  typedef A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> MesonFieldType;
+  typedef std::vector< std::vector<MesonFieldType, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
   typedef InPlaceMatrixMulti<typename mf_Policies::ScalarComplexType> AccumMatrixType;
 
   int mfPerTimeSlice;
@@ -391,9 +400,11 @@ struct MultiSrcVectorPolicies{
       mf_st[s]->resize(Lt);
       for(int t=0;t<Lt;t++) 
 	if(do_setup) mf_st[s]->operator[](t).setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
-	else{
-	  assert(mf_st[s]->operator[](t).ptr() != NULL);
-	  mf_st[s]->operator[](t).zero();
+	else{	
+	  auto &mf_tarray = *mf_st[s];
+	  CPSautoView(mf_st_v,mf_tarray[t],HostRead);
+	  assert(mf_st_v.ptr() != NULL);
+	  mf_tarray[t].zero();
 	}
     }
   }
@@ -401,7 +412,10 @@ struct MultiSrcVectorPolicies{
     for(int thr=0;thr<nthread;thr++){
       typename mf_Policies::ScalarComplexType const* v = mf_accum_thr[thr](i,j);
       for(int s=0;s<mfPerTimeSlice;s++){
-	mf_st[s]->operator[](t)(i,j) += v[s];
+	auto const &mf_tarray = *mf_st[s];
+	CPSautoView(mf_st_v,mf_tarray[t],HostWrite);
+	CPSautoView(mf_st_vr,mf_tarray[t],HostRead);
+	mf_st_v(i,j) += v[s];
       }
     }
   }
