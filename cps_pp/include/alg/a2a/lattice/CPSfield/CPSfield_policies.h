@@ -28,6 +28,18 @@ class UVMallocPolicy{
   size_t _byte_size;
 
 protected:
+  struct AllocView{
+    void* ptr;
+    inline void* operator()(){ return ptr; }
+
+    AllocView() = default;
+    AllocView(const AllocView &r) = default;
+    AllocView(AllocView &&r) = default;
+    AllocView(void* ptr): ptr(ptr){}
+
+    inline void free(){}
+  };
+
   inline void _alloc(const size_t byte_size){
     _ptr = managed_alloc_check(128,byte_size); //note CUDA ignores alignment
     _byte_size = byte_size;
@@ -42,9 +54,9 @@ protected:
     checkPolicyName(file, "ALLOCPOLICY", "UVMallocPolicy");
   }
 
-  inline void* _getPointer(ViewMode mode) const{
+  inline AllocView _getAllocView(ViewMode mode) const{
     //Unified memory
-    return _ptr;
+    return AllocView(_ptr);
   }
 
   inline void _move(UVMallocPolicy &into){
@@ -64,51 +76,115 @@ public:
   enum { UVMenabled = 1 }; //supports UVM
 };
 
-class ManualUVMallocPolicy{
+//Not usable on device
+class HostAllocPolicy{
   void* _ptr;
   size_t _byte_size;
+
 protected:
+  struct AllocView{
+    void* ptr;
+    inline void* operator()(){ return ptr; }
+
+    AllocView() = default;
+    AllocView(const AllocView &r) = default;
+    AllocView(AllocView &&r) = default;
+    AllocView(void* ptr): ptr(ptr){}
+
+    inline void free(){}
+  };
+
   inline void _alloc(const size_t byte_size){
-    _byte_size = byte_size; //only record size, do not a
+    _ptr = memalign_check(128,byte_size); //note CUDA ignores alignment
+    _byte_size = byte_size;
   }
   inline void _free(){
     if(_ptr) managed_free(_ptr);
   }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "HostAllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "HostAllocPolicy");
+  }
 
-  inline void _move(ManualUVMallocPolicy &into){
+  inline AllocView _getAllocView(ViewMode mode) const{   
+    return AllocView(_ptr);
+  }
+
+  inline void _move(HostAllocPolicy &into){
     into._ptr = _ptr;
     into._byte_size = _byte_size;
     _ptr = nullptr;
   }
-public:
-  ManualUVMallocPolicy(): _ptr(nullptr){}
+  
+public: 
+  HostAllocPolicy(): _ptr(nullptr){}
 
-  inline void* _getPointer(ViewMode mode) const{
-    //Unified memory
-    assert(_ptr);
-    return _ptr;
-  }
-
-  inline void allocField(){
-    if(!_ptr) _ptr = managed_alloc_check(128,_byte_size);    
-  }
-  inline void freeField(){
-    if(_ptr){ managed_free(_ptr); _ptr = nullptr; }
-  }
-  inline void writeParams(std::ostream &file) const{
-    writePolicyName(file, "ALLOCPOLICY", "ManualUVMallocPolicy");
-  }
-  inline void readParams(std::istream &file){
-    checkPolicyName(file, "ALLOCPOLICY", "ManualUVMallocPolicy");
-  }
-  enum { UVMenabled = 1 }; //supports UVM
+  inline void deviceSetAdviseUVMreadOnly(const bool to) const{}
+  
+  enum { UVMenabled = 0 }; //supports UVM
 };
+
+
+
+// class ManualUVMallocPolicy{
+//   void* _ptr;
+//   size_t _byte_size;
+// protected:
+//   inline void _alloc(const size_t byte_size){
+//     _byte_size = byte_size; //only record size, do not a
+//   }
+//   inline void _free(){
+//     if(_ptr) managed_free(_ptr);
+//   }
+
+//   inline void _move(ManualUVMallocPolicy &into){
+//     into._ptr = _ptr;
+//     into._byte_size = _byte_size;
+//     _ptr = nullptr;
+//   }
+// public:
+//   ManualUVMallocPolicy(): _ptr(nullptr){}
+
+//   inline void* _getPointer(ViewMode mode) const{
+//     //Unified memory
+//     assert(_ptr);
+//     return _ptr;
+//   }
+
+//   inline void allocField(){
+//     if(!_ptr) _ptr = managed_alloc_check(128,_byte_size);    
+//   }
+//   inline void freeField(){
+//     if(_ptr){ managed_free(_ptr); _ptr = nullptr; }
+//   }
+//   inline void writeParams(std::ostream &file) const{
+//     writePolicyName(file, "ALLOCPOLICY", "ManualUVMallocPolicy");
+//   }
+//   inline void readParams(std::istream &file){
+//     checkPolicyName(file, "ALLOCPOLICY", "ManualUVMallocPolicy");
+//   }
+//   enum { UVMenabled = 1 }; //supports UVM
+// };
 
 //This allocator maintains a device-resident copy of the data that is synchronized automatically when required
 class ExplicitCopyAllocPolicy{
   hostDeviceMirroredContainer<char> *_con;
 
 protected:
+  struct AllocView{
+    void* ptr;
+    inline void* operator()(){ return ptr; }
+
+    AllocView() = default;
+    AllocView(const AllocView &r) = default;
+    AllocView(AllocView &&r) = default;
+    AllocView(void* ptr): ptr(ptr){}
+
+    inline void free(){}
+  };
+
   ExplicitCopyAllocPolicy(): _con(nullptr){}
 
   inline void _alloc(const size_t byte_size){
@@ -126,17 +202,17 @@ protected:
     checkPolicyName(file, "ALLOCPOLICY", "ExplicitCopyAllocPolicy");
   }
 
-  inline void* _getPointer(ViewMode mode) const{
+  inline AllocView _getAllocView(ViewMode mode) const{
     assert(_con);
     switch(mode){
     case HostRead:
-      return (void*)_con->getHostReadPtr();
+      return AllocView((void*)_con->getHostReadPtr());
     case HostWrite:
-      return (void*)_con->getHostWritePtr();	
+      return AllocView((void*)_con->getHostWritePtr());	
     case DeviceRead:
-      return (void*)_con->getDeviceReadPtr();
+      return AllocView((void*)_con->getDeviceReadPtr());
     case DeviceWrite:
-      return (void*)_con->getDeviceWritePtr();	
+      return AllocView((void*)_con->getDeviceWritePtr());	
     };
   }
   
@@ -151,6 +227,11 @@ public:
 
 class NullAllocPolicy{
 protected:
+  struct AllocView{
+    void* operator()(){ return nullptr; }
+    void free(){}
+  };
+
   inline void _alloc(const size_t byte_size){ }
   inline void _free(){ }
   inline void writeParams(std::ostream &file) const{
@@ -160,7 +241,7 @@ protected:
     checkPolicyName(file, "ALLOCPOLICY", "NullAllocPolicy");
   }
 
-  inline void* _getPointer(ViewMode mode){ return nullptr; }
+  inline AllocView _getAllocView(ViewMode mode){ return AllocView(); }
 
   inline void _move(UVMallocPolicy &into){}
 
@@ -171,6 +252,328 @@ public:
   enum { UVMenabled = 1 }; //supports UVM
 };
 
+
+class DeviceMemoryPoolManager{
+public:
+  struct Handle;
+
+  struct Entry{
+    size_t bytes;
+    void* ptr;
+    Handle* owned_by;
+  };
+  typedef std::list<Entry>::iterator EntryIterator;
+
+  struct Handle{
+    bool valid;
+    bool view_is_open;
+    EntryIterator entry;
+    size_t bytes;
+
+    bool device_in_sync;
+    bool host_in_sync;
+    void* host_ptr;
+  };
+
+  typedef std::list<Handle>::iterator HandleIterator;
+
+  bool verbose;
+protected:
+
+  std::list<Entry> in_use_pool; //LRU
+  std::map<size_t,std::list<Entry>, std::greater<size_t> > free_pool; //sorted by size in descending order
+
+  std::list<Handle> handles; //active fields
+
+  size_t allocated;
+  size_t pool_max_size;
+
+  //Move the entry to the end and return a new iterator
+  EntryIterator touchEntry(EntryIterator entry){
+    if(verbose) std::cout << "Touching entry " << entry->ptr << std::endl;
+    Entry e = *entry;
+    in_use_pool.erase(entry);
+    return in_use_pool.insert(in_use_pool.end(),e);
+  }
+
+  EntryIterator evictEntry(EntryIterator entry, bool free_it){
+    if(verbose) std::cout << "Evicting entry " << entry->ptr << std::endl;
+	
+    if(entry->owned_by != nullptr){
+      if(verbose) std::cout << "Entry is owned by handle " << entry->owned_by << ", detaching" << std::endl;
+      Handle &hown = *entry->owned_by;
+      if(hown.view_is_open) ERR.General("DeviceMemoryPoolManager","evictEntry","Cannot evict an entry for an open view!");
+      //Copy data back to host if not in sync
+      if(!hown.host_in_sync){	
+	if(verbose) std::cout << "Host is not in sync with device, copying back before detach" << std::endl;
+	copy_device_to_host(hown.host_ptr,entry->ptr,hown.bytes);
+	hown.host_in_sync = true;
+      }
+      hown.device_in_sync = false;
+      entry->owned_by->valid = false; //evict
+    }
+    if(free_it){ 
+      device_free(entry->ptr); allocated -= entry->bytes; 
+      if(verbose) std::cout << "Freed memory " << entry->ptr << " of size " << entry->bytes << ". Allocated amount is now " << allocated << " vs max " << pool_max_size << std::endl;
+    }
+    return in_use_pool.erase(entry); //remove from list
+  }
+
+  void deallocateFreePool(size_t until_allocated_lte = 0){
+    //Start from the largest    
+    auto sit = free_pool.begin();
+    while(sit != free_pool.end()){
+      auto& entry_list = sit->second;
+
+      auto it = entry_list.begin();
+      while(it != entry_list.end()){
+	device_free(it->ptr); allocated -= it->bytes;
+	if(verbose) std::cout << "Freed memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << allocated << " vs max " << pool_max_size << std::endl;
+	it = entry_list.erase(it);
+
+	if(allocated <= until_allocated_lte){
+	  if(verbose) std::cout << "deallocateFreePool has freed enough memory" << std::endl;
+	  return;
+	}
+      }
+      sit = free_pool.erase(sit);
+    }
+    if(verbose) std::cout << "deallocateFreePool has freed all of its memory" << std::endl;
+  }
+
+  //Allocate a new entry of the given size and move to the end of the LRU queue, returning a pointer
+  EntryIterator allocEntry(size_t bytes){
+    Entry e;
+    e.bytes = bytes;
+    e.ptr = device_alloc_check(128,bytes);
+    allocated += bytes;
+    e.owned_by = nullptr;
+    if(verbose) std::cout << "Allocated entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << allocated << " vs max " << pool_max_size << std::endl;
+    return in_use_pool.insert(in_use_pool.end(),e);
+  }    
+
+  //Get an entry either new or from the pool
+  //It will automatically be moved to the end of the in_use_pool list
+  EntryIterator getEntry(size_t bytes){
+    if(verbose) std::cout << "Getting an entry of size " << bytes << std::endl;
+    if(bytes > pool_max_size) ERR.General("DeviceMemoryPoolManager","getEntry","Requested size is larger than the maximum pool size!");
+
+    //First check if we have an entry of the right size in the pool
+    auto fit = free_pool.find(bytes);
+    if(fit != free_pool.end()){
+      assert(fit->second.size() > 0);
+      Entry e = fit->second.back();
+      if(verbose) std::cout << "Found entry " << e.ptr << " in free pool" << std::endl;
+      if(fit->second.size() == 1) free_pool.erase(fit); //remove the entire, now-empty list
+      else fit->second.pop_back();
+      return in_use_pool.insert(in_use_pool.end(),e);
+    }
+    //Next, if we have enough room, allocate new memory
+    if(allocated + bytes <= pool_max_size){
+      if(verbose) std::cout << "Allocating new memory for entry" << std::endl;
+      return allocEntry(bytes);
+    }
+    //Next, we should free up unused blocks from the free pool
+    if(verbose) std::cout << "Clearing up space from the free pool to make room" << std::endl;
+    deallocateFreePool(pool_max_size - bytes);
+    if(allocated + bytes <= pool_max_size){
+      if(verbose) std::cout << "Allocating new memory for entry" << std::endl;
+      return allocEntry(bytes);
+    }
+
+    //Evict old data until we have enough room
+    //If we hit an entry with just the right size, reuse the pointer
+    if(verbose) std::cout << "Evicting data to make room" << std::endl;
+    auto it = in_use_pool.begin();
+    while(it != in_use_pool.end()){
+      if(verbose) std::cout << "Attempting to evict entry " << it->ptr << std::endl;
+
+      if(it->owned_by->view_is_open){ //don't evict an entry that is currently in use
+      	if(verbose) std::cout << "Entry is assigned to an open view for handle " << it->owned_by << ", skipping" << std::endl;
+      	++it;
+      	continue;
+      }
+
+      bool erase = true;
+      void* reuse;
+      if(it->bytes == bytes){
+	if(verbose) std::cout << "Found entry " << it->ptr << " has the right size, yoink" << std::endl;
+	reuse = it->ptr;
+	erase = false;
+      }
+      it = evictEntry(it, erase);
+
+      if(!erase){
+	if(verbose) std::cout << "Reusing memory " << reuse << std::endl;
+	//reuse existing allocation
+	Entry e;
+	e.bytes = bytes;
+	e.ptr = reuse;
+	e.owned_by = nullptr;
+	return in_use_pool.insert(in_use_pool.end(),e);
+      }else if(allocated + bytes <= pool_max_size){ //allocate if we have enough room
+	if(verbose) std::cout << "Memory available " << allocated << " is now sufficient, allocating" << std::endl;
+	return allocEntry(bytes);
+      }
+    }	
+    ERR.General("DeviceMemoryPoolManager","getEntry","Was not able to get an entry for %lu bytes",bytes);
+  }
+
+
+public:
+
+  DeviceMemoryPoolManager(): allocated(0), pool_max_size(1024*1024*1024), verbose(false){}
+  DeviceMemoryPoolManager(size_t max_size): DeviceMemoryPoolManager(){
+    pool_max_size = max_size;
+  }
+
+  ~DeviceMemoryPoolManager(){
+    auto it = in_use_pool.begin();
+    while(it != in_use_pool.end()){
+      it = evictEntry(it, true);
+    }
+    deallocateFreePool();
+  }
+
+  void setVerbose(bool to){ verbose = to; }
+
+  //Set the pool max size. When the next eviction cycle happens the extra memory will be deallocated
+  void setPoolMaxSize(size_t to){ pool_max_size = to; }
+
+  size_t getAllocated() const{ return allocated; }
+
+  HandleIterator allocate(size_t bytes){
+    if(verbose) std::cout << "Request for allocation of size " << bytes << std::endl;
+    Handle h;
+    h.valid = true;
+    h.entry = getEntry(bytes);
+    h.bytes = bytes;
+    h.host_ptr = memalign_check(128,bytes);
+    h.host_in_sync = true;
+    h.device_in_sync = true;
+    h.view_is_open = false;
+
+    HandleIterator it = handles.insert(handles.end(),h);
+    it->entry->owned_by = &(*it);
+    return it;
+  }
+
+  void* openView(ViewMode mode, HandleIterator h){
+    if(mode == HostRead){
+      if(!h->host_in_sync){
+	if(!h->valid) ERR.General("DeviceMemoryPoolManager","openView","Host is not in sync but device side has been evicted!");
+	copy_device_to_host(h->host_ptr,h->entry->ptr,h->bytes);
+	h->host_in_sync=true;
+      }
+      return h->host_ptr;
+    }else if(mode == HostWrite){
+      h->device_in_sync = false;
+      h->host_in_sync=true;
+      return h->host_ptr;
+    }else{ //mode == DeviceRead || mode == DeviceWrite
+      if(h->valid){
+	h->entry = touchEntry(h->entry); //touch the entry and refresh the iterator
+      }else{
+	//find a new entry
+	h->entry = getEntry(h->bytes);
+	h->valid = true;
+	h->entry->owned_by = &(*h);
+	assert(!h->device_in_sync);
+      }
+      if(mode == DeviceRead && !h->device_in_sync){
+	copy_host_to_device(h->entry->ptr,h->host_ptr,h->bytes);
+	h->device_in_sync = true;
+      }else if(mode == DeviceWrite){
+	h->device_in_sync = true;
+	h->host_in_sync = false;
+      }
+      h->view_is_open = true;
+      return h->entry->ptr;
+    }
+    
+  }
+
+  void closeView(HandleIterator h){
+    h->view_is_open = false;
+  }
+
+  void free(HandleIterator h){
+    if(h->valid){
+      if(verbose) std::cout << "Freeing ptr " << h->entry->ptr << " of size " << h->entry->bytes << " into free pool" << std::endl;
+      //Remove entry from in-use pool
+      Entry e = *(h->entry);
+      in_use_pool.erase(h->entry);
+      e.owned_by = nullptr;
+      free_pool[e.bytes].push_back(e);
+    }
+    //Free host memory
+    ::free(h->host_ptr);
+    //Remove handle
+    if(verbose) std::cout << "Freed host ptr " << h->host_ptr << ", removing handle" << std::endl;
+    handles.erase(h);
+  }
+
+  // size_t getUnused() const{
+  // }    
+
+  inline static DeviceMemoryPoolManager & globalPool(){
+    static DeviceMemoryPoolManager pool;
+    return pool;
+  }      
+
+};
+
+
+class ExplicitCopyPoolAllocPolicy{
+  bool set;
+  DeviceMemoryPoolManager::HandleIterator h;
+protected:
+  struct AllocView{
+    void* ptr;
+    DeviceMemoryPoolManager::HandleIterator h;
+    
+    void* operator()(){ return ptr; }
+
+    AllocView() = default;
+    AllocView(const AllocView &r) = default;
+    AllocView(AllocView &&r) = default;
+    AllocView(ViewMode mode, DeviceMemoryPoolManager::HandleIterator h): h(h), ptr(DeviceMemoryPoolManager::globalPool().openView(mode,h)){}
+
+    void free(){
+      DeviceMemoryPoolManager::globalPool().closeView(h);
+    }
+  };
+
+  inline void _alloc(const size_t byte_size){
+    assert(!set);
+    h = DeviceMemoryPoolManager::globalPool().allocate(byte_size);
+    set = true;
+  }
+  inline void _free(){
+    DeviceMemoryPoolManager::globalPool().free(h);
+    set=false;
+  }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "ExplicitCopyPoolAllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "ExplicitCopyPoolAllocPolicy");
+  }
+
+  inline AllocView _getAllocView(ViewMode mode) const{
+    assert(set);
+    return AllocView(mode,h);
+  }
+  
+public: 
+  ExplicitCopyPoolAllocPolicy(): set(false){}
+
+  inline void deviceSetAdviseUVMreadOnly(const bool to) const{
+    assert(0);
+  }
+  
+  enum { UVMenabled = 0 }; //supports UVM
+};
 
 
 //The FlavorPolicy allows the number of flavors to be fixed or 2/1 if Gparity/noGparity 

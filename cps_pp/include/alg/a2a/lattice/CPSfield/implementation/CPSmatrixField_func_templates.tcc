@@ -18,8 +18,8 @@ auto unop_v(const CPSmatrixField<T> &in, const Functor &l)-> CPSmatrixField<type
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
   CPSmatrixField<typename Functor::OutputType> out(in.getDimPolParams());
-  auto ov = out.view(DeviceWrite);
-  auto iv = in.view(DeviceRead);
+  CPSautoView(ov,out,DeviceWrite);
+  CPSautoView(iv,in,DeviceRead);
   accelerator_for(x4d, iv.size(), nsimd,
 		    {
 		      int lane = Grid::acceleratorSIMTlane(nsimd);
@@ -33,8 +33,8 @@ template<typename T, typename Functor>
 void unop_v(CPSmatrixField<typename Functor::OutputType> &out, const CPSmatrixField<T> &in, const Functor &l){
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
-  auto ov = out.view(DeviceWrite);
-  auto iv = in.view(DeviceRead);
+  CPSautoView(ov,out,DeviceWrite);
+  CPSautoView(iv,in,DeviceRead);
   accelerator_for(x4d, iv.size(), nsimd,
 		    {
 		      int lane = Grid::acceleratorSIMTlane(nsimd);
@@ -62,8 +62,8 @@ auto unop_v_2d(const CPSmatrixField<T> &in, const Functor &l)-> CPSmatrixField<t
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
   CPSmatrixField<typename Functor::OutputType> out(in.getDimPolParams());
-  auto ov = out.view(DeviceWrite);
-  auto iv = in.view(DeviceRead);
+  CPSautoView(ov,out,DeviceWrite);
+  CPSautoView(iv,in,DeviceRead);
   accelerator_for2d(x4d, iv.size(), widx, l.nParallel(), nsimd,
 		    {
 		      int lane = Grid::acceleratorSIMTlane(nsimd);
@@ -77,8 +77,8 @@ template<typename T, typename Functor>
 void unop_v_2d(CPSmatrixField<typename Functor::OutputType> &out, const CPSmatrixField<T> &in, const Functor &l){
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
-  auto ov = out.view(DeviceWrite);
-  auto iv = in.view(DeviceRead);
+  CPSautoView(iv,in,DeviceRead);
+  CPSautoView(ov,out,DeviceWrite);
   accelerator_for2d(x4d, iv.size(), widx, l.nParallel(), nsimd,
 		    {
 		      int lane = Grid::acceleratorSIMTlane(nsimd);
@@ -103,8 +103,8 @@ template<typename T, typename Functor>
 CPSmatrixField<T> & unop_self_v(CPSmatrixField<T> &m, const Functor &l){
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
-  auto mv = m.view(DeviceWrite);
-  auto mvr = m.view(DeviceRead);
+  CPSautoView(mvr,m,DeviceRead);
+  CPSautoView(mv,m,DeviceWrite);
   accelerator_for(x4d, m.size(), nsimd,
 		    {
 		      int lane = Grid::acceleratorSIMTlane(nsimd);
@@ -134,8 +134,8 @@ auto unop(const CPSmatrixField<T> &in, const Lambda &l)-> CPSmatrixField<typenam
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
   CPSmatrixField<outMatrixType> out(in.getDimPolParams());
-  auto ov = out.view(DeviceWrite);
-  auto iv = in.view(DeviceRead);
+  CPSautoView(ov,out,DeviceWrite);
+  CPSautoView(iv,in,DeviceRead);
   accelerator_for(x4d, in.size(), nsimd,
 		    {
 		      typedef SIMT<T> ACCr;
@@ -166,8 +166,8 @@ auto binop_v(const CPSmatrixField<T> &a, const CPSmatrixField<T> &b, const Funct
   assert(a.size() == b.size());
   constexpr int nsimd = getScalarType<T, typename MatrixTypeClassify<T>::type>::type::Nsimd();
   CPSmatrixField<typename Functor::OutputType> out(a.getDimPolParams());
-  auto ov = out.view(DeviceWrite);
-  auto av = a.view(DeviceRead), bv = b.view(DeviceRead);
+  CPSautoView(ov,out,DeviceWrite);
+  CPSautoView(av,a,DeviceRead); CPSautoView(bv,b,DeviceRead);
   
   accelerator_for(x4d, av.size(), nsimd,
 		    {
@@ -186,9 +186,9 @@ auto binop(const CPSmatrixField<T> &a, const CPSmatrixField<U> &b, const Lambda 
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
   CPSmatrixField<outMatrixType> out(a.getDimPolParams());
-  auto ov = out.view(DeviceWrite);
-  auto av = a.view(DeviceRead);
-  auto bv = b.view(DeviceRead);
+  CPSautoView(ov,out,DeviceWrite);
+  CPSautoView(av,a,DeviceRead);
+  CPSautoView(bv,b,DeviceRead);
   
   accelerator_for(x4d, av.size(), nsimd,
 		    {

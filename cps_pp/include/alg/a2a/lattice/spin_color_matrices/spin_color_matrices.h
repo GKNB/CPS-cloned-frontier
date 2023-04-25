@@ -103,9 +103,7 @@ public:
 
   accelerator_inline CPSsquareMatrix<T,N> & operator-=(const CPSsquareMatrix<T,N> &r);
 
-  accelerator_inline bool operator==(const CPSsquareMatrix<T,N> &r) const;
-
-  friend std::ostream & operator<<(std::ostream &os, const CPSsquareMatrix<T,N> &m);
+  accelerator_inline bool operator==(const CPSsquareMatrix<T,N> &r) const;  
 };
 
 template<typename U> 
@@ -121,6 +119,8 @@ accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type o
 template<typename U> 
 accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, U>::type operator-(const U &a);
 
+template<typename T, int N>
+std::ostream & operator<<(std::ostream &os, const CPSsquareMatrix<T,N> &m);
 
 template<typename U>
 accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, typename U::scalar_type>::type Trace(const U &a, const U &b);

@@ -288,7 +288,7 @@ template<typename T, int N>
 std::ostream & operator<<(std::ostream &os, const CPSsquareMatrix<T,N> &m){
   for(int i=0;i<N;i++){
     for(int j=0;j<N;j++){
-      _print_T_sqmat(os, m.v[i][j]);
+      _print_T_sqmat(os, m(i,j));
       if(j<N-1) os << " ";
     }
     os << '\n';

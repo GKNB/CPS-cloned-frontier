@@ -171,8 +171,8 @@ template< typename SiteType, int SiteSize, typename MappingPolicy, typename Allo
 //Set this field to the average of this and a second field, r
 void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::average(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r, const bool parallel){
   //The beauty of having the ordering baked into the policy class is that we implicitly *know* the ordering of the second field, so we can just loop over the floats in a dumb way
-  CPSautoView(t_v,(*this),HostWrite);
   CPSautoView(t_vr,(*this),HostRead); //need to read and write! This will ensure the data is where it is needed
+  CPSautoView(t_v,(*this),HostWrite);
   CPSautoView(r_v,r,HostRead);
   SiteType *tf=t_v.ptr();
   SiteType const* rf=r_v.ptr();
@@ -186,18 +186,21 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::average(const CPSfie
 }
 
 //Implemenation objects for CPSfermion4d gauge fix
-template<typename mf_Complex, typename MappingPolicy>
+template<typename SIMDcomplex, typename SIMDmappingPolicy, typename FieldType>
 struct _gauge_fix_conv_gfix_mat{
-  static inline CPSfield<mf_Complex, 9, MappingPolicy> * convert(bool &delout, CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > &in, const typename MappingPolicy::ParamType &params){
-    CPSfield<mf_Complex, 9, MappingPolicy> * out = new CPSfield<mf_Complex, 9, MappingPolicy>(params);
+  typedef CPSfield<SIMDcomplex, 9, SIMDmappingPolicy, HostAllocPolicy> OutputType;
+
+  static inline OutputType * convert(bool &delout, FieldType &in, const typename SIMDmappingPolicy::ParamType &params){
+    OutputType * out = new OutputType(params);
     out->importField(in);
     delout = true;
     return out;
   }
 };
-template<>
-struct _gauge_fix_conv_gfix_mat<cps::ComplexD, FourDpolicy<DynamicFlavorPolicy> >{
-  static inline CPSfield<cps::ComplexD, 9, FourDpolicy<DynamicFlavorPolicy> > * convert(bool &delout, CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > &in, const NullObject &params){
+template<typename FieldType>
+struct _gauge_fix_conv_gfix_mat<cps::ComplexD, typename FieldType::FieldMappingPolicy, FieldType>{
+  typedef FieldType OutputType;
+  static inline FieldType * convert(bool &delout, FieldType &in, const NullObject &params){
     delout = false;
     return &in;    
   }
@@ -209,7 +212,8 @@ void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, 
   
   //Get the field of gauge fixing matrices in non-SIMD format
   NullObject null;
-  CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > gfix_mat(null);
+  typedef CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy>, HostAllocPolicy > NonSIMDfieldType;
+  NonSIMDfieldType gfix_mat(null);
   {
     CPSautoView(gf_v,gfix_mat,HostWrite);
 
@@ -222,12 +226,12 @@ void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, 
       *( (Matrix*)gf_v.fsite_ptr(xf) ) = *mp;
     }
   }
-
+  //Need to convert to the SIMD format if necessary
   bool delete_conv;
-  CPSfield<mf_Complex, 9, MappingPolicy> * gfix_mat_conv = _gauge_fix_conv_gfix_mat<mf_Complex,MappingPolicy>::convert(delete_conv, gfix_mat, this->getDimPolParams());
+  auto* gfix_mat_conv = _gauge_fix_conv_gfix_mat<mf_Complex,MappingPolicy,NonSIMDfieldType>::convert(delete_conv, gfix_mat, this->getDimPolParams());
   {
-    CPSautoView(t_v,(*this),HostWrite);
     CPSautoView(t_vr,(*this),HostRead);
+    CPSautoView(t_v,(*this),HostWrite);
     CPSautoView(gf_v,(*gfix_mat_conv),HostRead);
 
 #pragma omp parallel for
@@ -349,8 +353,8 @@ template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>::applyPhase(const int p[], const bool parallel){
   double punits[3];
   CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(punits);
-  CPSautoView(t_v,(*this),HostWrite);
   CPSautoView(t_vr,(*this),HostRead);
+  CPSautoView(t_v,(*this),HostWrite);
   _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type> op(t_v, parallel ? omp_get_max_threads() : 1);
 
   if(parallel){
@@ -450,8 +454,8 @@ struct _ferm3d_gfix_impl<mf_Complex,DimensionPolicy<FixedFlavorPolicy<1> >,Alloc
     printf("_ferm3d_gfix_impl::gauge_fix with time=%d, flav=%d\n",time_flav.first,time_flav.second);
     typedef typename mf_Complex::value_type mf_Float;
 
-    CPSautoView(f_v,field,HostWrite);
     CPSautoView(f_vr,field,HostRead);
+    CPSautoView(f_v,field,HostWrite);
 
 #define SITE_OP								\
     int x4d[4]; field.siteUnmap(i,x4d);		\
@@ -580,7 +584,7 @@ struct _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy
     const char *fname = "scatter(...)";
     int orig[3]; for(int i=0;i<3;i++) orig[i] = GJP.NodeSites(i)*GJP.NodeCoor(i);
     CPSautoView(to_v,to,HostWrite);
-    CPSautoView(from_v,to,HostRead);
+    CPSautoView(from_v,from,HostRead);
     
 #pragma omp parallel for
     for(size_t i=0;i<to.nfsites();i++){
@@ -609,9 +613,9 @@ struct _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy
     int nsimd = extComplex::Nsimd();
     std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim)); //get the vector offsets for the different SIMD packed sites
     for(int i=0;i<nsimd;i++) to.SIMDunmap(i,&packed_offsets[i][0]);
-    
+
+    CPSautoView(from_v,from,HostRead);    
     CPSautoView(to_v,to,HostWrite);
-    CPSautoView(from_v,from,HostRead);
 
 #pragma omp parallel for
     for(size_t i=0;i<to.nfsites();i++){

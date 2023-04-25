@@ -10,6 +10,8 @@
 
 CPS_START_NAMESPACE 
 
+typedef ExplicitCopyPoolAllocPolicy CPSfieldDefaultAllocPolicy;
+
 typedef std::complex<float> ComplexF;
 typedef std::complex<double> ComplexD;
 
@@ -23,7 +25,7 @@ inline CPSfield_checksumType checksumTypeFromString(const std::string &str){
 }
 
 //A wrapper for a CPS-style field. Most functionality is generic so it can do quite a lot of cool things
-template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy = UVMallocPolicy>
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfield: public MappingPolicy, public AllocPolicy{
 protected:
   size_t fsize; //number of SiteType in the array = SiteSize * fsites
@@ -45,12 +47,15 @@ public:
 
   //Accelerator accessor functionality
   class View: public MappingPolicy{
+    typename AllocPolicy::AllocView aview;
     SiteType* f; //assumes unified memory
   protected:
     size_t fsize; //number of SiteType in the array = SiteSize * fsites
   public:
-    View(SiteType* f, const CPSfield &field): f(f), fsize(field.fsize), MappingPolicy(field){ assert(FieldAllocPolicy::UVMenabled == 1); }
+    View(typename AllocPolicy::AllocView aview, const CPSfield &field): aview(aview), f( (SiteType*)aview() ), fsize(field.fsize), MappingPolicy(field){}
     
+    void free(){ aview.free(); }
+
     //Number of SiteType per site
     accelerator_inline int siteSize() const{ return SiteSize; }
 
@@ -88,7 +93,7 @@ public:
   };
 
   //Return a view object for use on the accelerator
-  View view(ViewMode mode) const{ return View((SiteType*)this->_getPointer(mode),*this); }
+  View view(ViewMode mode) const{ return View(this->_getAllocView(mode),*this); }
 
   CPSfield(const InputParamType &params): MappingPolicy(params){
     fsize = this->nfsites() * SiteSize;
@@ -352,7 +357,7 @@ public:
 
 
 
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion: public CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>{
 protected:
   //Obtain the basic unit of momentum given the boundary conditions
@@ -365,7 +370,7 @@ public:
   CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion);
 };
 
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion3D4Dcommon: public CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>{
 public:
   typedef CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> BaseType;
@@ -393,7 +398,7 @@ struct GaugeFix3DInfo<FixedFlavorPolicy<1> >{
   typedef std::pair<int,int> InfoType; //time, flavor (latter ignored if no GPBC)
 };
 
-template< typename mf_Complex, typename MappingPolicy = SpatialPolicy<DynamicFlavorPolicy>, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename MappingPolicy = SpatialPolicy<DynamicFlavorPolicy>, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion3D: public CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 3> check;
 
@@ -413,7 +418,7 @@ public:
   DEFINE_ADDSUB_DERIVED(CPSfermion3D);
 };
 
-template< typename mf_Complex, typename MappingPolicy = FourDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename MappingPolicy = FourDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion4D: public CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 4> check;
 public:
@@ -435,7 +440,7 @@ public:
   DEFINE_ADDSUB_DERIVED(CPSfermion4D);
 };
 
-template< typename mf_Complex, typename MappingPolicy = FiveDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename MappingPolicy = FiveDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion5D: public CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 5> check;
 public:  
@@ -449,7 +454,7 @@ public:
 };
 
 
-template< typename mf_Complex, typename MappingPolicy = FourDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename MappingPolicy = FourDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPScomplex4D: public CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 4> check;
 public:
@@ -467,7 +472,7 @@ public:
 };
 
 //3d complex number field
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPScomplexSpatial: public CPSfield<mf_Complex,1,SpatialPolicy<FlavorPolicy>,AllocPolicy>{
   typedef SpatialPolicy<FlavorPolicy> MappingPolicy;
 public:
@@ -478,7 +483,7 @@ public:
 };
 
 //Lattice-spanning 'global' 3d complex field
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSglobalComplexSpatial: public CPSfield<mf_Complex,1,GlobalSpatialPolicy<FlavorPolicy>,AllocPolicy>{
   typedef GlobalSpatialPolicy<FlavorPolicy> MappingPolicy;
 public:
@@ -498,7 +503,7 @@ public:
 
 
 //This field contains an entire row of sub-lattices along a particular dimension. Every node along that row contains an identical copy
-template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy = UVMallocPolicy>
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfieldGlobalInOneDir: public CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>{
 public:
   typedef CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> BaseType;
@@ -519,7 +524,7 @@ public:
   DEFINE_ADDSUB_DERIVED(CPSfieldGlobalInOneDir);
 };
 
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion4DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir<FlavorPolicy>,AllocPolicy>{
 public:
   typedef CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir<FlavorPolicy>,AllocPolicy> BaseType;
@@ -527,7 +532,7 @@ public:
   CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion4DglobalInOneDir);  
   DEFINE_ADDSUB_DERIVED(CPSfermion4DglobalInOneDir);
 };
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion3DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir<FlavorPolicy>,AllocPolicy>{
 public:
   typedef CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir<FlavorPolicy>,AllocPolicy> BaseType;
@@ -538,7 +543,7 @@ public:
 
 
 ////////Checkerboarded types/////////////
-template< typename mf_Complex, typename CBpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename CBpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion5Dprec: public CPSfermion<mf_Complex,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy>{
 public:
   typedef CPSfermion<mf_Complex,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy> BaseType;
@@ -548,7 +553,7 @@ public:
 };
 
 
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion5Dcb4Deven: public CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>{
 public:
   typedef CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy> BaseType;
@@ -556,7 +561,7 @@ public:
   CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion5Dcb4Deven);
   DEFINE_ADDSUB_DERIVED(CPSfermion5Dcb4Deven);
 };
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = UVMallocPolicy>
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion5Dcb4Dodd: public CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>{
 public:
   typedef CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy> BaseType;

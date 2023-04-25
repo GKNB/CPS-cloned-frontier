@@ -32,12 +32,14 @@ CPS_START_NAMESPACE
 struct GridSIMDSourcePolicies{
   typedef Grid::vComplexD ComplexType;
   typedef ThreeDSIMDPolicy<OneFlavorPolicy> MappingPolicy;
-  typedef UVMallocPolicy AllocPolicy;
+  //typedef UVMallocPolicy AllocPolicy;
+  typedef ExplicitCopyPoolAllocPolicy AllocPolicy;
 };
 struct GridSIMDSourcePoliciesSingle{
   typedef Grid::vComplexF ComplexType;
   typedef ThreeDSIMDPolicy<OneFlavorPolicy> MappingPolicy;
-  typedef UVMallocPolicy AllocPolicy;
+//typedef UVMallocPolicy AllocPolicy;
+  typedef ExplicitCopyPoolAllocPolicy AllocPolicy;
 };
 #endif
 
@@ -48,7 +50,8 @@ struct StandardSourcePolicies{
   typedef cps::ComplexD ComplexType;
 #endif
   typedef SpatialPolicy<OneFlavorPolicy> MappingPolicy;
-  typedef UVMallocPolicy AllocPolicy;
+//typedef UVMallocPolicy AllocPolicy;
+  typedef ExplicitCopyPoolAllocPolicy AllocPolicy;
 };
 
 //These typedefs are needed if Grid is being used at all even if the main program is not using SIMD vectorized data types
@@ -160,7 +163,7 @@ struct BaseGridPoliciesGparity{
 #define A2APOLICIES_TEMPLATE(NAME, IS_GPARITY_POLICY, BASE_GRID_PARAMS, ALLOCATOR_MACRO, MFSTORAGE_MACRO) \
 struct NAME{								\
  A2APOLICIES_SETUP(BASE_GRID_PARAMS)					\
- typedef UVMallocPolicy AllocPolicy;				\
+ typedef UVMallocPolicy AllocPolicy;					\
  typedef CPSfermion4D<ComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType; \
  typedef CPScomplex4D<ComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> ComplexFieldType; \
  typedef FermionFieldType ScalarFermionFieldType; /*SIMD vectorized and scalar (non-vectorized) fields are the same*/ \
@@ -181,7 +184,7 @@ A2APOLICIES_TEMPLATE(A2ApoliciesDoubleManualAllocGparity, 1, BaseGridPoliciesGpa
 
 
 
-
+// typedef UVMallocPolicy AllocPolicy;		\
 
 #ifdef USE_GRID
 
@@ -190,11 +193,10 @@ A2APOLICIES_TEMPLATE(A2ApoliciesDoubleManualAllocGparity, 1, BaseGridPoliciesGpa
 #define A2APOLICIES_SIMD_TEMPLATE(NAME, IS_GPARITY_POLICY, BASE_GRID_PARAMS, ALLOCATOR_MACRO, MFSTORAGE_MACRO) \
 struct NAME{					\
  INHERIT_BASE_GRID_TYPEDEFS(BASE_GRID_PARAMS);	\
-						\
+ typedef ExplicitCopyPoolAllocPolicy AllocPolicy; \
  typedef Grid::vComplexD ComplexType;		\
  typedef Grid::vComplexD ComplexTypeD;		\
  typedef Grid::vComplexF ComplexTypeF;		\
- typedef UVMallocPolicy AllocPolicy;	\
  typedef Grid::ComplexD ScalarComplexType;	\
 									\
  typedef CPSfermion4D<ComplexType, FourDSIMDPolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType;	\

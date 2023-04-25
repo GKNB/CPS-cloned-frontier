@@ -2,7 +2,7 @@ template<typename VectorMatrixType>
 double CPSmatrixFieldNorm2(const CPSmatrixField<VectorMatrixType> &f){
   typedef typename VectorMatrixType::scalar_type scalar_type;
   constexpr int nscalar= VectorMatrixType::nScalarType();
-  CPSfield<scalar_type,nscalar, FourDSIMDPolicy<OneFlavorPolicy>, UVMallocPolicy> tmp(f.getDimPolParams());
+  CPSfield<scalar_type,nscalar, FourDSIMDPolicy<OneFlavorPolicy>, HostAllocPolicy> tmp(f.getDimPolParams());
   CPSautoView(tmp_v,tmp,HostWrite);
   CPSautoView(f_v,f,HostRead);
   memcpy(tmp.ptr(), f_v.ptr(), f.byte_size());
@@ -263,8 +263,8 @@ CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixFiel
 #endif  
 
   static const int nsimd = VectorMatrixType::scalar_type::Nsimd();
-  auto av = a.view();
-  auto ov = out.view();
+  CPSautoView(av,a,DeviceRead);
+  CPSautoView(ov,out,DeviceWrite);
   accelerator_for(x4d, a.size(), nsimd,
   		  {
 		    int lane = Grid::acceleratorSIMTlane(nsimd);
@@ -310,7 +310,7 @@ VectorMatrixType localNodeSum(const CPSmatrixField<VectorMatrixType> &a){
 
   ScalarType *into = tmp;
 
-  auto av = a.view();
+  CPSautoView(av,a,DeviceRead);
   accelerator_for(offset, nscalar * field_size/2, nsimd,
 		  {
 		    typedef SIMT<ScalarType> ACC;
@@ -425,7 +425,7 @@ ManagedVector<VectorMatrixType> localNodeSpatialSum(const CPSmatrixField<VectorM
 
   ScalarType *into = tmp;
 
-  auto av = a.view();
+  CPSautoView(av,a,DeviceRead);
   accelerator_for(offset, nscalar * Lt_loc * field_size_3d/2, nsimd,
 		  {
 		    typedef SIMT<ScalarType> ACC;

@@ -134,7 +134,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
   static void run_VV_kernel_GPU(VectorComplexType* vaprime,
 				VectorComplexType* vbprime,
 				typename ManagedVector<uint8_t>::View &alpha,
-				typename PropagatorField::View &into,
+				PropagatorField &into,
 				size_t niprime, size_t niprime_block,
 				size_t iprimestart, size_t iprimelessthan,
 				size_t vol4d, int t_off, int nf, int src_width, size_t nsimd,
@@ -157,7 +157,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     if(shmem_iblock_size == 0) assert(0);
 
     using namespace Grid;
-
+    CPSautoView(into_v,into,DeviceWrite);
     accelerator_for_shmem(x4d, 
 			  vol4d, 
 			  nsimd, 
@@ -247,7 +247,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
   static void run_VV_kernel_base(VectorComplexType* vaprime,
 				 VectorComplexType* vbprime,
 				 typename ManagedVector<uint8_t>::View &alpha,
-				 typename PropagatorField::View &into,
+				 PropagatorField &into,
 				 size_t niprime, size_t niprime_block,
 				 size_t iprimestart, size_t iprimelessthan,
 				 size_t vol4d, int t_off, int nf, int src_width, size_t nsimd
@@ -255,7 +255,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     static const int shmem_iblock_size = 4;
     
     using namespace Grid;
-
+    CPSautoView(into_v,into,DeviceWrite);
     accelerator_for(x4d, 
 		    vol4d, 
 		    nsimd, 
@@ -350,8 +350,6 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
     time.init1 -= dclock();
 
-    auto into_v = into.view();
-	
     into.zero();
 
     ModeContractionIndices<leftDilutionType,rightDilutionType> i_ind(l);
@@ -537,9 +535,9 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 #endif
     
 #if defined(GRID_CUDA) || defined(GRID_HIP)
-      run_VV_kernel_GPU(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd, device);
+      run_VV_kernel_GPU(vaprime, vbprime, alpha_v, into, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd, device);
 #else
-      run_VV_kernel_base(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd);
+      run_VV_kernel_base(vaprime, vbprime, alpha_v, into, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd);
 #endif
 
       time.vv += dclock();

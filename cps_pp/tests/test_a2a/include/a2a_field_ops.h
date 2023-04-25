@@ -381,7 +381,10 @@ void testA2AvectorWnorm(const A2AArg &a2a_args){
     typename A2Apolicies::FermionFieldType::FieldAllocPolicy> tmp1(p.params);
 
   int Nh = stdidx.getNh();
-  std::vector< CPSfermion4D<cps::ComplexD,FourDpolicy<DynamicFlavorPolicy>, StandardAllocPolicy> > eta(Nh);
+  typedef CPSfermion4D<cps::ComplexD,FourDpolicy<DynamicFlavorPolicy>, HostAllocPolicy> nonSIMDFieldType;
+  std::vector<nonSIMDFieldType> eta(Nh);
+  std::vector<ViewAutoDestructWrapper<typename nonSIMDFieldType::View> > eta_v(Nh);
+  for(int i=0;i<Nh;i++) eta_v[i].reset(eta[i].view(HostRead));
 
   for(int i=0;i<stdidx.getNh();i++){
     W.getDilutedSource(tmp1, i);
@@ -397,6 +400,8 @@ void testA2AvectorWnorm(const A2AArg &a2a_args){
     return;
   }        
   
+  std::
+
   size_t x3d = 0;
 
   //Check that W is correctly normalized such that \sum_i \eta_i(x0,t1) \eta^\dag_i(x0,t2)  produces a unit matrix in spin-color,flavor and time for some arbitrary x0
@@ -418,8 +423,8 @@ void testA2AvectorWnorm(const A2AArg &a2a_args){
 	      cps::ComplexD expect = expect_zero ? 0. : 1.;
 
 	      for(int i=0;i<Nh;i++){		  
-		cps::ComplexD v1 = *( eta[i].site_ptr(x4d1, f1) + sc1);
-		cps::ComplexD v2 = *( eta[i].site_ptr(x4d2, f2) + sc2);
+		cps::ComplexD v1 = *( eta_v[i]->site_ptr(x4d1, f1) + sc1);
+		cps::ComplexD v2 = *( eta_v[i]->site_ptr(x4d2, f2) + sc2);
 		sum += std::conj(v1)*v2;
 	      }  
 	      
@@ -455,8 +460,8 @@ void testA2AvectorWnorm(const A2AArg &a2a_args){
 
 	cps::ComplexD sum = 0;
 	for(int i=0;i<Nh;i++){		  
-	  cps::ComplexD v1 = *( eta[i].site_ptr(x4d1, f1) + sc);
-	  cps::ComplexD v2 = *( eta[i].site_ptr(x4d2, f2) + sc);
+	  cps::ComplexD v1 = *( eta_v[i]->site_ptr(x4d1, f1) + sc);
+	  cps::ComplexD v2 = *( eta_v[i]->site_ptr(x4d2, f2) + sc);
 	  sum += std::conj(v1)*v2;
 	}  
 	fstruct[f1][f2] = sum;
@@ -495,8 +500,8 @@ void testA2AvectorWnorm(const A2AArg &a2a_args){
 
 	cps::ComplexD sum = 0;
 	for(int i=0;i<Nh;i++){		  
-	  cps::ComplexD v1 = *( eta[i].site_ptr(x4d1, f1) + sc);
-	  cps::ComplexD v2 = *( eta[i].site_ptr(x4d2, f2) + sc);
+	  cps::ComplexD v1 = *( eta_v[i]->site_ptr(x4d1, f1) + sc);
+	  cps::ComplexD v2 = *( eta_v[i]->site_ptr(x4d2, f2) + sc);
 	  sum += std::conj(v1)*v2;
 	}  
 	fstruct[f1][f2] = sum;

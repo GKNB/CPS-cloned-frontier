@@ -29,7 +29,7 @@ void testCPSsquareMatrix(){
     scalar_type tr = sf1.Trace();
 
     std::cout << "Trace: ";
-    CPSprintT(std::cout, tr);
+    _print_T_sqmat(std::cout, tr);
     std::cout << std::endl;
 
     assert( tr == scalar_type(0.) );
@@ -37,7 +37,7 @@ void testCPSsquareMatrix(){
 
     cps::Complex dbl_trace = sf1.TraceIndex<0>().TraceIndex<0>();
     std::cout << "Trace(flavor)Trace(spin): ";
-    CPSprintT(std::cout, dbl_trace);
+    _print_T_sqmat(std::cout, dbl_trace);
     std::cout << std::endl;
     
     assert( tr == cps::Complex(0.) );
@@ -45,7 +45,7 @@ void testCPSsquareMatrix(){
     
     std::cout << "Trace product g5*g5=I_8x8: ";
     scalar_type tr_prod = Trace(sf1,sf1);
-    CPSprintT(std::cout, tr_prod);
+    _print_T_sqmat(std::cout, tr_prod);
     std::cout << std::endl;
 
     assert( tr_prod == scalar_type(8.) );

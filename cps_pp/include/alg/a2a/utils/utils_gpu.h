@@ -197,6 +197,8 @@ public:
   //Note, takes ownership of pointer!
   ViewAutoDestructWrapper(ViewType *vin): v(vin){}
 
+  ViewAutoDestructWrapper(ViewType &&vin): v(new ViewType(vin)){}
+
   //Cannot be copied
   ViewAutoDestructWrapper(const ViewAutoDestructWrapper &r) = delete;
   //Can be moved
@@ -208,7 +210,9 @@ public:
       delete v;
     }
     v = vin;
-  }   
+  }  
+  void reset(ViewType &&vin){ reset(new ViewType(vin)); }
+ 
 
   ViewType & operator*(){ return *v; }
   ViewType const & operator*() const{ return *v; }

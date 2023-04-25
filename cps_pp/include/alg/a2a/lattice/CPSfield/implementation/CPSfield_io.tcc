@@ -413,9 +413,10 @@ private:
     size_t fsites = field.nfsites(); //number of "sites" (including doubling due to second flavor if applicable)
 
     nd node_data;
-    
-    node_data.checksum = conv.checksumCRC32( (char*)field.ptr(), floats_per_site*fsites, dataformat);
-
+    {
+      CPSautoView(field_v,field,HostRead);
+      node_data.checksum = conv.checksumCRC32( (char*)field_v.ptr(), floats_per_site*fsites, dataformat);
+    }
     nd* recv_buf = myrank == headrank ? (nd*)malloc_check(nodes * sizeof(nd)) : NULL;
     
     int ret = MPI_Gather(&node_data, sizeof(nd), MPI_BYTE,
@@ -837,7 +838,7 @@ public:
     
     if(sameLayout() && sameCoordinate(node_coors[UniqueID()])){ //easiest if node layout same as in original files
       NullObject nul;
-      CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> nonsimd(nul);
+      CPSfield<SiteType,SiteSize,MappingPolicy,HostAllocPolicy> nonsimd(nul);
       CPSautoView(nonsimd_v,nonsimd,HostWrite);
       for(int f=0;f<fields.size();f++){
 	std::ostringstream checkpoint_path; checkpoint_path << path << "/checkpoint_" << f;

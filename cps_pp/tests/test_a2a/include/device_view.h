@@ -63,7 +63,7 @@ void testCPSfieldArray(){
   ComplexType expect = *field.site_ptr(size_t(0));
 
   std::cout << "Getting view" << std::endl;
-  CPSautoView(av, farray); //auto destruct memory alloced
+  CPSautoView(av, farray, DeviceRead); //auto destruct memory alloced
    
   using Grid::acceleratorThreads;
 
@@ -194,7 +194,7 @@ void testA2AfieldAccess(){
 #endif
 
   std::cout << "Generating views" << std::endl;
-  CPSautoView(vv, v);
+  CPSautoView(vv, v, DeviceRead);
    
   size_t fsize = field.size();
  
@@ -228,9 +228,9 @@ struct autoViewTest1{
   
   struct View{    
     double v;
-    View(const autoViewTest1 &p): v(p.v){}
+    View(const autoViewTest1 &p, ViewMode mode): v(p.v){}
   };
-  View view() const{ return View(*this); }
+  View view(ViewMode mode) const{ return View(*this,mode); }
 };
 
 struct autoViewTest2{
@@ -241,10 +241,10 @@ struct autoViewTest2{
     double v;
     bool* free_called;
     
-    View(autoViewTest2 &p): v(p.v), free_called(&p.free_called){}
+    View(autoViewTest2 &p, ViewMode mode): v(p.v), free_called(&p.free_called){}
     void free(){ *free_called = true; }
   };
-  View view(){ return View(*this); }
+  View view(ViewMode mode){ return View(*this,mode); }
 };
 
 void testAutoView(){ 
@@ -252,7 +252,7 @@ void testAutoView(){
   t1.v = 3.14;
   
   {  
-    CPSautoView(t1_v, t1);
+    CPSautoView(t1_v, t1, DeviceRead);
 
     assert(t1_v.v == t1.v);
   }
@@ -262,7 +262,7 @@ void testAutoView(){
   t2.v = 6.28;
   
   {  
-    CPSautoView(t2_v, t2);
+    CPSautoView(t2_v, t2, DeviceRead);
 
     assert(t2_v.v == t2.v);
   }
@@ -277,7 +277,7 @@ void testViewArray(){
   t1[1].v = 6.28;
   
   std::vector<autoViewTest1*> t1_p = { &t1[0], &t1[1] };
-  ViewArray<typename autoViewTest1::View> t1_v(t1_p);
+  ViewArray<typename autoViewTest1::View> t1_v(DeviceRead,t1_p);
 
   double* into = (double*)managed_alloc_check(2*sizeof(double));
 
@@ -314,7 +314,7 @@ void testViewArray(){
   t2[1].v = 62.8;
   
   std::vector<autoViewTest2*> t2_p = { &t2[0], &t2[1] };
-  ViewArray<typename autoViewTest2::View> t2_v(t2_p);
+  ViewArray<typename autoViewTest2::View> t2_v(DeviceRead,t2_p);
 
   {
     using namespace Grid;

@@ -294,13 +294,13 @@ void printRow(const CPSfield<mf_Complex,SiteSize,FourDpolicy<FlavorPolicy>,Alloc
   for(int i=0;i<4;i++)
     if(i!=dir) other_dirs[aa++] = i;
 
-  
+  CPSautoView(field_v,field,HostRead);
   if(GJP.NodeCoor(other_dirs[0]) == 0 && GJP.NodeCoor(other_dirs[1]) == 0 && GJP.NodeCoor(other_dirs[2]) == 0){
     for(int x=GJP.NodeCoor(dir)*GJP.NodeSites(dir); x < (GJP.NodeCoor(dir)+1)*GJP.NodeSites(dir); x++){
       int lcoor[4] = {0,0,0,0};
       lcoor[dir] = x - GJP.NodeCoor(dir)*GJP.NodeSites(dir);
       
-      mf_Complex const* site_ptr = field.site_ptr(lcoor);
+      mf_Complex const* site_ptr = field_v.site_ptr(lcoor);
       buf[x] = *site_ptr;
     }
   }
@@ -326,7 +326,7 @@ void printRow(const CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy<FlavorPolicy>,A
 	       ){
   typedef typename mf_Complex::scalar_type ScalarComplex;
   NullObject null_obj;
-  CPSfield<ScalarComplex,SiteSize,FourDpolicy<FlavorPolicy>,StandardAllocPolicy> tmp(null_obj);
+  CPSfield<ScalarComplex,SiteSize,FourDpolicy<FlavorPolicy>,UVMallocPolicy> tmp(null_obj);
   tmp.importField(field);
   printRow(tmp,dir,comment);
 }

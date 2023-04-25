@@ -9,7 +9,7 @@ CPS_START_NAMESPACE
 //Spatial source structure in *momentum-space*. 
 //We will assume the source is flavor diagonal (i.e. the same value for both flavors) and so will use a SpatialPolicy<OneFlavorPolicy> for the mapping
 //*NOTE  If using SIMD vectorization the SIMD mapping for the 3d part must be the same as for the 4d a2a fields. To ensure this use setupFieldParams function*
-template<typename mf_Complex,typename MappingPolicy = SpatialPolicy<OneFlavorPolicy>, typename FieldAllocPolicy = UVMallocPolicy, typename my_enable_if<MappingPolicy::EuclideanDimension == 3 && _equal<typename MappingPolicy::FieldFlavorPolicy, OneFlavorPolicy>::value, int>::type = 0>
+template<typename mf_Complex,typename MappingPolicy = SpatialPolicy<OneFlavorPolicy>, typename FieldAllocPolicy = CPSfieldDefaultAllocPolicy, typename my_enable_if<MappingPolicy::EuclideanDimension == 3 && _equal<typename MappingPolicy::FieldFlavorPolicy, OneFlavorPolicy>::value, int>::type = 0>
 class A2Asource{
 public:
   typedef CPSfield<mf_Complex,1,MappingPolicy,FieldAllocPolicy> FieldType;  

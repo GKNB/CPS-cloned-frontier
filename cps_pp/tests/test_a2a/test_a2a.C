@@ -351,8 +351,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   //if(1) testXconjWsrcPostOp<A2Apolicies_grid>(lattice);
   //if(1) testXconjWsrcInverse<A2Apolicies_grid>(lattice);
   //if(1) testXconjWsrcFull<A2Apolicies_grid>(lattice);
-  if(1) testXconjWsrcCConjRelnV<A2Apolicies_grid>(lattice);
-  if(1) testXconjWsrcCConjReln<A2Apolicies_grid>(lattice);
+  //if(1) testXconjWsrcCConjRelnV<A2Apolicies_grid>(lattice);
+  //if(1) testXconjWsrcCConjReln<A2Apolicies_grid>(lattice);
+  if(1) testPoolAllocator();
 }
 
 

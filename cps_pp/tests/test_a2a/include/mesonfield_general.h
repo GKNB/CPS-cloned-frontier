@@ -443,7 +443,7 @@ void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
   //Do a test once with the view precreated
   {
     device_memset(device_into,0,into_size);
-    CPSautoView(mf1_v,mf1);
+    CPSautoView(mf1_v,mf1,DeviceRead);
 
     mf1.unpack_device(device_into, &mf1_v);
     memset(into,0,into_size);  
@@ -546,7 +546,7 @@ void testMesonFieldUnpackPackTblock(A2AArg a2a_args, const double tol){
   //Do a test once with the view precreated
   {
     device_memset(device_into,0,into_size);
-    CPSautoView(mf1_v,mf1);
+    CPSautoView(mf1_v,mf1,DeviceRead);
 
     mf1.unpack_device(device_into, &mf1_v);
     memset(into,0,into_size);  
