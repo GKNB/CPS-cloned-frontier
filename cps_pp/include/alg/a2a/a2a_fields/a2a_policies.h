@@ -38,20 +38,20 @@ struct GridSIMDSourcePolicies{
 struct GridSIMDSourcePoliciesSingle{
   typedef Grid::vComplexF ComplexType;
   typedef ThreeDSIMDPolicy<OneFlavorPolicy> MappingPolicy;
-//typedef UVMallocPolicy AllocPolicy;
+  //typedef UVMallocPolicy AllocPolicy;
   typedef ExplicitCopyPoolAllocPolicy AllocPolicy;
 };
 #endif
 
-struct StandardSourcePolicies{
+struct StandardSourcePolicies{ //non-SIMD
 #ifdef USE_GRID
   typedef Grid::ComplexD ComplexType;
 #else
   typedef cps::ComplexD ComplexType;
 #endif
   typedef SpatialPolicy<OneFlavorPolicy> MappingPolicy;
-//typedef UVMallocPolicy AllocPolicy;
-  typedef ExplicitCopyPoolAllocPolicy AllocPolicy;
+  typedef UVMallocPolicy AllocPolicy;
+  //typedef ExplicitCopyPoolAllocPolicy AllocPolicy;
 };
 
 //These typedefs are needed if Grid is being used at all even if the main program is not using SIMD vectorized data types
@@ -184,8 +184,9 @@ A2APOLICIES_TEMPLATE(A2ApoliciesDoubleManualAllocGparity, 1, BaseGridPoliciesGpa
 
 
 
-// typedef UVMallocPolicy AllocPolicy;		\
 
+
+// typedef UVMallocPolicy AllocPolicy;	   
 #ifdef USE_GRID
 
 //This macro defines a template for all the SIMD A2A policies
@@ -193,12 +194,11 @@ A2APOLICIES_TEMPLATE(A2ApoliciesDoubleManualAllocGparity, 1, BaseGridPoliciesGpa
 #define A2APOLICIES_SIMD_TEMPLATE(NAME, IS_GPARITY_POLICY, BASE_GRID_PARAMS, ALLOCATOR_MACRO, MFSTORAGE_MACRO) \
 struct NAME{					\
  INHERIT_BASE_GRID_TYPEDEFS(BASE_GRID_PARAMS);	\
- typedef ExplicitCopyPoolAllocPolicy AllocPolicy; \
+ typedef ExplicitCopyPoolAllocPolicy AllocPolicy;	\
  typedef Grid::vComplexD ComplexType;		\
  typedef Grid::vComplexD ComplexTypeD;		\
  typedef Grid::vComplexF ComplexTypeF;		\
  typedef Grid::ComplexD ScalarComplexType;	\
-									\
  typedef CPSfermion4D<ComplexType, FourDSIMDPolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType;	\
  typedef CPScomplex4D<ComplexType, FourDSIMDPolicy<DynamicFlavorPolicy>, AllocPolicy> ComplexFieldType;	\
 									\

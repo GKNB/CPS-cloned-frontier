@@ -129,8 +129,8 @@ CPSmatrixField<T> & unop_self_v(CPSmatrixField<T> &m, const Functor &l){
 */
 //Unary operation for functionality that acts on scalar data
 template<typename T, typename Lambda>
-auto unop(const CPSmatrixField<T> &in, const Lambda &l)-> CPSmatrixField<typename std::decay<decltype( l(*in.site_ptr(size_t(0)) )  )>::type>{
-  typedef typename std::decay<decltype(l(*in.site_ptr(size_t(0)) )  )>::type outMatrixType;
+auto unop(const CPSmatrixField<T> &in, const Lambda &l)-> CPSmatrixField<typename std::decay<decltype( l( *((T*)nullptr) ) )>::type>{
+  typedef typename std::decay<decltype( l( *((T*)nullptr) ) )>::type outMatrixType;
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
   CPSmatrixField<outMatrixType> out(in.getDimPolParams());
@@ -181,8 +181,8 @@ auto binop_v(const CPSmatrixField<T> &a, const CPSmatrixField<T> &b, const Funct
 //Binary operation for functionality that acts only on scalar data
 template<typename T, typename U, typename Lambda>
 auto binop(const CPSmatrixField<T> &a, const CPSmatrixField<U> &b, const Lambda &l)-> 
-  CPSmatrixField<typename std::decay<decltype( l( *a.site_ptr(size_t(0)), *b.site_ptr(size_t(0))  )  )>::type>{
-  typedef typename std::decay<decltype( l( *a.site_ptr(size_t(0)), *b.site_ptr(size_t(0))  )  )>::type outMatrixType;
+  CPSmatrixField<typename std::decay<decltype( l( *((T*)nullptr), *((T*)nullptr) ) )>::type>{
+  typedef typename std::decay<decltype( l( *((T*)nullptr), *((T*)nullptr) ) )>::type outMatrixType;
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
   CPSmatrixField<outMatrixType> out(a.getDimPolParams());

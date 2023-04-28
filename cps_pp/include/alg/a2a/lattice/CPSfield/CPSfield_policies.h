@@ -192,9 +192,14 @@ protected:
     _con = new hostDeviceMirroredContainer<char>(byte_size);
   }
   inline void _free(){
-    assert(_con);
-    delete _con;
+    if(_con) delete _con;
   }
+
+  inline void _move(ExplicitCopyAllocPolicy &into){
+    into._con = _con;
+    _con = nullptr;
+  }
+
   inline void writeParams(std::ostream &file) const{
     writePolicyName(file, "ALLOCPOLICY", "ExplicitCopyAllocPolicy");
   }
@@ -217,9 +222,7 @@ protected:
   }
   
 public: 
-  inline void deviceSetAdviseUVMreadOnly(const bool to) const{
-    assert(0);
-  }
+  inline void deviceSetAdviseUVMreadOnly(const bool to) const{ }
   
   enum { UVMenabled = 0 }; //supports UVM
 };
@@ -550,9 +553,17 @@ protected:
     set = true;
   }
   inline void _free(){
-    DeviceMemoryPoolManager::globalPool().free(h);
-    set=false;
+    if(set){
+      DeviceMemoryPoolManager::globalPool().free(h);
+      set=false;
+    }
   }
+  inline void _move(ExplicitCopyPoolAllocPolicy &into){
+    into.set = set;
+    into.h = h;
+    set = false;
+  }
+
   inline void writeParams(std::ostream &file) const{
     writePolicyName(file, "ALLOCPOLICY", "ExplicitCopyPoolAllocPolicy");
   }
@@ -568,9 +579,7 @@ protected:
 public: 
   ExplicitCopyPoolAllocPolicy(): set(false){}
 
-  inline void deviceSetAdviseUVMreadOnly(const bool to) const{
-    assert(0);
-  }
+  inline void deviceSetAdviseUVMreadOnly(const bool to) const{}
   
   enum { UVMenabled = 0 }; //supports UVM
 };

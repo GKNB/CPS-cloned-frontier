@@ -143,11 +143,13 @@ bool compare(const std::vector<A2AmesonField<A2Apolicies_1,L,R> > &M1, const std
       std::cout << "Fail: matrix timeslice mismatch" << std::endl;
       return false;      
     }
+    CPSautoView(M1_t_v,M1[t],HostRead);
+    CPSautoView(M2_t_v,M2[t],HostRead);
       
     for(int i=0;i<M1[t].getNrows();i++){
       for(int j=0;j<M1[t].getNcols();j++){
-	auto v1 = M1[t](i,j);
-	auto v2 = M2[t](i,j);
+	auto v1 = M1_t_v(i,j);
+	auto v2 = M2_t_v(i,j);
 	if(fabs(v1.real() - v2.real()) > tol ||
 	   fabs(v1.imag() - v2.imag()) > tol){
 	  std::cout << "Fail " << i << " " << j << " :  (" << v1.real() << "," << v1.imag() << ")  (" << v2.real() << "," << v2.imag() << ")  diff (" << v1.real()-v2.real() << "," << v1.imag()-v2.imag() << ")" << std::endl;
@@ -168,9 +170,12 @@ void copy(std::vector<A2AmesonField<A2Apolicies_1,L,R> > &Mout, const std::vecto
   for(int t=0;t<Min.size();t++){
     assert(Mout[t].getNrows() == Min[t].getNrows() && Min[t].getNcols() == Min[t].getNcols());
     assert(Mout[t].getRowTimeslice() == Min[t].getRowTimeslice() && Mout[t].getColTimeslice() == Min[t].getColTimeslice());
+    CPSautoView(Mout_t_v,Mout[t],HostWrite);
+    CPSautoView(Min_t_v,Min[t],HostRead);
+    
     for(int i=0;i<Min[t].getNrows();i++){
       for(int j=0;j<Min[t].getNcols();j++){
-	Mout[t](i,j) = Min[t](i,j);
+	Mout_t_v(i,j) = Min_t_v(i,j);
       }
     }
   }

@@ -20,23 +20,16 @@ void mult(A2AmesonField<mf_Policies,lA2AfieldL,rA2AfieldR> &out, const A2AmesonF
 //argument xop is the *local* 3d site index in canonical ordering, top is the *local* time coordinate
 // Node local and unthreaded
 //For G-parity BCs
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  
-	 template <typename> class MA2AfieldL,  template <typename> class MA2AfieldR,
-	 template <typename> class rA2Afield  
+template<typename lA2AfieldView, typename MesonFieldView, typename rA2AfieldView, 
+	 typename std::enable_if<  std::is_same<typename lA2AfieldView::Policies, typename rA2AfieldView::Policies>::value && std::is_same<typename lA2AfieldView::Policies, typename MesonFieldView::Policies>::value, int>::type = 0
 	 >
-void mult(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const typename lA2Afield<mf_Policies>::View &l,  const A2AmesonField<mf_Policies,MA2AfieldL,MA2AfieldR> &M, const typename rA2Afield<mf_Policies>::View &r, 
-	  const int xop, const int top, const bool conj_l, const bool conj_r);
+void mult(CPSspinColorFlavorMatrix<typename MesonFieldView::Policies::ComplexType> &out, const lA2AfieldView &l,  const MesonFieldView &M, const rA2AfieldView &r, const int xop, const int top, const bool conj_l, const bool conj_r);
 
 //For regular BCs
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  
-	 template <typename> class MA2AfieldL,  template <typename> class MA2AfieldR,
-	 template <typename> class rA2Afield  
+template<typename lA2AfieldView, typename MesonFieldView, typename rA2AfieldView, 
+	 typename std::enable_if<  std::is_same<typename lA2AfieldView::Policies, typename rA2AfieldView::Policies>::value && std::is_same<typename lA2AfieldView::Policies, typename MesonFieldView::Policies>::value, int>::type = 0
 	 >
-void mult(CPSspinColorMatrix<typename mf_Policies::ComplexType> &out, const typename lA2Afield<mf_Policies>::View &l,  const A2AmesonField<mf_Policies,MA2AfieldL,MA2AfieldR> &M, const typename rA2Afield<mf_Policies>::View &r, 
-	  const int xop, const int top, const bool conj_l, const bool conj_r);
-
+void mult(CPSspinColorMatrix<typename MesonFieldView::Policies::ComplexType> &out, const lA2AfieldView &l,  const MesonFieldView &M, const rA2AfieldView &r, const int xop, const int top, const bool conj_l, const bool conj_r);
 
 // l^i(xop,top) r^i(xop,top)
 //argument xop is the *local* 3d site index in canonical ordering, top is the *local* time coordinate

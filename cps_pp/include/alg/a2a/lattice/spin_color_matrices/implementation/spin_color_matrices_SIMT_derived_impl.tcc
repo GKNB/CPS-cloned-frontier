@@ -67,7 +67,7 @@ struct CPSsquareMatrixSpinIterator<CPSspinColorFlavorMatrix<ComplexType> >{
 
 };
 
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void gl(MatrixType &M, int dir, int lane){
   int s2, s1;
   typedef CPSsquareMatrixSpinIterator<MatrixType> MatrixIterator;
@@ -147,7 +147,7 @@ accelerator_inline void gl(MatrixType &M, int dir, int lane){
 
 
 //Non in-place version 
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void gl_r(MatrixType &O, const MatrixType &M, int dir, int lane){
   int s2, s1;
   typedef CPSsquareMatrixSpinIterator<MatrixType> MatrixIterator;
@@ -217,7 +217,7 @@ accelerator_inline void gl_r(MatrixType &O, const MatrixType &M, int dir, int la
 }
 
 //Version for specific spin column and flavor-color element
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void gl_r(MatrixType &O, const MatrixType &M, int dir, int s2, int ffcc, int lane){
   typedef CPSsquareMatrixSpinIterator<MatrixType> MatrixIterator;
   typedef typename MatrixType::scalar_type ComplexType;
@@ -261,7 +261,7 @@ accelerator_inline void gl_r(MatrixType &O, const MatrixType &M, int dir, int s2
 
 
 
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void gr(MatrixType &M, int dir, int lane){
   int s2, s1;
   typedef CPSsquareMatrixSpinIterator<MatrixType> MatrixIterator;
@@ -339,7 +339,7 @@ accelerator_inline void gr(MatrixType &M, int dir, int lane){
 
 
 
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void gr_r(MatrixType &O, const MatrixType &M, int dir, int lane){
   int s2, s1;
   typedef CPSsquareMatrixSpinIterator<MatrixType> MatrixIterator;
@@ -408,7 +408,7 @@ accelerator_inline void gr_r(MatrixType &O, const MatrixType &M, int dir, int la
   }
 }
 
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void gr_r(MatrixType &O, const MatrixType &M, int dir, int s1, int ffcc, int lane){
   typedef CPSsquareMatrixSpinIterator<MatrixType> MatrixIterator;
   typedef typename MatrixType::scalar_type ComplexType;
@@ -454,7 +454,7 @@ accelerator_inline void gr_r(MatrixType &O, const MatrixType &M, int dir, int s1
 
 
 //multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*fro
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void glAx(MatrixType &M, int dir, int lane){
   int s2, s1;
   typedef CPSsquareMatrixSpinIterator<MatrixType> MatrixIterator;
@@ -519,7 +519,7 @@ accelerator_inline void glAx(MatrixType &M, int dir, int lane){
 
 
 //multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*fro   non self-op
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void glAx_r(MatrixType &O, const MatrixType &M, int dir, int lane){
   int s2, s1;
   typedef CPSsquareMatrixSpinIterator<MatrixType> MatrixIterator;
@@ -578,7 +578,7 @@ accelerator_inline void glAx_r(MatrixType &O, const MatrixType &M, int dir, int 
 }
 
 //Version for specific spin column and flavor-color element
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void glAx_r(MatrixType &O, const MatrixType &M, int dir, int s2, int ffcc, int lane){
   typedef CPSsquareMatrixSpinIterator<MatrixType> MatrixIterator;
   typedef typename MatrixType::scalar_type ComplexType;
@@ -615,7 +615,7 @@ accelerator_inline void glAx_r(MatrixType &O, const MatrixType &M, int dir, int 
 }
 
 //multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*fro
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void grAx(MatrixType &M, int dir, int lane){
   int s2, s1;
   typedef CPSsquareMatrixSpinIterator<MatrixType> MatrixIterator;
@@ -680,7 +680,7 @@ accelerator_inline void grAx(MatrixType &M, int dir, int lane){
 
 
 //multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*fro
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void grAx_r(MatrixType &O, const MatrixType &M, int dir, int lane){
   int s2, s1;
   typedef CPSsquareMatrixSpinIterator<MatrixType> MatrixIterator;
@@ -742,7 +742,7 @@ accelerator_inline void grAx_r(MatrixType &O, const MatrixType &M, int dir, int 
 
 
 //multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*fro
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void grAx_r(MatrixType &O, const MatrixType &M, int dir, int s1, int ffcc, int lane){
   typedef CPSsquareMatrixSpinIterator<MatrixType> MatrixIterator;
   typedef typename MatrixType::scalar_type ComplexType;
@@ -825,7 +825,7 @@ struct CPSsquareMatrixFlavorIterator<CPSspinColorFlavorMatrix<ComplexType> >{
 
 
 
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void pl(MatrixType &M, const FlavorMatrixType type, int lane){
   typedef CPSsquareMatrixFlavorIterator<MatrixType> MatrixIterator;
   typedef typename MatrixType::scalar_type ComplexType;
@@ -897,7 +897,7 @@ accelerator_inline void pl(MatrixType &M, const FlavorMatrixType type, int lane)
 }
 
 
-template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type = 0>
+template<typename MatrixType, typename std::enable_if<isCPSsquareMatrix<MatrixType>::value, int>::type>
 accelerator_inline void pr(MatrixType &M, const FlavorMatrixType type, int lane){
   typedef CPSsquareMatrixFlavorIterator<MatrixType> MatrixIterator;
   typedef typename MatrixType::scalar_type ComplexType;

@@ -273,7 +273,10 @@ void testGparityInnerProduct(double tol){
   FlavorMatrixGeneral<T> prod = lg5r*s3;
   expect = prod.Trace();
 
-  inner(out,l,r,0,0);
+  {
+    CPSautoView(inner_v,inner,HostRead);
+    inner_v(out,l,r,0,0);
+  }
 
   std::cout << "Got (" << out.real() <<"," << out.imag() << ") expect (" << expect.real() <<"," << expect.imag() << ")  diff (" << out.real()-expect.real() << "," << out.imag()-expect.imag() << ")" << std::endl;
   
@@ -354,7 +357,7 @@ void testSCFmat(){
 
 #ifdef USE_GRID
 
-Grid::SpinVector operator*(CPSspinMatrix<cps::ComplexD> &M, const Grid::SpinVector &v){
+Grid::SpinVector operator*(CPSspinMatrix<Grid::ComplexD> &M, const Grid::SpinVector &v){
   Grid::SpinVector out;
   for(int i=0;i<4;i++){
     out()(i)() = M(i,0)*v()(0)();
@@ -376,7 +379,7 @@ void test_gamma_CPS_vs_Grid(){
   
   Grid::Gamma ggrid[4] = { Grid::Gamma(Grid::Gamma::Algebra::GammaX) ,Grid::Gamma(Grid::Gamma::Algebra::GammaY), Grid::Gamma(Grid::Gamma::Algebra::GammaZ), Grid::Gamma(Grid::Gamma::Algebra::GammaT) };
   for(int i=0;i<4;i++){
-    CPSspinMatrix<cps::ComplexD> cg; cg.unit(); cg.gr(i);
+    CPSspinMatrix<Grid::ComplexD> cg; cg.unit(); cg.gr(i);
     Grid::SpinVector rg = ggrid[i] * v;
     Grid::SpinVector rc = cg * v;
     Grid::SpinVector d = rg - rc;
@@ -384,19 +387,19 @@ void test_gamma_CPS_vs_Grid(){
   }
   Grid::Gamma g5grid(Grid::Gamma::Algebra::Gamma5);
   {
-    CPSspinMatrix<cps::ComplexD> cg; cg.unit(); cg.gr(-5);
+    CPSspinMatrix<Grid::ComplexD> cg; cg.unit(); cg.gr(-5);
     Grid::SpinVector rg = g5grid * v;
     Grid::SpinVector rc = cg * v;
     Grid::SpinVector d = rg - rc;
     std::cout << "Test g5 " << norm2(d) << std::endl;
   }
 
-  CPSspinMatrix<cps::ComplexD> C; C.unit(); C.gl(1).gl(3); //C=-gY gT = gT gY
-  CPSspinMatrix<cps::ComplexD> X = C; X.gr(-5);
-  CPSspinMatrix<cps::ComplexD> one; one.unit();
-  cps::ComplexD _i(0,1);
-  CPSspinMatrix<cps::ComplexD> Pplus = 0.5*(one + _i*X);
-  CPSspinMatrix<cps::ComplexD> Pminus = 0.5*(one - _i*X);
+  CPSspinMatrix<Grid::ComplexD> C; C.unit(); C.gl(1).gl(3); //C=-gY gT = gT gY
+  CPSspinMatrix<Grid::ComplexD> X = C; X.gr(-5);
+  CPSspinMatrix<Grid::ComplexD> one; one.unit();
+  Grid::ComplexD _i(0,1);
+  CPSspinMatrix<Grid::ComplexD> Pplus = 0.5*(one + _i*X);
+  CPSspinMatrix<Grid::ComplexD> Pminus = 0.5*(one - _i*X);
 
   Grid::Gamma Cgrid = Grid::Gamma(Grid::Gamma::Algebra::MinusGammaY) * Grid::Gamma(Grid::Gamma::Algebra::GammaT);      
   {

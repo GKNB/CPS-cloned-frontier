@@ -64,10 +64,21 @@ public:
   class View{
     int nmodes_l, nmodes_r;
     int tl, tr;
+
+    A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> const* parent; //for use in host-side calls only!
+   
     int fsize; //in units of ScalarComplexType
     ScalarComplexType *data;
     bool device_ptr;
   public:
+    typedef mf_Policies Policies;
+    typedef typename A2AfieldL<mf_Policies>::DilutionType LeftInputDilutionType;
+    typedef typename A2AfieldR<mf_Policies>::DilutionType RightInputDilutionType;
+    
+    typedef typename FlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
+    typedef typename FlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
+    typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+    
     //Size in complex
     accelerator_inline int size() const{ return fsize; }
 
@@ -100,26 +111,26 @@ public:
     
       static ScalarComplexType zero(0.0,0.0);
 
-      int nll = lindexdilution.getNl();
-      int nlr = rindexdilution.getNl();
-      int tblockl = lindexdilution.tblock(tl);
-      int tblockr = rindexdilution.tblock(tr);
+      int nll = parent->lindexdilution.getNl();
+      int nlr = parent->rindexdilution.getNl();
+      int tblockl = parent->lindexdilution.tblock(tl);
+      int tblockr = parent->rindexdilution.tblock(tr);
 
       int packed_i;
       if(_equal<LeftDilutionType,StandardIndexDilution>::value || full_i < nll) packed_i = full_i; //  lindexdilution.getModeType() == StandardIndex
       else{ // W *
-	StandardIndexDilution lfulldil(lindexdilution);
+	StandardIndexDilution lfulldil(parent->lindexdilution);
 	modeIndexSet i_idx; lfulldil.indexUnmap(full_i-nll, i_idx);
 	if(i_idx.time != tblockl) return zero; //delta function in time
-	else packed_i = nll + lindexdilution.indexMap(i_idx);
+	else packed_i = nll + parent->lindexdilution.indexMap(i_idx);
       }
       int packed_j;
       if(_equal<RightDilutionType,StandardIndexDilution>::value || full_j < nlr) packed_j = full_j; //rindexdilution.getModeType() == StandardIndex
       else{ //* W
-	StandardIndexDilution rfulldil(rindexdilution);
+	StandardIndexDilution rfulldil(parent->rindexdilution);
 	modeIndexSet j_idx; rfulldil.indexUnmap(full_j-nlr, j_idx);
 	if(j_idx.time != tblockr) return zero;
-	else packed_j = nlr + rindexdilution.indexMap(j_idx);
+	else packed_j = nlr + parent->rindexdilution.indexMap(j_idx);
       }
       return this->operator()(packed_i,packed_j);
     }
@@ -129,26 +140,26 @@ public:
       StaticAssert< _equal<LeftDilutionType,StandardIndexDilution>::value || _equal<LeftDilutionType,TimePackedIndexDilution>::value >();
       StaticAssert< _equal<RightDilutionType,StandardIndexDilution>::value || _equal<RightDilutionType,TimePackedIndexDilution>::value >();
     
-      int nll = lindexdilution.getNl();
-      int nlr = rindexdilution.getNl();
-      int tblockl = lindexdilution.tblock(tl);
-      int tblockr = rindexdilution.tblock(tr);
+      int nll = parent->lindexdilution.getNl();
+      int nlr = parent->rindexdilution.getNl();
+      int tblockl = parent->lindexdilution.tblock(tl);
+      int tblockr = parent->rindexdilution.tblock(tr);
 
       int packed_i;
       if(_equal<LeftDilutionType,StandardIndexDilution>::value || full_i < nll) packed_i = full_i; //  lindexdilution.getModeType() == StandardIndex
       else{ // W *
-	StandardIndexDilution lfulldil(lindexdilution);
+	StandardIndexDilution lfulldil(parent->lindexdilution);
 	modeIndexSet i_idx; lfulldil.indexUnmap(full_i-nll, i_idx);
 	if(i_idx.time != tblockl) return NULL; //delta function in time
-	else packed_i = nll + lindexdilution.indexMap(i_idx);
+	else packed_i = nll + parent->lindexdilution.indexMap(i_idx);
       }
       int packed_j;
       if(_equal<RightDilutionType,StandardIndexDilution>::value || full_j < nlr) packed_j = full_j; //rindexdilution.getModeType() == StandardIndex
       else{ //* W
-	StandardIndexDilution rfulldil(rindexdilution);
+	StandardIndexDilution rfulldil(parent->rindexdilution);
 	modeIndexSet j_idx; rfulldil.indexUnmap(full_j-nlr, j_idx);
 	if(j_idx.time != tblockr) return NULL;
-	else packed_j = nlr + rindexdilution.indexMap(j_idx);
+	else packed_j = nlr + parent->rindexdilution.indexMap(j_idx);
       }
       return &this->operator()(packed_i,packed_j);
     }
@@ -321,10 +332,6 @@ public:
   //Reorder the rows so that all the elements in idx_map are sequential. Indices not in map may be written over. Use at your own risk
   void rowReorder(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel = true) const;
   void colReorder(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel = true) const;
-
-  //Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)
-  //Output as a GSL matrix. Can reuse previously allocated matrix providing its big enough
-  typename gsl_wrapper<typename ScalarComplexType::value_type>::matrix_complex * GSLpackedColReorder(const int idx_map[], int map_size, bool rowidx_used[], typename gsl_wrapper<typename ScalarComplexType::value_type>::matrix_complex *reuse = NULL) const;
 
 #ifdef USE_GRID
   //Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)

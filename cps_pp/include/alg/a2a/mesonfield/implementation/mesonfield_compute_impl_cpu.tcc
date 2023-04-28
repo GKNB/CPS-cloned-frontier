@@ -33,7 +33,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
   if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
 
     CPSautoView(t_v,(*this),HostWrite);
-
+    CPSautoView(l_v,l,HostRead);
+    CPSautoView(r_v,r,HostRead);
+    CPSautoView(M_v,M,HostRead);
+    
 #pragma omp parallel for
     for(int i = 0; i < nmodes_l; i++){
       typename mf_Policies::ComplexType mf_accum;
@@ -46,10 +49,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 	mf_accum = 0.;
 
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,p_3d,t_lcl);
+	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l_v.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
+	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r_v.getFlavorDilutedVect(j,j_high_unmapped,p_3d,t_lcl);
 
-	  M(mf_accum,lscf,rscf,p_3d,t);
+	  M_v(mf_accum,lscf,rscf,p_3d,t);
 	}
 	t_v(i,j) = mf_accum; //downcast after accumulate      
       }
@@ -84,18 +87,24 @@ void compute_simple(fMatrix<ComplexType> &into, const std::vector<FermionFieldTy
   int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
   if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
 
+    CPSautoView(M_v,M,HostRead);
+    
 #pragma omp parallel for
     for(int i = 0; i < nv; i++){
+      CPSautoView(l_i_v,l[i],HostRead);
+      
       for(int j = 0; j < nv; j++) {
+	CPSautoView(r_j_v,r[j],HostRead);
+	
 	ComplexType &into_ij = into(i,j);
 	into_ij = 0.;
 	
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
 	  size_t x4d = mode0.threeToFour(p_3d,t_lcl);
-	  SCFvectorPtr<ComplexType> lscf(l[i].site_ptr(x4d,0), nf==1 ? NULL : l[i].site_ptr(x4d,1),false,false);
-	  SCFvectorPtr<ComplexType> rscf(r[j].site_ptr(x4d,0), nf==1 ? NULL : r[j].site_ptr(x4d,1),false,false);
+	  SCFvectorPtr<ComplexType> lscf(l_i_v.site_ptr(x4d,0), nf==1 ? NULL : l_i_v.site_ptr(x4d,1),false,false);
+	  SCFvectorPtr<ComplexType> rscf(r_j_v.site_ptr(x4d,0), nf==1 ? NULL : r_j_v.site_ptr(x4d,1),false,false);
 	  
-	  M(into_ij,lscf,rscf,p_3d,t);
+	  M_v(into_ij,lscf,rscf,p_3d,t);
 	}
       }
     }
@@ -116,7 +125,8 @@ void compute_simple(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const 
   CPSautoView(l_v,l,HostRead);
   CPSautoView(r_v,r,HostRead);
   CPSautoView(into_v,into,HostWrite);
-
+  CPSautoView(M_v,M,HostRead);
+  
   if(!UniqueID()) printf("Starting simple meson field compute for timeslice %d with %d threads\n",t, omp_get_max_threads());
 
   typedef typename mf_Policies::FermionFieldType::FieldSiteType ComplexType;
@@ -151,7 +161,7 @@ void compute_simple(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const 
 	    }
 	    SCFvectorPtr<ComplexType> lscf(ll,nf==1 ? NULL : (ll+12),false,false);
 	    SCFvectorPtr<ComplexType> rscf(rr,nf==1 ? NULL : (rr+12),false,false);
-	    M(mf_accum,lscf,rscf,p_3d,t);
+	    M_v(mf_accum,lscf,rscf,p_3d,t);
 	  }
 	  *into_ij = mf_accum; //reduce?
 	}

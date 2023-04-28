@@ -234,8 +234,8 @@ void testMesonFieldTraceProduct(const A2AArg &a2a_args, const double tol){
 
   //Test the GPU version with precomputed views
   {
-    CPSautoView(mf1_v, mf1);
-    CPSautoView(mf2_v, mf2);
+    CPSautoView(mf1_v, mf1, DeviceRead);
+    CPSautoView(mf2_v, mf2, DeviceRead);
     
     fast = 0;
     fast = trace_gpu(mf1,mf2, &mf1_v, &mf2_v);
@@ -302,8 +302,8 @@ void testMesonFieldTraceProductTblock(A2AArg a2a_args, const double tol){
 
   //Test the GPU version with precomputed views
   {
-    CPSautoView(mf1_v, mf1);
-    CPSautoView(mf2_v, mf2);
+    CPSautoView(mf1_v, mf1, DeviceRead);
+    CPSautoView(mf2_v, mf2, DeviceRead);
     
     fast = 0;
     fast = trace_gpu(mf1,mf2, &mf1_v, &mf2_v);
@@ -378,10 +378,11 @@ void checkunpacked(const MFtype &mf, ScalarComplexType const* into, double tol, 
   int cols_full = mf.getNcolsFull();
    
   bool fail = false;
+  CPSautoView(mf_v,mf,HostRead);
   for(int i=0;i<rows_full;i++){
     for(int j=0;j<cols_full;j++){
       Complex got = into[j+cols_full*i];
-      Complex expect = mf.elem(i,j);
+      Complex expect = mf_v.elem(i,j);
       
       double rdiff = fabs(got.real()-expect.real());
       double idiff = fabs(got.imag()-expect.imag());

@@ -226,7 +226,7 @@ struct SingleSrcVectorPoliciesSIMDoffload{
 			    const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 			    const int t, const size_t size_3d){
     CPSautoView(mf_t_v,mf_t[t],HostWrite);
-    mesonFieldComputeReduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, size_3d, 1, [](int m)->typename MesonFieldType::View &{ return mf_t_v; });
+    mesonFieldComputeReduce(accum, i0, j0, bi_true, bj_true, bj, size_3d, 1, [&](int m)->typename MesonFieldType::View &{ return mf_t_v; });
   }
   
 };
@@ -286,7 +286,7 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 		     const int t, const size_t size_3d) const{
     typedef typename MesonFieldType::View ViewType;
     ViewAutoDestructWrapper<ViewType> views[mfPerTimeSlice]; for(int m=0;m<mfPerTimeSlice;m++) views[m].reset(new ViewType( (*mf_st[m])[t].view(HostWrite)));
-    mesonFieldComputeReduce(mf_st, accum, i0, j0, bi_true, bj_true, bj, t, size_3d, mfPerTimeSlice, [](int m)->ViewType &{ return *views[m]; });
+    mesonFieldComputeReduce(accum, i0, j0, bi_true, bj_true, bj, size_3d, mfPerTimeSlice, [&](int m)->ViewType &{ return *views[m]; });
   }
   
 };
@@ -493,7 +493,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 // #endif
 	    
 	    kernel_time -= dclock();
-	    CPSautoView(M_v,M); //auto M_v = M.view();
+	    CPSautoView(M_v,M,DeviceRead); //auto M_v = M.view();
 	    
 	    using namespace Grid;
 	    {
@@ -596,7 +596,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
   }
 
 
-  //Gather chunks of l,r fields
+  //Gather chunks of l,r fields on the host side into data containers that will be copied to the device
   void gatherLRchunks(hostDeviceMirroredContainer<typename mf_Policies::FermionFieldType::FieldSiteType> &iblock_data,
 		      hostDeviceMirroredContainer<typename mf_Policies::FermionFieldType::FieldSiteType> &jblock_data,
 		      hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero,
@@ -612,46 +612,54 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     
     FieldSiteType *iblock_data_host = iblock_data.getHostWritePtr(),  *jblock_data_host = jblock_data.getHostWritePtr();
     std::pair<bool,bool> *iblock_flav_is_zero_host = iblock_flav_is_zero.getHostWritePtr(), *jblock_flav_is_zero_host = jblock_flav_is_zero.getHostWritePtr();
-    
-    thread_for(ii, bi_true, {
-	size_t i = i0 + ii;
-	modeIndexSet i_high_unmapped; if(i>=nl_l) mf_ref.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
-	vPtr in_base_ptr = l.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //here we take advantage of the fact that the 3d timeslices are contiguous
-	offsetT in_site_offset( l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) ); //for some modes one or the other flavor is zero due to delta function
-	if( (in_site_offset.first != 0 && in_site_offset.first != 12) ||
-	    (in_site_offset.second != 0 && in_site_offset.second != 12)) {
-	  ERR.General("mfComputeGeneralOffload", "compute_v2", "Expect l site offsets of 12 or 0!");
-	}
-	in_base_ptr.incrementPointers(in_site_offset, x0);
-	      
-	//use mapping  scf + 12*( x3d_blk + bx*(f + nf*i))
-	for(int f=0;f<nf;f++){	      
-	  FieldSiteType *to_base = iblock_data_host + (0 + 12*(0 + bx*(f + nf*ii)));
-		  if(!in_base_ptr.isZero(f)) memcpy(to_base, in_base_ptr.getPtr(f), 12*bx_true*sizeof(FieldSiteType));
-	}
-	
-	iblock_flav_is_zero_host[ii] = std::pair<bool,bool>(in_base_ptr.isZero(0), in_base_ptr.isZero(1));			
-      });
 
-    thread_for(jj, bj_true, {
-	size_t j = j0 + jj;
-	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_ref.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
-	vPtr in_base_ptr = r.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
-	offsetT in_site_offset( r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) );
-	if( (in_site_offset.first != 0 && in_site_offset.first != 12) ||
-	    (in_site_offset.second != 0 && in_site_offset.second != 12)) {
-	  ERR.General("mfComputeGeneralOffload", "compute_v2", "Expect r site offsets of 12 or 0!");
-	}
-	in_base_ptr.incrementPointers(in_site_offset, x0);
+    {
+      CPSautoView(l_v,l,HostRead);
+      
+      thread_for(ii, bi_true, {
+	  size_t i = i0 + ii;
+	  modeIndexSet i_high_unmapped; if(i>=nl_l) mf_ref.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
+	  vPtr in_base_ptr = l_v.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //here we take advantage of the fact that the 3d timeslices are contiguous
+	  offsetT in_site_offset( l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) ); //for some modes one or the other flavor is zero due to delta function
+	  if( (in_site_offset.first != 0 && in_site_offset.first != 12) ||
+	      (in_site_offset.second != 0 && in_site_offset.second != 12)) {
+	    ERR.General("mfComputeGeneralOffload", "compute_v2", "Expect l site offsets of 12 or 0!");
+	  }
+	  in_base_ptr.incrementPointers(in_site_offset, x0);
 	      
-	//use mapping  scf + 12*( x3d_blk + bx*(f + nf*j))
-	for(int f=0;f<nf;f++){	      
-	  FieldSiteType *to_base = jblock_data_host + (0 + 12*(0 + bx*(f + nf*jj)));
-	  if(!in_base_ptr.isZero(f)) memcpy(to_base, in_base_ptr.getPtr(f), 12*bx_true*sizeof(FieldSiteType));
-	}
+	  //use mapping  scf + 12*( x3d_blk + bx*(f + nf*i))
+	  for(int f=0;f<nf;f++){	      
+	    FieldSiteType *to_base = iblock_data_host + (0 + 12*(0 + bx*(f + nf*ii)));
+	    if(!in_base_ptr.isZero(f)) memcpy(to_base, in_base_ptr.getPtr(f), 12*bx_true*sizeof(FieldSiteType));
+	  }
 	
-	jblock_flav_is_zero_host[jj] = std::pair<bool,bool>(in_base_ptr.isZero(0), in_base_ptr.isZero(1));
-      });    
+	  iblock_flav_is_zero_host[ii] = std::pair<bool,bool>(in_base_ptr.isZero(0), in_base_ptr.isZero(1));			
+	});
+    }
+
+    {
+      CPSautoView(r_v,r,HostRead);
+
+      thread_for(jj, bj_true, {
+	  size_t j = j0 + jj;
+	  modeIndexSet j_high_unmapped; if(j>=nl_r) mf_ref.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
+	  vPtr in_base_ptr = r_v.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+	  offsetT in_site_offset( r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) );
+	  if( (in_site_offset.first != 0 && in_site_offset.first != 12) ||
+	      (in_site_offset.second != 0 && in_site_offset.second != 12)) {
+	    ERR.General("mfComputeGeneralOffload", "compute_v2", "Expect r site offsets of 12 or 0!");
+	  }
+	  in_base_ptr.incrementPointers(in_site_offset, x0);
+	      
+	  //use mapping  scf + 12*( x3d_blk + bx*(f + nf*j))
+	  for(int f=0;f<nf;f++){	      
+	    FieldSiteType *to_base = jblock_data_host + (0 + 12*(0 + bx*(f + nf*jj)));
+	    if(!in_base_ptr.isZero(f)) memcpy(to_base, in_base_ptr.getPtr(f), 12*bx_true*sizeof(FieldSiteType));
+	  }
+	
+	  jblock_flav_is_zero_host[jj] = std::pair<bool,bool>(in_base_ptr.isZero(0), in_base_ptr.isZero(1));
+	});
+    }
   }
 
   //Work out offsets and extents for future loop iterations
@@ -922,7 +930,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	      size_t nwork = bi_true * bj_true * bx_true;	  
 	      
 	      kernel_time -= dclock();
-	      CPSautoView(M_v,M);
+	      CPSautoView(M_v,M,DeviceRead);
 	      
 	      accelerator_for(elem, nwork, Nsimd, 
 			      {

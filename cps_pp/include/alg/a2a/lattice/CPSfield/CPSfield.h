@@ -11,6 +11,7 @@
 CPS_START_NAMESPACE 
 
 typedef ExplicitCopyPoolAllocPolicy CPSfieldDefaultAllocPolicy;
+//typedef UVMallocPolicy CPSfieldDefaultAllocPolicy;
 
 typedef std::complex<float> ComplexF;
 typedef std::complex<double> ComplexD;
@@ -107,7 +108,7 @@ public:
   }
 
   CPSfield(CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &&r): fsize(r.fsize), MappingPolicy(r){
-    this->AllocPolicy::_move(r);
+    r.AllocPolicy::_move(*this); //move into provided object!
   }
 
   //Copy from external pointer. Make sure you set the params and policies correctly because it has no way of bounds checking

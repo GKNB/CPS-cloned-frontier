@@ -163,36 +163,42 @@ public:
     int tglob_start = dtblock * tsrc_width;
     int tglob_lessthan = (dtblock + 1) * tsrc_width;
 
-    for(int tglob=tglob_start; tglob < tglob_lessthan; tglob++){
-      int tlcl = tglob - GJP.TnodeCoor()*GJP.TnodeSites();
-      if(tlcl >=0 && tlcl < GJP.TnodeSites()){
+    {
+      CPSautoView(src_in_v,src_in,HostRead);
+      {CPSautoView(src_out_v,src_out,HostRead); } //preserve initial state
+      CPSautoView(src_out_v,src_out,HostWrite); 
+    
+      for(int tglob=tglob_start; tglob < tglob_lessthan; tglob++){
+	int tlcl = tglob - GJP.TnodeCoor()*GJP.TnodeSites();
+	if(tlcl >=0 && tlcl < GJP.TnodeSites()){
 #pragma omp parallel for
-	for(size_t x3d=0;x3d<size_3d;x3d++){
-	  size_t x4d = src_in.threeToFour(x3d,tlcl);
-	  ComplexType* v_f0_p = src_in.site_ptr(x4d,0) + dspin_color ;
-	  ComplexType* v_f1_p = src_in.site_ptr(x4d,1) + dspin_color ;
-	  ComplexType* o_f0_p = src_out.site_ptr(x4d,0) ;
-	  ComplexType* o_f1_p = src_out.site_ptr(x4d,1) ;
+	  for(size_t x3d=0;x3d<size_3d;x3d++){
+	    size_t x4d = src_in.threeToFour(x3d,tlcl);
+	    ComplexType* v_f0_p = src_in_v.site_ptr(x4d,0) + dspin_color ;
+	    ComplexType* v_f1_p = src_in_v.site_ptr(x4d,1) + dspin_color ;
+	    ComplexType* o_f0_p = src_out_v.site_ptr(x4d,0) ;
+	    ComplexType* o_f1_p = src_out_v.site_ptr(x4d,1) ;
 
-	  if(dflavor == 0){
-	    ComplexType rho = *v_f0_p;
-	    for(int s=0;s<4;s++){
-	      int sc = dcolor + 3*s; //still Kronecker delta in color
-	      *( o_f0_p + sc ) = rho * Pplus(s,dspin);
-	      *( o_f1_p + sc ) = conjugate(rho) * mXPminus(s,dspin);
-	    }
-	  }else{
-	    ComplexType rhostar = *v_f1_p;
-	    for(int s=0;s<4;s++){
-	      int sc = dcolor + 3*s;
-	      *( o_f0_p + sc ) = conjugate(rhostar) * Pminus(s,dspin);
-	      *( o_f1_p + sc ) = rhostar * mXPplus(s,dspin);
+	    if(dflavor == 0){
+	      ComplexType rho = *v_f0_p;
+	      for(int s=0;s<4;s++){
+		int sc = dcolor + 3*s; //still Kronecker delta in color
+		*( o_f0_p + sc ) = rho * Pplus(s,dspin);
+		*( o_f1_p + sc ) = conjugate(rho) * mXPminus(s,dspin);
+	      }
+	    }else{
+	      ComplexType rhostar = *v_f1_p;
+	      for(int s=0;s<4;s++){
+		int sc = dcolor + 3*s;
+		*( o_f0_p + sc ) = conjugate(rhostar) * Pminus(s,dspin);
+		*( o_f1_p + sc ) = rhostar * mXPplus(s,dspin);
+	      }
 	    }
 	  }
 	}
       }
     }
-
+    
     src_out.exportGridField(src);
 
     {
@@ -231,12 +237,15 @@ public:
 
     typedef typename A2AvectorV<A2Apolicies>::FermionFieldType FermionField;
 
-    FermionField* Vptrs[4][2];
-
+    typename FermionField::View* Vptrs[4][2];
+    
     int nl = into.getNl();
     size_t fsize = into.getMode(0).size();
     typedef typename FermionField::FieldSiteType SiteType;
 
+    {CPSautoView(into_v,into,HostRead);}
+    CPSautoView(into_v,into,HostWrite);
+    
     StandardIndexDilution stdidx(into.getArgs());
     //Loop over column indices that are not being manipulated
     for(int hit=0;hit<stdidx.getNhits();hit++){
@@ -246,7 +255,7 @@ public:
 	  //Store locations of appropriate input fields
 	  for(int scol=0;scol<4;scol++)
 	    for(int fcol=0;fcol<2;fcol++)
-	      Vptrs[scol][fcol] = &into.getMode(nl + stdidx.indexMap(hit,tcol,ccol+3*scol,fcol) );
+	      Vptrs[scol][fcol] = &into_v.getMode(nl + stdidx.indexMap(hit,tcol,ccol+3*scol,fcol) );
 	  	    
 #pragma omp parallel for
 	  for(size_t i=0;i<fsize;i++){ //units of complex number,  loops over sites and f,s,c row indices

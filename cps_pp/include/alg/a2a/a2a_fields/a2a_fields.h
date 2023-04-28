@@ -707,7 +707,7 @@ public:
     }
 
     //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
-    inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t size, const int i, const int t) const{
+    inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
       if(i<nl){
 	assert(awl[i].dimpol_flavor_timeslice_contiguous());
 	size = awl[i].dimpol_time_stride() * awl[i].siteSize();      

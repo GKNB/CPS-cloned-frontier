@@ -99,8 +99,8 @@ template<typename mf_Policies,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
 typename mf_Policies::ScalarComplexType trace_gpu(const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r,
-						  const typename A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR>::ReadView *l_view = nullptr,
-						  const typename A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR>::ReadView *r_view = nullptr){
+						  const typename A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR>::View *l_view = nullptr,
+						  const typename A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR>::View *r_view = nullptr){
   mesonfield_trace_prod_gpu_timings::_data &timings = mesonfield_trace_prod_gpu_timings::data();
   ++timings.count;
   timings.init -= dclock();
@@ -118,8 +118,8 @@ typename mf_Policies::ScalarComplexType trace_gpu(const A2AmesonField<mf_Policie
   typedef typename Ltype::RightDilutionType DilType1;
   typedef typename Rtype::LeftDilutionType DilType2;
   typedef typename Rtype::RightDilutionType DilType3;
-  typedef typename Ltype::ReadView LviewType;
-  typedef typename Rtype::ReadView RviewType;
+  typedef typename Ltype::View LviewType;
+  typedef typename Rtype::View RviewType;
   
   ModeContractionIndices<DilType0,DilType3> i_ind(l.getRowParams());
   ModeContractionIndices<DilType1,DilType2> j_ind(r.getRowParams());
@@ -177,14 +177,14 @@ typename mf_Policies::ScalarComplexType trace_gpu(const A2AmesonField<mf_Policie
     LviewType *l_v_p = const_cast<LviewType *>(l_view);
     bool l_view_free = false;
     if(l_v_p == nullptr){
-      l_v_p = new LviewType(l.view());
+      l_v_p = new LviewType(l.view(DeviceRead));
       l_view_free = true;
     }
 
     RviewType *r_v_p = const_cast<RviewType *>(r_view);
     bool r_view_free = false;
     if(r_v_p == nullptr){
-      r_v_p = new RviewType(r.view());
+      r_v_p = new RviewType(r.view(DeviceRead));
       r_view_free = true;
     }
 
@@ -224,8 +224,8 @@ typename mf_Policies::ScalarComplexType trace_gpu(const A2AmesonField<mf_Policie
     timings.reduction += dclock();
 
     timings.mf_copy -= dclock();
-    if(l_view_free) l_v.free();
-    if(r_view_free) r_v.free();
+    if(l_view_free){ l_v_p->free(); delete l_v_p; }
+    if(r_view_free){ r_v_p->free(); delete r_v_p; }
     timings.mf_copy += dclock();	
   }
   timings.prod_tmp_alloc_free -= dclock();		
@@ -247,12 +247,14 @@ template<typename mf_Policies,
 typename mf_Policies::ScalarComplexType trace_slow(const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r){
   assert(l.getNrowsFull() == r.getNcolsFull());
   assert(l.getNcolsFull() == r.getNrowsFull());
+  CPSautoView(l_v,l,HostRead);
+  CPSautoView(r_v,r,HostRead);
   
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
   ScalarComplexType out = 0;
   for(int i=0;i<l.getNrowsFull();i++){
     for(int j=0;j<l.getNcolsFull();j++){
-      out += l.elem(i,j) * r.elem(j,i);
+      out += l_v.elem(i,j) * r_v.elem(j,i);
     }
   }
   return out;
@@ -291,22 +293,20 @@ void trace(fMatrix<typename mf_Policies::ScalarComplexType> &into, const std::ve
 #ifndef MEMTEST_MODE
   if(do_work){
 #ifdef GPU_VEC
-    typedef typename A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR>::ReadView LviewType;
-    typedef typename A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR>::ReadView RviewType;
-    std::vector<LviewType*> l_views(l.size(),nullptr);
-    std::vector<RviewType*> r_views(r.size(),nullptr);
+    typedef typename A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR>::View LviewType;
+    typedef typename A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR>::View RviewType;
+    std::vector<ViewAutoDestructWrapper<LviewType> > l_views(l.size());
+    std::vector<ViewAutoDestructWrapper<RviewType> > r_views(r.size());
     for(int tt=node_off; tt<node_off + node_work; tt++){ //tsnk + lsize*tsrc
       int rem = tt;
       int tsnk = rem % lsize; rem /= lsize; //sink time
       int tsrc = rem; //source time
 
-      if(l_views[tsnk] == nullptr) l_views[tsnk] = new LviewType(l[tsnk].view());
-      if(r_views[tsrc] == nullptr) r_views[tsrc] = new RviewType(r[tsrc].view());
+      if(!l_views[tsnk].isSet()) l_views[tsnk].reset(new LviewType(l[tsnk].view(DeviceRead)));
+      if(!r_views[tsrc].isSet()) r_views[tsrc].reset(new RviewType(r[tsrc].view(DeviceRead)));
       
-      into(tsnk,tsrc) = trace_gpu(l[tsnk],r[tsrc], l_views[tsnk], r_views[tsrc]);
+      into(tsnk,tsrc) = trace_gpu(l[tsnk],r[tsrc], l_views[tsnk].ptr(), r_views[tsrc].ptr());
     }
-    for(auto &v : l_views) if(v!=nullptr){ v->free(); delete v; }
-    for(auto &v : r_views) if(v!=nullptr){ v->free(); delete v; }
 #else //GPU_VEC
     for(int tt=node_off; tt<node_off + node_work; tt++){
       int rem = tt;
@@ -388,11 +388,12 @@ typename mf_Policies::ScalarComplexType trace_slow(const A2AmesonField<mf_Polici
 
   const int n_threads = omp_get_max_threads();
   std::vector<ScalarComplexType, BasicAlignedAllocator<ScalarComplexType> > ret_vec(n_threads,(0.,0.));
-  
+
+  CPSautoView(m_v,m,HostRead);
 #pragma omp parallel for schedule(static)
   for(int i = 0; i < nv; i++){
     const int id = omp_get_thread_num();
-    ret_vec[id] += m.elem(i,i);
+    ret_vec[id] += m_v.elem(i,i);
   }
   for(int i=0;i<n_threads;i++) into += ret_vec[i];  
   return into;

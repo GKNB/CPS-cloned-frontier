@@ -3,9 +3,11 @@ double CPSmatrixFieldNorm2(const CPSmatrixField<VectorMatrixType> &f){
   typedef typename VectorMatrixType::scalar_type scalar_type;
   constexpr int nscalar= VectorMatrixType::nScalarType();
   CPSfield<scalar_type,nscalar, FourDSIMDPolicy<OneFlavorPolicy>, HostAllocPolicy> tmp(f.getDimPolParams());
-  CPSautoView(tmp_v,tmp,HostWrite);
-  CPSautoView(f_v,f,HostRead);
-  memcpy(tmp.ptr(), f_v.ptr(), f.byte_size());
+  {
+    CPSautoView(tmp_v,tmp,HostWrite);
+    CPSautoView(f_v,f,HostRead);
+    memcpy(tmp_v.ptr(), f_v.ptr(), f.byte_size());
+  }
   return tmp.norm2();
 }
 
@@ -282,8 +284,9 @@ CPSmatrixField<typename VectorMatrixType::scalar_type> Trace(const CPSmatrixFiel
 //Sum the matrix field over sides on this node
 template<typename VectorMatrixType>			
 VectorMatrixType localNodeSumSimple(const CPSmatrixField<VectorMatrixType> &a){
-  VectorMatrixType out = *a.site_ptr(size_t(0));
-  for(size_t i=1;i<a.size();i++) out = out + *a.site_ptr(i);
+  CPSautoView(a_v,a,HostRead);
+  VectorMatrixType out = *a_v.site_ptr(size_t(0));
+  for(size_t i=1;i<a.size();i++) out = out + *a_v.site_ptr(i);
   return out;
 }
 
@@ -390,13 +393,13 @@ ManagedVector<VectorMatrixType>  localNodeSpatialSumSimple(const CPSmatrixField<
   size_t field_size_3d = field_size/Lt_loc; 
 
   ManagedVector<VectorMatrixType> out(Lt_loc); 
-
+  CPSautoView(a_v,a,HostRead);
   for(int t=0;t<Lt_loc;t++){
     size_t x4d = a.threeToFour(0,t);
-    out[t] = *a.site_ptr(x4d);
+    out[t] = *a_v.site_ptr(x4d);
     for(size_t i=1;i<field_size_3d;i++){
       x4d = a.threeToFour(i,t);
-      out[t] = out[t] + *a.site_ptr(x4d);
+      out[t] = out[t] + *a_v.site_ptr(x4d);
     }
   }
   return out;

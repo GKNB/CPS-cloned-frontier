@@ -9,13 +9,15 @@ CPS_START_NAMESPACE
 
 template<typename mf_Policies, 
 	 template <typename> class lA2Afield,  template <typename> class rA2Afield,
+	 typename PropagatorField,
 	 typename ComplexClass>
 class _mult_vv_field_offload_v{};
 
 template<typename mf_Policies, 
 	 template <typename> class lA2Afield,  
-	 template <typename> class rA2Afield>
-using mult_vv_field = _mult_vv_field_offload_v<mf_Policies, lA2Afield, rA2Afield, typename ComplexClassify<typename mf_Policies::ComplexType>::type >;
+	 template <typename> class rA2Afield,
+	 typename PropagatorField>
+using mult_vv_field = _mult_vv_field_offload_v<mf_Policies, lA2Afield, rA2Afield, PropagatorField, typename ComplexClassify<typename mf_Policies::ComplexType>::type >;
 
 
 #ifdef USE_GRID
@@ -52,11 +54,14 @@ struct mult_vv_field_offload_timers{
 //For A2A vector A,B \in { A2AvectorW, A2AvectorV, A2AvectorWfftw, A2AvectorVfftw }
 //Compute   AB  contracting over mode indices to produce a spin-color(-flavor) matrix field
 template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  template <typename> class rA2Afield>
-struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_complex_mark>{
+	 template <typename> class lA2Afield,  template <typename> class rA2Afield,
+	 typename PropagatorField>
+struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,grid_vector_complex_mark>{
   typedef _mult_vMv_field_offload_fields<mf_Policies, mf_Policies::GPARITY> fdef;
-  typedef typename fdef::VectorMatrixType VectorMatrixType;
-  typedef typename fdef::PropagatorField PropagatorField;
+  typedef typename PropagatorField::FieldSiteType VectorMatrixType;
+  
+  //typedef typename fdef::VectorMatrixType VectorMatrixType;
+  //typedef typename fdef::PropagatorField PropagatorField;
 
   typedef lA2Afield<mf_Policies> lA2AfieldType;
   typedef rA2Afield<mf_Policies> rA2AfieldType;
@@ -141,10 +146,16 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 				int device){
 #if defined(GRID_CUDA)
     cudaMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
-    cudaMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
+    if(PropagatorField::FieldAllocPolicy::UVMenabled){
+      CPSautoView(into_v,into,HostRead);
+      cudaMemPrefetchAsync(into_v.ptr(), into.byte_size(), device, NULL);
+    }
 #elif defined(GRID_HIP)
     hipMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
-    hipMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
+    if(PropagatorField::FieldAllocPolicy::UVMenabled){
+      CPSautoView(into_v,into,HostRead);
+      hipMemPrefetchAsync(into_v.ptr(), into.byte_size(), device, NULL);
+    }
 #endif
 
     //Divide up into two matrices of size   3 * shmem_iblock_size   requiring  bytes =  2* 3*shmem_iblock_size *sizeof(ScalarComplexType)
@@ -157,6 +168,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     if(shmem_iblock_size == 0) assert(0);
 
     using namespace Grid;
+    { CPSautoView(into_v,into,DeviceRead); } //preserve initial state
     CPSautoView(into_v,into,DeviceWrite);
     accelerator_for_shmem(x4d, 
 			  vol4d, 
@@ -174,11 +186,11 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			  SIMTcomplexType *matB = shared_t + 3*shmem_iblock_size;
 
 			  size_t xop; int top;
-			  into.fourToThree(xop, top, x4d);
+			  into_v.fourToThree(xop, top, x4d);
 			  int t_glob = top + t_off;
 			  int t_glob_block = t_glob / src_width;
 
-			  VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
+			  VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
 			  size_t niprimeb_subblocks = (niprime_block + shmem_iblock_size - 1)/shmem_iblock_size;
 			  for(int iprimeb_subblock=0; iprimeb_subblock < niprimeb_subblocks; iprimeb_subblock++){
 			    size_t iprimeb_start = iprimeb_subblock * shmem_iblock_size;
@@ -477,6 +489,9 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
       std::cout << "vbprime " << double(vprime_bytes)/1024./1024. << " MB" << std::endl;
     }
 
+    CPSautoView(l_v,l,HostRead);
+    CPSautoView(r_v,r,HostRead);
+    
     //Do in blocks over i' to avoid taking too much space
     size_t niprime_blocks = (niprime + blocksize-1)/blocksize;
 
@@ -507,13 +522,13 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
 				{
 				  VectorComplexType *into = vaprime_host +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index
-				  auto val = ACC::read(l.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f));
+				  auto val = ACC::read(l_v.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f));
 				  val = conj_l ? Grid::conjugate(val) : val;
 				  ACC::write(*into, val);
 				}
 				{
 				  VectorComplexType *into = vbprime_host + iprimeb + niprime_block*( sc + 12*(f + nf*x4d) );  //contiguous in summed index
-				  auto val = ACC::read(r.nativeElem(il_ir_pairs[iprime].second, x4d, sc, f));
+				  auto val = ACC::read(r_v.nativeElem(il_ir_pairs[iprime].second, x4d, sc, f));
 				  val = conj_r ? Grid::conjugate(val) : val;
 				  ACC::write(*into, val);
 				}

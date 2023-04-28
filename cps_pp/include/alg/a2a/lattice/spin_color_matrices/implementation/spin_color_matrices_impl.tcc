@@ -372,7 +372,7 @@ accelerator_inline T Transpose(const T& r){
 
 //Perform SIMD reductions
 #ifdef USE_GRID
-template<typename VectorMatrixType, typename my_enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+template<typename VectorMatrixType, typename my_enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type>
 inline typename VectorMatrixType::template RebaseScalarType<typename VectorMatrixType::scalar_type::scalar_type>::type
 Reduce(const VectorMatrixType &v){
   typedef typename VectorMatrixType::template RebaseScalarType<typename VectorMatrixType::scalar_type::scalar_type>::type OutType;

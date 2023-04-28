@@ -306,7 +306,7 @@ void testPoolAllocator(){
     assert(h3->valid);
     assert(h4->valid);
     assert(!h2->valid);
-    assert(h4->entry->ptr != not_expect_ptr);
+    //assert(h4->entry->ptr != not_expect_ptr); //it can happen that the allocation occurs in the newly freed segment!
     assert(pool.getAllocated() == 2*MB);
 
     //now we should have enough room for another full allocation

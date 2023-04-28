@@ -130,48 +130,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::colReorder(A2AmesonField<mf
 }
 
 
-
-//Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)
-//Output as a GSL matrix
-template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-typename gsl_wrapper<typename mf_Policies::ScalarComplexType::value_type>::matrix_complex * A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::GSLpackedColReorder(const int idx_map[], int map_size, bool rowidx_used[], typename gsl_wrapper<typename ScalarComplexType::value_type>::matrix_complex *reuse ) const{
-  typedef gsl_wrapper<typename ScalarComplexType::value_type> gw;
-  assert(sizeof(typename gw::complex) == sizeof(ScalarComplexType));
-  int rows = nmodes_l;
-  int cols = nmodes_r;
-
-  int nrows_used = 0;
-  for(int i_full=0;i_full<rows;i_full++) if(rowidx_used[i_full]) nrows_used++;
-
-  typename gw::matrix_complex *M_packed;
-  if(reuse!=NULL){
-    M_packed = reuse;
-    M_packed->size1 = nrows_used;
-    M_packed->size2 = M_packed->tda = map_size;
-  }else M_packed = gw::matrix_complex_alloc(nrows_used,map_size);
-
-  //Look for contiguous blocks in the idx_map we can take advantage of
-  std::vector<std::pair<int,int> > blocks;
-  find_contiguous_blocks(blocks,idx_map,map_size);
-
-  int i_packed = 0;
-  CPSautoView(t_v,(*this),HostRead);
-  for(int i_full=0;i_full<rows;i_full++){
-    if(rowidx_used[i_full]){
-      ScalarComplexType const* mf_row_base = t_v.ptr() + nmodes_r*i_full; //meson field are row major so columns are contiguous
-      typename gw::complex* row_base = gw::matrix_complex_ptr(M_packed,i_packed,0); //GSL matrix are also row major
-      for(int b=0;b<blocks.size();b++){
-	ScalarComplexType const* block_ptr = mf_row_base + idx_map[blocks[b].first];
-	memcpy((void*)row_base,(void*)block_ptr,blocks[b].second*sizeof(ScalarComplexType));
-	row_base += blocks[b].second;
-      }
-      i_packed++;
-    }
-  }
-
-  return M_packed;
-}
-
 #ifdef USE_GRID
   //Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)
   //Output to a linearized matrix of Grid SIMD vectors where we have splatted the scalar onto all SIMD lanes
@@ -300,12 +258,13 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(bool require){
 
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View::View(ViewMode mode, const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize), device_ptr(false){
-  size_t bsize = fsize * sizeof(ScalarComplexType);
+A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View::View(ViewMode mode, const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize), device_ptr(false),
+																     tl(mf.tl), tr(mf.tr), parent(&mf){
   if(mode == HostRead || mode == HostWrite){
     data = (ScalarComplexType *)mf.data();
   }else if(mode == DeviceRead){  
 #ifdef GPU_VEC
+    size_t bsize = fsize * sizeof(ScalarComplexType);
     data = (ScalarComplexType *)device_alloc_check(bsize);
     copy_host_to_device(data, mf.data(), bsize);
     device_ptr = true;
@@ -351,7 +310,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack_device(typename mf_P
   A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View *vp = const_cast<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View *>(view);
   bool delete_view = false;
   if(vp == nullptr){
-    vp = new A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView(this->view(DeviceRead)); //copies to device
+    vp = new A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View(this->view(DeviceRead)); //copies to device
     delete_view = true;
   }
 

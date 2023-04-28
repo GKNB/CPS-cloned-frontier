@@ -152,25 +152,30 @@ public:
       
 	static_assert( sizeof(gpuMatrix::complexD) == sizeof(ScalarComplexType) );
 
+	{
+	  CPSautoView(l_v,l,HostRead);
 #pragma omp parallel for
-	for(int i=i0;i<i0+bi;i++){
-	  for(int b=0;b<jlmap_blocks.size();b++){
-	    int j_start = jlmap_blocks[b].first;
-	    int j_start_actual = jlmap[j_start];
-	    int sz = jlmap_blocks[b].second;
+	  for(int i=i0;i<i0+bi;i++){
+	    for(int b=0;b<jlmap_blocks.size();b++){
+	      int j_start = jlmap_blocks[b].first;
+	      int j_start_actual = jlmap[j_start];
+	      int sz = jlmap_blocks[b].second;
 	    
-	    gpuMatrix::complexD *p = &lreord(i-i0,j_start);
-	    const ScalarComplexType & el = l(i, j_start_actual);
-	    memcpy(p, &el, sz*sizeof(gpuMatrix::complexD));
+	      gpuMatrix::complexD *p = &lreord(i-i0,j_start);
+	      const ScalarComplexType & el = l_v(i, j_start_actual);
+	      memcpy(p, &el, sz*sizeof(gpuMatrix::complexD));
+	    }
 	  }
 	}
-
+	{
+	  CPSautoView(r_v,r,HostRead);
 #pragma omp parallel for
-	for(int j=0;j<nj;j++){
-	  int j_actual = jrmap[j];
-	  ScalarComplexType const* e = &r(j_actual, k0);
-	  gpuMatrix::complexD *p = &rreord(j,0);
-	  memcpy(p, e, bk*sizeof(gpuMatrix::complexD));
+	  for(int j=0;j<nj;j++){
+	    int j_actual = jrmap[j];
+	    ScalarComplexType const* e = &r_v(j_actual, k0);
+	    gpuMatrix::complexD *p = &rreord(j,0);
+	    memcpy(p, e, bk*sizeof(gpuMatrix::complexD));
+	  }
 	}
 
 	getTimers().t_reord += dclock();
@@ -188,13 +193,16 @@ public:
 
 	getTimers().t_write -= dclock();
 
+	{
+	  CPSautoView(out_v,out,HostWrite);
 #pragma omp parallel for
-	for(int i=i0;i<i0+bi;i++){
-	  ScalarComplexType *p = &out(i,k0);
-	  gpuMatrix::complexD const* e = &lr(i-i0,0);
-	  memcpy(p, e, bk*sizeof(gpuMatrix::complexD));
+	  for(int i=i0;i<i0+bi;i++){
+	    ScalarComplexType *p = &out_v(i,k0);
+	    gpuMatrix::complexD const* e = &lr(i-i0,0);
+	    memcpy(p, e, bk*sizeof(gpuMatrix::complexD));
+	  }
 	}
-
+	
 	getTimers().t_write += dclock();
 
 #endif //MEMTEST_MODE

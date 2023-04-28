@@ -52,19 +52,26 @@ void testhostDeviceMirroredContainer(){
   buf.asyncHostDeviceSync();
   device_synchronize_all();
   if(!buf.deviceInSync()) ERR.General("","testhostDeviceMirroredContainer","Expect device in sync");
+
+  hostDeviceMirroredContainer<double> buf2(100);
   
   {
-    double const* pr = buf.getDeviceReadPtr();
-    using namespace Grid;
-    //Copy it to temp buffer on device
-    accelerator_for(i, 100, 1, {
-	tmp_gpu[i] = pr[i];
-      });    	
-    //Overwrite with new values
-    double* pw = buf.getDeviceWritePtr();
-    accelerator_for(i, 100, 1, {
-	pw[i] = 100 + 3*i;
-      });    	
+    {
+      using namespace Grid;
+      double const* pr = buf.getDeviceReadPtr();
+      //Copy it to temp buffer on device
+      accelerator_for(i, 100, 1, {
+	  tmp_gpu[i] = pr[i];
+	});
+    }
+    {
+      using namespace Grid;    
+      //Overwrite with new values
+      double* pw = buf2.getDeviceWritePtr();
+      accelerator_for(i, 100, 1, {
+	  pw[i] = 100 + 3*i;
+	});
+    }
   }
   {
     //Host check
@@ -73,11 +80,19 @@ void testhostDeviceMirroredContainer(){
     for(int i=0;i<100;i++)
       if(tmp_host[i] != 3*i){ std::cout << "FAIL async host check 1 got "<< tmp_host[i] << " expect " << 3*i << std::endl; fail = true; }
 
-    buf.asyncHostDeviceSync();
+    buf2.asyncHostDeviceSync();
     device_synchronize_all();
-    if(!buf.hostInSync()) ERR.General("","testhostDeviceMirroredContainer","Expect host in sync");
-    
-    double const* p = buf.getHostReadPtr();
+    if(!buf2.hostInSync()) ERR.General("","testhostDeviceMirroredContainer","Expect host in sync");
+
+#ifdef GRID_HIP
+    hipError_t e = hipStreamQuery(Grid::copyStream);
+    hipError_t f = hipStreamQuery(Grid::computeStream);
+    if(e == hipSuccess){ std::cout << "HIP runtime reports all copyStream operations are complete" << std::endl; }
+    else{ std::cout << "!HIP runtime reports all copyStream operations are NOT complete" << std::endl; }
+    if(f == hipSuccess){ std::cout << "HIP runtime reports all computeStream operations are complete" << std::endl; }
+    else{ std::cout << "!HIP runtime reports all computeStream operations are NOT complete" << std::endl; }
+#endif
+    double const* p = buf2.getHostReadPtr();
     for(int i=0;i<100;i++)
       if(p[i] != 100+3*i){ std::cout << "FAIL async host check 2 got " << p[i] << " expect " << 100+3*i << std::endl; fail = true; }
 

@@ -112,13 +112,13 @@ struct _LaneRecursiveTraceImpl<scalar_type, scalar_type, no_mark>{
 
 };
 
-template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type>
 accelerator_inline void Trace(typename VectorMatrixType::scalar_type &out, const VectorMatrixType &in, const int lane){
   SIMT<typename VectorMatrixType::scalar_type>::write(out,0,lane);
   _LaneRecursiveTraceImpl<typename VectorMatrixType::scalar_type, VectorMatrixType, cps_square_matrix_mark>::trace(out, in, lane);
 }
 
-template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type>
 accelerator_inline void Trace(typename VectorMatrixType::scalar_type &out, const VectorMatrixType &a, const VectorMatrixType &b, const int lane){
   SIMT<typename VectorMatrixType::scalar_type>::write(out,0,lane);
   _LaneRecursiveTraceImpl<typename VectorMatrixType::scalar_type, VectorMatrixType, cps_square_matrix_mark>::trace_prod(out, a,b, lane);
@@ -348,7 +348,7 @@ struct _PartialTraceImplSIMT<U,T,0>{
 };
 
 
-template<int RemoveDepth, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+template<int RemoveDepth, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type>
 accelerator_inline void TraceIndex(typename _PartialTraceFindReducedType<VectorMatrixType, RemoveDepth>::type &into,
 				   const VectorMatrixType &from, int lane){
   _PartialTraceImplSIMT<typename _PartialTraceFindReducedType<VectorMatrixType, RemoveDepth>::type,
@@ -391,7 +391,7 @@ struct _PartialDoubleTraceImplSIMT<U,T,0,RemoveDepth2>{
   }
 };
 
-template<int RemoveDepth1, int RemoveDepth2, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+template<int RemoveDepth1, int RemoveDepth2, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type>
 accelerator_inline void TraceTwoIndices(typename _PartialDoubleTraceFindReducedType<VectorMatrixType,RemoveDepth1,RemoveDepth2>::type &into,
 					const VectorMatrixType &from, int lane){
   _PartialDoubleTraceImplSIMT<typename _PartialDoubleTraceFindReducedType<VectorMatrixType,RemoveDepth1,RemoveDepth2>::type,
@@ -419,7 +419,7 @@ struct _RecursiveTransposeImplSIMT<scalar_type, no_mark>{
   }
 };
 
-template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type>
 accelerator_inline void Transpose(VectorMatrixType &into, const VectorMatrixType &from, int lane){
   _RecursiveTransposeImplSIMT<VectorMatrixType, cps_square_matrix_mark>::doit(into, from, lane);
 }
@@ -444,7 +444,7 @@ struct _IndexTransposeImplSIMT<T,0>{
   }
 };
 
-template<int TransposeDepth, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+template<int TransposeDepth, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type>
 accelerator_inline void TransposeOnIndex(VectorMatrixType &out, const VectorMatrixType &in, int lane){
   _IndexTransposeImplSIMT<VectorMatrixType, TransposeDepth>::doit(out,in,lane);
 }

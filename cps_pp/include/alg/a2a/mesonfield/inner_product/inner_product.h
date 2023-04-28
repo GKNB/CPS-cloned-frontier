@@ -425,30 +425,42 @@ template<typename mf_Complex, typename SpinColorContractPolicy>
 class GparityNoSourceInnerProduct: public SpinColorContractPolicy{
   FlavorMatrixType sigma;
 
-  template<typename AccumType>
-  accelerator_inline void 
-  do_op(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-#ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr; //scalar on GPU, vector otherwise
-    this->spinColorContract(lMr,l,r);
-    
-    //Compute   lMr[f1,f3] sigma[f1,f3]  =   lMr^T[f3,f1] sigma[f1,f3]
-    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
-    phi.unit();
-    phi.pl(sigma);
-
-    //Do the sum over the SIMD vectorized sites
-    doAccum(out, TransLeftTrace(lMr, phi));
-#endif
-  }  
-
 public:
   GparityNoSourceInnerProduct(const FlavorMatrixType &_sigma): sigma(_sigma){ }
- 
-  template<typename AccumType>
-  accelerator_inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-    do_op<AccumType>(out,l,r,p,t);
-  }  
+
+  class View: public SpinColorContractPolicy{
+    FlavorMatrixType sigma;    
+    
+    template<typename AccumType>
+    accelerator_inline void 
+    do_op(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
+      FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr; //scalar on GPU, vector otherwise
+      this->spinColorContract(lMr,l,r);
+    
+      //Compute   lMr[f1,f3] sigma[f1,f3]  =   lMr^T[f3,f1] sigma[f1,f3]
+      FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
+      phi.unit();
+      phi.pl(sigma);
+
+      //Do the sum over the SIMD vectorized sites
+      doAccum(out, TransLeftTrace(lMr, phi));
+#endif
+    }  
+   
+  public:
+    template<typename AccumType>
+    accelerator_inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+      do_op<AccumType>(out,l,r,p,t);
+    }
+
+    View(ViewMode mode, const GparityNoSourceInnerProduct &r): sigma(r.sigma), SpinColorContractPolicy(r){};
+
+    View() = default;
+    View(const View &r) = default;
+  };
+
+  View view(ViewMode mode) const{ return View(mode, *this); }
 
   inline int mfPerTimeSlice() const{ return 1; }
 };

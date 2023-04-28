@@ -158,7 +158,6 @@ struct _viewDeallocator<ViewType,0>{
   _viewDeallocator(ViewType &v): v(v){}
 
   ~_viewDeallocator(){
-    //std::cout << "ViewType doesn't require free" << std::endl;
   }
 
   static void free(ViewType &v){}
@@ -170,7 +169,6 @@ struct _viewDeallocator<ViewType,1>{
   _viewDeallocator(ViewType &v): v(v){}
 
   ~_viewDeallocator(){
-    //std::cout << "ViewType does require free" << std::endl;	
     v.free();
   }
 
@@ -213,7 +211,10 @@ public:
   }  
   void reset(ViewType &&vin){ reset(new ViewType(vin)); }
  
-
+  bool isSet() const{ return v!=nullptr; }
+  ViewType* ptr(){ return v; }
+  ViewType const* ptr() const{ return v; }
+  
   ViewType & operator*(){ return *v; }
   ViewType const & operator*() const{ return *v; }
   ViewType* operator->(){ return v; }
@@ -396,7 +397,7 @@ public:
   
   ViewPointerWrapper(): v(nullptr){}
 
-  ViewPointerWrapper(const ViewType &vin): ViewPointerWrapper(){ assign(vin); }
+  ViewPointerWrapper(ViewMode mode, const ViewType &vin): ViewPointerWrapper(){ assign(mode, vin); }
  
   ViewPointerWrapper(const ViewPointerWrapper &r) = default;
   ViewPointerWrapper(ViewPointerWrapper &&r) = default;
@@ -493,7 +494,7 @@ public:
       device_in_sync = true;
     }
     if(!host_in_sync){
-      cudaMemcpyAsync(device,host,byte_size(), cudaMemcpyDeviceToHost,Grid::copyStream);
+      cudaMemcpyAsync(host,device,byte_size(), cudaMemcpyDeviceToHost,Grid::copyStream);
       host_in_sync = true;
     }
 #elif defined(GRID_HIP)
@@ -504,7 +505,7 @@ public:
       device_in_sync = true;
     }
     if(!host_in_sync){
-      hipMemcpyAsync(device,host,byte_size(), hipMemcpyDeviceToHost,Grid::copyStream);
+      hipMemcpyAsync(host,device,byte_size(), hipMemcpyDeviceToHost,Grid::copyStream);
       host_in_sync = true;
     }
 #elif defined(GRID_SYCL)

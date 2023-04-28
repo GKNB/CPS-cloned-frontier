@@ -13,6 +13,8 @@ void testA2AfieldGetFlavorDilutedVect(const A2AArg &a2a_args, double tol){
   typedef typename A2Apolicies_std::FermionFieldType::FieldSiteType FieldSiteType;
   typedef typename A2Apolicies_std::ComplexType ComplexType;
 
+  CPSautoView(Wf_p_v,Wf_p,HostRead);
+  
   //wFFT^(i)_{sc,f}(p,t) = \rho^(i_h,i_f,i_t,i_sc)_sc(p,i_t) \delta_{i_f,f}\delta_{i_t, t}
   //wFFTP^(i_h,i_sc)_{sc,f} (p,t) = \rho^(i_h,f,t,i_sc)_sc(p,t)
   
@@ -41,7 +43,7 @@ void testA2AfieldGetFlavorDilutedVect(const A2AArg &a2a_args, double tol){
       std::cout << "Mode flavor is " << u.flavor << std::endl;
       //Check it is a delta function flavor
       //note the first arg, the mode index, is ignored for mode>=nl
-      SCFvectorPtr<FieldSiteType> ptr = Wf_p.getFlavorDilutedVect(nl, u, p3d, tlcl);
+      SCFvectorPtr<FieldSiteType> ptr = Wf_p_v.getFlavorDilutedVect(nl, u, p3d, tlcl);
 
       //Should be non-zero for the f = u.flavor
       ComplexType const *dfa = ptr.getPtr(u.flavor);
@@ -63,7 +65,7 @@ void testA2AfieldGetFlavorDilutedVect(const A2AArg &a2a_args, double tol){
 	//Full mode (j_h,j_f,t,j_sc):
 	int full_mode = nl + dil_full.indexMap(u.hit, tglb, u.spin_color, u.flavor);
 
-	FieldSiteType ea = Wf_p.elem(full_mode, p3d, tlcl, sc, u.flavor);
+	FieldSiteType ea = Wf_p_v.elem(full_mode, p3d, tlcl, sc, u.flavor);
 
 	std::cout << "Using elem function : (" << ea.real() << "," << ea.imag() << ")" << std::endl; 
 	
@@ -243,20 +245,25 @@ void testA2AvectorTimesliceExtraction(const A2AArg &a2a_args){
     V2.zero();
 
     typedef typename A2AvectorV<A2Apolicies>::FieldSiteType FieldSiteType;
-
-    for(int i=0;i<V.getNmodes();i++){    
-      for(int t=0;t<GJP.TnodeSites();t++){
-	FieldSiteType const* from0, *from1;
-	FieldSiteType const* to0, *to1; 
-	size_t sz1, sz2;
-	V.getModeTimesliceData(from0, from1, sz1, i, t);
-	V2.getModeTimesliceData(to0, to1, sz2, i, t);
-	assert(sz1 == sz2);
+    {
+      CPSautoView(V_v,V,HostRead);
+      CPSautoView(V2_v,V2,HostWrite);
+      
+      for(int i=0;i<V.getNmodes();i++){    
+	for(int t=0;t<GJP.TnodeSites();t++){
+	  FieldSiteType const* from0, *from1;
+	  FieldSiteType const* to0, *to1; 
+	  size_t sz1, sz2;
+	  V_v.getModeTimesliceData(from0, from1, sz1, i, t);
+	  V2_v.getModeTimesliceData(to0, to1, sz2, i, t);
+	  assert(sz1 == sz2);
 	
-	memcpy( (void*)to0, (void const*)from0, sz1 * sizeof(FieldSiteType));
-	if(GJP.Gparity()) memcpy( (void*)to1, (void const*)from1, sz1 * sizeof(FieldSiteType));
+	  memcpy( (void*)to0, (void const*)from0, sz1 * sizeof(FieldSiteType));
+	  if(GJP.Gparity()) memcpy( (void*)to1, (void const*)from1, sz1 * sizeof(FieldSiteType));
+	}
       }
     }
+    
     for(int i=0;i<V.getNmodes();i++){    
       assert(V2.getMode(i).equals( V.getMode(i), 1e-13 ) );
     }
@@ -272,18 +279,22 @@ void testA2AvectorTimesliceExtraction(const A2AArg &a2a_args){
     W2.zero();
 
     typedef typename A2AvectorW<A2Apolicies>::FieldSiteType FieldSiteType;
-
-    for(int i=0;i<W.getNmodes();i++){    
-      for(int t=0;t<GJP.TnodeSites();t++){
-	FieldSiteType const* from0, *from1;
-	FieldSiteType const* to0, *to1; 
-	size_t sz1, sz2;
-	W.getModeTimesliceData(from0, from1, sz1, i, t);
-	W2.getModeTimesliceData(to0, to1, sz2, i, t);
-	assert(sz1 == sz2);
+    {
+      CPSautoView(W_v,W,HostRead);
+      CPSautoView(W2_v,W2,HostWrite);
+    
+      for(int i=0;i<W.getNmodes();i++){    
+	for(int t=0;t<GJP.TnodeSites();t++){
+	  FieldSiteType const* from0, *from1;
+	  FieldSiteType const* to0, *to1; 
+	  size_t sz1, sz2;
+	  W_v.getModeTimesliceData(from0, from1, sz1, i, t);
+	  W2_v.getModeTimesliceData(to0, to1, sz2, i, t);
+	  assert(sz1 == sz2);
 	
-	memcpy( (void*)to0, (void const*)from0, sz1 * sizeof(FieldSiteType));
-	if(GJP.Gparity()) memcpy( (void*)to1, (void const*)from1, sz1 * sizeof(FieldSiteType));
+	  memcpy( (void*)to0, (void const*)from0, sz1 * sizeof(FieldSiteType));
+	  if(GJP.Gparity()) memcpy( (void*)to1, (void const*)from1, sz1 * sizeof(FieldSiteType));
+	}
       }
     }
     for(int i=0;i<W.getNl();i++){    
@@ -299,6 +310,7 @@ void testA2AvectorTimesliceExtraction(const A2AArg &a2a_args){
 
 
   {
+    std::cout << "Vfftw timeslice extraction test" << std::endl;
     A2AvectorVfftw<A2Apolicies> V(a2a_args, p.params);
     V.testRandom();
 
@@ -306,18 +318,22 @@ void testA2AvectorTimesliceExtraction(const A2AArg &a2a_args){
     V2.zero();
 
     typedef typename A2AvectorVfftw<A2Apolicies>::FieldSiteType FieldSiteType;
+    {
+      CPSautoView(V_v,V,HostRead);
+      CPSautoView(V2_v,V2,HostWrite);
 
-    for(int i=0;i<V.getNmodes();i++){    
-      for(int t=0;t<GJP.TnodeSites();t++){
-	FieldSiteType const* from0, *from1;
-	FieldSiteType const* to0, *to1; 
-	size_t sz1, sz2;
-	V.getModeTimesliceData(from0, from1, sz1, i, t);
-	V2.getModeTimesliceData(to0, to1, sz2, i, t);
-	assert(sz1 == sz2);
+      for(int i=0;i<V.getNmodes();i++){    
+	for(int t=0;t<GJP.TnodeSites();t++){
+	  FieldSiteType const* from0, *from1;
+	  FieldSiteType const* to0, *to1; 
+	  size_t sz1, sz2;
+	  V_v.getModeTimesliceData(from0, from1, sz1, i, t);
+	  V2_v.getModeTimesliceData(to0, to1, sz2, i, t);
+	  assert(sz1 == sz2);
 	
-	memcpy( (void*)to0, (void const*)from0, sz1 * sizeof(FieldSiteType));
-	if(GJP.Gparity()) memcpy( (void*)to1, (void const*)from1, sz1 * sizeof(FieldSiteType));
+	  memcpy( (void*)to0, (void const*)from0, sz1 * sizeof(FieldSiteType));
+	  if(GJP.Gparity()) memcpy( (void*)to1, (void const*)from1, sz1 * sizeof(FieldSiteType));
+	}
       }
     }
     for(int i=0;i<V.getNmodes();i++){    
@@ -328,6 +344,7 @@ void testA2AvectorTimesliceExtraction(const A2AArg &a2a_args){
 
 
   {
+    std::cout << "Wfftw timeslice extraction test" << std::endl;
     A2AvectorWfftw<A2Apolicies> W(a2a_args, p.params);
     W.testRandom();
 
@@ -335,18 +352,22 @@ void testA2AvectorTimesliceExtraction(const A2AArg &a2a_args){
     W2.zero();
 
     typedef typename A2AvectorWfftw<A2Apolicies>::FieldSiteType FieldSiteType;
-
-    for(int i=0;i<W.getNmodes();i++){    
-      for(int t=0;t<GJP.TnodeSites();t++){
-	FieldSiteType const* from0, *from1;
-	FieldSiteType const* to0, *to1; 
-	size_t sz1, sz2;
-	W.getModeTimesliceData(from0, from1, sz1, i, t);
-	W2.getModeTimesliceData(to0, to1, sz2, i, t);
-	assert(sz1 == sz2);
+    {
+      CPSautoView(W_v,W,HostRead);
+      CPSautoView(W2_v,W2,HostWrite);
+      
+      for(int i=0;i<W.getNmodes();i++){    
+	for(int t=0;t<GJP.TnodeSites();t++){
+	  FieldSiteType const* from0, *from1;
+	  FieldSiteType const* to0, *to1; 
+	  size_t sz1, sz2;
+	  W_v.getModeTimesliceData(from0, from1, sz1, i, t);
+	  W2_v.getModeTimesliceData(to0, to1, sz2, i, t);
+	  assert(sz1 == sz2);
 	
-	memcpy( (void*)to0, (void const*)from0, sz1 * sizeof(FieldSiteType));
-	if(GJP.Gparity()) memcpy( (void*)to1, (void const*)from1, sz1 * sizeof(FieldSiteType));
+	  memcpy( (void*)to0, (void const*)from0, sz1 * sizeof(FieldSiteType));
+	  if(GJP.Gparity()) memcpy( (void*)to1, (void const*)from1, sz1 * sizeof(FieldSiteType));
+	}
       }
     }
     for(int i=0;i<W.getNl();i++){    
@@ -1093,20 +1114,24 @@ void testXconjWsrcCConjRelnV(typename A2Apolicies::FgridGFclass &lattice){
 
   for(int hit=0;hit<stdidx.getNhits();hit++){
     for(int tcol=0;tcol<stdidx.getNtBlocks();tcol++){
-      
-      for(int scol=0;scol<4;scol++){
-	for(int ccol=0;ccol<3;ccol++){
-	  for(int fcol=0;fcol<2;fcol++){
-	    const CPSfermionField & vv = V.getMode(a2a_args.nl + stdidx.indexMap(hit,tcol,ccol+3*scol,fcol) );
+
+      {
+	CPSautoView(prop_v,prop,HostWrite);
+	for(int scol=0;scol<4;scol++){
+	  for(int ccol=0;ccol<3;ccol++){
+	    for(int fcol=0;fcol<2;fcol++){
+	      const CPSfermionField & vv = V.getMode(a2a_args.nl + stdidx.indexMap(hit,tcol,ccol+3*scol,fcol) );
+	      CPSautoView(vv_v,vv,HostRead);
 	    
 #pragma omp parallel for
-	    for(size_t x=0;x<vv.nsites();x++){
-	      SCFmat &into = *prop.site_ptr(x);
-	      for(int frow=0;frow<2;frow++){
-		VectorComplexType const* from_base = vv.site_ptr(x,frow);
-		for(int srow=0;srow<4;srow++)
-		  for(int crow=0;crow<3;crow++)
-		    into(srow,scol)(crow,ccol)(frow,fcol) = *(from_base + crow + 3*srow);
+	      for(size_t x=0;x<vv.nsites();x++){
+		SCFmat &into = *prop_v.site_ptr(x);
+		for(int frow=0;frow<2;frow++){
+		  VectorComplexType const* from_base = vv_v.site_ptr(x,frow);
+		  for(int srow=0;srow<4;srow++)
+		    for(int crow=0;crow<3;crow++)
+		      into(srow,scol)(crow,ccol)(frow,fcol) = *(from_base + crow + 3*srow);
+		}
 	      }
 	    }
 	  }
@@ -1230,67 +1255,77 @@ void testXconjWsrcCConjReln(typename A2Apolicies::FgridGFclass &lattice){
 
   std::cout << "Constructing VW*(x,x0)" << std::endl;
 
-  for(int i=0;i<nl;i++){
-    std::cout << "Low mode " << i << std::endl;
-    const CPSfermionField & vv = V.getMode(i);
-    const CPSfermionField & ww = W.getWl(i);
-
+  {CPSautoView(prop_v,prop,HostRead);}
+  {
+    CPSautoView(prop_v,prop,HostWrite);
+  
+    for(int i=0;i<nl;i++){
+      std::cout << "Low mode " << i << std::endl;
+      const CPSfermionField & vv = V.getMode(i);
+      const CPSfermionField & ww = W.getWl(i);
+      CPSautoView(vv_v,vv,HostRead);
+      CPSautoView(ww_v,ww,HostRead);
+    
 #pragma omp parallel for
-    for(size_t x=0;x<vv.nsites();x++){
-      SCFmat &into = *prop.site_ptr(x);
+      for(size_t x=0;x<vv.nsites();x++){
+	SCFmat &into = *prop_v.site_ptr(x);
       
-      for(int frow=0;frow<2;frow++){
-	for(int scrow=0;scrow<12;scrow++){
-	  int crow = scrow % 3,  srow = scrow / 3;
+	for(int frow=0;frow<2;frow++){
+	  for(int scrow=0;scrow<12;scrow++){
+	    int crow = scrow % 3,  srow = scrow / 3;
 
-	  VectorComplexType vvfs = *(vv.site_ptr(x,frow) + scrow);
+	    VectorComplexType vvfs = *(vv_v.site_ptr(x,frow) + scrow);
 	  
-	  for(int fcol=0;fcol<2;fcol++){
-	    for(int sccol=0;sccol<12;sccol++){
-	      int ccol = sccol % 3,  scol = sccol / 3;
+	    for(int fcol=0;fcol<2;fcol++){
+	      for(int sccol=0;sccol<12;sccol++){
+		int ccol = sccol % 3,  scol = sccol / 3;
 
-	      auto wwfs = (*(ww.site_ptr(x0_outer,fcol) + sccol)).getlane(x0_inner);
+		auto wwfs = (*(ww_v.site_ptr(x0_outer,fcol) + sccol)).getlane(x0_inner);
 	      
-	      into(srow,scol)(crow,ccol)(frow,fcol) += vvfs * cconj(wwfs);
+		into(srow,scol)(crow,ccol)(frow,fcol) += vvfs * cconj(wwfs);
+	      }
 	    }
 	  }
 	}
       }
     }
-  }
 
-  int nh = V.getNhighModes();
-  for(int i=0;i<nh;i++){
-    std::cout << "High mode " << i << std::endl;
+  
+    int nh = V.getNhighModes();
+    for(int i=0;i<nh;i++){
+      std::cout << "High mode " << i << std::endl;
 
-    const CPSfermionField & vv = V.getMode(nl+i);
-    CPSfermionField ww(vv.getDimPolParams());
-    W.getDilutedSource(ww,i);
-
+      const CPSfermionField & vv = V.getMode(nl+i);
+      CPSfermionField ww(vv.getDimPolParams());
+      W.getDilutedSource(ww,i);
+      CPSautoView(vv_v,vv,HostRead);
+      CPSautoView(ww_v,ww,HostRead);
+     
 #pragma omp parallel for
-    for(size_t x=0;x<vv.nsites();x++){
-      SCFmat &into = *prop.site_ptr(x);
+      for(size_t x=0;x<vv.nsites();x++){
+	SCFmat &into = *prop_v.site_ptr(x);
       
-      for(int frow=0;frow<2;frow++){
-	for(int scrow=0;scrow<12;scrow++){
-	  int crow = scrow % 3,  srow = scrow / 3;
+	for(int frow=0;frow<2;frow++){
+	  for(int scrow=0;scrow<12;scrow++){
+	    int crow = scrow % 3,  srow = scrow / 3;
 
-	  VectorComplexType vvfs = *(vv.site_ptr(x,frow) + scrow);
+	    VectorComplexType vvfs = *(vv_v.site_ptr(x,frow) + scrow);
 	  
-	  for(int fcol=0;fcol<2;fcol++){
-	    for(int sccol=0;sccol<12;sccol++){
-	      int ccol = sccol % 3,  scol = sccol / 3;
+	    for(int fcol=0;fcol<2;fcol++){
+	      for(int sccol=0;sccol<12;sccol++){
+		int ccol = sccol % 3,  scol = sccol / 3;
 
-	      auto wwfs = (*(ww.site_ptr(x0_outer,fcol) + sccol)).getlane(x0_inner);
+		auto wwfs = (*(ww_v.site_ptr(x0_outer,fcol) + sccol)).getlane(x0_inner);
 	      
-	      into(srow,scol)(crow,ccol)(frow,fcol) += vvfs * cconj(wwfs);
+		into(srow,scol)(crow,ccol)(frow,fcol) += vvfs * cconj(wwfs);
+	      }
 	    }
 	  }
 	}
       }
     }
-  }
-      
+  } //computation of prop
+  
   SCFmatrixField propconj = cconj(prop);
   //Xi = -i s2 X
   //X = C g5

@@ -709,10 +709,10 @@ struct _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
 
     const char *fname = "gather(...)";
 
-    typedef CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy> ViewType;
+    typedef typename CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy>::View ViewType;
 
-    ViewType* send = &from.v;
-    ViewType* recv = &tmp2;
+    ViewType* send = &from_v;
+    ViewType* recv = &tmp2_v;
 
     int cur_dir_origin = GJP.NodeSites(dir)*GJP.NodeCoor(dir);    
     int size_in_Float = from.size() * sizeof(SiteType) / sizeof(IFloat); //getPlusData measures the send/recv size in units of sizeof(IFloat)
@@ -737,8 +737,8 @@ struct _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
 	cur_dir_origin %= (GJP.NodeSites(dir)*GJP.Nodes(dir));
 
 	if(shift == 0){
-	  recv = &tmp1;
-	  send = &tmp2;
+	  recv = &tmp1_v;
+	  send = &tmp2_v;
 	}else std::swap(send,recv);
       }
     }    

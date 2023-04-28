@@ -8,13 +8,15 @@ CPS_START_NAMESPACE
 template<typename mf_Policies,
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,
+	 typename PropagatorField,
 	 typename ComplexClass>
 class _mult_vMv_field_offload_v{};
 
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR>
-using mult_vMv_field = _mult_vMv_field_offload_v<mf_Policies, lA2AfieldL, lA2AfieldR, rA2AfieldL, rA2AfieldR, typename ComplexClassify<typename mf_Policies::ComplexType>::type >;
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,
+	 typename PropagatorField>
+using mult_vMv_field = _mult_vMv_field_offload_v<mf_Policies, lA2AfieldL, lA2AfieldR, rA2AfieldL, rA2AfieldR, PropagatorField, typename ComplexClassify<typename mf_Policies::ComplexType>::type >;
 
 
 #ifdef USE_GRID
@@ -25,7 +27,9 @@ struct _mult_vMv_field_offload_fields{};
 template<typename mf_Policies>
 struct _mult_vMv_field_offload_fields<mf_Policies,1>{
   typedef CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> VectorMatrixType;
-  typedef CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, typename mf_Policies::AllocPolicy> PropagatorField;
+  template<typename AllocPolicy>
+  using PropagatorField = CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, AllocPolicy>;
+  
   static accelerator_inline typename mf_Policies::ComplexType & access(const int s1, const int c1, const int f1,
 							   const int s2, const int c2, const int f2,
 							   VectorMatrixType &M){
@@ -36,12 +40,19 @@ struct _mult_vMv_field_offload_fields<mf_Policies,1>{
 template<typename mf_Policies>
 struct _mult_vMv_field_offload_fields<mf_Policies,0>{
   typedef CPSspinMatrix<CPScolorMatrix<typename mf_Policies::ComplexType> > VectorMatrixType;
-  typedef CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, typename mf_Policies::AllocPolicy> PropagatorField;
+  template<typename AllocPolicy>
+  using PropagatorField = CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, AllocPolicy>;
   static accelerator_inline typename mf_Policies::ComplexType & access(const int s1, const int c1, const int f1,
 							   const int s2, const int c2, const int f2,
 							   VectorMatrixType &M){
     return M(s1,s2)(c1,c2);
   }
+};
+
+//Allow propagatorField output types that have different allocator policies
+template<typename mf_Policies, typename PropagatorFieldType>
+struct _mult_vMv_field_offload_fields_check_propagatorfield{
+  enum { value = std::is_same<PropagatorFieldType, typename _mult_vMv_field_offload_fields<mf_Policies,mf_Policies::GPARITY>::template PropagatorField<typename PropagatorFieldType::FieldAllocPolicy> >::value };
 };
 
 struct mult_vMv_field_offload_timers{
@@ -77,11 +88,13 @@ struct mult_vMv_field_offload_timers{
 //Compute   A (BC) D    where  (BC) is a meson field, A, D are A2A vectors
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR>
-struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,grid_vector_complex_mark>{
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,
+	 typename PropagatorField>
+struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,PropagatorField,grid_vector_complex_mark>{
   typedef _mult_vMv_field_offload_fields<mf_Policies, mf_Policies::GPARITY> fdef;
-  typedef typename fdef::VectorMatrixType VectorMatrixType;
-  typedef typename fdef::PropagatorField PropagatorField;
+  typedef typename PropagatorField::FieldSiteType VectorMatrixType;
+  //typedef typename fdef::VectorMatrixType VectorMatrixType;
+  //typedef typename fdef::PropagatorField PropagatorField;
 
   typedef lA2AfieldL<mf_Policies> lA2AfieldType;
   typedef rA2AfieldR<mf_Policies> rA2AfieldType;
@@ -121,10 +134,15 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
     typedef SIMT<VectorComplexType> ACC;
 
+    CPSautoView(into_v,into,HostWrite);
+    CPSautoView(l_v,l,HostRead);
+    CPSautoView(r_v,r,HostRead);
+    CPSautoView(M_v,M,HostRead);
+    
     using namespace Grid;
     thread_for(x4d, vol4d,
 		    {
-		      VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
+		      VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
 		      size_t xop; int top;
 		      into.fourToThree(xop, top, x4d);
 
@@ -139,14 +157,14 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
 				  for(int i=0;i<ni;i++){
 				    
-				    ScalarComplexType lval_tmp = ACC::read(l.elem(i,xop,top,cl+3*sl,fl));
+				    ScalarComplexType lval_tmp = ACC::read(l_v.elem(i,xop,top,cl+3*sl,fl));
 				    ScalarComplexType lval = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
 		  
 				    for(int j=0;j<nj;j++){
-				      ScalarComplexType rval_tmp = ACC::read(r.elem(j,xop,top,cr+3*sr,fr));
+				      ScalarComplexType rval_tmp = ACC::read(r_v.elem(j,xop,top,cr+3*sr,fr));
 				      ScalarComplexType rval = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
 				      
-				      ScalarComplexType Mval = M.elem(i,j);
+				      ScalarComplexType Mval = M_v.elem(i,j);
 
 				      ScalarComplexType val = ACC::read(out) + lval * Mval * rval;
 				      ACC::write(out, val);
@@ -284,7 +302,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			    size_t iprimestart, size_t iprimelessthan, size_t jprimestart, size_t jprimelessthan,
 			    ManagedVector< std::pair<int,int> > &il_ir_pairs, ManagedVector< std::pair<int,int> > &jl_jr_pairs){
     typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
-    
+    CPSautoView(M_v,M,HostRead);
     MFcomplexType *Mptr = Mprime;
     for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
       size_t iprimeb = iprime - iprimestart;
@@ -292,12 +310,12 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       for(size_t jprime = jprimestart; jprime < jprimelessthan; jprime++){
 	size_t jprimeb = jprime - jprimestart;
 	size_t jl = jl_jr_pairs[jprime].first;
-	*Mptr++ = M(ir, jl);
+	*Mptr++ = M_v(ir, jl);
       }
     }
   }    
 
-  static void create_vbprime(VectorComplexType* vbprime, typename PropagatorField::View &into_v, typename rA2AfieldType::View &r_v,
+  static void create_vbprime(VectorComplexType* vbprime, typename rA2AfieldType::View &r_v,
 			     ManagedVector<uint8_t>::View &beta_v, ManagedVector< std::pair<int,int> >::View &jl_jr_pairs_v,
 			     int t_off, int src_width, size_t jprimestart, int nf, int ntblocks, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices,
 			     size_t njprime_block, size_t nsimd, bool conj_r,
@@ -409,7 +427,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
   
   static void prefetch_r(size_t jprimeblock, size_t njprime_blocks, size_t iprimeblock, size_t niprime_blocks,
-			 size_t blocksize, size_t njprime, ManagedVector< std::pair<int,int> > &jl_jr_pairs, const rA2AfieldType &r,
+			 size_t blocksize, size_t njprime, ManagedVector< std::pair<int,int> > &jl_jr_pairs, const typename rA2AfieldType::View &r_v,
 			 size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices)
   {
     size_t nt = local_timeslices.size();
@@ -440,7 +458,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	        VectorComplexType const* v0;
 	        VectorComplexType const* v1;
 	        size_t sz;
-	        r.getModeTimesliceData(v0,v1,sz,jr,t);
+	        r_v.getModeTimesliceData(v0,v1,sz,jr,t);
   #if defined(GRID_CUDA)
 	        assert( cudaMemPrefetchAsync( (void const*)v0, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
 	        if(GJP.Gparity()) assert( cudaMemPrefetchAsync( (void const*)v1, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
@@ -475,10 +493,12 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     for(int i=0;i<r.getNlowModes();i++) r.getLowMode(i).deviceSetAdviseUVMreadOnly(true);
     for(int i=0;i<r.getNhighModes();i++) r.getHighMode(i).deviceSetAdviseUVMreadOnly(true);
 #elif defined(GRID_HIP)   //FIXME, check if deviceSetAdviseUVMreadOnly has been implemented for hip
+#if 0
+    //NB CK 4/27/23  this fails on Crusher, and is also not supported by AMD devices according to docs, so disabling
     hipFuncCache_t cache_default;
     assert(hipDeviceGetCacheConfig(&cache_default) == hipSuccess );
     assert(hipDeviceSetCacheConfig(hipFuncCachePreferL1) == hipSuccess );
-
+#endif
     for(int i=0;i<l.getNlowModes();i++) l.getLowMode(i).deviceSetAdviseUVMreadOnly(true);
     for(int i=0;i<l.getNhighModes();i++) l.getHighMode(i).deviceSetAdviseUVMreadOnly(true);
     for(int i=0;i<r.getNlowModes();i++) r.getLowMode(i).deviceSetAdviseUVMreadOnly(true);
@@ -522,6 +542,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
         
     CPSautoView(l_v, l, DeviceRead);
     CPSautoView(r_v, r, DeviceRead);
+    { CPSautoView(into_rv,into,DeviceRead); } //preserve initial state
     CPSautoView(into_v,into,DeviceWrite);
 
     //This version is designed for l, r with the same temporal src_width
@@ -663,7 +684,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	      //if(cr == 0 && sr == 0 && fr == 0 && jprimeblock == 0 && iprimeblock == 0) cudaProfilerStart();
 	      
 	      //Create vb'
-	      create_vbprime(vbprime, into_v, r_v, beta_v, jl_jr_pairs_v, t_off, r.getArgs().src_width, jprimestart, nf, ntblocks, vol3d_node, local_timeslices, njprime_block, nsimd, conj_r, scr, fr);
+	      create_vbprime(vbprime, r_v, beta_v, jl_jr_pairs_v, t_off, r.getArgs().src_width, jprimestart, nf, ntblocks, vol3d_node, local_timeslices, njprime_block, nsimd, conj_r, scr, fr);
 
 	      //Mprime * vbprime
 	      Mprime_vbprime(Mvbprime, Mprime, vbprime, vol4d_node_do, niprime_block, njprime_block, nsimd, fourd_block_count, scfr==0);
@@ -679,7 +700,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
 	//The kernels below takes a while so we may as well prefetch r for the next cycle
 	//Note: these are issued after the kernels are launched because they lock up the CPU; the kernels are still executing at this time
-	prefetch_r(jprimeblock, njprime_blocks, iprimeblock, niprime_blocks, blocksize, njprime, jl_jr_pairs, r, vol3d_node, local_timeslices);
+	prefetch_r(jprimeblock, njprime_blocks, iprimeblock, niprime_blocks, blocksize, njprime, jl_jr_pairs, r_v, vol3d_node, local_timeslices);
 
 	device_synchronize_all();
 	time.lMr += dclock();
@@ -700,8 +721,9 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     for(int i=0;i<r.getNlowModes();i++) r.getLowMode(i).deviceSetAdviseUVMreadOnly(false);
     for(int i=0;i<r.getNhighModes();i++) r.getHighMode(i).deviceSetAdviseUVMreadOnly(false);
 #elif defined(GRID_HIP) //FIXME, check if deviceSetAdviseUVMreadOnly has been implemented for hip
+#if 0
     assert(hipDeviceSetCacheConfig(cache_default) == hipSuccess );
-
+#endif
     for(int i=0;i<l.getNlowModes();i++) l.getLowMode(i).deviceSetAdviseUVMreadOnly(false);
     for(int i=0;i<l.getNhighModes();i++) l.getHighMode(i).deviceSetAdviseUVMreadOnly(false);
     for(int i=0;i<r.getNlowModes();i++) r.getLowMode(i).deviceSetAdviseUVMreadOnly(false);

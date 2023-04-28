@@ -307,13 +307,13 @@ public:
 // l^i(xop,top) r^i(xop,top)
 //argument xop is the *local* 3d site index in canonical ordering, top is the *local* time coordinate
 // Node local and unthreaded
-template<class lA2AfieldView, class rA2AfieldView, typename std::enable_if<std::is_same<typename lA2AfieldView::Policies,typename rA2AfieldView::Policies>::value,int>::type = 0 >
+template<class lA2AfieldView, class rA2AfieldView, typename std::enable_if<std::is_same<typename lA2AfieldView::Policies,typename rA2AfieldView::Policies>::value,int>::type>
 void mult(CPSspinColorFlavorMatrix<typename lA2AfieldView::Policies::ComplexType> &out, const lA2AfieldView &l, const rA2AfieldView &r, 
 	  const int xop, const int top, const bool conj_l, const bool conj_r){
   _mult_lr_impl_v<lA2AfieldView,rA2AfieldView,typename ComplexClassify<typename lA2AfieldView::Policies::ComplexType>::type >::mult(out,l,r,xop,top,conj_l,conj_r);
 }
 
-template<class lA2AfieldView, class rA2AfieldView, typename std::enable_if<std::is_same<typename lA2AfieldView::Policies,typename rA2AfieldView::Policies>::value,int>::type = 0 >
+template<class lA2AfieldView, class rA2AfieldView, typename std::enable_if<std::is_same<typename lA2AfieldView::Policies,typename rA2AfieldView::Policies>::value,int>::type>
 void mult(CPSspinColorMatrix<typename lA2AfieldView::Policies::ComplexType> &out, const lA2AfieldView &l, const rA2AfieldView &r, 
 	  const int xop, const int top, const bool conj_l, const bool conj_r){
   _mult_lr_impl_v<lA2AfieldView,rA2AfieldView,typename ComplexClassify<typename lA2AfieldView::Policies::ComplexType>::type >::mult(out,l,r,xop,top,conj_l,conj_r);
