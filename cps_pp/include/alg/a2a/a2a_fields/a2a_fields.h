@@ -110,7 +110,8 @@ public:
     typedef StandardIndexDilution DilutionType;
 
     View(ViewMode mode, const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d): av(vin.view(mode)), StandardIndexDilution(d){}
-      
+    View(ViewMode mode, const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d, const std::vector<bool> &modes_used): av(vin.view(mode,modes_used)), StandardIndexDilution(d){}
+    
     accelerator_inline FieldView & getMode(const int i) const{ return av[i]; }
 
     //Get a mode from the low mode part
@@ -152,7 +153,8 @@ public:
   };
 
   View view(ViewMode mode) const{ return View(mode, v, *this); }
-
+  //Open a view only to some subset of modes. Undefined behavior if you access one that you are not supposed to!
+  View view(ViewMode mode, const std::vector<bool> &modes_used) const{ return View(mode,v,*this,modes_used); }
   
   void importVl(const FermionFieldType &vv, const int il){
     *v[il] = vv;
@@ -252,6 +254,7 @@ public:
     typedef StandardIndexDilution DilutionType;
     
     View(ViewMode mode, const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d): av(vin.view(mode)), StandardIndexDilution(d){}
+    View(ViewMode mode, const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d, const std::vector<bool> &modes_used): av(vin.view(mode,modes_used)), StandardIndexDilution(d){}
      
     accelerator_inline FieldView & getMode(const int i) const{ return av[i]; }
 
@@ -292,6 +295,8 @@ public:
   };
 
   View view(ViewMode mode) const{ return View(mode, v, *this); }
+  //Open a view only to some subset of modes. Undefined behavior if you access one that you are not supposed to!
+  View view(ViewMode mode, const std::vector<bool> &modes_used) const{ return View(mode,v,*this,modes_used); }
 
   
   //Set this object to be the threaded fast Fourier transform of the input field
@@ -426,7 +431,15 @@ public:
 	 const CPSfieldArray<FermionFieldType> &wlin,
 	 const CPSfieldArray<ComplexFieldType> &whin,
 	 const FullyPackedIndexDilution &d): awl(wlin.view(mode)), awh(whin.view(mode)), FullyPackedIndexDilution(d){}
-      
+
+    View(ViewMode mode,
+	 const CPSfieldArray<FermionFieldType> &wlin,
+	 const CPSfieldArray<ComplexFieldType> &whin,
+	 const FullyPackedIndexDilution &d, const std::vector<bool> &modes_used):     awl(wlin.view(mode, std::vector<bool>(modes_used.begin(),modes_used.begin()+d.getNl()) ) ),
+										      awh(whin.view(mode, std::vector<bool>(modes_used.begin()+d.getNl(),modes_used.end()) ) ),
+										      FullyPackedIndexDilution(d){}
+
+    
     accelerator_inline FermionFieldView & getWl(const int i) const{ return awl[i]; }
     accelerator_inline ComplexFieldView & getWh(const int hit) const{ return awh[hit]; }
   
@@ -487,6 +500,8 @@ public:
   };
 
   View view(ViewMode mode) const{ return View(mode, wl, wh, *this); }
+  //Open a view only to some subset of modes. Undefined behavior if you access one that you are not supposed to!
+  View view(ViewMode mode, const std::vector<bool> &modes_used) const{ return View(mode, wl, wh, *this, modes_used); }
   
   void importWl(const FermionFieldType &wlin, const int i){
     *wl[i] = wlin;
@@ -550,14 +565,6 @@ private:
 
   CPSfieldArray<FermionFieldType> wl;
   CPSfieldArray<FermionFieldType> wh; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
-
-  //#define ZEROSC_MANAGED
-  
-#ifdef ZEROSC_MANAGED
-  ManagedVector<FieldSiteType> zerosc;
-#else
-  FieldSiteType zerosc[12];
-#endif
 
   void initialize(const FieldInputParamType &field_setup_params);
 public:
@@ -643,7 +650,15 @@ public:
 	 const CPSfieldArray<FermionFieldType> &wlin,
 	 const CPSfieldArray<FermionFieldType> &whin,
 	 const TimeFlavorPackedIndexDilution &d): awl(wlin.view(mode)), awh(whin.view(mode)), TimeFlavorPackedIndexDilution(d){}
-      
+
+    View(ViewMode mode,
+	 const CPSfieldArray<FermionFieldType> &wlin,
+	 const CPSfieldArray<FermionFieldType> &whin,
+	 const TimeFlavorPackedIndexDilution &d, const std::vector<bool> &modes_used):     awl(wlin.view(mode, std::vector<bool>(modes_used.begin(),modes_used.begin()+d.getNl()) ) ),
+											   awh(whin.view(mode, std::vector<bool>(modes_used.begin()+d.getNl(),modes_used.end()) ) ),
+											   TimeFlavorPackedIndexDilution(d){}
+
+    
     accelerator_inline FermionFieldView & getWl(const int i) const{ return awl[i]; }
     accelerator_inline FermionFieldView & getWh(const int hit, const int spin_color) const{ return awh[spin_color + 12*hit]; }
 
@@ -726,6 +741,9 @@ public:
   };
 
   View view(ViewMode mode) const{ return View(mode, wl, wh, *this); }
+  //Open a view only to some subset of modes. Undefined behavior if you access one that you are not supposed to!
+  View view(ViewMode mode, const std::vector<bool> &modes_used) const{ return View(mode, wl, wh, *this, modes_used); }
+
   
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 

@@ -264,12 +264,16 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   }  
   
   //Create va'
-  static void create_vaprime(VectorComplexType* vaprime, typename PropagatorField::View &into_v, typename lA2AfieldType::View &l_v,
+  static void create_vaprime(VectorComplexType* vaprime, typename PropagatorField::View &into_v, const lA2AfieldType &l,
 			     ManagedVector<uint8_t>::View &alpha_v, ManagedVector< std::pair<int,int> >::View &il_ir_pairs_v,
 			     int t_off, int src_width, size_t iprimestart, int nf, int ntblocks, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices, size_t niprime_block, size_t nsimd, bool conj_l){
     size_t nt = local_timeslices.size();
     size_t nsites4d = vol3d_node * nt;
     int const* local_timeslices_v = local_timeslices.getDeviceReadPtr();
+    std::vector<bool> modes_used(l.getNmodes(),false);
+    for(size_t iprime=iprimestart;iprime<niprime_block+iprimestart;iprime++) modes_used[il_ir_pairs_v[iprime].first] = true;
+    auto l_v = l.view(DeviceRead,modes_used);
+    
     typedef SIMT<VectorComplexType> ACC;
     using namespace Grid;
     accelerator_for2d(xx, nsites4d, iprimeb, niprime_block, nsimd,
@@ -291,7 +295,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			  }
 			}
 		      });
-    
+    l_v.free();    
   }
 
 
@@ -315,7 +319,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     }
   }    
 
-  static void create_vbprime(VectorComplexType* vbprime, typename rA2AfieldType::View &r_v,
+  static void create_vbprime(VectorComplexType* vbprime, const rA2AfieldType &r,
 			     ManagedVector<uint8_t>::View &beta_v, ManagedVector< std::pair<int,int> >::View &jl_jr_pairs_v,
 			     int t_off, int src_width, size_t jprimestart, int nf, int ntblocks, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices,
 			     size_t njprime_block, size_t nsimd, bool conj_r,
@@ -323,6 +327,10 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t nt = local_timeslices.size();
     size_t nsites4d = vol3d_node * nt;
     int const* local_timeslices_v = local_timeslices.getDeviceReadPtr();
+    std::vector<bool> modes_used(r.getNmodes(),false);
+    for(size_t jprime=jprimestart;jprime<njprime_block+jprimestart;jprime++) modes_used[jl_jr_pairs_v[jprime].second] = true;
+    auto r_v = r.view(DeviceRead,modes_used);
+    
     typedef SIMT<VectorComplexType> ACC;
     using namespace Grid;
     accelerator_for2d(xx, nsites4d, jprimeb, njprime_block, nsimd,
@@ -340,6 +348,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			  val = val * double(beta_v[scr + 12*(fr+ nf*(t_glob_block + ntblocks*jprime))]);
 			  ACC::write(*into, val);
 			});
+    r_v.free();
   }
 
 
@@ -427,9 +436,11 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
   
   static void prefetch_r(size_t jprimeblock, size_t njprime_blocks, size_t iprimeblock, size_t niprime_blocks,
-			 size_t blocksize, size_t njprime, ManagedVector< std::pair<int,int> > &jl_jr_pairs, const typename rA2AfieldType::View &r_v,
+			 size_t blocksize, size_t njprime, ManagedVector< std::pair<int,int> > &jl_jr_pairs, const rA2AfieldType &r,
 			 size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices)
   {
+    if(!mf_Policies::AllocPolicy::UVMenabled) return;   
+    
     size_t nt = local_timeslices.size();
     int const* local_timeslices_v = local_timeslices.getHostReadPtr();
     
@@ -442,32 +453,35 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   #endif
 
     if(jprimeblock < njprime_blocks-1 || (jprimeblock == njprime_blocks-1 && iprimeblock != niprime_blocks-1)  )
-    {
+    {    
       size_t jprimeblock_nxt = (jprimeblock+1) % njprime_blocks; //loops back to 0 on last iteration so as to prefetch memory for next iblock
       size_t jprimestart_nxt = jprimeblock_nxt * blocksize;
       size_t jprimelessthan_nxt = std::min(jprimestart_nxt + blocksize, njprime);
       size_t njprime_block_nxt = jprimelessthan_nxt - jprimestart_nxt;
+
+      std::vector<bool> modes_used(r.getNmodes(),false);
+      for(size_t jprime=jprimestart_nxt; jprime<njprime_block_nxt+jprimestart_nxt;jprime++) modes_used[jl_jr_pairs[jprime].second] = true;    
+      auto r_v = r.view(DeviceRead, modes_used);
       
-      for(size_t jprimeb = 0 ; jprimeb < njprime_block_nxt; jprimeb++)
-      {
-	      size_t jprime = jprimeb + jprimestart_nxt;
-	      size_t jr = jl_jr_pairs[jprime].second;
-	      for(int tt=0;tt<nt;tt++)
-        {
-	        int t = local_timeslices_v[tt];	  
-	        VectorComplexType const* v0;
-	        VectorComplexType const* v1;
-	        size_t sz;
-	        r_v.getModeTimesliceData(v0,v1,sz,jr,t);
-  #if defined(GRID_CUDA)
-	        assert( cudaMemPrefetchAsync( (void const*)v0, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
-	        if(GJP.Gparity()) assert( cudaMemPrefetchAsync( (void const*)v1, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
-  #elif defined(GRID_HIP)
-	        assert( hipMemPrefetchAsync( (void const*)v0, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == hipSuccess );
-	        if(GJP.Gparity()) assert( hipMemPrefetchAsync( (void const*)v1, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == hipSuccess );
-  #endif
+      for(size_t jprimeb = 0 ; jprimeb < njprime_block_nxt; jprimeb++){
+	size_t jprime = jprimeb + jprimestart_nxt;
+	size_t jr = jl_jr_pairs[jprime].second;
+	for(int tt=0;tt<nt;tt++){
+	  int t = local_timeslices_v[tt];	  
+	  VectorComplexType const* v0;
+	  VectorComplexType const* v1;
+	  size_t sz;
+	  r_v.getModeTimesliceData(v0,v1,sz,jr,t);
+#if defined(GRID_CUDA)
+	  assert( cudaMemPrefetchAsync( (void const*)v0, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
+	  if(GJP.Gparity()) assert( cudaMemPrefetchAsync( (void const*)v1, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
+#elif defined(GRID_HIP)
+	  assert( hipMemPrefetchAsync( (void const*)v0, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == hipSuccess );
+	  if(GJP.Gparity()) assert( hipMemPrefetchAsync( (void const*)v1, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == hipSuccess );
+#endif
         }
       }
+      r_v.free();
     }
 #endif  //grid_cuda || grid_hip
   }
@@ -540,8 +554,6 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       for(int e: local_timeslices_v) local_timeslices.getHostWritePtr()[i++] = e;
     }
         
-    CPSautoView(l_v, l, DeviceRead);
-    CPSautoView(r_v, r, DeviceRead);
     { CPSautoView(into_rv,into,DeviceRead); } //preserve initial state
     CPSautoView(into_v,into,DeviceWrite);
 
@@ -659,7 +671,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
       //std::cout << "Create va'" << std::endl;
 
-      create_vaprime(vaprime, into_v, l_v, alpha_v, il_ir_pairs_v, t_off, l.getArgs().src_width, iprimestart, nf, ntblocks, vol3d_node, local_timeslices, niprime_block, nsimd, conj_l);
+      create_vaprime(vaprime, into_v, l, alpha_v, il_ir_pairs_v, t_off, l.getArgs().src_width, iprimestart, nf, ntblocks, vol3d_node, local_timeslices, niprime_block, nsimd, conj_l);
       time.vaprime += dclock();
 
       for(size_t jprimeblock =0; jprimeblock < njprime_blocks; jprimeblock++){
@@ -684,7 +696,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	      //if(cr == 0 && sr == 0 && fr == 0 && jprimeblock == 0 && iprimeblock == 0) cudaProfilerStart();
 	      
 	      //Create vb'
-	      create_vbprime(vbprime, r_v, beta_v, jl_jr_pairs_v, t_off, r.getArgs().src_width, jprimestart, nf, ntblocks, vol3d_node, local_timeslices, njprime_block, nsimd, conj_r, scr, fr);
+	      create_vbprime(vbprime, r, beta_v, jl_jr_pairs_v, t_off, r.getArgs().src_width, jprimestart, nf, ntblocks, vol3d_node, local_timeslices, njprime_block, nsimd, conj_r, scr, fr);
 
 	      //Mprime * vbprime
 	      Mprime_vbprime(Mvbprime, Mprime, vbprime, vol4d_node_do, niprime_block, njprime_block, nsimd, fourd_block_count, scfr==0);
@@ -700,7 +712,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
 	//The kernels below takes a while so we may as well prefetch r for the next cycle
 	//Note: these are issued after the kernels are launched because they lock up the CPU; the kernels are still executing at this time
-	prefetch_r(jprimeblock, njprime_blocks, iprimeblock, niprime_blocks, blocksize, njprime, jl_jr_pairs, r_v, vol3d_node, local_timeslices);
+	prefetch_r(jprimeblock, njprime_blocks, iprimeblock, niprime_blocks, blocksize, njprime, jl_jr_pairs, r, vol3d_node, local_timeslices);
 
 	device_synchronize_all();
 	time.lMr += dclock();

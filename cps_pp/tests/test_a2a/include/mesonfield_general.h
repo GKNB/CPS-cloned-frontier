@@ -621,7 +621,7 @@ void testMesonFieldUnpackPackTblock(A2AArg a2a_args, const double tol){
 
 void testMesonFieldNodeDistributeUnique(const A2AArg &a2a_args){
   //Generate a policy with the disk storage method so that we can test even for 1 rank
-  A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_NODESCRATCH);
+  A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_NODESCRATCH, UVMallocPolicy);
 
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
@@ -682,7 +682,7 @@ void testMesonFieldNodeDistributeOneSided(const A2AArg &a2a_args){
 
   //Require more than 1 node
   if(nodes > 1){
-    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTEDONESIDED);
+    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTEDONESIDED, UVMallocPolicy);
 
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     

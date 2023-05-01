@@ -136,7 +136,7 @@ public:
 };
 
 
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2ApointSource: public A2AsourceBase<FieldPolicies, A2ApointSource<FieldPolicies> >{
 public:
   typedef A2AsourceBase<FieldPolicies, A2ApointSource<FieldPolicies> > BaseType;
@@ -200,7 +200,7 @@ public:
   
 //Exponential (hydrogen wavefunction) source
 //SrcParams is just a Float for the radius
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2AexpSource: public A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >{
 public:
   typedef FieldPolicies Policies;
@@ -221,7 +221,7 @@ public:
 };
 
 //General s-wave hydrogen wavefunction source 
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2AhydrogenSource: public A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >{
   int n, l, m;
 public:
@@ -318,7 +318,7 @@ public:
 
 //Box source. Unflavored so ignore second flav
 //SrcParams is std::vector<Float> for the extents x,y,z . *These must be even numbers* (checked)
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2AboxSource: public A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >{
   int box_size[3];
 
@@ -468,7 +468,7 @@ public:
 
 
 //No projector is required for point source, hence we just have to add a setMomentum method that does nothing
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2AflavorProjectedPointSource : public A2ApointSource<FieldPolicies>{
 public:
   typedef A2ApointSource<FieldPolicies> BaseType;
@@ -488,7 +488,7 @@ public:
 };
 
 
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2AflavorProjectedExpSource : public A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >{
   void dummy(){}
 public:
@@ -510,7 +510,7 @@ public:
   
 };
 
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2AflavorProjectedHydrogenSource : public A2AflavorProjectedSource<A2AhydrogenSource<FieldPolicies> >{
   void dummy(){}
 public:

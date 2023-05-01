@@ -17,8 +17,9 @@ void benchmarkVVgridOffload(const A2AArg &a2a_args, const int ntests, const int 
   Wgrid.testRandom();
   Vgrid.testRandom();
   
-  typedef mult_vv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw> offload;
-  typedef typename offload::PropagatorField PropagatorField;
+
+  typedef typename getPropagatorFieldType<GridA2Apolicies>::type PropagatorField;
+  typedef mult_vv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, PropagatorField> offload;
   PropagatorField pfield(simd_dims);
       
   Float total_time_field_offload = 0;

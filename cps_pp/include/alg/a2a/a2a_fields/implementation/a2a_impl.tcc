@@ -73,37 +73,20 @@ void A2AvectorWfftw<mf_Policies>::initialize(const FieldInputParamType &field_se
   checkSIMDparams<FieldInputParamType>::check(field_setup_params);
   wl.resize(nl); this->allocInitializeLowModeFields(wl,field_setup_params);
   wh.resize(12*nhits); this->allocInitializeHighModeFields(wh,field_setup_params);
-  for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
 }
 
 template< typename mf_Policies>
-A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args)
-#ifdef ZEROSC_MANAGED
-    , zerosc(12)
-#endif
-{ initialize(NullObject()); }
+A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args){ initialize(NullObject()); }
 
 template< typename mf_Policies>
-A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args)
-#ifdef ZEROSC_MANAGED
-    , zerosc(12)
-#endif
-{ initialize(field_setup_params); }
+A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args){ initialize(field_setup_params); }
 
 template< typename mf_Policies>
-A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2Aparams &_args): TimeFlavorPackedIndexDilution(_args)
-#ifdef ZEROSC_MANAGED
-    , zerosc(12)
-#endif
-    { initialize(NullObject()); }
+A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2Aparams &_args): TimeFlavorPackedIndexDilution(_args){ initialize(NullObject()); }
 
 
 template< typename mf_Policies>
-A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2Aparams &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args)
-#ifdef ZEROSC_MANAGED
-    , zerosc(12)
-#endif
-  { initialize(field_setup_params); }
+A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2Aparams &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args){ initialize(field_setup_params); }
 
 
 //Set this object to be the fast Fourier transform of the input field

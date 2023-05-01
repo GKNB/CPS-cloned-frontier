@@ -108,15 +108,17 @@ void benchmarkMesonFieldUnpackDevice(const A2AArg &a2a_args,const int ntest){
 
   std::cout << "Cold " << ntest << " iterations, avg time " << time / ntest << "s" << std::endl;
 
-  CPSautoView(mf1_v,mf1);
+  {
+    CPSautoView(mf1_v,mf1, DeviceRead);
   
-  time = 0;
-  for(int i=0;i<ntest;i++){
-    time -= dclock();
-    mf1.unpack_device(into, &mf1_v);
-    time += dclock();
+    time = 0;
+    for(int i=0;i<ntest;i++){
+      time -= dclock();
+      mf1.unpack_device(into, &mf1_v);
+      time += dclock();
+    }
   }
-
+  
   std::cout << "Hot " << ntest << " iterations, avg time " << time / ntest << "s" << std::endl;
   device_free(into);
 #endif
@@ -176,7 +178,7 @@ void benchmarkMesonFieldGather(const A2AArg &a2a_args,const int ntest){
   if(nodes > 1){
     std::cout << "Benchmarking distributed storage" << std::endl;
     
-    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTED);
+    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTED, UVMallocPolicy);
     typedef A2AmesonField<A2ApoliciesTmp,A2AvectorWfftw,A2AvectorVfftw> MfType;
     std::vector<MfType> mf(nodes); //arrange for 1 per node
 
@@ -219,7 +221,7 @@ void benchmarkMesonFieldGather(const A2AArg &a2a_args,const int ntest){
   if(nodes > 1){
     std::cout << "Benchmarking one-sided distributed storage" << std::endl;
     
-    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTEDONESIDED);
+    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTEDONESIDED, UVMallocPolicy);
     typedef A2AmesonField<A2ApoliciesTmp,A2AvectorWfftw,A2AvectorVfftw> MfType;
     std::vector<MfType> mf(nodes); //arrange for 1 per node
 
@@ -262,7 +264,7 @@ void benchmarkMesonFieldGather(const A2AArg &a2a_args,const int ntest){
   {
     std::cout << "Benchmarking burst-buffer distributed storage" << std::endl;
     
-    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_BURSTBUFFER);
+    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_BURSTBUFFER, UVMallocPolicy);
     typedef A2AmesonField<A2ApoliciesTmp,A2AvectorWfftw,A2AvectorVfftw> MfType;
     std::vector<MfType> mf(nodes); //arrange for 1 per node
 

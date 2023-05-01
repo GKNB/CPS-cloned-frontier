@@ -260,12 +260,12 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								      W_std, V_std, Wh_std, Vh_std,
   								      tol);
   if(1) testhostDeviceMirroredContainer();
-
+  */
   if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
   if(1) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
-
+  /*
 
   if(1) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
 
@@ -331,7 +331,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testMesonFieldNodeDistributeOneSided(a2a_arg);
   */
 
-  if(1) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
+  //if(1) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
 
  /*
   //if(1) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);  Current compilation issues on Intel
