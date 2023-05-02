@@ -64,13 +64,29 @@ protected:
     into._byte_size = _byte_size;
     _ptr = nullptr;
   }
-  
+ 
 public: 
   UVMallocPolicy(): _ptr(nullptr){}
 
   inline void deviceSetAdviseUVMreadOnly(const bool to) const{
     if(to) device_UVM_advise_readonly(_ptr, _byte_size);
     else device_UVM_advise_unset_readonly(_ptr, _byte_size);
+  }
+
+  inline void enqueuePrefetch(ViewMode mode) const{
+    if(_ptr){
+      if(mode == HostRead){
+	device_UVM_prefetch_host(_ptr,_byte_size);
+      }else if(mode == DeviceRead){
+	device_UVM_prefetch_device(_ptr,_byte_size);
+      }
+    }
+  }
+
+  static inline void startPrefetches(){ }
+
+  static inline void waitPrefetches(){
+    device_synchronize_copies();
   }
   
   enum { UVMenabled = 1 }; //supports UVM
@@ -117,56 +133,18 @@ protected:
     into._byte_size = _byte_size;
     _ptr = nullptr;
   }
-  
+ 
 public: 
   HostAllocPolicy(): _ptr(nullptr){}
 
   inline void deviceSetAdviseUVMreadOnly(const bool to) const{}
+
+  inline void prefetch(ViewMode mode){}
+
+  inline static void prefetchWait(){}
   
   enum { UVMenabled = 0 }; //supports UVM
 };
-
-
-
-// class ManualUVMallocPolicy{
-//   void* _ptr;
-//   size_t _byte_size;
-// protected:
-//   inline void _alloc(const size_t byte_size){
-//     _byte_size = byte_size; //only record size, do not a
-//   }
-//   inline void _free(){
-//     if(_ptr) managed_free(_ptr);
-//   }
-
-//   inline void _move(ManualUVMallocPolicy &into){
-//     into._ptr = _ptr;
-//     into._byte_size = _byte_size;
-//     _ptr = nullptr;
-//   }
-// public:
-//   ManualUVMallocPolicy(): _ptr(nullptr){}
-
-//   inline void* _getPointer(ViewMode mode) const{
-//     //Unified memory
-//     assert(_ptr);
-//     return _ptr;
-//   }
-
-//   inline void allocField(){
-//     if(!_ptr) _ptr = managed_alloc_check(128,_byte_size);    
-//   }
-//   inline void freeField(){
-//     if(_ptr){ managed_free(_ptr); _ptr = nullptr; }
-//   }
-//   inline void writeParams(std::ostream &file) const{
-//     writePolicyName(file, "ALLOCPOLICY", "ManualUVMallocPolicy");
-//   }
-//   inline void readParams(std::istream &file){
-//     checkPolicyName(file, "ALLOCPOLICY", "ManualUVMallocPolicy");
-//   }
-//   enum { UVMenabled = 1 }; //supports UVM
-// };
 
 //This allocator maintains a device-resident copy of the data that is synchronized automatically when required
 class ExplicitCopyAllocPolicy{
@@ -223,6 +201,12 @@ protected:
   
 public: 
   inline void deviceSetAdviseUVMreadOnly(const bool to) const{ }
+
+  inline void enqueuePrefetch(ViewMode mode) const{}
+
+  static inline void startPrefetches(){ }
+
+  static inline void waitPrefetches(){ }
   
   enum { UVMenabled = 0 }; //supports UVM
 };
@@ -251,6 +235,12 @@ protected:
 public: 
 
   inline void deviceSetAdviseUVMreadOnly(const bool to) const{ }
+
+  inline void enqueuePrefetch(ViewMode mode) const{}
+
+  static inline void startPrefetches(){ }
+
+  static inline void waitPrefetches(){ }
   
   enum { UVMenabled = 1 }; //supports UVM
 };
@@ -269,7 +259,7 @@ public:
 
   struct Handle{
     bool valid;
-    bool view_is_open;
+    bool lock_entry;
     EntryIterator entry;
     size_t bytes;
 
@@ -288,6 +278,8 @@ protected:
 
   std::list<Handle> handles; //active fields
 
+  std::list<HandleIterator> queued_prefetches; //track open prefetches
+  
   size_t allocated;
   size_t pool_max_size;
 
@@ -305,7 +297,7 @@ protected:
     if(entry->owned_by != nullptr){
       if(verbose) std::cout << "Entry is owned by handle " << entry->owned_by << ", detaching" << std::endl;
       Handle &hown = *entry->owned_by;
-      if(hown.view_is_open) ERR.General("DeviceMemoryPoolManager","evictEntry","Cannot evict an entry for an open view!");
+      if(hown.lock_entry) ERR.General("DeviceMemoryPoolManager","evictEntry","Cannot evict a locked entry!");
       //Copy data back to host if not in sync
       if(!hown.host_in_sync){	
 	if(verbose) std::cout << "Host is not in sync with device, copying back before detach" << std::endl;
@@ -391,8 +383,8 @@ protected:
     while(it != in_use_pool.end()){
       if(verbose) std::cout << "Attempting to evict entry " << it->ptr << std::endl;
 
-      if(it->owned_by->view_is_open){ //don't evict an entry that is currently in use
-      	if(verbose) std::cout << "Entry is assigned to an open view for handle " << it->owned_by << ", skipping" << std::endl;
+      if(it->owned_by->lock_entry){ //don't evict an entry that is currently in use
+      	if(verbose) std::cout << "Entry is assigned to an open view or prefetch for handle " << it->owned_by << ", skipping" << std::endl;
       	++it;
       	continue;
       }
@@ -454,7 +446,7 @@ public:
     h.host_ptr = memalign_check(128,bytes);
     h.host_in_sync = true;
     h.device_in_sync = true;
-    h.view_is_open = false;
+    h.lock_entry = false;
 
     HandleIterator it = handles.insert(handles.end(),h);
     it->entry->owned_by = &(*it);
@@ -462,6 +454,7 @@ public:
   }
 
   void* openView(ViewMode mode, HandleIterator h){
+    h->lock_entry = true; //make sure it isn't evicted!
     if(mode == HostRead){
       if(!h->host_in_sync){
 	if(!h->valid) ERR.General("DeviceMemoryPoolManager","openView","Host is not in sync but device side has been evicted!");
@@ -490,16 +483,48 @@ public:
 	h->device_in_sync = true;
 	h->host_in_sync = false;
       }
-      h->view_is_open = true;
       return h->entry->ptr;
     }
     
   }
 
   void closeView(HandleIterator h){
-    h->view_is_open = false;
+    h->lock_entry = false;
   }
 
+  void enqueuePrefetch(ViewMode mode, HandleIterator h){    
+    if(mode == HostRead){
+      //no support for device->host async copies yet
+    }else if(mode == DeviceRead){
+      if(h->valid){
+	h->entry = touchEntry(h->entry); //touch the entry to make it less likely to be evicted; benefit even if already in sync
+      }else{
+	//find a new entry
+	h->entry = getEntry(h->bytes);
+	h->valid = true;
+	h->entry->owned_by = &(*h);
+	assert(!h->device_in_sync);
+      }
+      if(!h->device_in_sync){
+	asyncTransferManager::globalInstance().enqueue(h->entry->ptr,h->host_ptr,h->bytes);
+	h->device_in_sync = true; //technically true only if the prefetch is complete; make sure to wait!!
+	h->lock_entry = true; //use this flag also for prefetches to ensure the memory region is not evicted while the async copy is happening
+	queued_prefetches.push_back(h);
+      }
+    }
+  }
+
+  void startPrefetches(){
+    if(queued_prefetches.size()==0) return;
+    asyncTransferManager::globalInstance().start();
+  }
+  void waitPrefetches(){
+    if(queued_prefetches.size()==0) return;   
+    asyncTransferManager::globalInstance().wait();
+    for(auto h : queued_prefetches) h->lock_entry=false; //unlock
+    queued_prefetches.clear();
+  }
+  
   void free(HandleIterator h){
     if(h->valid){
       if(verbose) std::cout << "Freeing ptr " << h->entry->ptr << " of size " << h->entry->bytes << " into free pool" << std::endl;
@@ -580,6 +605,21 @@ public:
   ExplicitCopyPoolAllocPolicy(): set(false){}
 
   inline void deviceSetAdviseUVMreadOnly(const bool to) const{}
+
+  inline void enqueuePrefetch(ViewMode mode) const{
+    assert(set);
+    DeviceMemoryPoolManager::globalPool().enqueuePrefetch(mode,h);
+  }
+
+  //Start all queued prefetches
+  static inline void startPrefetches(){ 
+    DeviceMemoryPoolManager::globalPool().startPrefetches();
+  }
+
+  //Wait for all queued prefetches
+  static inline void waitPrefetches(){ 
+    DeviceMemoryPoolManager::globalPool().waitPrefetches();
+  }
   
   enum { UVMenabled = 0 }; //supports UVM
 };

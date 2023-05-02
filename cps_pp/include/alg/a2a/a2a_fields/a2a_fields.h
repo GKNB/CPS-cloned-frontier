@@ -156,6 +156,12 @@ public:
   //Open a view only to some subset of modes. Undefined behavior if you access one that you are not supposed to!
   View view(ViewMode mode, const std::vector<bool> &modes_used) const{ return View(mode,v,*this,modes_used); }
   
+  void enqueuePrefetch(ViewMode mode, const std::vector<bool> &modes_used) const{
+    for(int i=0;i<nv;i++) if(modes_used[i])  v[i]->enqueuePrefetch(mode);
+  }   
+  static inline void startPrefetches(){ Policies::AllocPolicy::startPrefetches(); }
+  static inline void waitPrefetches(){ Policies::AllocPolicy::waitPrefetches(); }
+  
   void importVl(const FermionFieldType &vv, const int il){
     *v[il] = vv;
   }
@@ -298,6 +304,11 @@ public:
   //Open a view only to some subset of modes. Undefined behavior if you access one that you are not supposed to!
   View view(ViewMode mode, const std::vector<bool> &modes_used) const{ return View(mode,v,*this,modes_used); }
 
+  void enqueuePrefetch(ViewMode mode, const std::vector<bool> &modes_used) const{
+    for(int i=0;i<nv;i++) if(modes_used[i])  v[i]->enqueuePrefetch(mode);
+  }
+  static inline void startPrefetches(){ Policies::AllocPolicy::startPrefetches(); }
+  static inline void waitPrefetches(){ Policies::AllocPolicy::waitPrefetches(); }
   
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
@@ -502,6 +513,13 @@ public:
   View view(ViewMode mode) const{ return View(mode, wl, wh, *this); }
   //Open a view only to some subset of modes. Undefined behavior if you access one that you are not supposed to!
   View view(ViewMode mode, const std::vector<bool> &modes_used) const{ return View(mode, wl, wh, *this, modes_used); }
+
+  void enqueuePrefetch(ViewMode mode, const std::vector<bool> &modes_used) const{
+    for(int i=0;i<nl;i++) if(modes_used[i])  wl[i]->enqueuePrefetch(mode);
+    for(int i=0;i<nhits;i++) if(modes_used[i+nl]) wh[i]->enqueuePrefetch(mode);
+  }   
+  static inline void startPrefetches(){ Policies::AllocPolicy::startPrefetches(); }
+  static inline void waitPrefetches(){ Policies::AllocPolicy::waitPrefetches(); }
   
   void importWl(const FermionFieldType &wlin, const int i){
     *wl[i] = wlin;
@@ -744,6 +762,12 @@ public:
   //Open a view only to some subset of modes. Undefined behavior if you access one that you are not supposed to!
   View view(ViewMode mode, const std::vector<bool> &modes_used) const{ return View(mode, wl, wh, *this, modes_used); }
 
+  void enqueuePrefetch(ViewMode mode, const std::vector<bool> &modes_used) const{
+    for(int i=0;i<nl;i++) if(modes_used[i])  wl[i]->enqueuePrefetch(mode);
+    for(int i=0;i<12*nhits;i++) if(modes_used[i+nl]) wh[i]->enqueuePrefetch(mode);
+  }   
+  static inline void startPrefetches(){ Policies::AllocPolicy::startPrefetches(); }
+  static inline void waitPrefetches(){ Policies::AllocPolicy::waitPrefetches(); }
   
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 

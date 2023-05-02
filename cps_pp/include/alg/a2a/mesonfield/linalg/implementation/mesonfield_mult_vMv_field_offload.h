@@ -439,19 +439,9 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			 size_t blocksize, size_t njprime, ManagedVector< std::pair<int,int> > &jl_jr_pairs, const rA2AfieldType &r,
 			 size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices)
   {
-    if(!mf_Policies::AllocPolicy::UVMenabled) return;   
-    
     size_t nt = local_timeslices.size();
     int const* local_timeslices_v = local_timeslices.getHostReadPtr();
     
-#if defined(GRID_CUDA) || defined(GRID_HIP)
-    int device;
-  #if defined(GRID_CUDA)
-    assert(cudaGetDevice(&device) == cudaSuccess);
-  #elif defined(GRID_HIP)
-    assert(hipGetDevice(&device) == hipSuccess);
-  #endif
-
     if(jprimeblock < njprime_blocks-1 || (jprimeblock == njprime_blocks-1 && iprimeblock != niprime_blocks-1)  )
     {    
       size_t jprimeblock_nxt = (jprimeblock+1) % njprime_blocks; //loops back to 0 on last iteration so as to prefetch memory for next iblock
@@ -460,30 +450,13 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       size_t njprime_block_nxt = jprimelessthan_nxt - jprimestart_nxt;
 
       std::vector<bool> modes_used(r.getNmodes(),false);
-      for(size_t jprime=jprimestart_nxt; jprime<njprime_block_nxt+jprimestart_nxt;jprime++) modes_used[jl_jr_pairs[jprime].second] = true;    
-      auto r_v = r.view(DeviceRead, modes_used);
-      
-      for(size_t jprimeb = 0 ; jprimeb < njprime_block_nxt; jprimeb++){
-	size_t jprime = jprimeb + jprimestart_nxt;
-	size_t jr = jl_jr_pairs[jprime].second;
-	for(int tt=0;tt<nt;tt++){
-	  int t = local_timeslices_v[tt];	  
-	  VectorComplexType const* v0;
-	  VectorComplexType const* v1;
-	  size_t sz;
-	  r_v.getModeTimesliceData(v0,v1,sz,jr,t);
-#if defined(GRID_CUDA)
-	  assert( cudaMemPrefetchAsync( (void const*)v0, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
-	  if(GJP.Gparity()) assert( cudaMemPrefetchAsync( (void const*)v1, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == cudaSuccess );
-#elif defined(GRID_HIP)
-	  assert( hipMemPrefetchAsync( (void const*)v0, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == hipSuccess );
-	  if(GJP.Gparity()) assert( hipMemPrefetchAsync( (void const*)v1, sz * sizeof(VectorComplexType), device, Grid::copyStream ) == hipSuccess );
-#endif
-        }
-      }
-      r_v.free();
+      for(size_t jprime=jprimestart_nxt; jprime<njprime_block_nxt+jprimestart_nxt;jprime++) modes_used[jl_jr_pairs[jprime].second] = true;
+      r.enqueuePrefetch(DeviceRead, modes_used);
+      rA2AfieldType::startPrefetches(); //non-blocking
     }
-#endif  //grid_cuda || grid_hip
+  }
+  static void prefetch_r_wait(){
+    rA2AfieldType::waitPrefetches(); //blocking
   }
 
   static void optimized(PropagatorField &into,
@@ -681,6 +654,10 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
 	std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
 
+	//The kernels below takes a while so we may as well prefetch r for the next cycle
+	//TODO: For UVM the prefetch calls take a while to run, make them happen on a background thread
+	prefetch_r(jprimeblock, njprime_blocks, iprimeblock, niprime_blocks, blocksize, njprime, jl_jr_pairs, r, vol3d_node, local_timeslices);
+	
 	time.Mprime -= dclock();
 	create_Mprime(Mprime, M, iprimestart, iprimelessthan, jprimestart, jprimelessthan, il_ir_pairs, jl_jr_pairs);
 	time.Mprime += dclock();
@@ -710,11 +687,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	  }//sr      
 	}//fr
 
-	//The kernels below takes a while so we may as well prefetch r for the next cycle
-	//Note: these are issued after the kernels are launched because they lock up the CPU; the kernels are still executing at this time
-	prefetch_r(jprimeblock, njprime_blocks, iprimeblock, niprime_blocks, blocksize, njprime, jl_jr_pairs, r, vol3d_node, local_timeslices);
-
-	device_synchronize_all();
+	prefetch_r_wait();	
 	time.lMr += dclock();
       }//jprimeblock
 

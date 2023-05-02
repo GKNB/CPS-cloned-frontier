@@ -1,6 +1,8 @@
 #ifndef _CPS_UTILS_GPU_H__
 #define _CPS_UTILS_GPU_H__
 
+#include<thread>
+
 #include<config.h>
 #include "template_wizardry.h"
 #include "utils_malloc.h"
@@ -10,6 +12,14 @@
 #else
 #define accelerator_inline inline
 #endif //USE_GRID
+
+#ifdef CPS_ENABLE_DEVICE_PROFILING
+# if defined(GRID_CUDA)
+#  include<cuda_profiler_api.h>
+# elif defined(GRID_HIP)
+#  include <hip/hip_profile.h>
+# endif
+#endif
 
 #if defined(GRID_CUDA) || defined(GRID_HIP)
 
@@ -124,12 +134,91 @@ inline void device_UVM_advise_unset_readonly(const void* ptr, size_t count){
 #endif
 }
 
+inline void device_UVM_prefetch_device(const void* ptr, size_t sz){
+#if defined(GRID_CUDA)
+  int device;
+  cudaGetDevice(&device);
+  assert( cudaMemPrefetchAsync( ptr, sz, device, Grid::copyStream ) == cudaSuccess );
+#elif defined(GRID_HIP)
+  int device;
+  hipGetDevice(&device);
+  assert( hipMemPrefetchAsync( ptr, sz, device, Grid::copyStream ) == hipSuccess );
+#else
+  //do nothing
+#endif
+}
+
+inline void device_UVM_prefetch_host(const void* ptr, size_t sz){
+#if defined(GRID_CUDA)
+  assert( cudaMemPrefetchAsync( ptr, sz, cudaCpuDeviceId, Grid::copyStream ) == cudaSuccess );
+#elif defined(GRID_HIP)
+  assert( hipMemPrefetchAsync( ptr, sz, hipCpuDeviceId, Grid::copyStream ) == hipSuccess );
+#else
+  //do nothing
+#endif
+}
+
+//NB: for HIP,CUDA this requires the host pointer to be allocated in pinned memory
+inline void copy_host_to_device_async(void* to, void const* from, size_t bytes){
+#if defined(GRID_CUDA)
+  cudaMemcpyAsync(to,from,bytes, cudaMemcpyHostToDevice,Grid::copyStream);
+#elif defined(GRID_HIP)
+  hipMemcpyAsync(to,from,bytes, hipMemcpyHostToDevice ,Grid::copyStream);
+#elif defined(GRID_SYCL)
+  Grid::theCopyAccelerator->memcpy(to,from,bytes);
+#else
+  //assume host
+  memcpy(to,from,bytes);
+#endif
+}
+
+inline void copy_device_to_host_async(void* to, void const* from, size_t bytes){
+#if defined(GRID_CUDA)
+  cudaMemcpyAsync(to,from,bytes, cudaMemcpyDeviceToHost,Grid::copyStream);
+#elif defined(GRID_HIP)
+  hipMemcpyAsync(to,from,bytes, hipMemcpyDeviceToHost,Grid::copyStream);
+#elif defined(GRID_SYCL)
+  Grid::theCopyAccelerator->memcpy(to,from,bytes);
+#else
+  //assume host
+  memcpy(to,from,bytes);
+#endif
+}
+
 //Synchronize the compute and copy stream ensuring all asynchronous copies and kernels have completed
 inline void device_synchronize_all(){
 #ifdef GPU_VEC
   using namespace Grid;
   accelerator_barrier(); //computeStream
   acceleratorCopySynchronise(); //copyStream
+#endif
+}
+
+//Synchronize asynchronous copies and UVM prefetches
+inline void device_synchronize_copies(){
+#ifdef GPU_VEC
+  using namespace Grid;
+  acceleratorCopySynchronise(); //copyStream
+#endif
+}
+
+
+inline void device_profile_start(){
+#ifdef CPS_ENABLE_DEVICE_PROFILING
+# if defined(GRID_CUDA)
+  cudaProfilerStart();
+# elif defined(GRID_HIP)
+  hipProfilerStart();
+# endif
+#endif
+}
+inline void device_profile_stop(){
+#ifdef CPS_ENABLE_DEVICE_PROFILING
+# if defined(GRID_CUDA)
+  cudaProfilerStop();
+# elif defined(GRID_HIP)
+  hipProfilerStop();
+# endif
 #endif
 }
 
@@ -486,40 +575,19 @@ public:
   //Synchronize the host and device with an asynchronous copy. Requires pinned memory
   //NOTE: While the sync flag will be set, the state is undefined until the copy stream has been synchronized
   void asyncHostDeviceSync(){
-#if defined(GRID_CUDA)
+#ifdef GPU_VEC
+#if defined(GRID_CUDA) || defined(GRID_HIP)
     if(!use_pinned_mem) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Requires use of pinned memory");
+#endif   
     if(!device_in_sync && !host_in_sync) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Invalid state");
     if(!device_in_sync){
-      cudaMemcpyAsync(device,host,byte_size(), cudaMemcpyHostToDevice,Grid::copyStream);
+      copy_host_to_device_async(device,host,byte_size());
       device_in_sync = true;
     }
     if(!host_in_sync){
-      cudaMemcpyAsync(host,device,byte_size(), cudaMemcpyDeviceToHost,Grid::copyStream);
+      copy_device_to_host_async(host,device,byte_size());
       host_in_sync = true;
     }
-#elif defined(GRID_HIP)
-    if(!use_pinned_mem) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Requires use of pinned memory");
-    if(!device_in_sync && !host_in_sync) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Invalid state");
-    if(!device_in_sync){
-      hipMemcpyAsync(device,host,byte_size(), hipMemcpyHostToDevice ,Grid::copyStream);
-      device_in_sync = true;
-    }
-    if(!host_in_sync){
-      hipMemcpyAsync(host,device,byte_size(), hipMemcpyDeviceToHost,Grid::copyStream);
-      host_in_sync = true;
-    }
-#elif defined(GRID_SYCL)
-    if(!device_in_sync && !host_in_sync) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Invalid state");
-    if(!device_in_sync){
-      Grid::theCopyAccelerator->memcpy(device,host,byte_size());
-      device_in_sync = true;
-    }
-    if(!host_in_sync){
-      Grid::theCopyAccelerator->memcpy(host,device,byte_size());
-      host_in_sync = true;
-    }   
-#else    
-    ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Asynchronous copies only currently supported for CUDA, HIP and SYCL");
 #endif
   }
   
@@ -531,14 +599,78 @@ public:
 #endif
   }
 };
+
+//Current support only transfers to device
+class asyncTransferManager{
+  struct entry{
+    void* to;
+    void const* from;
+    size_t bytes;    
+  };
+  std::list<entry> queue;
+
+  std::thread *eng;
+  bool lock;
+  bool verbose;
+public:
+  asyncTransferManager(): lock(false), eng(nullptr), verbose(false){}
+
+  void setVerbose(bool to){ verbose = to; }
+
+  void enqueue(void* to, void const* from, size_t bytes){
+    if(lock) ERR.General("asyncTransferManager","enqueue","Lock is engaged");
+    entry e; e.to = to; e.from = from; e.bytes = bytes;
+    queue.push_front(e);
+  }
+  void start(){
+    lock = true;
+    auto &q = queue;
+    bool vrb = verbose;
+    eng = new std::thread([&q,vrb]{
+      //Find the largest entry for the pinned memory allocation
+      size_t lrg=0;
+      for(auto it=q.begin();it!=q.end();it++){
+	lrg = std::max(lrg,it->bytes);
+      }
+      if(vrb) std::cout << Grid::GridLogMessage << "Allocating " << lrg << " bytes of pinned memory" << std::endl;
+      void *pmem = pinned_alloc_check(128,lrg);
+
+      int i=0;
+      while(!q.empty()){
+	entry e = q.back();
+	if(vrb) std::cout << Grid::GridLogMessage << "Queue entry " << i << " of size " << e.bytes << std::endl;
+	q.pop_back();
+	memcpy(pmem,e.from,e.bytes);
+	copy_host_to_device_async(e.to,pmem,e.bytes);
+	//copy_host_to_device_async(e.to,e.from,e.bytes);
+	//copy_host_to_device(e.to,e.from,e.bytes);
+#ifdef GPU_VEC
+	{
+	  using namespace Grid;
+	  acceleratorCopySynchronise(); //copyStream
+	}
+#endif
+	++i;
+      }
+      pinned_free(pmem);
+      if(vrb) std::cout << Grid::GridLogMessage << "Transfers complete" << std::endl;
+    });
   
+  }
+  void wait(){
+    if(!lock) return;
+    eng->join(); //wait for the thread to finish its business
+    delete eng; eng = nullptr;
+    lock = false;
+  }
 
-    
-    
-    
-
-
+  inline static asyncTransferManager & globalInstance(){
+    static asyncTransferManager man;
+    return man;
+  }
   
+};
+    
 
 
 CPS_END_NAMESPACE

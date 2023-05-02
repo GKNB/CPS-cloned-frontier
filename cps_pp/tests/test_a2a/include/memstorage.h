@@ -362,7 +362,6 @@ void testPoolAllocator(){
     std::cout << ">>>>testPoolAllocator test subset teardown" << std::endl;
   }
 
-
   {
     std::cout << ">>>>testPoolAllocator testing views" << std::endl;
     size_t bs = 100*sizeof(double);
@@ -471,6 +470,52 @@ void testPoolAllocator(){
 
   }
 
+  {
+    std::cout << ">>>>testPoolAllocator testing prefetch logic" << std::endl;
+    asyncTransferManager::globalInstance().setVerbose(true);
+    
+    DeviceMemoryPoolManagerTest pool(max_size);
+    pool.setVerbose(true);
+    auto h1 = pool.allocate(1*MB);
+    auto h2 = pool.allocate(1*MB);
+    
+    //Desynchronize device side    
+    double* v1 = (double*)pool.openView(HostWrite,h1);
+    double* v2 = (double*)pool.openView(HostWrite,h2);
+
+    v1[0] = 3.142;
+    v2[0] = 6.284;
+    
+    pool.closeView(h1);
+    pool.closeView(h2);
+    assert(!h1->device_in_sync);
+    assert(!h1->lock_entry);
+    
+    //Enqueue prefetches
+    pool.enqueuePrefetch(DeviceRead,h1);
+    pool.enqueuePrefetch(DeviceRead,h2);
+
+    //Lock should be engaged, and it should claim to be in sync but is not
+    assert(h1->device_in_sync);
+    assert(h1->lock_entry);
+
+    pool.startPrefetches();
+    pool.waitPrefetches();
+
+    //Lock should be disengaged and data on device
+    assert(!h1->lock_entry);
+    assert(h1->device_in_sync);
+    
+    double r1, r2;
+    copy_device_to_host(&r1,pool.openView(DeviceRead,h1),sizeof(double));
+    copy_device_to_host(&r2,pool.openView(DeviceRead,h2),sizeof(double));
+    assert(r1 == 3.142);
+    assert(r2 == 6.284);
+    pool.closeView(h1);
+    pool.closeView(h2);
+  }
+
+  asyncTransferManager::globalInstance().setVerbose(false);
   std::cout << "testPoolAllocator passed" << std::endl;
 }
 

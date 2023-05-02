@@ -104,4 +104,50 @@ void testhostDeviceMirroredContainer(){
 
 
 
+void testAsyncTransferManager(){
+  double *vfrom = (double*)device_alloc_check(128,1000*sizeof(double));
+  double *vto = (double*)device_alloc_check(128,1000*sizeof(double));  
+  
+  size_t MB=1024*1024; 
+  void *ah = memalign(128,30*MB);
+  void *bh = memalign(128,40*MB);
+  void* ch = memalign(128,50*MB);
+
+  void* ad = device_alloc_check(128,30*MB);
+  void* bd = device_alloc_check(128,40*MB);
+  void* cd = device_alloc_check(128,50*MB);
+
+  asyncTransferManager man;
+  for(int i=0;i<100;i++){  
+    man.enqueue(ad,ah,30*MB);
+    man.enqueue(bd,bh,40*MB);
+    man.enqueue(cd,ch,50*MB);
+  }
+  man.start();
+  std::cout << Grid::GridLogMessage << "Kernel launch" << std::endl;
+  {
+    using namespace Grid;
+    accelerator_for(i, 1000, 1,{
+	size_t n = 8000000;
+	double v = vfrom[i];
+	for(size_t a=0;a<n;a++)
+	  v = 3.141*v+v;
+	vto[i] = v;
+      });
+  }
+  std::cout << Grid::GridLogMessage << "Kernel end" << std::endl;
+  man.wait();
+  std::cout << Grid::GridLogMessage << "Wait complete" << std::endl;
+  
+  free(ah);
+  free(bh);
+  free(ch);
+  device_free(ad);
+  device_free(bd);
+  device_free(cd);
+  device_free(vfrom);
+  device_free(vto);
+}
+
+
 CPS_END_NAMESPACE
