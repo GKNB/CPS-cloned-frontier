@@ -229,7 +229,12 @@ void benchmarkMFcontract(const A2Aparams &a2a_params, const int ntests, const in
     size_3d * 2*8*nsimd; //the source
 
   size_t wr_bytes = 0;
-    
+
+  std::vector<bool> lmodes_used(Wgrid.getNmodes(),false);
+  auto Wgrid_v = Wgrid.view(HostRead,lmodes_used);
+  std::vector<bool> rmodes_used(Vgrid.getNmodes(),false);
+  auto Vgrid_v = Vgrid.view(HostRead,rmodes_used);
+  
   size_t FLOPs_per_site = 0.;
   for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
     const int nl_l = mf_grid_t[t].getRowParams().getNl();
@@ -241,11 +246,11 @@ void benchmarkMFcontract(const A2Aparams &a2a_params, const int ntests, const in
 
     for(int i = 0; i < mf_grid_t[t].getNrows(); i++){
       modeIndexSet i_high_unmapped; if(i>=nl_l) mf_grid_t[t].getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
-      SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> lscf = Wgrid.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already
+      SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> lscf = Wgrid_v.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already
                                                                                                                                                                        
       for(int j = 0; j < mf_grid_t[t].getNcols(); j++) {
 	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_grid_t[t].getColParams().indexUnmap(j-nl_r,j_high_unmapped);
-	SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> rscf = Vgrid.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+	SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> rscf = Vgrid_v.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
 
 	for(int a=0;a<2;a++)
 	  for(int b=0;b<2;b++)
@@ -255,6 +260,9 @@ void benchmarkMFcontract(const A2Aparams &a2a_params, const int ntests, const in
       }
     }
   }
+  Wgrid_v.free();
+  Vgrid_v.free();
+  
   size_t total_FLOPs = FLOPs_per_site * size_3d;
   double t_avg = total_time / ntests;
   double mem_bandwidth_GBps = double(rd_bytes + wr_bytes)/t_avg / 1024/1024/1024;

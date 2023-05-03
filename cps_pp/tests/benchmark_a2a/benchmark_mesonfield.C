@@ -148,7 +148,8 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 //   if(0) benchmarkmultGammaLeft(ntests, tol);
  
 // #ifdef USE_GRID
-//   if(0) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_params, ntests, nthreads);
+  //if(1) benchmarkMFcontract<ScalarA2ApoliciesType,A2ApoliciesSIMDdoubleAutoAllocGparityUVM>(a2a_params, ntests, nthreads); //UVM version
+  if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_params, ntests, nthreads);
 //   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 //   if(0) benchmarkMultiShiftMFcontract<GridA2ApoliciesType>(a2a_args, opt.nshift);
 
@@ -172,7 +173,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 //   if(0) benchmarkvMvPartialTimeGridOffload<GridA2ApoliciesType>(a2a_args, ntests, opt.vMv_partial_timestart, opt.vMv_partial_timeend, opt.vMv_partial_compare_full);
 
   //if(1) benchmarkVVgridOffload<A2ApoliciesSIMDdoubleAutoAllocGparityUVM>(a2a_args, ntests, nthreads);
-  if(1) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  //if(1) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 //   if(0) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
 //  if(1) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
 //   if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
