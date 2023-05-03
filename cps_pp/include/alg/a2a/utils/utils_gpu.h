@@ -596,8 +596,39 @@ public:
     else free(host);
 #ifdef GPU_VEC
     device_free(device);
-#endif
+#endif    
   }
+
+  class View{
+    T* ptr;
+    size_t n;
+  public:
+    View(ViewMode mode, hostDeviceMirroredContainer &con): n(con.n){
+      switch(mode){
+      case HostRead:
+	ptr = (T*)con.getHostReadPtr(); break;
+      case HostWrite:
+	ptr = (T*)con.getHostWritePtr(); break;
+      case DeviceRead:
+	ptr = (T*)con.getDeviceReadPtr(); break;
+      case DeviceWrite:
+	ptr = (T*)con.getDeviceWritePtr(); break;
+      default:
+	assert(0); break;
+      };
+    }
+    View(const View &v)=default;
+    View(View &&v)=default;
+
+    accelerator_inline T& operator[](size_t i){ return ptr[i]; }
+    accelerator_inline const T& operator[](size_t i) const{ return ptr[i]; }
+    accelerator_inline size_t size() const{ return n; }
+  };
+  
+  View view(ViewMode mode) const{
+    return View(mode, const_cast<hostDeviceMirroredContainer&>(*this));
+  }
+
 };
 
 //Current support only transfers to device

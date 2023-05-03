@@ -4,6 +4,7 @@ CPS_START_NAMESPACE
 
 template<typename GridA2Apolicies>
 void benchmarkVVgridOffload(const A2AArg &a2a_args, const int ntests, const int nthreads){
+  mult_vv_field_offload_timers::get().reset();
   std::cout << "Starting vv benchmark with policies " << printType<GridA2Apolicies>() << std::endl;
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      

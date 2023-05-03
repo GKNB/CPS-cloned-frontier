@@ -329,6 +329,7 @@ protected:
 	it = entry_list.erase(it);
 
 	if(allocated <= until_allocated_lte){
+	  if(entry_list.size() == 0) free_pool.erase(sit); //if we break out after draining the list for a particular size, we need to remove that list from the map
 	  if(verbose) std::cout << "deallocateFreePool has freed enough memory" << std::endl;
 	  return;
 	}

@@ -161,7 +161,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
 
-  if(1) testPoolAllocator();
+  //if(1) testPoolAllocator();
   /*
   if(1) testCPSfieldDeviceCopy<A2Apolicies_grid>();
   if(1) testAutoView();
@@ -261,16 +261,15 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   								      tol);
   if(1) testhostDeviceMirroredContainer();
 
-  */
   if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
   if(1) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
+  */
 
-  /*
   if(1) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-
   if(1) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+    /*
   if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
 
   if(1) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
