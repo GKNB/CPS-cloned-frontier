@@ -142,21 +142,12 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 				PropagatorField &into,
 				size_t niprime, size_t niprime_block,
 				size_t iprimestart, size_t iprimelessthan,
-				size_t vol4d, int t_off, int nf, int src_width, size_t nsimd,
-				int device){
-#if defined(GRID_CUDA)
-    cudaMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
+				size_t vol4d, int t_off, int nf, int src_width, size_t nsimd){
+    device_UVM_prefetch_device(alpha.data(), alpha.byte_size());
     if(PropagatorField::FieldAllocPolicy::UVMenabled){
       CPSautoView(into_v,into,HostRead);
-      cudaMemPrefetchAsync(into_v.ptr(), into.byte_size(), device, NULL);
+      device_UVM_prefetch_device(into_v.ptr(), into.byte_size());
     }
-#elif defined(GRID_HIP)
-    hipMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
-    if(PropagatorField::FieldAllocPolicy::UVMenabled){
-      CPSautoView(into_v,into,HostRead);
-      hipMemPrefetchAsync(into_v.ptr(), into.byte_size(), device, NULL);
-    }
-#endif
 
     //Divide up into two matrices of size   3 * shmem_iblock_size   requiring  bytes =  2* 3*shmem_iblock_size *sizeof(ScalarComplexType)
     int shmem_max = maxDeviceShmemPerBlock() / 4; //if we use all the available shared memory we get less blocks running at once. Tuneable
@@ -267,7 +258,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
     static const int shmem_iblock_size = 4;
     
     using namespace Grid;
-    CPSautoView(into_v,into,DeviceWrite);
+    { CPSautoView(into_v,into,DeviceRead); }
+    CPSautoView(into_v,into,DeviceWrite);    
     accelerator_for(x4d, 
 		    vol4d, 
 		    nsimd, 
@@ -380,14 +372,6 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 
     int src_width = l.getArgs().src_width;
     assert(r.getArgs().src_width == src_width);
-
-#if defined(GRID_CUDA)
-    int device;
-    cudaGetDevice(&device);
-#elif defined(GRID_HIP)
-    int device;
-    hipGetDevice(&device);
-#endif
 
     //Need to compute \sum_i v(il)_{scl,fl}(x) v(ir)_{scr,fr}(x)
     //The map of i -> il, ir depends on scl,fl, scr,fr, t
@@ -550,7 +534,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 #endif
     
 #if defined(GRID_CUDA) || defined(GRID_HIP)
-      run_VV_kernel_GPU(vaprime, vbprime, alpha_v, into, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd, device);
+      run_VV_kernel_GPU(vaprime, vbprime, alpha_v, into, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd);
 #else
       run_VV_kernel_base(vaprime, vbprime, alpha_v, into, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd);
 #endif

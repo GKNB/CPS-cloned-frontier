@@ -139,9 +139,11 @@ public:
 
   inline void deviceSetAdviseUVMreadOnly(const bool to) const{}
 
-  inline void prefetch(ViewMode mode){}
+  inline void enqueuePrefetch(ViewMode mode) const{}
 
-  inline static void prefetchWait(){}
+  static inline void startPrefetches(){ }
+
+  static inline void waitPrefetches(){ }
   
   enum { UVMenabled = 0 }; //supports UVM
 };
