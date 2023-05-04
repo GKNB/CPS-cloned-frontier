@@ -1,0 +1,2 @@
+This independent executable computes the minimal set of pipi correlators required to compute pipi operators of a given total momentum
+Produces pipi_correlators.in, which is used by the K->pipi main program
