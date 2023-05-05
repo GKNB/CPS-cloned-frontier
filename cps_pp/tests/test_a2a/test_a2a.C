@@ -220,12 +220,11 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   
   if(1) testMesonFieldComputeSingleMulti<A2Apolicies_std>(a2a_arg, tol);
 
-  */ 
   if(1) testGridMesonFieldCompute<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testGridMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testGridShiftMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
 
-  /*
+
   if(1) testFFTopt<A2Apolicies_std>();
 #ifdef USE_GRID
   if(1) testFFTopt<A2Apolicies_grid>();
@@ -272,7 +271,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
 
   if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
-
+  */
   if(1) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
   if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
@@ -288,7 +287,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   									 V_grid, W_grid,
   									 lattice, simd_dims_3d, tol);
 
-
+  /*
   if(1) testModeMappingTranspose(a2a_arg);
 
 #ifdef USE_GRID

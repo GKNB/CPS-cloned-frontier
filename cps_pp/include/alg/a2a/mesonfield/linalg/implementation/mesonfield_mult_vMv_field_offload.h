@@ -60,23 +60,30 @@ struct mult_vMv_field_offload_timers{
     double init;
     double vaprime;
     double Mprime;
+    double vbprime;
+    double Mr;
     double lMr;
+    double prefetch;
     size_t calls;
 
-    timers(): init(0), vaprime(0), Mprime(0), lMr(0), calls(0){}
+    timers(): init(0), vaprime(0), Mprime(0), vbprime(0), Mr(0), lMr(0), prefetch(0), calls(0){}
 
     void reset(){
-      init=vaprime=Mprime=lMr=0;
+      init=vaprime=Mprime=vbprime=Mr=lMr=prefetch=0;
       calls = 0;
     }
     void average(){
       init/=calls;
       vaprime/=calls;
+      Mprime/=calls;
+      vbprime/=calls;
+      Mr/=calls;
       lMr/=calls;
+      prefetch/=calls;
     }
     void print(){
       average();
-      printf("calls=%zu init=%g va'=%g M'=%g lMr=%g\n", calls, init, vaprime, Mprime, lMr);
+      printf("calls=%zu init=%g va'=%g M'=%g vb'=%g Mr=%g l(Mr)=%g prefetch=%g\n", calls, init, vaprime, Mprime, vbprime, Mr, lMr, prefetch);
     }
 
   };
@@ -656,14 +663,14 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
 	//The kernels below takes a while so we may as well prefetch r for the next cycle
 	//TODO: For UVM the prefetch calls take a while to run, make them happen on a background thread
+	time.prefetch -= dclock();
 	prefetch_r(jprimeblock, njprime_blocks, iprimeblock, niprime_blocks, blocksize, njprime, jl_jr_pairs, r, vol3d_node, local_timeslices);
+	time.prefetch += dclock();
 	
 	time.Mprime -= dclock();
 	create_Mprime(Mprime, M, iprimestart, iprimelessthan, jprimestart, jprimelessthan, il_ir_pairs, jl_jr_pairs);
 	time.Mprime += dclock();
 	
-	time.lMr -= dclock();
-
 	for(int fr=0;fr<nf;fr++){
 	  for(int sr=0;sr<4;sr++){
 	    for(int cr=0;cr<3;cr++){
@@ -673,22 +680,28 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	      //if(cr == 0 && sr == 0 && fr == 0 && jprimeblock == 0 && iprimeblock == 0) cudaProfilerStart();
 	      
 	      //Create vb'
+	      time.vbprime -= dclock();
 	      create_vbprime(vbprime, r, beta_v, jl_jr_pairs_v, t_off, r.getArgs().src_width, jprimestart, nf, ntblocks, vol3d_node, local_timeslices, njprime_block, nsimd, conj_r, scr, fr);
-
+	      time.vbprime += dclock();
+	      
 	      //Mprime * vbprime
+	      time.Mr -= dclock();
 	      Mprime_vbprime(Mvbprime, Mprime, vbprime, vol4d_node_do, niprime_block, njprime_block, nsimd, fourd_block_count, scfr==0);
-
+	      time.Mr += dclock();
+	      
 	      //va' (M' vb')
+	      time.lMr -= dclock();
 	      vaprime_Mprime_vbprime(into_v, vaprime, Mvbprime, sr, cr, fr, vol3d_node, local_timeslices, niprime_block, nf, nsimd);
-
+	      time.lMr += dclock();
 	      //if(cr == 0 && sr == 0 && fr == 0 && jprimeblock == 0 && iprimeblock == 0) cudaProfilerStop();
 	      
 	    }//cr
 	  }//sr      
 	}//fr
 
-	prefetch_r_wait();	
-	time.lMr += dclock();
+	time.prefetch -= dclock();
+	prefetch_r_wait();
+	time.prefetch += dclock();
       }//jprimeblock
 
     }//iprimeblock
