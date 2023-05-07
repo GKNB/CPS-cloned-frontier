@@ -142,6 +142,20 @@ template<typename T,typename CPScomplex>
 struct GridTensorConvert{};
 
 template<typename complex_scalar, typename CPScomplex>
+struct GridTensorConvert<Grid::iGparityFlavourVector<complex_scalar>, CPScomplex>{
+  static_assert(!Grid::isSIMDvectorized<complex_scalar>::value && Grid::isComplex<complex_scalar>::value, "Only applies to scalar complex types");
+
+  //1-component complex scalar
+  //We have assured the input is not SIMD vectorized so the output type is the same
+  inline static void doit(CPScomplex* cps, const Grid::iGparityFlavourVector<complex_scalar> &grid, const int f){
+    *cps++ = grid(f)()();
+  }
+  inline static void doit(Grid::iGparityFlavourVector<complex_scalar> &grid, CPScomplex const* cps, const int f){
+    grid(f)()() = *cps++;
+  }
+};
+
+template<typename complex_scalar, typename CPScomplex>
 struct GridTensorConvert<Grid::iSpinColourVector<complex_scalar>, CPScomplex>{
   static_assert(!Grid::isSIMDvectorized<complex_scalar>::value && Grid::isComplex<complex_scalar>::value, "Only applies to scalar complex types");
 
