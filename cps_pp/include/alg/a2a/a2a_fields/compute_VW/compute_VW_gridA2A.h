@@ -20,6 +20,7 @@ void computeVWlow(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const 
 //block_size is the number of sources deflated simultaneously, and if the inverter supports it, inverted concurrently
 template<typename A2Apolicies, typename GridFermionField>
 void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, 
+		   const A2AhighModeSource<A2Apolicies> &Wsrc_impl,
 		   const EvecInterface<GridFermionField> &evecs,  
 		   const A2AhighModeCompute<GridFermionField> &impl,
 		   size_t block_size = 1);

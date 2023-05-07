@@ -461,6 +461,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_omp_v2(ResultsContainerType resul
 						  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
   printMemNodeFile("type3_v2 1");
   
+  CPSautoView(vL_v,vL,HostRead);
+  CPSautoView(vH_v,vH,HostRead);
+  CPSautoView(wL_v,wL,HostRead);
+  CPSautoView(wH_v,wH,HostRead);
+
   Type3timings::timer().reset();
   Type3timings::timer().total -= dclock();
   SCFmat mix3_Gamma[2];
@@ -512,8 +517,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_omp_v2(ResultsContainerType resul
       
       //Construct part 2 (independent of kaon position):
       //vL(x_op) wL^dag(x_op)   or  vH(x_op) wH^dag(x_op)
-      mult(part2_L[top_loc][xop3d_loc], vL, wL, xop3d_loc, top_loc, false, true);
-      mult(part2_H[top_loc][xop3d_loc], vH, wH, xop3d_loc, top_loc, false, true);
+      mult(part2_L[top_loc][xop3d_loc], vL_v, wL_v, xop3d_loc, top_loc, false, true);
+      mult(part2_H[top_loc][xop3d_loc], vH_v, wH_v, xop3d_loc, top_loc, false, true);
     }
   }
   Type3timings::timer().part2_calc += dclock();
@@ -567,8 +572,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_omp_v2(ResultsContainerType resul
 	  SCFmat part1[2]; 
 	  
 #if defined(DISABLE_TYPE3_SPLIT_VMV)
-	  mult(part1[0], vL, con_pi1_pi2_k[tkp], vH, xop3d_loc, top_loc, false, true);
-	  mult(part1[1], vL, con_pi2_pi1_k[tkp], vH, xop3d_loc, top_loc, false, true);
+	  mult(part1[0], vL_v, con_pi1_pi2_k[tkp], vH_v, xop3d_loc, top_loc, false, true);
+	  mult(part1[1], vL_v, con_pi2_pi1_k[tkp], vH_v, xop3d_loc, top_loc, false, true);
 #elif defined(DISABLE_TYPE3_PRECOMPUTE)
 	  mult_vMv_split_part1_pi1_pi2.contract(part1[0],xop3d_loc, false, true);
 	  mult_vMv_split_part1_pi2_pi1.contract(part1[1],xop3d_loc, false, true);

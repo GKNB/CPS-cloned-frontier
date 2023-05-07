@@ -8,8 +8,6 @@
 
 CPS_START_NAMESPACE
 
-class StandardAllocPolicy;
-
 template<typename T, typename AllocPolicy = StandardAllocPolicy>
 class basicMatrix : public AllocPolicy{
   T* tt;

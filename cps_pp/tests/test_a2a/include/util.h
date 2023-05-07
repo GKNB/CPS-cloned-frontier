@@ -143,11 +143,13 @@ bool compare(const std::vector<A2AmesonField<A2Apolicies_1,L,R> > &M1, const std
       std::cout << "Fail: matrix timeslice mismatch" << std::endl;
       return false;      
     }
+    CPSautoView(M1_t_v,M1[t],HostRead);
+    CPSautoView(M2_t_v,M2[t],HostRead);
       
     for(int i=0;i<M1[t].getNrows();i++){
       for(int j=0;j<M1[t].getNcols();j++){
-	auto v1 = M1[t](i,j);
-	auto v2 = M2[t](i,j);
+	auto v1 = M1_t_v(i,j);
+	auto v2 = M2_t_v(i,j);
 	if(fabs(v1.real() - v2.real()) > tol ||
 	   fabs(v1.imag() - v2.imag()) > tol){
 	  std::cout << "Fail " << i << " " << j << " :  (" << v1.real() << "," << v1.imag() << ")  (" << v2.real() << "," << v2.imag() << ")  diff (" << v1.real()-v2.real() << "," << v1.imag()-v2.imag() << ")" << std::endl;
@@ -168,9 +170,12 @@ void copy(std::vector<A2AmesonField<A2Apolicies_1,L,R> > &Mout, const std::vecto
   for(int t=0;t<Min.size();t++){
     assert(Mout[t].getNrows() == Min[t].getNrows() && Min[t].getNcols() == Min[t].getNcols());
     assert(Mout[t].getRowTimeslice() == Min[t].getRowTimeslice() && Mout[t].getColTimeslice() == Min[t].getColTimeslice());
+    CPSautoView(Mout_t_v,Mout[t],HostWrite);
+    CPSautoView(Min_t_v,Min[t],HostRead);
+    
     for(int i=0;i<Min[t].getNrows();i++){
       for(int j=0;j<Min[t].getNcols();j++){
-	Mout[t](i,j) = Min[t](i,j);
+	Mout_t_v(i,j) = Min_t_v(i,j);
       }
     }
   }
@@ -294,13 +299,13 @@ void printRow(const CPSfield<mf_Complex,SiteSize,FourDpolicy<FlavorPolicy>,Alloc
   for(int i=0;i<4;i++)
     if(i!=dir) other_dirs[aa++] = i;
 
-  
+  CPSautoView(field_v,field,HostRead);
   if(GJP.NodeCoor(other_dirs[0]) == 0 && GJP.NodeCoor(other_dirs[1]) == 0 && GJP.NodeCoor(other_dirs[2]) == 0){
     for(int x=GJP.NodeCoor(dir)*GJP.NodeSites(dir); x < (GJP.NodeCoor(dir)+1)*GJP.NodeSites(dir); x++){
       int lcoor[4] = {0,0,0,0};
       lcoor[dir] = x - GJP.NodeCoor(dir)*GJP.NodeSites(dir);
       
-      mf_Complex const* site_ptr = field.site_ptr(lcoor);
+      mf_Complex const* site_ptr = field_v.site_ptr(lcoor);
       buf[x] = *site_ptr;
     }
   }
@@ -326,7 +331,7 @@ void printRow(const CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy<FlavorPolicy>,A
 	       ){
   typedef typename mf_Complex::scalar_type ScalarComplex;
   NullObject null_obj;
-  CPSfield<ScalarComplex,SiteSize,FourDpolicy<FlavorPolicy>,StandardAllocPolicy> tmp(null_obj);
+  CPSfield<ScalarComplex,SiteSize,FourDpolicy<FlavorPolicy>,UVMallocPolicy> tmp(null_obj);
   tmp.importField(field);
   printRow(tmp,dir,comment);
 }

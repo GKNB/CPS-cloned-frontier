@@ -4,11 +4,11 @@ CPS_START_NAMESPACE
 
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const double tol){
-  //#define BASIC_VMV
+#define BASIC_VMV
   //#define BASIC_GRID_VMV
 #define GRID_VMV
 #define GRID_SPLIT_LITE_VMV;
-  //#define GRID_FIELD_SIMPLE
+#define GRID_FIELD_SIMPLE
   
   std::cout << "Starting testvMvGridOrigGparity : vMv tests\n";
 
@@ -33,10 +33,15 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
   Vgrid.importFields(V);
 
   A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
-  mf_grid.setup(Wgrid,Vgrid,0,0);     
-  for(int i=0;i<mf.getNrows();i++)
-    for(int j=0;j<mf.getNcols();j++)
-      mf_grid(i,j) = mf(i,j); //both are scalar complex
+  mf_grid.setup(Wgrid,Vgrid,0,0);
+  {
+    CPSautoView(mf_grid_v,mf_grid,HostWrite);
+    CPSautoView(mf_v,mf,HostRead);
+    
+    for(int i=0;i<mf.getNrows();i++)
+      for(int j=0;j<mf.getNcols();j++)
+	mf_grid_v(i,j) = mf_v(i,j); //both are scalar complex
+  }
   
   typedef typename GridA2Apolicies::ComplexType grid_Complex;
       
@@ -59,66 +64,76 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
   if(!UniqueID()){ printf("Starting vMv tests\n"); fflush(stdout); }
 
   if(!UniqueID()){ printf("Orig vMv\n"); fflush(stdout); }
-  for(int top = 0; top < GJP.TnodeSites(); top++){
-    if(!UniqueID()){ printf("Timeslice %d\n", top); fflush(stdout); }
+  {
+    CPSautoView(V_v,V,HostRead);
+    CPSautoView(W_v,W,HostRead);
+    CPSautoView(mf_v,mf,HostRead);
+
+    CPSautoView(Vgrid_v,Vgrid,HostRead);
+    CPSautoView(Wgrid_v,Wgrid,HostRead);
+    CPSautoView(mf_grid_v,mf_grid,HostRead);
+    
+    for(int top = 0; top < GJP.TnodeSites(); top++){
+      if(!UniqueID()){ printf("Timeslice %d\n", top); fflush(stdout); }
 
 
-    //ORIG VMV
+      //ORIG VMV
 #pragma omp parallel for
-    for(int xop=0;xop<orig_3vol;xop++){
-      int me = omp_get_thread_num();
-      mult(orig_tmp[me], V, mf, W, xop, top, false, true);
-      orig_sum[me] += orig_tmp[me];
-    }
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult(orig_tmp[me], V_v, mf_v, W_v, xop, top, false, true);
+	orig_sum[me] += orig_tmp[me];
+      }
     
 #ifdef BASIC_VMV
-    if(!UniqueID()){ printf("Basic vMv\n"); fflush(stdout); }
-    //BASIC VMV FOR TESTING
+      if(!UniqueID()){ printf("Basic vMv\n"); fflush(stdout); }
+      //BASIC VMV FOR TESTING
 #pragma omp parallel for
-    for(int xop=0;xop<orig_3vol;xop++){
-      int me = omp_get_thread_num();
-      mult_slow(orig_tmp[me], V, mf, W, xop, top, false, true);
-      basic_sum[me] += orig_tmp[me];
-    }
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult_slow(orig_tmp[me], V_v, mf_v, W_v, xop, top, false, true);
+	basic_sum[me] += orig_tmp[me];
+      }
 #endif
 
 #ifdef GRID_VMV
-    //GRID VMV
-    if(!UniqueID()){ printf("Grid vMv\n"); fflush(stdout); }
+      //GRID VMV
+      if(!UniqueID()){ printf("Grid vMv\n"); fflush(stdout); }
 #pragma omp parallel for
-    for(int xop=0;xop<grid_3vol;xop++){
-      int me = omp_get_thread_num();
-      mult(grid_tmp[me], Vgrid, mf_grid, Wgrid, xop, top, false, true);
-      grid_sum[me] += grid_tmp[me];
-    }
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult(grid_tmp[me], Vgrid_v, mf_grid_v, Wgrid_v, xop, top, false, true);
+	grid_sum[me] += grid_tmp[me];
+      }
 #endif
 
 #ifdef BASIC_GRID_VMV
-    if(!UniqueID()){ printf("Grid basic vMv\n"); fflush(stdout); }
-    //BASIC GRID VMV FOR TESTING
+      if(!UniqueID()){ printf("Grid basic vMv\n"); fflush(stdout); }
+      //BASIC GRID VMV FOR TESTING
 #pragma omp parallel for
-    for(int xop=0;xop<grid_3vol;xop++){
-      int me = omp_get_thread_num();
-      mult_slow(grid_tmp[me], Vgrid, mf_grid, Wgrid, xop, top, false, true);
-      basic_grid_sum[me] += grid_tmp[me];
-    }
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult_slow(grid_tmp[me], Vgrid_v, mf_grid_v, Wgrid_v, xop, top, false, true);
+	basic_grid_sum[me] += grid_tmp[me];
+      }
 #endif
 
 #ifdef GRID_SPLIT_LITE_VMV
-    //SPLIT LITE VMV GRID
-    if(!UniqueID()){ printf("Grid splite vMv\n"); fflush(stdout); }
+      //SPLIT LITE VMV GRID
+      if(!UniqueID()){ printf("Grid splite vMv\n"); fflush(stdout); }
 
-    int top_glb = top + GJP.TnodeCoor() * GJP.TnodeSites();
-    vmv_split_lite_grid.setup(Vgrid, mf_grid, Wgrid, top_glb);
+      int top_glb = top + GJP.TnodeCoor() * GJP.TnodeSites();
+      vmv_split_lite_grid.setup(Vgrid, mf_grid, Wgrid, top_glb);
 #pragma omp parallel for
-    for(int xop=0;xop<grid_3vol;xop++){
-      int me = omp_get_thread_num();
-      vmv_split_lite_grid.contract(grid_tmp[me], xop, false, true);
-      grid_sum_split_lite[me] += grid_tmp[me];
-    }
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	vmv_split_lite_grid.contract(grid_tmp[me], xop, false, true);
+	grid_sum_split_lite[me] += grid_tmp[me];
+      }
 #endif
-  }//end top loop
-
+    }//end top loop
+  }
+    
   for(int i=1;i<nthreads;i++){
     basic_sum[0] += basic_sum[i];
     orig_sum[0] += orig_sum[i];
@@ -128,8 +143,9 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
   }
   
   //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
-  typedef mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vMvFieldImpl;
-  typedef typename vMvFieldImpl::PropagatorField PropagatorField;
+  typedef typename getPropagatorFieldType<GridA2Apolicies, ExplicitCopyPoolAllocPolicy>::type PropagatorField; //works with UVM policy!!!  FIXMEFIXME
+  //typedef typename getPropagatorFieldType<GridA2Apolicies, ExplicitCopyAllocPolicy>::type PropagatorField; //works with UVM policy!!!  FIXMEFIXME
+  typedef mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw, PropagatorField> vMvFieldImpl;
   PropagatorField pfield(simd_dims);
 
   //mult(pfield, Vgrid, mf_grid, Wgrid, false, true);
@@ -141,9 +157,12 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
 
   
   CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
-  vmv_offload_sum4.zero();
-  for(size_t i=0;i<pfield.size();i++){
-    vmv_offload_sum4 += *pfield.fsite_ptr(i);
+  {
+    CPSautoView(pfield_v,pfield,HostRead);
+    vmv_offload_sum4.zero();
+    for(size_t i=0;i<pfield.size();i++){
+      vmv_offload_sum4 += *pfield_v.fsite_ptr(i);
+    }
   }
 
 #ifdef GRID_FIELD_SIMPLE
@@ -152,9 +171,12 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
   vMvFieldImpl::simple(pfield, Vgrid, mf_grid, Wgrid, false, true);
 
   CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_simple_sum4;
-  vmv_offload_simple_sum4.zero();
-  for(size_t i=0;i<pfield.size();i++){
-    vmv_offload_simple_sum4 += *pfield.fsite_ptr(i);
+  {
+    CPSautoView(pfield_v,pfield,HostRead);
+    vmv_offload_simple_sum4.zero();
+    for(size_t i=0;i<pfield.size();i++){
+      vmv_offload_simple_sum4 += *pfield_v.fsite_ptr(i);
+    }
   }
 #endif
   
@@ -230,11 +252,16 @@ void testvMvGridOrigGparityTblock(A2AArg a2a_args, const int nthreads, const dou
   Vgrid.importFields(V);
 
   A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
-  mf_grid.setup(Wgrid,Vgrid,0,0);     
-  for(int i=0;i<mf.getNrows();i++)
-    for(int j=0;j<mf.getNcols();j++)
-      mf_grid(i,j) = mf(i,j); //both are scalar complex
-  
+  mf_grid.setup(Wgrid,Vgrid,0,0);
+  {
+    CPSautoView(mf_grid_v,mf_grid,HostWrite);
+    CPSautoView(mf_v,mf,HostRead);
+    
+    for(int i=0;i<mf.getNrows();i++)
+      for(int j=0;j<mf.getNcols();j++)
+	mf_grid_v(i,j) = mf_v(i,j); //both are scalar complex
+  }
+    
   typedef typename GridA2Apolicies::ComplexType grid_Complex;
       
   CPSspinColorFlavorMatrix<mf_Complex> 
@@ -255,66 +282,76 @@ void testvMvGridOrigGparityTblock(A2AArg a2a_args, const int nthreads, const dou
   
   if(!UniqueID()){ printf("Starting vMv tests\n"); fflush(stdout); }
 
-  for(int top = 0; top < GJP.TnodeSites(); top++){
-    if(!UniqueID()){ printf("Timeslice %d\n", top); fflush(stdout); }
+  {
+    CPSautoView(V_v,V,HostRead);
+    CPSautoView(W_v,W,HostRead);
+    CPSautoView(mf_v,mf,HostRead);
 
-    if(!UniqueID()){ printf("Orig vMv\n"); fflush(stdout); }
-    //ORIG VMV
+    CPSautoView(Vgrid_v,Vgrid,HostRead);
+    CPSautoView(Wgrid_v,Wgrid,HostRead);
+    CPSautoView(mf_grid_v,mf_grid,HostRead);
+   
+    for(int top = 0; top < GJP.TnodeSites(); top++){
+      if(!UniqueID()){ printf("Timeslice %d\n", top); fflush(stdout); }
+
+      if(!UniqueID()){ printf("Orig vMv\n"); fflush(stdout); }
+      //ORIG VMV
 #pragma omp parallel for
-    for(int xop=0;xop<orig_3vol;xop++){
-      int me = omp_get_thread_num();
-      mult(orig_tmp[me], V, mf, W, xop, top, false, true);
-      orig_sum[me] += orig_tmp[me];
-    }
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult(orig_tmp[me], V_v, mf_v, W_v, xop, top, false, true);
+	orig_sum[me] += orig_tmp[me];
+      }
     
 #ifdef BASIC_VMV
-    if(!UniqueID()){ printf("Basic vMv\n"); fflush(stdout); }
-    //BASIC VMV FOR TESTING
+      if(!UniqueID()){ printf("Basic vMv\n"); fflush(stdout); }
+      //BASIC VMV FOR TESTING
 #pragma omp parallel for
-    for(int xop=0;xop<orig_3vol;xop++){
-      int me = omp_get_thread_num();
-      mult_slow(orig_tmp[me], V, mf, W, xop, top, false, true);
-      basic_sum[me] += orig_tmp[me];
-    }
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult_slow(orig_tmp[me], V_v, mf_v, W_v, xop, top, false, true);
+	basic_sum[me] += orig_tmp[me];
+      }
 #endif
 
 #ifdef GRID_VMV
-    //GRID VMV
-    if(!UniqueID()){ printf("Grid vMv\n"); fflush(stdout); }
+      //GRID VMV
+      if(!UniqueID()){ printf("Grid vMv\n"); fflush(stdout); }
 #pragma omp parallel for
-    for(int xop=0;xop<grid_3vol;xop++){
-      int me = omp_get_thread_num();
-      mult(grid_tmp[me], Vgrid, mf_grid, Wgrid, xop, top, false, true);
-      grid_sum[me] += grid_tmp[me];
-    }
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult(grid_tmp[me], Vgrid_v, mf_grid_v, Wgrid_v, xop, top, false, true);
+	grid_sum[me] += grid_tmp[me];
+      }
 #endif
 
 #ifdef BASIC_GRID_VMV
-    if(!UniqueID()){ printf("Grid basic vMv\n"); fflush(stdout); }
-    //BASIC GRID VMV FOR TESTING
+      if(!UniqueID()){ printf("Grid basic vMv\n"); fflush(stdout); }
+      //BASIC GRID VMV FOR TESTING
 #pragma omp parallel for
-    for(int xop=0;xop<grid_3vol;xop++){
-      int me = omp_get_thread_num();
-      mult_slow(grid_tmp[me], Vgrid, mf_grid, Wgrid, xop, top, false, true);
-      basic_grid_sum[me] += grid_tmp[me];
-    }
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult_slow(grid_tmp[me], Vgrid_v, mf_grid_v, Wgrid_v, xop, top, false, true);
+	basic_grid_sum[me] += grid_tmp[me];
+      }
 #endif
 
 #ifdef GRID_SPLIT_LITE_VMV
-    //SPLIT LITE VMV GRID
-    if(!UniqueID()){ printf("Grid splite vMv\n"); fflush(stdout); }
+      //SPLIT LITE VMV GRID
+      if(!UniqueID()){ printf("Grid splite vMv\n"); fflush(stdout); }
 
-    int top_glb = top + GJP.TnodeCoor() * GJP.TnodeSites();
-    vmv_split_lite_grid.setup(Vgrid, mf_grid, Wgrid, top_glb);
+      int top_glb = top + GJP.TnodeCoor() * GJP.TnodeSites();
+      vmv_split_lite_grid.setup(Vgrid, mf_grid, Wgrid, top_glb);
 #pragma omp parallel for
-    for(int xop=0;xop<grid_3vol;xop++){
-      int me = omp_get_thread_num();
-      vmv_split_lite_grid.contract(grid_tmp[me], xop, false, true);
-      grid_sum_split_lite[me] += grid_tmp[me];
-    }
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	vmv_split_lite_grid.contract(grid_tmp[me], xop, false, true);
+	grid_sum_split_lite[me] += grid_tmp[me];
+      }
 #endif
-  }//end top loop
-
+    }//end top loop
+  }
+  
   for(int i=1;i<nthreads;i++){
     basic_sum[0] += basic_sum[i];
     orig_sum[0] += orig_sum[i];
@@ -327,17 +364,20 @@ void testvMvGridOrigGparityTblock(A2AArg a2a_args, const int nthreads, const dou
   //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
   if(!UniqueID()){ printf("Field vMv\n"); fflush(stdout); }
 
-  typedef mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vMvFieldImpl;
-  typedef typename vMvFieldImpl::PropagatorField PropagatorField;
+  typedef typename getPropagatorFieldType<GridA2Apolicies>::type PropagatorField;
+  typedef mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw, PropagatorField> vMvFieldImpl;
   PropagatorField pfield(simd_dims);
 
   //mult(pfield, Vgrid, mf_grid, Wgrid, false, true);
   vMvFieldImpl::optimized(pfield, Vgrid, mf_grid, Wgrid, false, true, 0, GJP.Tnodes()*GJP.TnodeSites()-1);
 
   CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
-  vmv_offload_sum4.zero();
-  for(size_t i=0;i<pfield.size();i++){
-    vmv_offload_sum4 += *pfield.fsite_ptr(i);
+  {
+    vmv_offload_sum4.zero();
+    CPSautoView(pfield_v,pfield,HostRead);
+    for(size_t i=0;i<pfield.size();i++){
+      vmv_offload_sum4 += *pfield_v.fsite_ptr(i);
+    }
   }
 
 #ifdef GRID_FIELD_SIMPLE
@@ -345,9 +385,12 @@ void testvMvGridOrigGparityTblock(A2AArg a2a_args, const int nthreads, const dou
   vMvFieldImpl::simple(pfield, Vgrid, mf_grid, Wgrid, false, true);
 
   CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_simple_sum4;
-  vmv_offload_simple_sum4.zero();
-  for(size_t i=0;i<pfield.size();i++){
-    vmv_offload_simple_sum4 += *pfield.fsite_ptr(i);
+  {
+    vmv_offload_simple_sum4.zero();
+    CPSautoView(pfield_v,pfield,HostRead);
+    for(size_t i=0;i<pfield.size();i++){
+      vmv_offload_simple_sum4 += *pfield_v.fsite_ptr(i);
+    }
   }
 #endif
 
@@ -559,8 +602,11 @@ bool compare(const CPSfieldType &a, const CPSfieldType &b, double tolerance, boo
   if(a.size() != b.size()) return false;
   size_t fsize = a.size();
   typedef typename CPSfieldType::FieldSiteType T;
-  T const* ap = a.ptr();
-  T const* bp = b.ptr();
+  CPSautoView(a_v,a,HostRead);
+  CPSautoView(b_v,b,HostRead);
+  
+  T const* ap = a_v.ptr();
+  T const* bp = b_v.ptr();
   constexpr int SiteSize = CPSfieldType::FieldSiteSize;
   typedef typename CPSfieldType::FieldMappingPolicy MappingPolicy;
   
@@ -601,24 +647,35 @@ void testvMvFieldTimesliceRange(const A2AArg &a2a_args, const double tol){
   W.testRandom();
   V.testRandom();
 
+  std::cout << "W fields alloc policy " << printType<typename A2AvectorW<GridA2Apolicies>::FermionFieldType::FieldAllocPolicy>() << std::endl;
+  std::cout << "W fields alloc policy " << printType<typename A2AvectorV<GridA2Apolicies>::FermionFieldType::FieldAllocPolicy>() << std::endl;
+      
   A2Aparams par(a2a_args);
   A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
   mf.setup(par,par,0,0);
   mf.testRandom();
   typedef typename GridA2Apolicies::ComplexType vComplex;
-  
-  typedef mult_vMv_field<GridA2Apolicies, A2AvectorV, A2AvectorWfftw, A2AvectorVfftw, A2AvectorW> vMvFieldImpl;
-  typedef typename vMvFieldImpl::PropagatorField PropagatorField;
-  PropagatorField pfield_expect(simd_dims), pfield_got(simd_dims);
 
+  typedef typename getPropagatorFieldType<GridA2Apolicies>::type PropagatorField;
+  typedef mult_vMv_field<GridA2Apolicies, A2AvectorV, A2AvectorWfftw, A2AvectorVfftw, A2AvectorW, PropagatorField> vMvFieldImpl;
+  PropagatorField pfield_expect(simd_dims), pfield_got(simd_dims);
+  std::cout << "Allocated pfield_expect " << &pfield_expect << " pfield_got " << &pfield_got << std::endl;
+  
   //vMvFieldImpl::optimized(pfield_expect, V, mf, W, false, true);
 
   //Compute the full result using the CPU implementation
-  for(int top=0;top<GJP.TnodeSites();top++){
+  {
+    CPSautoView(pfield_expect_v,pfield_expect,HostWrite);
+    CPSautoView(V_v,V,HostRead);
+    CPSautoView(W_v,W,HostRead);
+    CPSautoView(mf_v,mf,HostRead);
+    
+    for(int top=0;top<GJP.TnodeSites();top++){
 #pragma omp parallel for
-    for(size_t xop=0;xop<pfield_expect.nsites()/GJP.TnodeSites();xop++){
-      size_t off = pfield_expect.threeToFour(xop,top);
-      mult(*pfield_expect.site_ptr(off), V, mf, W, xop, top, false, true);
+      for(size_t xop=0;xop<pfield_expect.nsites()/GJP.TnodeSites();xop++){
+	size_t off = pfield_expect.threeToFour(xop,top);
+	mult(*pfield_expect_v.site_ptr(off), V_v, mf_v, W_v, xop, top, false, true);
+      }
     }
   } 
 
@@ -627,15 +684,22 @@ void testvMvFieldTimesliceRange(const A2AArg &a2a_args, const double tol){
   vMvFieldImpl::optimized(pfield_got, V, mf, W, false, true, 0, Lt-1);
 
   constexpr int N = PropagatorField::FieldSiteType::nScalarType();
-  typedef CPSfield<cps::ComplexD, N, FourDpolicy<OneFlavorPolicy>, Aligned128AllocPolicy> ScalarComplexField;
-  typedef CPSfield<vComplex, N, FourDSIMDPolicy<OneFlavorPolicy>, Aligned128AllocPolicy> VectorComplexField;
+  typedef CPSfield<cps::ComplexD, N, FourDpolicy<OneFlavorPolicy> > ScalarComplexField;
+  typedef CPSfield<vComplex, N, FourDSIMDPolicy<OneFlavorPolicy>, typename PropagatorField::FieldAllocPolicy > VectorComplexField;   //NOTE: The cast from PropagatorField to this is only legitimate if we have the same allocpolicy!
   NullObject null;
   ScalarComplexField tmp1(null), tmp2(null), tmp3(null);
 
+  std::cout << "Allocated 3 temp fields " << &tmp1 << " " << &tmp2 << " " << &tmp3 << std::endl;
+  
   //Check propagator field conversion working
   PropagatorField test(simd_dims);
+  std::cout << "Allocated test field " << &test << " and alloc policy " << printType<typename PropagatorField::FieldAllocPolicy>() <<  std::endl;
   test.testRandom();
+  std::cout << "Testrandom complete on test field " << &test << std::endl;
   tmp1.zero();
+  std::cout << "zero complete on field " << &tmp1 << std::endl;
+
+  std::cout << &tmp2 << " with allocpolicy " << printType<typename ScalarComplexField::FieldAllocPolicy>() << " importing " << &test << " with allocpolicy " << printType<typename PropagatorField::FieldAllocPolicy>() << std::endl;
   tmp2.importField( (VectorComplexField const &)test );
   assert( !tmp1.equals(tmp2, 1e-12, true) );
 
@@ -654,17 +718,19 @@ void testvMvFieldTimesliceRange(const A2AArg &a2a_args, const double tol){
 
   //Zero timeslices in comparison data
   tmp3 = tmp2;
-  for(size_t xx = 0; xx < tmp3.nfsites(); xx++){
-    int f; int x[4];
-    tmp3.fsiteUnmap(xx,x,f);
-    int t = x[3] + GJP.TnodeCoor()*GJP.TnodeSites();
-    if(t>tdis){
-      cps::ComplexD *p = tmp3.fsite_ptr(xx);
-      for(int i=0;i<N;i++)
-	p[i] = 0;
+  {
+    CPSautoView(tmp3_v,tmp3,HostWrite);
+    for(size_t xx = 0; xx < tmp3.nfsites(); xx++){
+      int f; int x[4];
+      tmp3.fsiteUnmap(xx,x,f);
+      int t = x[3] + GJP.TnodeCoor()*GJP.TnodeSites();
+      if(t>tdis){
+	cps::ComplexD *p = tmp3_v.fsite_ptr(xx);
+	for(int i=0;i<N;i++)
+	  p[i] = 0;
+      }
     }
   }
-  
   assert( compare(tmp1,tmp3,tol,false) ); 
   std::cout << "Partial Lt test passed 0 <= t <= Lt/2-1" << std::endl;
 
@@ -676,15 +742,19 @@ void testvMvFieldTimesliceRange(const A2AArg &a2a_args, const double tol){
  
   //Zero timeslices in comparison data
   tmp3 = tmp2;
-  for(size_t xx = 0; xx < tmp3.nfsites(); xx++){
-    int f; int x[4];
-    tmp3.fsiteUnmap(xx,x,f);
-    int t = x[3] + GJP.TnodeCoor()*GJP.TnodeSites();
-
-    if(!(t == Lt-1 || t == 0 || t==1)){    
-      cps::ComplexD *p = tmp3.fsite_ptr(xx);
-      for(int i=0;i<N;i++)
-	p[i] = 0;
+  {
+    CPSautoView(tmp3_v,tmp3,HostWrite);
+    
+    for(size_t xx = 0; xx < tmp3.nfsites(); xx++){
+      int f; int x[4];
+      tmp3.fsiteUnmap(xx,x,f);
+      int t = x[3] + GJP.TnodeCoor()*GJP.TnodeSites();
+      
+      if(!(t == Lt-1 || t == 0 || t==1)){    
+	cps::ComplexD *p = tmp3_v.fsite_ptr(xx);
+	for(int i=0;i<N;i++)
+	  p[i] = 0;
+      }
     }
   }
   
@@ -777,8 +847,11 @@ void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, c
 	      auto &wl = W.getWl(i); //fermion type
 	      auto &vl = V.getVl(i);
 
-	      auto* wsite = wl.site_ptr(c,f);
-	      auto* vsite = vl.site_ptr(c,f);
+	      CPSautoView(wl_v,wl,HostWrite);
+	      CPSautoView(vl_v,vl,HostWrite);
+	      
+	      auto* wsite = wl_v.site_ptr(c,f);
+	      auto* vsite = vl_v.site_ptr(c,f);
 
 	      size_t val_base = 12*f + 24*(xg + glb_size[0]*(yg + glb_size[1]*(zg + glb_size[2]*(tg + glb_size[3]*i))));
 	      for(int sc=0;sc<12;sc++){
@@ -789,7 +862,9 @@ void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, c
 
 	    for(int i=0;i<V.getNhighModes();i++){
 	      auto &vh = V.getVh(i);
-	      auto* vsite = vh.site_ptr(c,f);
+	      CPSautoView(vh_v,vh,HostWrite);
+		      
+	      auto* vsite = vh_v.site_ptr(c,f);
 
 	      size_t val_base = 12*f + 24*(xg + glb_size[0]*(yg + glb_size[1]*(zg + glb_size[2]*(tg + glb_size[3]*i))));
 	      for(int sc=0;sc<12;sc++){
@@ -799,7 +874,8 @@ void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, c
 
 	    for(int i=0;i<W.getNhighModes();i++){
 	      auto &wh = W.getWh(i);
-	      auto* wsite = wh.site_ptr(c,f);
+	      CPSautoView(wh_v,wh,HostWrite);		      
+	      auto* wsite = wh_v.site_ptr(c,f);
 
 	      size_t val_base = f + 2*(xg + glb_size[0]*(yg + glb_size[1]*(zg + glb_size[2]*(tg + glb_size[3]*i))));
 	      *wsite = val_base;
@@ -820,8 +896,8 @@ void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, c
   std::cout << "Meson field cols = " << mf.getNcols() << " expect " << nl + 12*nf*ntblocks << std::endl;
   assert(mf.getNcols() == nl + 12*nf*ntblocks);
 
-  typedef mult_vMv_field<GridA2Apolicies, A2AvectorV, A2AvectorWfftw, A2AvectorVfftw, A2AvectorW> vMvFieldImpl;
-  typedef typename vMvFieldImpl::PropagatorField PropagatorField;
+  typedef typename getPropagatorFieldType<GridA2Apolicies>::type PropagatorField;
+  typedef mult_vMv_field<GridA2Apolicies, A2AvectorV, A2AvectorWfftw, A2AvectorVfftw, A2AvectorW, PropagatorField> vMvFieldImpl;
   PropagatorField pfield_got(simd_dims);
 
   mult(pfield_got, V, mf, W, false, true);
@@ -829,21 +905,24 @@ void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, c
   cps::ComplexD tline_got[new_Lt];
   memset(tline_got, 0, new_Lt*sizeof(cps::ComplexD));
 
-  for(int t=0;t<node_sites[3];t++){
-    int tg = t + node_off[3];  
-    for(int z=0;z<node_sites[2];z++){
-      for(int y=0;y<node_sites[1];y++){
-	for(int x=0;x<node_sites[0];x++){
-	  int c[4] = {x,y,z,t};
-	  auto* sp = pfield_got.site_ptr(c);
+  {
+    CPSautoView(pfield_got_v,pfield_got,HostRead);
+    for(int t=0;t<node_sites[3];t++){
+      int tg = t + node_off[3];  
+      for(int z=0;z<node_sites[2];z++){
+	for(int y=0;y<node_sites[1];y++){
+	  for(int x=0;x<node_sites[0];x++){
+	    int c[4] = {x,y,z,t};
+	    auto* sp = pfield_got_v.site_ptr(c);
 
-	  for(int s1=0;s1<4;s1++){
-	    for(int c1=0;c1<3;c1++){
-	      for(int f1=0;f1<nf;f1++){
-		for(int s2=0;s2<4;s2++){
-		  for(int c2=0;c2<3;c2++){
-		    for(int f2=0;f2<nf;f2++){
-		      tline_got[tg] += convertComplexD(Reduce((*sp)(s1,s2)(c1,c2)(f1,f2)));
+	    for(int s1=0;s1<4;s1++){
+	      for(int c1=0;c1<3;c1++){
+		for(int f1=0;f1<nf;f1++){
+		  for(int s2=0;s2<4;s2++){
+		    for(int c2=0;c2<3;c2++){
+		      for(int f2=0;f2<nf;f2++){
+			tline_got[tg] += convertComplexD(Reduce((*sp)(s1,s2)(c1,c2)(f1,f2)));
+		      }
 		    }
 		  }
 		}
@@ -892,8 +971,11 @@ void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, c
 	      auto &wl = W2.getWl(i); //fermion type
 	      auto &vl = V2.getVl(i);
 
-	      auto* wsite = wl.site_ptr(c,f);
-	      auto* vsite = vl.site_ptr(c,f);
+	      CPSautoView(wl_v,wl,HostWrite);
+	      CPSautoView(vl_v,vl,HostWrite);
+	      
+	      auto* wsite = wl_v.site_ptr(c,f);
+	      auto* vsite = vl_v.site_ptr(c,f);
 
 	      size_t val_base = 12*f + 24*(xg + glb_size[0]*(yg + glb_size[1]*(zg + glb_size[2]*(tg + glb_size[3]*i))));
 	      for(int sc=0;sc<12;sc++){
@@ -904,7 +986,8 @@ void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, c
 
 	    for(int i=0;i<V2.getNhighModes();i++){
 	      auto &vh = V2.getVh(i);
-	      auto* vsite = vh.site_ptr(c,f);
+	      CPSautoView(vh_v,vh,HostWrite);	      
+	      auto* vsite = vh_v.site_ptr(c,f);
 
 	      size_t val_base = 12*f + 24*(xg + glb_size[0]*(yg + glb_size[1]*(zg + glb_size[2]*(tg + glb_size[3]*i))));
 	      for(int sc=0;sc<12;sc++){
@@ -914,7 +997,8 @@ void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, c
 
 	    for(int i=0;i<W2.getNhighModes();i++){
 	      auto &wh = W2.getWh(i);
-	      auto* wsite = wh.site_ptr(c,f);
+	      CPSautoView(wh_v,wh,HostWrite);	      		      
+	      auto* wsite = wh_v.site_ptr(c,f);
 
 	      size_t val_base = f + 2*(xg + glb_size[0]*(yg + glb_size[1]*(zg + glb_size[2]*(tg + glb_size[3]*i))));
 	      *wsite = val_base;
@@ -936,13 +1020,14 @@ void testvMvFieldArbitraryNtblock(const A2AArg &a2a_args, const DoArg &do_arg, c
 
   memset(tline_expect, 0, new_Lt*sizeof(cps::ComplexD));
 
+  CPSautoView(pfield_expect_v, pfield_expect, HostRead);
   for(int t=0;t<node_sites[3];t++){
     int tg = t + node_off[3];  
     for(int z=0;z<node_sites[2];z++){
       for(int y=0;y<node_sites[1];y++){
 	for(int x=0;x<node_sites[0];x++){
 	  int c[4] = {x,y,z,t};
-	  auto* sp = pfield_expect.site_ptr(c);
+	  auto* sp = pfield_expect_v.site_ptr(c);
 
 	  for(int s1=0;s1<4;s1++){
 	    for(int c1=0;c1<3;c1++){

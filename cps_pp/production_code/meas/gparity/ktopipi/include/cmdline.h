@@ -267,6 +267,11 @@ struct CommandLineArgs{
 	arg+=2;
 #endif
 
+      }else if( cmdstr == "-gpu_pool_max_mem" ){
+	std::stringstream ss; ss << argv[arg+1];
+	size_t v; ss >> v;
+	DeviceMemoryPoolManager::globalPool().setPoolMaxSize(v);
+	arg+=2;
       }else if( cmdstr == "-old_gparity_cfg"){
 	old_gparity_cfg = true;
 	arg++;

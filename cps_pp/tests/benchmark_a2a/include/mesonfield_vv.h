@@ -4,7 +4,8 @@ CPS_START_NAMESPACE
 
 template<typename GridA2Apolicies>
 void benchmarkVVgridOffload(const A2AArg &a2a_args, const int ntests, const int nthreads){
-  std::cout << "Starting vv benchmark\n";
+  mult_vv_field_offload_timers::get().reset();
+  std::cout << "Starting vv benchmark with policies " << printType<GridA2Apolicies>() << std::endl;
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -17,8 +18,9 @@ void benchmarkVVgridOffload(const A2AArg &a2a_args, const int ntests, const int 
   Wgrid.testRandom();
   Vgrid.testRandom();
   
-  typedef mult_vv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw> offload;
-  typedef typename offload::PropagatorField PropagatorField;
+
+  typedef typename getPropagatorFieldType<GridA2Apolicies>::type PropagatorField;
+  typedef mult_vv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, PropagatorField> offload;
   PropagatorField pfield(simd_dims);
       
   Float total_time_field_offload = 0;

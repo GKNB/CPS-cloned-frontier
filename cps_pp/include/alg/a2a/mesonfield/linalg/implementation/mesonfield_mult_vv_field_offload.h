@@ -9,13 +9,15 @@ CPS_START_NAMESPACE
 
 template<typename mf_Policies, 
 	 template <typename> class lA2Afield,  template <typename> class rA2Afield,
+	 typename PropagatorField,
 	 typename ComplexClass>
 class _mult_vv_field_offload_v{};
 
 template<typename mf_Policies, 
 	 template <typename> class lA2Afield,  
-	 template <typename> class rA2Afield>
-using mult_vv_field = _mult_vv_field_offload_v<mf_Policies, lA2Afield, rA2Afield, typename ComplexClassify<typename mf_Policies::ComplexType>::type >;
+	 template <typename> class rA2Afield,
+	 typename PropagatorField>
+using mult_vv_field = _mult_vv_field_offload_v<mf_Policies, lA2Afield, rA2Afield, PropagatorField, typename ComplexClassify<typename mf_Policies::ComplexType>::type >;
 
 
 #ifdef USE_GRID
@@ -52,11 +54,14 @@ struct mult_vv_field_offload_timers{
 //For A2A vector A,B \in { A2AvectorW, A2AvectorV, A2AvectorWfftw, A2AvectorVfftw }
 //Compute   AB  contracting over mode indices to produce a spin-color(-flavor) matrix field
 template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  template <typename> class rA2Afield>
-struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_complex_mark>{
+	 template <typename> class lA2Afield,  template <typename> class rA2Afield,
+	 typename PropagatorField>
+struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,grid_vector_complex_mark>{
   typedef _mult_vMv_field_offload_fields<mf_Policies, mf_Policies::GPARITY> fdef;
-  typedef typename fdef::VectorMatrixType VectorMatrixType;
-  typedef typename fdef::PropagatorField PropagatorField;
+  typedef typename PropagatorField::FieldSiteType VectorMatrixType;
+  
+  //typedef typename fdef::VectorMatrixType VectorMatrixType;
+  //typedef typename fdef::PropagatorField PropagatorField;
 
   typedef lA2Afield<mf_Policies> lA2AfieldType;
   typedef rA2Afield<mf_Policies> rA2AfieldType;
@@ -134,18 +139,15 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
   static void run_VV_kernel_GPU(VectorComplexType* vaprime,
 				VectorComplexType* vbprime,
 				typename ManagedVector<uint8_t>::View &alpha,
-				typename PropagatorField::View &into,
+				PropagatorField &into,
 				size_t niprime, size_t niprime_block,
 				size_t iprimestart, size_t iprimelessthan,
-				size_t vol4d, int t_off, int nf, int src_width, size_t nsimd,
-				int device){
-#if defined(GRID_CUDA)
-    cudaMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
-    cudaMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
-#elif defined(GRID_HIP)
-    hipMemPrefetchAsync(alpha.data(), alpha.byte_size(), device, NULL);
-    hipMemPrefetchAsync(into.ptr(), into.byte_size(), device, NULL);
-#endif
+				size_t vol4d, int t_off, int nf, int src_width, size_t nsimd){
+    device_UVM_prefetch_device(alpha.data(), alpha.byte_size());
+    if(PropagatorField::FieldAllocPolicy::UVMenabled){
+      CPSautoView(into_v,into,HostRead);
+      device_UVM_prefetch_device(into_v.ptr(), into.byte_size());
+    }
 
     //Divide up into two matrices of size   3 * shmem_iblock_size   requiring  bytes =  2* 3*shmem_iblock_size *sizeof(ScalarComplexType)
     int shmem_max = maxDeviceShmemPerBlock() / 4; //if we use all the available shared memory we get less blocks running at once. Tuneable
@@ -157,7 +159,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     if(shmem_iblock_size == 0) assert(0);
 
     using namespace Grid;
-
+    { CPSautoView(into_v,into,DeviceRead); } //preserve initial state
+    CPSautoView(into_v,into,DeviceWrite);
     accelerator_for_shmem(x4d, 
 			  vol4d, 
 			  nsimd, 
@@ -174,11 +177,11 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 			  SIMTcomplexType *matB = shared_t + 3*shmem_iblock_size;
 
 			  size_t xop; int top;
-			  into.fourToThree(xop, top, x4d);
+			  into_v.fourToThree(xop, top, x4d);
 			  int t_glob = top + t_off;
 			  int t_glob_block = t_glob / src_width;
 
-			  VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
+			  VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
 			  size_t niprimeb_subblocks = (niprime_block + shmem_iblock_size - 1)/shmem_iblock_size;
 			  for(int iprimeb_subblock=0; iprimeb_subblock < niprimeb_subblocks; iprimeb_subblock++){
 			    size_t iprimeb_start = iprimeb_subblock * shmem_iblock_size;
@@ -247,7 +250,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
   static void run_VV_kernel_base(VectorComplexType* vaprime,
 				 VectorComplexType* vbprime,
 				 typename ManagedVector<uint8_t>::View &alpha,
-				 typename PropagatorField::View &into,
+				 PropagatorField &into,
 				 size_t niprime, size_t niprime_block,
 				 size_t iprimestart, size_t iprimelessthan,
 				 size_t vol4d, int t_off, int nf, int src_width, size_t nsimd
@@ -255,7 +258,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     static const int shmem_iblock_size = 4;
     
     using namespace Grid;
-
+    { CPSautoView(into_v,into,DeviceRead); }
+    CPSautoView(into_v,into,DeviceWrite);    
     accelerator_for(x4d, 
 		    vol4d, 
 		    nsimd, 
@@ -337,7 +341,29 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
   }
 #endif
 
- 
+  static void prefetch_start(size_t iprimeblock, size_t niprime_blocks, size_t blocksize, size_t niprime, const lA2AfieldType &l, const rA2AfieldType &r, const hostDeviceMirroredContainer< std::pair<int,int> > &il_ir_pairs){
+    size_t iprimeblock_nxt = iprimeblock + 1;
+    if(iprimeblock_nxt < niprime_blocks){
+      size_t iprimestart_nxt = iprimeblock_nxt * blocksize;
+      size_t iprimelessthan_nxt = std::min(iprimestart_nxt + blocksize, niprime);
+     
+      std::vector<bool> lmodes_used(l.getNmodes(),false), rmodes_used(r.getNmodes(),false);
+      {
+	CPSautoView(il_ir_pairs_v, il_ir_pairs, HostRead);
+	for(size_t iprime = iprimestart_nxt; iprime < iprimelessthan_nxt; iprime++){
+	  lmodes_used[il_ir_pairs_v[iprime].first] = true;
+	  rmodes_used[il_ir_pairs_v[iprime].second] = true;
+	}
+      }
+      l.enqueuePrefetch(DeviceRead,lmodes_used);
+      r.enqueuePrefetch(DeviceRead,rmodes_used);
+      lA2AfieldType::startPrefetches();
+    }
+  }
+  static void prefetch_wait(){
+    lA2AfieldType::waitPrefetches();
+  }    
+   
   static void optimized(PropagatorField &into,
 		 const lA2AfieldType &l,
 		 const rA2AfieldType &r,
@@ -350,8 +376,6 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
     time.init1 -= dclock();
 
-    auto into_v = into.view();
-	
     into.zero();
 
     ModeContractionIndices<leftDilutionType,rightDilutionType> i_ind(l);
@@ -362,7 +386,6 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     size_t vol4d = into.size();
     int t_off = GJP.TnodeSites() * GJP.TnodeCoor();
     size_t blocksize = BlockedvMvOffloadArgs::b;
-    size_t inner_blocksize = BlockedvMvOffloadArgs::bb;
 
     //This version is designed for l, r with the same temporal src_width
     int ntblocks = l.getNtBlocks();
@@ -370,14 +393,6 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
     int src_width = l.getArgs().src_width;
     assert(r.getArgs().src_width == src_width);
-
-#if defined(GRID_CUDA)
-    int device;
-    cudaGetDevice(&device);
-#elif defined(GRID_HIP)
-    int device;
-    hipGetDevice(&device);
-#endif
 
     //Need to compute \sum_i v(il)_{scl,fl}(x) v(ir)_{scr,fr}(x)
     //The map of i -> il, ir depends on scl,fl, scr,fr, t
@@ -418,15 +433,18 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 	  ++nil_ir_pairs;
 
     //Map
-    std::vector< std::pair<int,int> > il_ir_pairs(nil_ir_pairs); //map of pair index to pair (ll,rr) 
+    hostDeviceMirroredContainer< std::pair<int,int> > il_ir_pairs(nil_ir_pairs); //map of pair index to pair (ll,rr) 
     std::vector<std::vector<int> > il_ir_pairs_index_map(lmodes, std::vector<int>(rmodes)); //inverse map of (ll,rr) -> pair index  (if ll,rr in use)
-    int ii=0;
-    for(int ll=0;ll<lmodes;ll++){
-      for(int rr=0;rr<rmodes;rr++){
-	if(il_ir_used[ll][rr]){
-	  il_ir_pairs[ii] = std::pair<int,int>(ll,rr);
-	  il_ir_pairs_index_map[ll][rr] = ii;
-	  ++ii;
+    {
+      CPSautoView(il_ir_pairs_v, il_ir_pairs, HostWrite);
+      int ii=0;
+      for(int ll=0;ll<lmodes;ll++){
+	for(int rr=0;rr<rmodes;rr++){
+	  if(il_ir_used[ll][rr]){
+	    il_ir_pairs_v[ii] = std::pair<int,int>(ll,rr);
+	    il_ir_pairs_index_map[ll][rr] = ii;
+	    ++ii;
+	  }
 	}
       }
     }
@@ -462,23 +480,16 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
     size_t field_size = 12 * nf * vol4d;
     size_t vprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
 
-    VectorComplexType* vaprime_host = (VectorComplexType*)pinned_alloc_check(128,vprime_bytes);
-    VectorComplexType* vbprime_host = (VectorComplexType*)pinned_alloc_check(128,vprime_bytes);
-#ifdef GPU_VEC
     VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
     VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
-#else
-    //Host and device memory space distinction irrelevant
-    VectorComplexType* &vaprime = vaprime_host;
-    VectorComplexType* &vbprime = vbprime_host;
-#endif
     
     if(!UniqueID()){
-      std::cout << "Outer block size " << blocksize << " inner blocksize " << inner_blocksize << std::endl;
+      std::cout << "Outer block size " << blocksize << std::endl;
       std::cout << "vaprime " << double(vprime_bytes)/1024./1024. << " MB" << std::endl;
       std::cout << "vbprime " << double(vprime_bytes)/1024./1024. << " MB" << std::endl;
     }
 
+    
     //Do in blocks over i' to avoid taking too much space
     size_t niprime_blocks = (niprime + blocksize-1)/blocksize;
 
@@ -493,66 +504,74 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_comp
 
       std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
       std::cout << "Create va'/vb'" << std::endl;
-
+     
+      std::vector<bool> lmodes_used(l.getNmodes(),false), rmodes_used(r.getNmodes(),false);
+      {
+	CPSautoView(il_ir_pairs_v, il_ir_pairs, HostRead);
+	for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
+	  lmodes_used[il_ir_pairs_v[iprime].first] = true;
+	  rmodes_used[il_ir_pairs_v[iprime].second] = true;
+	}
+      }
+    
       //Create va' and vb'
-      {	
-	thread_for(x4d, vol4d,
+      {
+	auto l_v = l.view(DeviceRead,lmodes_used);
+	auto r_v = r.view(DeviceRead,rmodes_used);	
+       
+	CPSautoView(il_ir_pairs_v, il_ir_pairs, DeviceRead);
+
+	prefetch_start(iprimeblock, niprime_blocks, blocksize, niprime, l, r, il_ir_pairs);
+	
+	using namespace Grid;	
+	accelerator_for2d(x4d, vol4d, iprimeb, niprime_block, nsimd,
 			{
-			  typedef SIMT<VectorComplexType> ACC; //this will use vector data as on host
+			  typedef SIMT<VectorComplexType> ACC;
 			  size_t xop; int top;
 			  into.fourToThree(xop, top, x4d);
 			  int t_glob = top + t_off;
-			  for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
-			    size_t iprimeb = iprime - iprimestart;
-			    for(int f=0;f<nf;f++){
-			      for(int sc=0;sc<12;sc++){
+			  size_t iprime = iprimeb + iprimestart;
+			  
+			  for(int f=0;f<nf;f++){
+			    for(int sc=0;sc<12;sc++){
 
-				{
-				  VectorComplexType *into = vaprime_host +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index
-				  auto val = ACC::read(l.nativeElem(il_ir_pairs[iprime].first, x4d, sc, f));
-				  val = conj_l ? Grid::conjugate(val) : val;
-				  ACC::write(*into, val);
-				}
-				{
-				  VectorComplexType *into = vbprime_host + iprimeb + niprime_block*( sc + 12*(f + nf*x4d) );  //contiguous in summed index
-				  auto val = ACC::read(r.nativeElem(il_ir_pairs[iprime].second, x4d, sc, f));
-				  val = conj_r ? Grid::conjugate(val) : val;
-				  ACC::write(*into, val);
-				}
-
+			      {
+				VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index
+				auto val = ACC::read(l_v.nativeElem(il_ir_pairs_v[iprime].first, x4d, sc, f));
+				val = conj_l ? Grid::conjugate(val) : val;
+				ACC::write(*into, val);
 			      }
+			      {
+				VectorComplexType *into = vbprime + iprimeb + niprime_block*( sc + 12*(f + nf*x4d) );  //contiguous in summed index
+				auto val = ACC::read(r_v.nativeElem(il_ir_pairs_v[iprime].second, x4d, sc, f));
+				val = conj_r ? Grid::conjugate(val) : val;
+				ACC::write(*into, val);
+			      }
+
 			    }
 			  }
 			});
+	l_v.free(); r_v.free();
       }
+      
       time.init2 += dclock();
-
 
       std::cout << "Compute VV" << std::endl;
       time.vv -= dclock();
-      
-#ifdef GPU_VEC
-      copy_host_to_device(vaprime, vaprime_host, vprime_bytes);
-      copy_host_to_device(vbprime, vbprime_host, vprime_bytes);
-#endif
-    
+         
 #if defined(GRID_CUDA) || defined(GRID_HIP)
-      run_VV_kernel_GPU(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd, device);
+      run_VV_kernel_GPU(vaprime, vbprime, alpha_v, into, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd);
 #else
-      run_VV_kernel_base(vaprime, vbprime, alpha_v, into_v, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd);
+      run_VV_kernel_base(vaprime, vbprime, alpha_v, into, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd);
 #endif
 
+      prefetch_wait();
+      
       time.vv += dclock();
     }
     
-#ifdef GPU_VEC
-    //If not using device, the host and device pointers are the same
     device_free(vaprime);
     device_free(vbprime);
-#endif
-
-    pinned_free(vaprime_host);
-    pinned_free(vbprime_host);
   }//end of func
 
   static void implementation(PropagatorField &into,

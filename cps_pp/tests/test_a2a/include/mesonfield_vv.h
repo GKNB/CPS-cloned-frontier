@@ -40,30 +40,37 @@ void testVVgridOrigGparity(const A2AArg &a2a_args, const int nthreads, const dou
   
   int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
   int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
-      
-  for(int top = 0; top < GJP.TnodeSites(); top++){
-#pragma omp parallel for
-    for(int xop=0;xop<orig_3vol;xop++){
-      int me = omp_get_thread_num();
-      //Slow
-      mult_slow(orig_tmp[me], V, W, xop, top, false, true);
-      orig_slow_sum[me] += orig_tmp[me];
 
-      //Non-SIMD
-      mult(orig_tmp[me], V, W, xop, top, false, true);
-      orig_sum[me] += orig_tmp[me];
-    }
+  {
+    CPSautoView(W_v,W,HostRead);
+    CPSautoView(V_v,V,HostRead);
+    CPSautoView(Wgrid_v,Wgrid,HostRead);
+    CPSautoView(Vgrid_v,Vgrid,HostRead);
+   
+    for(int top = 0; top < GJP.TnodeSites(); top++){
+#pragma omp parallel for
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	//Slow
+	mult_slow(orig_tmp[me], V_v, W_v, xop, top, false, true);
+	orig_slow_sum[me] += orig_tmp[me];
+
+	//Non-SIMD
+	mult(orig_tmp[me], V_v, W_v, xop, top, false, true);
+	orig_sum[me] += orig_tmp[me];
+      }
 
 #pragma omp parallel for   
-    for(int xop=0;xop<grid_3vol;xop++){
-      int me = omp_get_thread_num();
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
 
-      //SIMD
-      mult(grid_tmp[me], Vgrid, Wgrid, xop, top, false, true);
-      grid_sum[me] += grid_tmp[me];
+	//SIMD
+	mult(grid_tmp[me], Vgrid_v, Wgrid_v, xop, top, false, true);
+	grid_sum[me] += grid_tmp[me];
+      }
     }
   }
-
+  
   //Combine sums from threads > 1 into thread 0 output
   for(int i=1;i<nthreads;i++){
     orig_sum[0] += orig_sum[i];
@@ -74,17 +81,19 @@ void testVVgridOrigGparity(const A2AArg &a2a_args, const int nthreads, const dou
   std::cout << "Running GPU version" << std::endl;
   
   //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
-  typedef typename mult_vv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw>::PropagatorField PropagatorField;
+  typedef typename getPropagatorFieldType<GridA2Apolicies>::type PropagatorField;
   PropagatorField pfield(simd_dims);
   
   mult(pfield, Vgrid, Wgrid, false, true);
 
   CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
   vmv_offload_sum4.zero();
-  for(size_t i=0;i<pfield.size();i++){
-    vmv_offload_sum4 += *pfield.fsite_ptr(i);
+  {
+    CPSautoView(pfield_v,pfield,HostRead);
+    for(size_t i=0;i<pfield.size();i++){
+      vmv_offload_sum4 += *pfield_v.fsite_ptr(i);
+    }
   }
-
   std::cout << "Comparing results" << std::endl;
   
   //Do the comparison
@@ -139,27 +148,35 @@ void testVVgridOrigGparityTblock(A2AArg a2a_args, const int nthreads, const doub
   
   int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
   int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
-      
-  for(int top = 0; top < GJP.TnodeSites(); top++){
-#pragma omp parallel for
-    for(int xop=0;xop<orig_3vol;xop++){
-      int me = omp_get_thread_num();
-      //Slow
-      mult_slow(orig_tmp[me], V, W, xop, top, false, true);
-      orig_slow_sum[me] += orig_tmp[me];
 
-      //Non-SIMD
-      mult(orig_tmp[me], V, W, xop, top, false, true);
-      orig_sum[me] += orig_tmp[me];
-    }
+  {
+    CPSautoView(W_v,W,HostRead);
+    CPSautoView(V_v,V,HostRead);
+    CPSautoView(Wgrid_v,Wgrid,HostRead);
+    CPSautoView(Vgrid_v,Vgrid,HostRead);
+
+  
+    for(int top = 0; top < GJP.TnodeSites(); top++){
+#pragma omp parallel for
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	//Slow
+	mult_slow(orig_tmp[me], V_v, W_v, xop, top, false, true);
+	orig_slow_sum[me] += orig_tmp[me];
+
+	//Non-SIMD
+	mult(orig_tmp[me], V_v, W_v, xop, top, false, true);
+	orig_sum[me] += orig_tmp[me];
+      }
 
 #pragma omp parallel for   
-    for(int xop=0;xop<grid_3vol;xop++){
-      int me = omp_get_thread_num();
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
 
-      //SIMD
-      mult(grid_tmp[me], Vgrid, Wgrid, xop, top, false, true);
-      grid_sum[me] += grid_tmp[me];
+	//SIMD
+	mult(grid_tmp[me], Vgrid_v, Wgrid_v, xop, top, false, true);
+	grid_sum[me] += grid_tmp[me];
+      }
     }
   }
 
@@ -171,17 +188,20 @@ void testVVgridOrigGparityTblock(A2AArg a2a_args, const int nthreads, const doub
   }
   
   //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
-  typedef typename mult_vv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw>::PropagatorField PropagatorField;
+  typedef typename getPropagatorFieldType<GridA2Apolicies>::type PropagatorField;
   PropagatorField pfield(simd_dims);
   
   mult(pfield, Vgrid, Wgrid, false, true);
 
   CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
   vmv_offload_sum4.zero();
-  for(size_t i=0;i<pfield.size();i++){
-    vmv_offload_sum4 += *pfield.fsite_ptr(i);
+  {
+    CPSautoView(pfield_v,pfield,HostRead);    
+    for(size_t i=0;i<pfield.size();i++){
+      vmv_offload_sum4 += *pfield_v.fsite_ptr(i);
+    }
   }
-
+    
   //Do the comparison
   if(!compare(orig_sum[0],orig_slow_sum[0],tol)) ERR.General("","","Standard vs Slow implementation test failed\n");
   else if(!UniqueID()) printf("Standard vs Slow implementation test pass\n");
@@ -271,7 +291,7 @@ void testVVgridOrigPeriodic(const A2AArg &a2a_args, const int ntests, const int 
 
     //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
     total_time_field_offload -= dclock();
-    typedef typename mult_vv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw>::PropagatorField PropagatorField;
+    typedef typename getPropagatorFieldType<GridA2Apolicies>::type PropagatorField;
     PropagatorField pfield(simd_dims);
     
     mult(pfield, Vgrid, Wgrid, false, true);

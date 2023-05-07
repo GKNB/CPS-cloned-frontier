@@ -32,6 +32,11 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
   int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
   if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
 
+    CPSautoView(t_v,(*this),HostWrite);
+    CPSautoView(l_v,l,HostRead);
+    CPSautoView(r_v,r,HostRead);
+    CPSautoView(M_v,M,HostRead);
+    
 #pragma omp parallel for
     for(int i = 0; i < nmodes_l; i++){
       typename mf_Policies::ComplexType mf_accum;
@@ -44,12 +49,12 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 	mf_accum = 0.;
 
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,p_3d,t_lcl);
+	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l_v.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
+	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r_v.getFlavorDilutedVect(j,j_high_unmapped,p_3d,t_lcl);
 
-	  M(mf_accum,lscf,rscf,p_3d,t);
+	  M_v(mf_accum,lscf,rscf,p_3d,t);
 	}
-	(*this)(i,j) = mf_accum; //downcast after accumulate      
+	t_v(i,j) = mf_accum; //downcast after accumulate      
       }
     }
   }
@@ -82,18 +87,24 @@ void compute_simple(fMatrix<ComplexType> &into, const std::vector<FermionFieldTy
   int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
   if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
 
+    CPSautoView(M_v,M,HostRead);
+    
 #pragma omp parallel for
     for(int i = 0; i < nv; i++){
+      CPSautoView(l_i_v,l[i],HostRead);
+      
       for(int j = 0; j < nv; j++) {
+	CPSautoView(r_j_v,r[j],HostRead);
+	
 	ComplexType &into_ij = into(i,j);
 	into_ij = 0.;
 	
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
 	  size_t x4d = mode0.threeToFour(p_3d,t_lcl);
-	  SCFvectorPtr<ComplexType> lscf(l[i].site_ptr(x4d,0), nf==1 ? NULL : l[i].site_ptr(x4d,1),false,false);
-	  SCFvectorPtr<ComplexType> rscf(r[j].site_ptr(x4d,0), nf==1 ? NULL : r[j].site_ptr(x4d,1),false,false);
+	  SCFvectorPtr<ComplexType> lscf(l_i_v.site_ptr(x4d,0), nf==1 ? NULL : l_i_v.site_ptr(x4d,1),false,false);
+	  SCFvectorPtr<ComplexType> rscf(r_j_v.site_ptr(x4d,0), nf==1 ? NULL : r_j_v.site_ptr(x4d,1),false,false);
 	  
-	  M(into_ij,lscf,rscf,p_3d,t);
+	  M_v(into_ij,lscf,rscf,p_3d,t);
 	}
       }
     }
@@ -110,6 +121,11 @@ void compute_simple(fMatrix<ComplexType> &into, const std::vector<FermionFieldTy
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct>
 void compute_simple(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, const int t){
   into.setup(l,r,t,t); //both vectors have same timeslice
+  
+  CPSautoView(l_v,l,HostRead);
+  CPSautoView(r_v,r,HostRead);
+  CPSautoView(into_v,into,HostWrite);
+  CPSautoView(M_v,M,HostRead);
   
   if(!UniqueID()) printf("Starting simple meson field compute for timeslice %d with %d threads\n",t, omp_get_max_threads());
 
@@ -131,7 +147,7 @@ void compute_simple(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const 
 
       for(int j = 0; j < nv; j++) {
 
-	typename mf_Policies::ScalarComplexType *into_ij = into.elem_ptr(i,j); //will be null for implicitly zero elements
+	typename mf_Policies::ScalarComplexType *into_ij = into_v.elem_ptr(i,j); //will be null for implicitly zero elements
 	if(into_ij != NULL){	
 	  mf_accum = 0.;
 	  
@@ -139,13 +155,13 @@ void compute_simple(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const 
 	    ComplexType ll[nf*12], rr[nf*12];
 	    for(int f=0;f<nf;f++){
 	      for(int sc=0;sc<12;sc++){
-		ll[sc + 12*f] = l.elem(i,p_3d,t_lcl,sc,f);
-		rr[sc + 12*f] = r.elem(j,p_3d,t_lcl,sc,f);
+		ll[sc + 12*f] = l_v.elem(i,p_3d,t_lcl,sc,f);
+		rr[sc + 12*f] = r_v.elem(j,p_3d,t_lcl,sc,f);
 	      }
 	    }
 	    SCFvectorPtr<ComplexType> lscf(ll,nf==1 ? NULL : (ll+12),false,false);
 	    SCFvectorPtr<ComplexType> rscf(rr,nf==1 ? NULL : (rr+12),false,false);
-	    M(mf_accum,lscf,rscf,p_3d,t);
+	    M_v(mf_accum,lscf,rscf,p_3d,t);
 	  }
 	  *into_ij = mf_accum; //reduce?
 	}
@@ -257,8 +273,8 @@ public:
   }
 
   //Lowest level of blocked matrix mult. Ideally this should fit in L1 cache.
-  template<typename InnerProduct, typename AccumMatrixType>
-  inline static void mult_kernel(AccumMatrixType & mf_accum_m, const InnerProduct &M, const int t,
+  template<typename InnerProductView, typename AccumMatrixType>
+  inline static void mult_kernel(AccumMatrixType & mf_accum_m, const InnerProductView &M_v, const int t,
 			  const int i0, const int iup, const int j0, const int jup, const int p0, const int pup,
 			  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> const *base_ptrs_i,
 			  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> const *base_ptrs_j,
@@ -277,7 +293,7 @@ public:
 	for(int p_3d = p0; p_3d < pup; p_3d++) {
 	  //prefetchAdvanceSite(lscf,rscf,site_offsets_i[i],site_offsets_j[j]);
 
-	  M(mf_accum,lscf,rscf,p_3d,t);	 
+	  M_v(mf_accum,lscf,rscf,p_3d,t);	 
 	  lscf.incrementPointers(site_offsets_i[i]);
 	  rscf.incrementPointers(site_offsets_j[j]);		  
 	}
@@ -286,8 +302,8 @@ public:
   }
   //Do a second layer of blocked dgemm to try to fit in the L1 cache
   //note the i0, iup, etc are the low and high range limits from the outer blocking
-  template<typename InnerProduct, typename AccumMatrixType>
-  inline static void inner_block_mult(AccumMatrixType &mf_accum_m, const InnerProduct &M, const int t,
+  template<typename InnerProductView, typename AccumMatrixType>
+  inline static void inner_block_mult(AccumMatrixType &mf_accum_m, const InnerProductView &M_v, const int t,
 			       const int i0, const int iup, const int j0, const int jup, const int p0, const int pup,
 			       SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> const *base_ptrs_i,
 			       SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> const *base_ptrs_j,
@@ -304,7 +320,7 @@ public:
 	for(int pp0=p0; pp0 < pup; pp0+=bpp){
 	  int ppup = std::min(pp0+bpp,pup);
 
-	  MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_m, M, t,
+	  MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_m, M_v, t,
 								   ii0, iiup, jj0, jjup, pp0, ppup,
 								   base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
 	}
@@ -336,13 +352,15 @@ struct SingleSrcVectorPolicies{
     for(int t=0;t<Lt;t++) 
       if(do_setup) mf_t[t].setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
       else{
-	assert(mf_t[t].ptr() != NULL);
+	CPSautoView(mf_t_v,mf_t[t],HostRead);
+	assert(mf_t_v.ptr() != NULL);
 	mf_t[t].zero();
       }
   }
   static inline void sumThreadedResults(mfVectorType &mf_t, AccumMatrixType const* mf_accum_thr, const int i, const int j, const int t, const int nthread){
+    CPSautoView(mf_t_v,mf_t[t],HostWrite);
     for(int thr=0;thr<nthread;thr++)
-      mf_t[t](i,j) += mf_accum_thr[thr](i,j);
+      mf_t_v(i,j) += mf_accum_thr[thr](i,j);
   }
 
   //Used to get information about rows and cols
@@ -357,7 +375,8 @@ struct SingleSrcVectorPolicies{
 //Multisrc
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
 struct MultiSrcVectorPolicies{
-  typedef std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
+  typedef A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> MesonFieldType;
+  typedef std::vector< std::vector<MesonFieldType, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
   typedef InPlaceMatrixMulti<typename mf_Policies::ScalarComplexType> AccumMatrixType;
 
   int mfPerTimeSlice;
@@ -391,9 +410,11 @@ struct MultiSrcVectorPolicies{
       mf_st[s]->resize(Lt);
       for(int t=0;t<Lt;t++) 
 	if(do_setup) mf_st[s]->operator[](t).setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
-	else{
-	  assert(mf_st[s]->operator[](t).ptr() != NULL);
-	  mf_st[s]->operator[](t).zero();
+	else{	
+	  auto &mf_tarray = *mf_st[s];
+	  CPSautoView(mf_st_v,mf_tarray[t],HostRead);
+	  assert(mf_st_v.ptr() != NULL);
+	  mf_tarray[t].zero();
 	}
     }
   }
@@ -401,7 +422,10 @@ struct MultiSrcVectorPolicies{
     for(int thr=0;thr<nthread;thr++){
       typename mf_Policies::ScalarComplexType const* v = mf_accum_thr[thr](i,j);
       for(int s=0;s<mfPerTimeSlice;s++){
-	mf_st[s]->operator[](t)(i,j) += v[s];
+	auto const &mf_tarray = *mf_st[s];
+	CPSautoView(mf_st_v,mf_tarray[t],HostWrite);
+	CPSautoView(mf_st_vr,mf_tarray[t],HostRead);
+	mf_st_v(i,j) += v[s];
       }
     }
   }
@@ -530,6 +554,10 @@ struct mfComputeGeneral: public mfVectorPolicies{
   void compute(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
     this->setupPolicy(mf_t,l,M,r);
     
+    CPSautoView(l_v,l,HostRead);
+    CPSautoView(r_v,r,HostRead);
+    CPSautoView(M_v,M,HostRead);
+
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     if(!UniqueID()) printf("Starting A2AmesonField::compute (CPU,blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
 #ifdef KNL_OPTIMIZATIONS
@@ -629,13 +657,13 @@ struct mfComputeGeneral: public mfVectorPolicies{
 	thread_work(thr_tabwork, thr_taboff, nmodes_l, me, omp_get_num_threads());
 	for(int i=thr_taboff; i<thr_taboff+thr_tabwork;i++){ //i table
 	  modeIndexSet i_high_unmapped; if(i>=nl_l) mf_ref.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
-	  base_ptrs_i[i] = l.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl);
+	  base_ptrs_i[i] = l_v.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl);
 	  site_offsets_i[i] = std::pair<int,int>( l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) );
 	}
 	thread_work(thr_tabwork, thr_taboff, nmodes_r, me, omp_get_num_threads());
 	for(int j=thr_taboff; j<thr_taboff+thr_tabwork;j++){ //j table
 	  modeIndexSet j_high_unmapped; if(j>=nl_r) mf_ref.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
-	  base_ptrs_j[j] = r.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+	  base_ptrs_j[j] = r_v.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
 	  site_offsets_j[j] = std::pair<int,int>( r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) );
 	}
 #pragma omp barrier
@@ -654,11 +682,11 @@ struct mfComputeGeneral: public mfVectorPolicies{
 
 	      int thr_p0 = p0 + thr_poff;
 #ifdef USE_INNER_BLOCKING
-	      MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::inner_block_mult(mf_accum_thr[me], M, t,
+	      MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::inner_block_mult(mf_accum_thr[me], M_v, t,
 									    i0, iup, j0, jup, thr_p0, thr_p0+thr_pwork,
 									    base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
 #else
-	      MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_thr[me], M, t,
+	      MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_thr[me], M_v, t,
 								       i0, iup, j0, jup, thr_p0, thr_p0+thr_pwork,
 								       base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
 #endif

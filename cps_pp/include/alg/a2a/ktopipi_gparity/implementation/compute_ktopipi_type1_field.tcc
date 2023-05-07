@@ -31,6 +31,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_contract(ResultsContainerType &re
   CPSmatrixField<CPScolorMatrix<ComplexType> > tr_sf_G2_pt2(dimpol);
   CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > tr_c_G1_pt1(dimpol);
   CPSmatrixField<CPSspinMatrix<CPSflavorMatrix<ComplexType> > > tr_c_G2_pt2(dimpol);
+
+  device_profile_start();
   
   for(int pt1_pion=0; pt1_pion<2; pt1_pion++){ //which pion is associated with part 1?
     int pt2_pion = (pt1_pion + 1) % 2;
@@ -82,6 +84,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_contract(ResultsContainerType &re
       }
     }
   }
+
+  device_profile_stop();
+  
   std::cout << "Finished K->pipi type 1 contractions with tK=" << t_K << std::endl;
 #endif
 }

@@ -33,13 +33,16 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallel(std::o
   file << "BASE_FLOATBYTES = " << dsize << '\n';
   file << "SITETYPE_NFLOATS = " << nd_in_sitetype << '\n';
   file << "CHECKSUM_TYPE = " << checksumTypeToString(cksumtype) << '\n';
-
-  if(cksumtype == checksumBasic){
-    unsigned int checksum = conv.checksum( (char*)f, nd_in_sitetype*fsize, dataformat); //assumes complex or real SiteType
-    file << "CHECKSUM = " << checksum << "\n";
-  }else{
-    uint32_t checksum = conv.checksumCRC32( (char*)f, nd_in_sitetype*fsize, dataformat);
-    file << "CHECKSUM = " << checksum << "\n";
+  
+  {
+    CPSautoView(t_v,(*this),HostRead);
+    if(cksumtype == checksumBasic){
+      unsigned int checksum = conv.checksum( (char*)t_v.ptr(), nd_in_sitetype*fsize, dataformat); //assumes complex or real SiteType
+      file << "CHECKSUM = " << checksum << "\n";
+    }else{
+      uint32_t checksum = conv.checksumCRC32( (char*)t_v.ptr(), nd_in_sitetype*fsize, dataformat);
+      file << "CHECKSUM = " << checksum << "\n";
+    }
   }
   
   file << "NODE_ID = " << UniqueID() << "\n";
@@ -93,7 +96,8 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallel(std::o
   int fdinchunk = chunk/dsize;
   char* wbuf = (char*)malloc_check(chunk * sizeof(char)); 
       
-  char const* dptr = (char const*)f;
+  CPSautoView(t_v,(*this),HostRead);
+  char const* dptr = (char const*)t_v.ptr();
 
   int off = 0;
   int nfd = nd_in_sitetype*fsize;
@@ -264,7 +268,8 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::readParallel(std::is
   int fdinchunk = chunk/dsize;
   char *rbuf = (char *)malloc_check(chunk * sizeof(char)); //leave room for auto null char
       
-  char *dptr = (char *)f;
+  CPSautoView(t_v,(*this),HostWrite);
+  char *dptr = (char *)t_v.ptr();
 
   int off = 0;
   int nfd = nd_in_sitetype*fsize;
@@ -289,12 +294,16 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::readParallel(std::is
   getline(file,str); assert(str == "END_DATA");
 
   //Checksum
-  if(checksumtype == checksumBasic){
-    unsigned int calc_cksum = conv.checksum((char*)f, nd_in_sitetype*fsize, dataformat);
-    assert( calc_cksum == checksum );
-  }else{
-    uint32_t calc_cksum = conv.checksumCRC32((char*)f, nd_in_sitetype*fsize, dataformat);
-    assert( calc_cksum == checksumcrc32 );
+  {
+    CPSautoView(t_v,(*this),HostRead);
+    
+    if(checksumtype == checksumBasic){
+      unsigned int calc_cksum = conv.checksum((char*)t_v.ptr(), nd_in_sitetype*fsize, dataformat);
+      assert( calc_cksum == checksum );
+    }else{
+      uint32_t calc_cksum = conv.checksumCRC32((char*)t_v.ptr(), nd_in_sitetype*fsize, dataformat);
+      assert( calc_cksum == checksumcrc32 );
+    }
   }
 
 #ifdef USE_MPI
@@ -404,9 +413,10 @@ private:
     size_t fsites = field.nfsites(); //number of "sites" (including doubling due to second flavor if applicable)
 
     nd node_data;
-    
-    node_data.checksum = conv.checksumCRC32( (char*)field.ptr(), floats_per_site*fsites, dataformat);
-
+    {
+      CPSautoView(field_v,field,HostRead);
+      node_data.checksum = conv.checksumCRC32( (char*)field_v.ptr(), floats_per_site*fsites, dataformat);
+    }
     nd* recv_buf = myrank == headrank ? (nd*)malloc_check(nodes * sizeof(nd)) : NULL;
     
     int ret = MPI_Gather(&node_data, sizeof(nd), MPI_BYTE,
@@ -467,7 +477,8 @@ private:
     size_t fdinchunk = chunk/float_bytes;
     char* wbuf = (char*)malloc_check(chunk * sizeof(char)); 
       
-    char const* dptr = (char const*)field.ptr();
+    CPSautoView(field_v,field,HostRead);
+    char const* dptr = (char const*)field_v.ptr();
     size_t fsites = field.nfsites();
     
     size_t off = 0;
@@ -785,7 +796,8 @@ public:
 
     if(sameLayout() && sameCoordinate(node_coors[UniqueID()])){ //easiest if node layout same as in original files
       std::pair<char*,size_t> data = readNodeData(checkpoint_path + "/checkpoint", UniqueID(), checksums[UniqueID()]);
-      memcpy(field.ptr(), data.first, data.second);
+      CPSautoView(field_v,field,HostWrite);
+      memcpy(field_v.ptr(), data.first, data.second);
       free(data.first);
     }else{
       ERR.General("readParallelSeparateMetadata","readOneField","Not yet implemented for layouts different from original\n");
@@ -805,7 +817,8 @@ public:
 	std::ostringstream checkpoint_path; checkpoint_path << path << "/checkpoint_" << f;
       
 	std::pair<char*,size_t> data = readNodeData(checkpoint_path.str() + "/checkpoint", UniqueID(), checksums[f][UniqueID()]);
-	memcpy(fields[f]->ptr(), data.first, data.second);
+	CPSautoView(field_v,(*fields[f]),HostWrite);
+	memcpy(field_v.ptr(), data.first, data.second);
 	free(data.first);
       }	
     }else{
@@ -825,12 +838,13 @@ public:
     
     if(sameLayout() && sameCoordinate(node_coors[UniqueID()])){ //easiest if node layout same as in original files
       NullObject nul;
-      CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> nonsimd(nul);
+      CPSfield<SiteType,SiteSize,MappingPolicy,HostAllocPolicy> nonsimd(nul);
+      CPSautoView(nonsimd_v,nonsimd,HostWrite);
       for(int f=0;f<fields.size();f++){
 	std::ostringstream checkpoint_path; checkpoint_path << path << "/checkpoint_" << f;
       
 	std::pair<char*,size_t> data = readNodeData(checkpoint_path.str() + "/checkpoint", UniqueID(), checksums[f][UniqueID()]);
-	memcpy(nonsimd.ptr(), data.first, data.second);
+	memcpy(nonsimd_v.ptr(), data.first, data.second);
 	free(data.first);
 
 	fields[f]->importField(nonsimd);

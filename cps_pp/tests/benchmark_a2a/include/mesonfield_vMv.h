@@ -206,7 +206,7 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
 
     //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
     total_time_field_offload -= dclock();
-    typedef typename mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw>::PropagatorField PropagatorField;
+    typedef typename getPropagatorFieldType<GridA2Apolicies>::type PropagatorField;
     PropagatorField pfield(simd_dims);
     
     mult(pfield, Vgrid, mf_grid, Wgrid, false, true);
@@ -242,31 +242,36 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
 
 template<typename GridA2Apolicies, template<typename> class A2AfieldL, template<typename> class A2AfieldR>
 void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int nthreads){
-  std::cout << "Starting vMv offload benchmark\n";
-
+  std::cout << "Starting vMv offload benchmark with policies " << printType<GridA2Apolicies>() << std::endl;
+  //DeviceMemoryPoolManager::globalPool().setVerbose(true);
+  
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
   A2Aparams a2a_params(a2a_args);
   
   typename FourDSIMDPolicy<typename GridA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::ParamType simd_dims;
   FourDSIMDPolicy<typename GridA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
-      
+
+  std::cout << "Constructing A2A vectors" << std::endl;
   A2AfieldL<GridA2Apolicies> fieldL(a2a_args, simd_dims);
   A2AfieldR<GridA2Apolicies> fieldR(a2a_args, simd_dims);
 
   fieldL.zero();
   fieldR.zero();
-  
+
+  std::cout << "Constructing meson field" << std::endl;
   A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
   mf_grid.setup(a2a_params,a2a_params,0,0);     
   mf_grid.testRandom();
-  
-  typedef mult_vMv_field<GridA2Apolicies, A2AfieldL, A2AvectorWfftw, A2AvectorVfftw, A2AfieldR> offload;
-  typedef typename offload::PropagatorField PropagatorField;
+
+  std::cout << "Constructing propagator field" << std::endl;
+  typedef typename getPropagatorFieldType<GridA2Apolicies>::type PropagatorField;
   PropagatorField pfield(simd_dims);
+
+  std::cout << "Running benchmark" << std::endl;
   
   Float total_time_field_offload = 0.;
   mult_vMv_field_offload_timers::get().reset();
-  
+
   for(int i=0;i<ntests;i++){
     if(!UniqueID()){ printf("."); fflush(stdout); }
     total_time_field_offload -= dclock();    
@@ -318,7 +323,7 @@ void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int
 
   //vol4d * 12 * nf * ni * ( nj * 8 + 12*nf*ni *8)
 
-
+  typedef mult_vMv_field<GridA2Apolicies, A2AfieldL, A2AvectorWfftw, A2AvectorVfftw, A2AfieldR, PropagatorField> offload;
   ModeContractionIndices<typename offload::iLeftDilutionType, typename offload::iRightDilutionType> i_ind(a2a_params);
   ModeContractionIndices<typename offload::jLeftDilutionType, typename offload::jRightDilutionType> j_ind(a2a_params);
   size_t Flops = 0;
@@ -374,6 +379,7 @@ void benchmarkvMvGridOffload(const A2AArg &a2a_args, const int ntests, const int
     printf("vMv offload timings:\n");
     mult_vMv_field_offload_timers::get().print();
   }
+  //DeviceMemoryPoolManager::globalPool().setVerbose(false);    
 }
 
 
@@ -397,8 +403,7 @@ void benchmarkvMvPartialTimeGridOffload(const A2AArg &a2a_args, const int ntests
   mf_grid.setup(Wgrid,Vgrid,0,0);     
   mf_grid.testRandom();
   
-  typedef mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> offload;
-  typedef typename offload::PropagatorField PropagatorField;
+  typedef typename getPropagatorFieldType<GridA2Apolicies>::type PropagatorField;
   PropagatorField pfield(simd_dims);
 
   Float total_time_orig = 0;
@@ -426,7 +431,7 @@ void benchmarkvMvPartialTimeGridOffload(const A2AArg &a2a_args, const int ntests
 
   int nf = GJP.Gparity() + 1;
 
-
+  typedef mult_vMv_field<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw, PropagatorField> offload;
   ModeContractionIndices<typename offload::iLeftDilutionType, typename offload::iRightDilutionType> i_ind(Vgrid);
   ModeContractionIndices<typename offload::jLeftDilutionType, typename offload::jRightDilutionType> j_ind(Vgrid);
   size_t Flops = 0;

@@ -39,12 +39,15 @@ void testCPSmatrixFieldPropagatorFieldUnOp(const FieldOp &field_op, const SiteOp
   PropagatorField pla(in); pla.zero();
   field_op(pla,in);
 
+  CPSautoView(in_v,in,HostRead);
+  CPSautoView(pla_v,pla,HostRead);
+  
   bool fail = false;
   for(size_t x4d=0; x4d< in.size(); x4d++){
-    auto aa=*in.site_ptr(x4d);
+    auto aa=*in_v.site_ptr(x4d);
     site_op(aa);
     for(int i=0;i<aa.nScalarType();i++){
-      auto got = Reduce( pla.site_ptr(x4d)->scalarTypePtr()[i] );
+      auto got = Reduce( pla_v.site_ptr(x4d)->scalarTypePtr()[i] );
       auto expect = Reduce( aa.scalarTypePtr()[i] );
       
       double rdiff = fabs(got.real()-expect.real());
@@ -93,18 +96,22 @@ void testCPSmatrixField(const double tol){
   PropagatorField::SIMDdefaultLayout(simd_dims,nsimd,2);
   
   PropagatorField a(simd_dims), b(simd_dims);
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    for(int s1=0;s1<4;s1++){
-      for(int c1=0;c1<3;c1++){
-	for(int f1=0;f1<2;f1++){
-	  for(int s2=0;s2<4;s2++){
-	    for(int c2=0;c2<3;c2++){
-	      for(int f2=0;f2<2;f2++){
-		ComplexType &v = (*a.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
-		for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+  {
+    CPSautoView(a_v,a,HostWrite);
+    CPSautoView(b_v,b,HostWrite);
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      for(int s1=0;s1<4;s1++){
+	for(int c1=0;c1<3;c1++){
+	  for(int f1=0;f1<2;f1++){
+	    for(int s2=0;s2<4;s2++){
+	      for(int c2=0;c2<3;c2++){
+		for(int f2=0;f2<2;f2++){
+		  ComplexType &v = (*a_v.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
+		  for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
 
-		ComplexType &u = (*b.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
-		for(int s=0;s<nsimd;s++) u.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+		  ComplexType &u = (*b_v.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
+		  for(int s=0;s<nsimd;s++) u.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+		}
 	      }
 	    }
 	  }
@@ -117,30 +124,35 @@ void testCPSmatrixField(const double tol){
   PropagatorField c = a * b;
 
   bool fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    auto bb=*b.site_ptr(x4d);
-    auto cc = aa*bb;
-    for(int s1=0;s1<4;s1++){
-    for(int c1=0;c1<3;c1++){
-    for(int f1=0;f1<2;f1++){
-    for(int s2=0;s2<4;s2++){
-    for(int c2=0;c2<3;c2++){
-    for(int f2=0;f2<2;f2++){
-      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
-      auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(b_v,b,HostRead);
+    CPSautoView(c_v,c,HostRead);
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      auto bb=*b_v.site_ptr(x4d);
+      auto cc = aa*bb;
+      for(int s1=0;s1<4;s1++){
+	for(int c1=0;c1<3;c1++){
+	  for(int f1=0;f1<2;f1++){
+	    for(int s2=0;s2<4;s2++){
+	      for(int c2=0;c2<3;c2++){
+		for(int f2=0;f2<2;f2++){
+		  auto got = Reduce( (*c_v.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+		  auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
       
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: operator* (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
+		  double rdiff = fabs(got.real()-expect.real());
+		  double idiff = fabs(got.imag()-expect.imag());
+		  if(rdiff > tol|| idiff > tol){
+		    printf("Fail: operator* (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+		    fail = true;
+		  }
+		}
+	      }
+	    }
+	  }
+	}
       }
-    }
-    }
-    }
-    }
-    }
     }
   }
   if(fail) ERR.General("","","CPSmatrixField operator* failed\n");
@@ -150,30 +162,36 @@ void testCPSmatrixField(const double tol){
   c = binop(a,b, _times());
   
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    auto bb=*b.site_ptr(x4d);
-    auto cc = aa*bb;
-    for(int s1=0;s1<4;s1++){
-    for(int c1=0;c1<3;c1++){
-    for(int f1=0;f1<2;f1++){
-    for(int s2=0;s2<4;s2++){
-    for(int c2=0;c2<3;c2++){
-    for(int f2=0;f2<2;f2++){
-      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
-      auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(b_v,b,HostRead);
+    CPSautoView(c_v,c,HostRead);
+
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      auto bb=*b_v.site_ptr(x4d);
+      auto cc = aa*bb;
+      for(int s1=0;s1<4;s1++){
+	for(int c1=0;c1<3;c1++){
+	  for(int f1=0;f1<2;f1++){
+	    for(int s2=0;s2<4;s2++){
+	      for(int c2=0;c2<3;c2++){
+		for(int f2=0;f2<2;f2++){
+		  auto got = Reduce( (*c_v.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+		  auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
       
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: binop (operator*) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
+		  double rdiff = fabs(got.real()-expect.real());
+		  double idiff = fabs(got.imag()-expect.imag());
+		  if(rdiff > tol|| idiff > tol){
+		    printf("Fail: binop (operator*) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+		    fail = true;
+		  }
+		}
+	      }
+	    }
+	  }
+	}
       }
-    }
-    }
-    }
-    }
-    }
     }
   }
   if(fail) ERR.General("","","CPSmatrixField operator* failed\n");
@@ -184,53 +202,63 @@ void testCPSmatrixField(const double tol){
   c = binop_v(a,b, _timesV<VectorMatrixType>());
   
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    auto bb=*b.site_ptr(x4d);
-    auto cc = aa*bb;
-    for(int s1=0;s1<4;s1++){
-    for(int c1=0;c1<3;c1++){
-    for(int f1=0;f1<2;f1++){
-    for(int s2=0;s2<4;s2++){
-    for(int c2=0;c2<3;c2++){
-    for(int f2=0;f2<2;f2++){
-      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
-      auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(b_v,b,HostRead);
+    CPSautoView(c_v,c,HostRead);
+    
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      auto bb=*b_v.site_ptr(x4d);
+      auto cc = aa*bb;
+      for(int s1=0;s1<4;s1++){
+	for(int c1=0;c1<3;c1++){
+	  for(int f1=0;f1<2;f1++){
+	    for(int s2=0;s2<4;s2++){
+	      for(int c2=0;c2<3;c2++){
+		for(int f2=0;f2<2;f2++){
+		  auto got = Reduce( (*c_v.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+		  auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
       
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: binop_v (operator*) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
+		  double rdiff = fabs(got.real()-expect.real());
+		  double idiff = fabs(got.imag()-expect.imag());
+		  if(rdiff > tol|| idiff > tol){
+		    printf("Fail: binop_v (operator*) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+		    fail = true;
+		  }
+		}
+	      }
+	    }
+	  }
+	}
       }
-    }
-    }
-    }
-    }
-    }
     }
   }
   if(fail) ERR.General("","","CPSmatrixField binop_v operator* failed\n");
-
-
 
 
   //Test trace * trace using binop_v
   auto trtr = binop_v(a,b, _trtrV<VectorMatrixType>());
   
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    auto bb=*b.site_ptr(x4d);
-    auto cc = aa.Trace()*bb.Trace();
-    auto got = Reduce( *trtr.site_ptr(x4d) );
-    auto expect = Reduce( cc );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(b_v,b,HostRead);
+    CPSautoView(trtr_v,trtr,HostRead);
+
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      auto bb=*b_v.site_ptr(x4d);
+      auto cc = aa.Trace()*bb.Trace();
+      auto got = Reduce( *trtr_v.site_ptr(x4d) );
+      auto expect = Reduce( cc );
       
-    double rdiff = fabs(got.real()-expect.real());
-    double idiff = fabs(got.imag()-expect.imag());
-    if(rdiff > tol|| idiff > tol){
-      printf("Fail: trace*trace binop_v (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-      fail = true;
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: trace*trace binop_v (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      }
     }
   }
   if(fail) ERR.General("","","CPSmatrixField trace*trace binop_v failed\n");
@@ -243,30 +271,36 @@ void testCPSmatrixField(const double tol){
   c = binop_v(a,b, _addV<VectorMatrixType>());
   
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    auto bb=*b.site_ptr(x4d);
-    auto cc = aa + bb;
-    for(int s1=0;s1<4;s1++){
-    for(int c1=0;c1<3;c1++){
-    for(int f1=0;f1<2;f1++){
-    for(int s2=0;s2<4;s2++){
-    for(int c2=0;c2<3;c2++){
-    for(int f2=0;f2<2;f2++){
-      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
-      auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(b_v,b,HostRead);
+    CPSautoView(c_v,c,HostRead);
+
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      auto bb=*b_v.site_ptr(x4d);
+      auto cc = aa + bb;
+      for(int s1=0;s1<4;s1++){
+	for(int c1=0;c1<3;c1++){
+	  for(int f1=0;f1<2;f1++){
+	    for(int s2=0;s2<4;s2++){
+	      for(int c2=0;c2<3;c2++){
+		for(int f2=0;f2<2;f2++){
+		  auto got = Reduce( (*c_v.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+		  auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
       
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: binop_v (operator+) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
+		  double rdiff = fabs(got.real()-expect.real());
+		  double idiff = fabs(got.imag()-expect.imag());
+		  if(rdiff > tol|| idiff > tol){
+		    printf("Fail: binop_v (operator+) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+		    fail = true;
+		  }
+		}
+	      }
+	    }
+	  }
+	}
       }
-    }
-    }
-    }
-    }
-    }
     }
   }
   if(fail) ERR.General("","","CPSmatrixField binop_v operator+ failed\n");
@@ -277,30 +311,36 @@ void testCPSmatrixField(const double tol){
   c = binop_v(a,b, _subV<VectorMatrixType>());
   
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    auto bb=*b.site_ptr(x4d);
-    auto cc = aa - bb;
-    for(int s1=0;s1<4;s1++){
-    for(int c1=0;c1<3;c1++){
-    for(int f1=0;f1<2;f1++){
-    for(int s2=0;s2<4;s2++){
-    for(int c2=0;c2<3;c2++){
-    for(int f2=0;f2<2;f2++){
-      auto got = Reduce( (*c.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
-      auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(b_v,b,HostRead);
+    CPSautoView(c_v,c,HostRead);
+
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      auto bb=*b_v.site_ptr(x4d);
+      auto cc = aa - bb;
+      for(int s1=0;s1<4;s1++){
+	for(int c1=0;c1<3;c1++){
+	  for(int f1=0;f1<2;f1++){
+	    for(int s2=0;s2<4;s2++){
+	      for(int c2=0;c2<3;c2++){
+		for(int f2=0;f2<2;f2++){
+		  auto got = Reduce( (*c_v.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2) );
+		  auto expect = Reduce( cc(s1,s2)(c1,c2)(f1,f2) );
       
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: binop_v (operator-) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
+		  double rdiff = fabs(got.real()-expect.real());
+		  double idiff = fabs(got.imag()-expect.imag());
+		  if(rdiff > tol|| idiff > tol){
+		    printf("Fail: binop_v (operator-) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+		    fail = true;
+		  }
+		}
+	      }
+	    }
+	  }
+	}
       }
-    }
-    }
-    }
-    }
-    }
     }
   }
   if(fail) ERR.General("","","CPSmatrixField binop_v operator- failed\n");
@@ -322,18 +362,22 @@ void testCPSmatrixField(const double tol){
   ComplexField d = Trace(a);
 
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    ComplexType aat = aa.Trace();
-    auto got = Reduce( *d.site_ptr(x4d) );
-    auto expect = Reduce( aat );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(d_v,d,HostRead);
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      ComplexType aat = aa.Trace();
+      auto got = Reduce( *d_v.site_ptr(x4d) );
+      auto expect = Reduce( aat );
       
-    double rdiff = fabs(got.real()-expect.real());
-    double idiff = fabs(got.imag()-expect.imag());
-    if(rdiff > tol|| idiff > tol){
-      printf("Fail: Trace (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-      fail = true;
-    } 
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: Trace (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      } 
+    }
   }
   if(fail) ERR.General("","","CPSmatrixField Trace failed\n");
 
@@ -345,19 +389,25 @@ void testCPSmatrixField(const double tol){
   d = Trace(a,b);
 
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    auto bb=*b.site_ptr(x4d);
-    ComplexType aat = Trace(aa,bb);
-    auto got = Reduce( *d.site_ptr(x4d) );
-    auto expect = Reduce( aat );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(b_v,b,HostRead);
+    CPSautoView(d_v,d,HostRead);
+
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      auto bb=*b_v.site_ptr(x4d);
+      ComplexType aat = Trace(aa,bb);
+      auto got = Reduce( *d_v.site_ptr(x4d) );
+      auto expect = Reduce( aat );
       
-    double rdiff = fabs(got.real()-expect.real());
-    double idiff = fabs(got.imag()-expect.imag());
-    if(rdiff > tol|| idiff > tol){
-      printf("Fail: Trace-product (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-      fail = true;
-    } 
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: Trace-product (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      } 
+    }
   }
   if(fail) ERR.General("","","CPSmatrixField Trace-product failed\n");
 
@@ -365,23 +415,33 @@ void testCPSmatrixField(const double tol){
 
   //Test Trace-product of non-field
   typedef CPSmatrixField<ComplexType> ComplexField;
-  VectorMatrixType bs = *b.site_ptr(size_t(0));
+  VectorMatrixType bs;
+  {
+    CPSautoView(b_v,b,HostRead);
+    bs = *b_v.site_ptr(size_t(0));
+  }
   d = Trace(a,bs);
 
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    auto bb=*b.site_ptr(x4d);
-    ComplexType aat = Trace(aa,bs);
-    auto got = Reduce( *d.site_ptr(x4d) );
-    auto expect = Reduce( aat );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(b_v,b,HostRead);
+    CPSautoView(d_v,d,HostRead);
+
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      auto bb=*b_v.site_ptr(x4d);
+      ComplexType aat = Trace(aa,bs);
+      auto got = Reduce( *d_v.site_ptr(x4d) );
+      auto expect = Reduce( aat );
       
-    double rdiff = fabs(got.real()-expect.real());
-    double idiff = fabs(got.imag()-expect.imag());
-    if(rdiff > tol|| idiff > tol){
-      printf("Fail: Trace-product non-field (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-      fail = true;
-    } 
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: Trace-product non-field (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      } 
+    }
   }
   if(fail) ERR.General("","","CPSmatrixField Trace-product non-field failed\n");
 
@@ -392,18 +452,23 @@ void testCPSmatrixField(const double tol){
   d = unop(a, _tr());
 
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    ComplexType aat = aa.Trace();
-    auto got = Reduce( *d.site_ptr(x4d) );
-    auto expect = Reduce( aat );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(d_v,d,HostRead);
+
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      ComplexType aat = aa.Trace();
+      auto got = Reduce( *d_v.site_ptr(x4d) );
+      auto expect = Reduce( aat );
       
-    double rdiff = fabs(got.real()-expect.real());
-    double idiff = fabs(got.imag()-expect.imag());
-    if(rdiff > tol|| idiff > tol){
-      printf("Fail: Unop (Trace) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-      fail = true;
-    } 
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: Unop (Trace) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      } 
+    }
   }
   if(fail) ERR.General("","","CPSmatrixField Unop (Trace) failed\n");
 
@@ -412,18 +477,23 @@ void testCPSmatrixField(const double tol){
   d = unop_v(a, _trV<VectorMatrixType>());
 
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    ComplexType aat = aa.Trace();
-    auto got = Reduce( *d.site_ptr(x4d) );
-    auto expect = Reduce( aat );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(d_v,d,HostRead);
+
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      ComplexType aat = aa.Trace();
+      auto got = Reduce( *d_v.site_ptr(x4d) );
+      auto expect = Reduce( aat );
       
-    double rdiff = fabs(got.real()-expect.real());
-    double idiff = fabs(got.imag()-expect.imag());
-    if(rdiff > tol|| idiff > tol){
-      printf("Fail: Unop_v (Trace) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-      fail = true;
-    } 
+      double rdiff = fabs(got.real()-expect.real());
+      double idiff = fabs(got.imag()-expect.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: Unop_v (Trace) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	fail = true;
+      } 
+    }
   }
   if(fail) ERR.General("","","CPSmatrixField Unop_v (Trace) failed\n");
 
@@ -432,19 +502,24 @@ void testCPSmatrixField(const double tol){
   auto a_tridx1 = unop_v(a, _trIndexV<1,VectorMatrixType>());
 
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    auto aat = aa.template TraceIndex<1>();
-    for(size_t i=0;i<aat.nScalarType();i++){
-      auto got = Reduce( a_tridx1.site_ptr(x4d)->scalarTypePtr()[i] );
-      auto expect = Reduce( aat.scalarTypePtr()[i] );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(a_tridx1_v,a_tridx1,HostRead);
 
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: Unop_v (TraceIdx<1>) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
-      } 
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      auto aat = aa.template TraceIndex<1>();
+      for(size_t i=0;i<aat.nScalarType();i++){
+	auto got = Reduce( a_tridx1_v.site_ptr(x4d)->scalarTypePtr()[i] );
+	auto expect = Reduce( aat.scalarTypePtr()[i] );
+
+	double rdiff = fabs(got.real()-expect.real());
+	double idiff = fabs(got.imag()-expect.imag());
+	if(rdiff > tol|| idiff > tol){
+	  printf("Fail: Unop_v (TraceIdx<1>) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	  fail = true;
+	} 
+      }
     }
   }
   if(fail) ERR.General("","","CPSmatrixField Unop_v (TraceIdx<1>) failed\n");
@@ -454,19 +529,24 @@ void testCPSmatrixField(const double tol){
   auto a_tridx0_2 = unop_v(a, _trTwoIndicesV<0,2,VectorMatrixType>());
 
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=*a.site_ptr(x4d);
-    auto aat = aa.template TraceTwoIndices<0,2>();
-    for(size_t i=0;i<aat.nScalarType();i++){
-      auto got = Reduce( a_tridx0_2.site_ptr(x4d)->scalarTypePtr()[i] );
-      auto expect = Reduce( aat.scalarTypePtr()[i] );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(a_tridx0_2_v,a_tridx0_2,HostRead);
 
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: Unop_v (TraceTwoIndices<0,2>) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
-      } 
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=*a_v.site_ptr(x4d);
+      auto aat = aa.template TraceTwoIndices<0,2>();
+      for(size_t i=0;i<aat.nScalarType();i++){
+	auto got = Reduce( a_tridx0_2_v.site_ptr(x4d)->scalarTypePtr()[i] );
+	auto expect = Reduce( aat.scalarTypePtr()[i] );
+
+	double rdiff = fabs(got.real()-expect.real());
+	double idiff = fabs(got.imag()-expect.imag());
+	if(rdiff > tol|| idiff > tol){
+	  printf("Fail: Unop_v (TraceTwoIndices<0,2>) (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	  fail = true;
+	} 
+      }
     }
   }
   if(fail) ERR.General("","","CPSmatrixField Unop_v (TraceTwoIndices<0,2>) failed\n");
@@ -478,20 +558,25 @@ void testCPSmatrixField(const double tol){
   ColorMatrixField ac = SpinFlavorTrace(a);
   
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto aa=a.site_ptr(x4d)->SpinFlavorTrace();
-    for(int c1=0;c1<3;c1++){
-    for(int c2=0;c2<3;c2++){
-      auto got = Reduce( (*ac.site_ptr(x4d))(c1,c2) );
-      auto expect = Reduce( aa(c1,c2) );
+  {
+    CPSautoView(a_v,a,HostRead);
+    CPSautoView(ac_v,ac,HostRead);
+
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto aa=a_v.site_ptr(x4d)->SpinFlavorTrace();
+      for(int c1=0;c1<3;c1++){
+	for(int c2=0;c2<3;c2++){
+	  auto got = Reduce( (*ac_v.site_ptr(x4d))(c1,c2) );
+	  auto expect = Reduce( aa(c1,c2) );
       
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: SpinFlavorTrace (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
+	  double rdiff = fabs(got.real()-expect.real());
+	  double idiff = fabs(got.imag()-expect.imag());
+	  if(rdiff > tol|| idiff > tol){
+	    printf("Fail: SpinFlavorTrace (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+	    fail = true;
+	  }
+	}
       }
-    }
     }
   }
   if(fail) ERR.General("","","CPSmatrixField SpinFlavorTrace failed\n");
@@ -501,13 +586,16 @@ void testCPSmatrixField(const double tol){
   //Test TransposeOnIndex
   typedef CPSmatrixField< CPSsquareMatrix<CPSsquareMatrix<ComplexType,2> ,2>  > Matrix2Field;
   Matrix2Field e(simd_dims);
-  for(size_t x4d=0; x4d< e.size(); x4d++){
-    for(int s1=0;s1<2;s1++){
-      for(int c1=0;c1<2;c1++){
-	for(int s2=0;s2<2;s2++){
-	  for(int c2=0;c2<2;c2++){
-	    ComplexType &v = (*e.site_ptr(x4d))(s1,s2)(c1,c2);
-	    for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+  {
+    CPSautoView(e_v,e,HostWrite);
+    for(size_t x4d=0; x4d< e.size(); x4d++){
+      for(int s1=0;s1<2;s1++){
+	for(int c1=0;c1<2;c1++){
+	  for(int s2=0;s2<2;s2++){
+	    for(int c2=0;c2<2;c2++){
+	      ComplexType &v = (*e_v.site_ptr(x4d))(s1,s2)(c1,c2);
+	      for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+	    }
 	  }
 	}
       }
@@ -517,25 +605,30 @@ void testCPSmatrixField(const double tol){
   Matrix2Field f = TransposeOnIndex<1>(e);
 
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto ee=*e.site_ptr(x4d);
-    auto eet = ee.template TransposeOnIndex<1>();
-    for(int s1=0;s1<2;s1++){
-    for(int c1=0;c1<2;c1++){
-    for(int s2=0;s2<2;s2++){
-    for(int c2=0;c2<2;c2++){
-      auto got = Reduce( (*f.site_ptr(x4d))(s1,s2)(c1,c2) );
-      auto expect = Reduce( eet(s1,s2)(c1,c2) );
+  {
+    CPSautoView(e_v,e,HostRead);
+    CPSautoView(f_v,f,HostRead);
+
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto ee=*e_v.site_ptr(x4d);
+      auto eet = ee.template TransposeOnIndex<1>();
+      for(int s1=0;s1<2;s1++){
+	for(int c1=0;c1<2;c1++){
+	  for(int s2=0;s2<2;s2++){
+	    for(int c2=0;c2<2;c2++){
+	      auto got = Reduce( (*f_v.site_ptr(x4d))(s1,s2)(c1,c2) );
+	      auto expect = Reduce( eet(s1,s2)(c1,c2) );
       
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: TranposeOnIndex (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
+	      double rdiff = fabs(got.real()-expect.real());
+	      double idiff = fabs(got.imag()-expect.imag());
+	      if(rdiff > tol|| idiff > tol){
+		printf("Fail: TranposeOnIndex (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+		fail = true;
+	      }
+	    }
+	  }
+	}
       }
-    }
-    }
-    }
     }
   }
   if(fail) ERR.General("","","CPSmatrixField TransposeOnIndex failed\n");
@@ -546,25 +639,30 @@ void testCPSmatrixField(const double tol){
   f = unop_v(e, _transIdx<1,typename Matrix2Field::FieldSiteType>());
 
   fail = false;
-  for(size_t x4d=0; x4d< a.size(); x4d++){
-    auto ee=*e.site_ptr(x4d);
-    auto eet = ee.template TransposeOnIndex<1>();
-    for(int s1=0;s1<2;s1++){
-    for(int c1=0;c1<2;c1++){
-    for(int s2=0;s2<2;s2++){
-    for(int c2=0;c2<2;c2++){
-      auto got = Reduce( (*f.site_ptr(x4d))(s1,s2)(c1,c2) );
-      auto expect = Reduce( eet(s1,s2)(c1,c2) );
+  {
+    CPSautoView(e_v,e,HostRead);
+    CPSautoView(f_v,f,HostRead);
+
+    for(size_t x4d=0; x4d< a.size(); x4d++){
+      auto ee=*e_v.site_ptr(x4d);
+      auto eet = ee.template TransposeOnIndex<1>();
+      for(int s1=0;s1<2;s1++){
+	for(int c1=0;c1<2;c1++){
+	  for(int s2=0;s2<2;s2++){
+	    for(int c2=0;c2<2;c2++){
+	      auto got = Reduce( (*f_v.site_ptr(x4d))(s1,s2)(c1,c2) );
+	      auto expect = Reduce( eet(s1,s2)(c1,c2) );
       
-      double rdiff = fabs(got.real()-expect.real());
-      double idiff = fabs(got.imag()-expect.imag());
-      if(rdiff > tol|| idiff > tol){
-	printf("Fail: unop_v TranposeOnIndex (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
-	fail = true;
+	      double rdiff = fabs(got.real()-expect.real());
+	      double idiff = fabs(got.imag()-expect.imag());
+	      if(rdiff > tol|| idiff > tol){
+		printf("Fail: unop_v TranposeOnIndex (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",got.real(),got.imag(), expect.real(),expect.imag(), expect.real()-got.real(), expect.imag()-got.imag());
+		fail = true;
+	      }
+	    }
+	  }
+	}
       }
-    }
-    }
-    }
     }
   }
   if(fail) ERR.General("","","CPSmatrixField unop_v TransposeOnIndex failed\n");
@@ -780,9 +878,11 @@ void testCPSmatrixField(const double tol){
   {
     if(!UniqueID()){ printf("Testing global 4d sum/SIMD reduce\n"); fflush(stdout); }
     PropagatorField unit_4d(simd_dims);
-    for(size_t x4d=0; x4d< unit_4d.size(); x4d++)
-      unit_4d.site_ptr(x4d)->unit();
-    
+    {
+      CPSautoView(unit_4d_v,unit_4d,HostWrite);
+      for(size_t x4d=0; x4d< unit_4d.size(); x4d++)
+	unit_4d_v.site_ptr(x4d)->unit();
+    }
     typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
     typedef CPSspinColorFlavorMatrix<ScalarComplexType> ScalarMatrixType;
     ScalarMatrixType sum_got = globalSumReduce(unit_4d);
@@ -822,9 +922,11 @@ void testCPSmatrixField(const double tol){
     if(!UniqueID()){ printf("Testing global 4d sum/SIMD reduce with SIMD scalar data\n"); fflush(stdout); }
     typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
     ComplexField one_4d(simd_dims);
-    for(size_t x4d=0; x4d< one_4d.size(); x4d++)
-      vsplat( *one_4d.site_ptr(x4d), ScalarComplexType(1.0, 0.0) );
-    
+    {
+      CPSautoView(one_4d_v,one_4d,HostWrite);
+      for(size_t x4d=0; x4d< one_4d.size(); x4d++)
+	vsplat( *one_4d_v.site_ptr(x4d), ScalarComplexType(1.0, 0.0) );
+    }
     ScalarComplexType got = globalSumReduce(one_4d);
     ScalarComplexType expect(1.0, 0.0);
     expect = expect * double(GJP.VolNodeSites() * GJP.TotalNodes());

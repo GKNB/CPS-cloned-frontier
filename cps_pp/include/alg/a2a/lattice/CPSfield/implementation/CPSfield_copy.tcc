@@ -21,12 +21,15 @@ class CPSfieldCopy<SiteSize,TypeA,MapPolA,AllocPolA, TypeB,MapPolB,AllocPolB, ty
 public: 
   static void copy(CPSfield<TypeA,SiteSize,MapPolA,AllocPolA> &into,
 		   const CPSfield<TypeB,SiteSize,MapPolB,AllocPolB> &from, IncludeSite<MapPolB::EuclideanDimension> const* fromsitemask){
+    CPSautoView(into_v,into,HostWrite);
+    CPSautoView(from_v,from,HostRead);
+    
 #pragma omp parallel for
     for(size_t fs=0;fs<into.nfsites();fs++){
       int x[5], f; into.fsiteUnmap(fs,x,f); //doesn't matter if the linearization differs between the two
       if(from.contains(x,f) && (fromsitemask == NULL || fromsitemask->query(x,f)) ){
-	TypeA* toptr = into.fsite_ptr(fs);
-	TypeB const* fromptr = from.site_ptr(x,f);
+	TypeA* toptr = into_v.fsite_ptr(fs);
+	TypeB const* fromptr = from_v.site_ptr(x,f);
 	for(int i=0;i<SiteSize;i++) toptr[i] = fromptr[i];
       }
     }
@@ -64,17 +67,20 @@ public:
     std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim));
     for(int i=0;i<nsimd;i++) into.SIMDunmap(i,packed_offsets[i].data());
     
+    CPSautoView(into_v,into,HostWrite);
+    CPSautoView(from_v,from,HostRead);
+
 #pragma omp parallel for
     for(size_t fs=0;fs<into.nfsites();fs++){
-      int x[ndim], f; into.fsiteUnmap(fs,x,f); //this is the root coordinate for lane 0
-      GridSIMDTypeA * toptr = into.fsite_ptr(fs);
+      int x[ndim], f; into_v.fsiteUnmap(fs,x,f); //this is the root coordinate for lane 0
+      GridSIMDTypeA * toptr = into_v.fsite_ptr(fs);
 
       int xx[ndim]; //full coordinate
       for(int lane=0;lane<nsimd;lane++){
 	for(int d=0;d<ndim;d++) xx[d] = x[d] + packed_offsets[lane][d];  //xx = x + offset
 
 	if(from.contains(xx,f) && (fromsitemask == NULL || fromsitemask->query(xx,f)) ){
-	  TypeB const* fromptr = from.site_ptr(xx,f);
+	  TypeB const* fromptr = from_v.site_ptr(xx,f);
 	
 	  for(int s=0;s<SiteSize;s++)
 	    *(  (GridTypeScalar*)(toptr+s) + lane ) = fromptr[s];
@@ -101,14 +107,17 @@ public:
     const int ndim = MapPolA::EuclideanDimension;
     typedef typename GridSIMDTypeB::scalar_type GridTypeScalar;
     
+    CPSautoView(into_v,into,HostWrite);
+    CPSautoView(from_v,from,HostRead);
+
 #pragma omp parallel for
     for(size_t fs=0;fs<into.nfsites();fs++){
-      int x[ndim], f; into.fsiteUnmap(fs,x,f);
-      TypeA* toptr = into.fsite_ptr(fs);
+      int x[ndim], f; into_v.fsiteUnmap(fs,x,f);
+      TypeA* toptr = into_v.fsite_ptr(fs);
       
       if(from.contains(x,f) && (fromsitemask == NULL || fromsitemask->query(x,f)) ){
 	int lane = from.SIMDmap(x);
-	GridSIMDTypeB const* fromptr = from.site_ptr(x,f);
+	GridSIMDTypeB const* fromptr = from_v.site_ptr(x,f);
 	for(int s=0;s<SiteSize;s++)
 	  toptr[s] = *( (GridTypeScalar const*)(fromptr + s) + lane );      
       }
@@ -277,6 +286,7 @@ public:
     assert(Nd == from.Grid()->Nd());
     dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
     auto from_view = from.View(Grid::CpuRead);
+    CPSautoView(into_v,into,HostWrite);
 
 #pragma omp parallel for
     for(size_t site=0;site<into.nsites();site++){
@@ -296,7 +306,7 @@ public:
 
       for(int f=0;f<into.nflavors();f++){
 	if(fromsitemask == NULL || fromsitemask->query(&x[0],f)){
-	  typename CPSfieldType::FieldSiteType *cps = into.site_ptr(site,f);
+	  typename CPSfieldType::FieldSiteType *cps = into_v.site_ptr(site,f);
 	  GridTensorConvert<sobj, typename CPSfieldType::FieldSiteType>::doit(cps, siteGrid, f);
 	}
       }      
@@ -314,6 +324,7 @@ public:
     const int Nsimd = GridField::vector_type::Nsimd();
     
     auto oview = into.View(Grid::CpuWrite);
+    CPSautoView(from_v,from,HostRead);
 
 #pragma omp parallel for
     for(size_t out_oidx=0;out_oidx<into.Grid()->oSites();out_oidx++){
@@ -326,7 +337,7 @@ public:
 	
 	for(int f=0;f<from.nflavors();f++){
 	  if(fromsitemask == NULL || fromsitemask->query(lcoor_cps.data(),f)){	    	   
-	    typename CPSfieldType::FieldSiteType const* cps = from.site_ptr(lcoor_cps.data(),f);
+	    typename CPSfieldType::FieldSiteType const* cps = from_v.site_ptr(lcoor_cps.data(),f);
 	    GridTensorConvert<sobj, typename CPSfieldType::FieldSiteType>::doit(tmp, cps, f);
 	  }
 	}
@@ -356,9 +367,10 @@ public:
     //Create temp CPS unvectorized field
     typedef typename StandardDimensionPolicy<MapPol::EuclideanDimension, typename MapPol::FieldFlavorPolicy>::type CPSscalarMapPol;
     NullObject n;
-    CPSfield<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy> cps_unpacked(n);
+    typedef CPSfield<CPSscalarType,SiteSize,CPSscalarMapPol> NonVecField;
+    NonVecField cps_unpacked(n);
 
-    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy,GridField, CPSscalarTypeClass>::import(cps_unpacked,from,fromsitemask);
+    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarMapPol,typename NonVecField::FieldAllocPolicy,GridField, CPSscalarTypeClass>::import(cps_unpacked,from,fromsitemask);
     into.importField(cps_unpacked);
   }
   
@@ -371,9 +383,10 @@ public:
     //Create temp CPS unvectorized field
     typedef typename StandardDimensionPolicy<MapPol::EuclideanDimension, typename MapPol::FieldFlavorPolicy>::type CPSscalarMapPol;
     NullObject n;
-    CPSfield<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy> cps_unpacked(n);
+    typedef CPSfield<CPSscalarType,SiteSize,CPSscalarMapPol> NonVecField;
+    NonVecField cps_unpacked(n);
     cps_unpacked.importField(from);
-    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy,GridField, CPSscalarTypeClass>::exportit(into, cps_unpacked,fromsitemask);
+    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarMapPol,typename NonVecField::FieldAllocPolicy,GridField, CPSscalarTypeClass>::exportit(into, cps_unpacked,fromsitemask);
   }
 };
 

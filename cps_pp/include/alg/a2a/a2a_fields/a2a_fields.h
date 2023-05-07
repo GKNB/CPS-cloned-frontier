@@ -100,42 +100,18 @@ public:
   //Get a mode from the high-mode part
   inline FermionFieldType & getVh(const int ih){ return *v[nl+ih]; }
   inline const FermionFieldType & getVh(const int ih) const{ return *v[nl+ih]; }
-
  
-  //Get a particular site/spin/color element of a given mode
-  //Note: x3d is the local (on-node) 3d site and t is the local time
-  inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
-    int x4d = v[mode]->threeToFour(x3d,t);
-    return  *(v[mode]->site_ptr(x4d,flavor) + spin_color);
-  }
-  //Get a particular site/spin/color element of a given *native* (packed) mode. For V this does the same as the above
-  //Note: site is the local 4d site offset
-  inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
-    return *(v[i]->site_ptr(site,flavor)+spin_color);
-  }
-
-  //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
-  inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
-    ptr = v[i]->ptr(); size = v[i]->size();
-  }
-
-  //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
-  inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
-    assert(v[i]->dimpol_flavor_timeslice_contiguous());
-    size = v[i]->dimpol_time_stride() * v[i]->siteSize();      
-    ptr_f0 = v[i]->ptr() + t*size;
-    ptr_f1 = ptr_f0 + v[i]->flav_offset();
-  }
-  
-  
   class View: public StandardIndexDilution{
     typename CPSfieldArray<FermionFieldType>::View av;
   public:
+    typedef mf_Policies Policies;
     typedef typename CPSfieldArray<FermionFieldType>::FieldView FieldView;
     typedef typename FermionFieldType::FieldSiteType FieldSiteType;
+    typedef StandardIndexDilution DilutionType;
 
-    View(const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d): av(vin.view()), StandardIndexDilution(d){}
-      
+    View(ViewMode mode, const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d): av(vin.view(mode)), StandardIndexDilution(d){}
+    View(ViewMode mode, const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d, const std::vector<bool> &modes_used): av(vin.view(mode,modes_used)), StandardIndexDilution(d){}
+    
     accelerator_inline FieldView & getMode(const int i) const{ return av[i]; }
 
     //Get a mode from the low mode part
@@ -145,8 +121,29 @@ public:
     accelerator_inline FieldView & getVh(const int ih) const{ return av[nl+ih]; }
 
     //Get a particular site/spin/color element of a given *native* (packed) mode. For V this does the same as the above
+    //Note: site is the local 4d site offset
     accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
       return *(av[i].site_ptr(site,flavor)+spin_color);
+    }
+
+    //Get a particular site/spin/color element of a given mode
+    //Note: x3d is the local (on-node) 3d site and t is the local time
+    inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+      int x4d = av[mode].threeToFour(x3d,t);
+      return  *(av[mode].site_ptr(x4d,flavor) + spin_color);
+    }
+
+    //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
+    inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
+      ptr = av[i].ptr(); size = av[i].size();
+    }
+
+    //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
+    inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
+      assert(av[i].dimpol_flavor_timeslice_contiguous());
+      size = av[i].dimpol_time_stride() * av[i].siteSize();      
+      ptr_f0 = av[i].ptr() + t*size;
+      ptr_f1 = ptr_f0 + av[i].flav_offset();
     }
 
     void free(){
@@ -155,8 +152,15 @@ public:
 	
   };
 
-  View view() const{ return View(v, *this); }
-
+  View view(ViewMode mode) const{ return View(mode, v, *this); }
+  //Open a view only to some subset of modes. Undefined behavior if you access one that you are not supposed to!
+  View view(ViewMode mode, const std::vector<bool> &modes_used) const{ return View(mode,v,*this,modes_used); }
+  
+  void enqueuePrefetch(ViewMode mode, const std::vector<bool> &modes_used) const{
+    for(int i=0;i<nv;i++) if(modes_used[i])  v[i]->enqueuePrefetch(mode);
+  }   
+  static inline void startPrefetches(){ Policies::AllocPolicy::startPrefetches(); }
+  static inline void waitPrefetches(){ Policies::AllocPolicy::waitPrefetches(); }
   
   void importVl(const FermionFieldType &vv, const int il){
     *v[il] = vv;
@@ -182,7 +186,7 @@ public:
   //Read/write to binary files per node with separate metadata files. User provides path which is created internally
   void writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat = FP_AUTOMATIC) const;
   void readParallelSeparateMetadata(const std::string &path);
-
+  
   inline void free_mem(){ v.free(); }
 };
 
@@ -197,13 +201,13 @@ public:
   typedef FermionFieldType LowModeFieldType;
   typedef FermionFieldType HighModeFieldType;  
   
-  #define VFFTW_ENABLE_IF_MANUAL_ALLOC(P) typename my_enable_if<  _equal<typename P::A2AvectorVfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , void>::type
+#define VFFTW_ENABLE_IF_MANUAL_ALLOC(P) typename my_enable_if<  _equal<typename P::A2AvectorVfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , void>::type
 private:
   CPSfieldArray<FermionFieldType> v;
-
+  
 public:
   typedef StandardIndexDilution DilutionType;
-
+  
   A2AvectorVfftw(const A2AArg &_args): StandardIndexDilution(_args){
     v.resize(nv);
     this->allocInitializeFields(v,NullObject());
@@ -213,7 +217,7 @@ public:
     v.resize(nv);
     this->allocInitializeFields(v,field_setup_params);
   }
-
+  
   A2AvectorVfftw(const A2Aparams &_args): StandardIndexDilution(_args){
     v.resize(nv);
     this->allocInitializeFields(v,NullObject());
@@ -244,28 +248,6 @@ public:
   inline const FermionFieldType & getLowMode(const int il) const{ return *v[il]; }
   inline const FermionFieldType & getHighMode(const int ih) const{ return *v[nl+ih]; }
   
-  inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
-    int site = v[mode]->threeToFour(x3d,t);
-    return *(v[mode]->site_ptr(site,flavor) + spin_color);
-  }
-  //Get a particular site/spin/color element of a given 'native' (packed) mode. For V this does the same thing as the above
-  inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
-    return *(v[i]->site_ptr(site,flavor)+spin_color);
-  }
-
-  //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
-  inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
-    ptr = v[i]->ptr(); size = v[i]->size();
-  }
-
-  //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
-  inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
-    assert(v[i]->dimpol_flavor_timeslice_contiguous());
-    size = v[i]->dimpol_time_stride() * v[i]->siteSize();      
-    ptr_f0 = v[i]->ptr() + t*size;
-    ptr_f1 = ptr_f0 + v[i]->flav_offset();
-  }
-  
   //Create a regular fermion field for a given full mode by unpacking the dilution
   void unpackMode(FermionFieldType &into, const int mode) const{
     into = getMode(mode);
@@ -274,10 +256,13 @@ public:
   class View: public StandardIndexDilution{
     typename CPSfieldArray<FermionFieldType>::View av;
   public:
+    typedef mf_Policies Policies;
     typedef typename CPSfieldArray<FermionFieldType>::FieldView FieldView; 
     typedef typename FermionFieldType::FieldSiteType FieldSiteType;
-
-    View(const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d): av(vin.view()), StandardIndexDilution(d){}
+    typedef StandardIndexDilution DilutionType;
+    
+    View(ViewMode mode, const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d): av(vin.view(mode)), StandardIndexDilution(d){}
+    View(ViewMode mode, const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d, const std::vector<bool> &modes_used): av(vin.view(mode,modes_used)), StandardIndexDilution(d){}
      
     accelerator_inline FieldView & getMode(const int i) const{ return av[i]; }
 
@@ -288,11 +273,44 @@ public:
       return *(av[i].site_ptr(site,flavor)+spin_color);
     }
 
+    inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+      int site = av[mode].threeToFour(x3d,t);
+      return *(av[mode].site_ptr(site,flavor) + spin_color);
+    }
+
+    //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
+    inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
+      ptr = av[i].ptr(); size = av[i].size();
+    }
+    
+    //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
+    inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
+      assert(av[i].dimpol_flavor_timeslice_contiguous());
+      size = av[i].dimpol_time_stride() * av[i].siteSize();      
+      ptr_f0 = av[i].ptr() + t*size;
+      ptr_f1 = ptr_f0 + av[i].flav_offset();
+    }
+
+    //i_high_unmapped is the index i unmapped to its high mode sub-indices (if it is a high mode of course!)
+    inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
+      const FieldView &field = getMode(i);
+      const int x4d = field.threeToFour(p3d,t);
+      FieldSiteType const *f0 = field.site_ptr(x4d,0);
+      return SCFvectorPtr<FieldSiteType>(f0,f0+field.flav_offset());
+    }
+
     void free(){ av.free(); }
   };
 
-  View view() const{ return View(v, *this); }
+  View view(ViewMode mode) const{ return View(mode, v, *this); }
+  //Open a view only to some subset of modes. Undefined behavior if you access one that you are not supposed to!
+  View view(ViewMode mode, const std::vector<bool> &modes_used) const{ return View(mode,v,*this,modes_used); }
 
+  void enqueuePrefetch(ViewMode mode, const std::vector<bool> &modes_used) const{
+    for(int i=0;i<nv;i++) if(modes_used[i])  v[i]->enqueuePrefetch(mode);
+  }
+  static inline void startPrefetches(){ Policies::AllocPolicy::startPrefetches(); }
+  static inline void waitPrefetches(){ Policies::AllocPolicy::waitPrefetches(); }
   
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
@@ -323,13 +341,6 @@ public:
   
   static std::pair< A2AvectorVfftw<mf_Policies>*, std::vector<int> > inPlaceTwistedFFT(const int p[3], A2AvectorVfftw<mf_Policies> *base_p, A2AvectorVfftw<mf_Policies> *base_m = NULL);
   
-  //i_high_unmapped is the index i unmapped to its high mode sub-indices (if it is a high mode of course!)
-  inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
-    const FermionFieldType &field = getMode(i);
-    const int x4d = field.threeToFour(p3d,t);
-    FieldSiteType const *f0 = field.site_ptr(x4d,0);
-    return SCFvectorPtr<FieldSiteType>(f0,f0+field.flav_offset());
-  }
   //Return the pointer stride for between 3d coordinates for a given mode index and flavor. Relies on the dimension policy implementing dimpol_site_stride_3d
   inline int siteStride3D(const int i, const modeIndexSet &i_high_unmapped, const int f) const{
     const FermionFieldType &field = getMode(i);
@@ -392,13 +403,11 @@ public:
   A2AvectorW(const A2Aparams &_args);
   A2AvectorW(const A2Aparams &_args, const FieldInputParamType &field_setup_params);
 
-  //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
-  //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
-  //Note - this does not have to be called manually; it will be called by computeVWhigh if not previously called
-  void setWhRandom();
-  
   //Manually set the Wh random fields. Expects a vector of size nhits
-  void setWhRandom(const std::vector<ScalarComplexFieldType> &to);
+  void setWh(const std::vector<ScalarComplexFieldType> &to);
+
+  //Return whether the random sources have been set
+  bool WhRandPerformed() const{ return wh_rand_performed; }
 
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 
@@ -421,74 +430,53 @@ public:
 
   inline const FermionFieldType & getLowMode(const int il) const{ return *wl[il]; }
   inline const ComplexFieldType & getHighMode(const int ih) const{ return *wh[ih]; }
-  
-  //The spincolor, flavor and timeslice dilutions are packed so we must treat them differently
-  //Mode is a full 'StandardIndex', (unpacked mode index)
-  inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
-    static FieldSiteType zero(0.0);
-    if(mode < nl){
-      int site = getWl(mode).threeToFour(x3d,t);
-      return *(getWl(mode).site_ptr(site,flavor) + spin_color);
-    }else{
-      int mode_hit, mode_tblock, mode_spin_color,mode_flavor;
-      const StandardIndexDilution &dilfull = static_cast<StandardIndexDilution const&>(*this);
-      dilfull.indexUnmap(mode-nl,mode_hit,mode_tblock,mode_spin_color,mode_flavor);
-      //flavor and time block indices match those of the mode, the result is zero
-      int tblock = (t+GJP.TnodeSites()*GJP.TnodeCoor())/args.src_width;
-      if(spin_color != mode_spin_color || flavor != mode_flavor || tblock != mode_tblock) return zero;
-      int site = getWh(mode_hit).threeToFour(x3d,t);
-      return *(getWh(mode_hit).site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
-    }
-  }
-  //Get a particular site/spin/color element of a given *native* (packed) mode 
-  inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
-    return i < nl ? 
-      *(wl[i]->site_ptr(site,flavor)+spin_color) :
-      *(wh[i-nl]->site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
-  }
-
-  //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
-  inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
-    if(i<nl){
-      ptr = wl[i]->ptr(); size = wl[i]->size();
-    }else{
-      int ii = i-nl;
-      ptr = wh[ii]->ptr(); size = wh[ii]->size();
-    }
-  }
-
-  //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
-  inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
-    if(i<nl){
-      assert(wl[i]->dimpol_flavor_timeslice_contiguous());
-      size = wl[i]->dimpol_time_stride() * wl[i]->siteSize();      
-      ptr_f0 = wl[i]->ptr() + t*size;
-      ptr_f1 = ptr_f0 + wl[i]->flav_offset();
-    }else{
-      int ii = i-nl;
-      assert(wh[ii]->dimpol_flavor_timeslice_contiguous());	  
-      size = wh[ii]->dimpol_time_stride() * wh[ii]->siteSize();
-      ptr_f0 = wh[ii]->ptr() + t*size;
-      ptr_f1 = ptr_f0 + wh[ii]->flav_offset();
-    }
-  }
-
-  
+   
   class View: public FullyPackedIndexDilution{
     typename CPSfieldArray<FermionFieldType>::View awl;
     typename CPSfieldArray<ComplexFieldType>::View awh;
   public:
+    typedef mf_Policies Policies;
     typedef typename CPSfieldArray<FermionFieldType>::FieldView FermionFieldView;
     typedef typename CPSfieldArray<ComplexFieldType>::FieldView ComplexFieldView;
     typedef typename FermionFieldType::FieldSiteType FieldSiteType;
+    typedef FullyPackedIndexDilution DilutionType;
 
-    View(const CPSfieldArray<FermionFieldType> &wlin,
+    View(ViewMode mode,
+	 const CPSfieldArray<FermionFieldType> &wlin,
 	 const CPSfieldArray<ComplexFieldType> &whin,
-	 const FullyPackedIndexDilution &d): awl(wlin.view()), awh(whin.view()), FullyPackedIndexDilution(d){}
-      
+	 const FullyPackedIndexDilution &d): awl(wlin.view(mode)), awh(whin.view(mode)), FullyPackedIndexDilution(d){}
+
+    View(ViewMode mode,
+	 const CPSfieldArray<FermionFieldType> &wlin,
+	 const CPSfieldArray<ComplexFieldType> &whin,
+	 const FullyPackedIndexDilution &d, const std::vector<bool> &modes_used):     awl(wlin.view(mode, std::vector<bool>(modes_used.begin(),modes_used.begin()+d.getNl()) ) ),
+										      awh(whin.view(mode, std::vector<bool>(modes_used.begin()+d.getNl(),modes_used.end()) ) ),
+										      FullyPackedIndexDilution(d){}
+
+    
     accelerator_inline FermionFieldView & getWl(const int i) const{ return awl[i]; }
     accelerator_inline ComplexFieldView & getWh(const int hit) const{ return awh[hit]; }
   
+    //The spincolor, flavor and timeslice dilutions are packed so we must treat them differently
+    //Mode is a full 'StandardIndex', (unpacked mode index)
+    //Note usable on device
+    inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+      static FieldSiteType zero(0.0);
+      if(mode < nl){
+	int site = getWl(mode).threeToFour(x3d,t);
+	return *(getWl(mode).site_ptr(site,flavor) + spin_color);
+      }else{
+	int mode_hit, mode_tblock, mode_spin_color,mode_flavor;
+	const StandardIndexDilution &dilfull = static_cast<StandardIndexDilution const&>(*this);
+	dilfull.indexUnmap(mode-nl,mode_hit,mode_tblock,mode_spin_color,mode_flavor);
+	//flavor and time block indices match those of the mode, the result is zero
+	int tblock = (t+GJP.TnodeSites()*GJP.TnodeCoor())/args.src_width;
+	if(spin_color != mode_spin_color || flavor != mode_flavor || tblock != mode_tblock) return zero;
+	int site = getWh(mode_hit).threeToFour(x3d,t);
+	return *(getWh(mode_hit).site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
+      }
+    }
+
     //Get a particular site/spin/color element of a given *native* (packed) mode 
     accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
       return i < nl ? 
@@ -496,10 +484,45 @@ public:
 	*(awh[i-nl].site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
     }
 
+    //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
+    inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
+      if(i<nl){
+	ptr = awl[i].ptr(); size = awl[i].size();
+      }else{
+	int ii = i-nl;
+	ptr = awh[ii].ptr(); size = awh[ii].size();
+      }
+    }
+
+    //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
+    inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
+      if(i<nl){
+	assert(awl[i].dimpol_flavor_timeslice_contiguous());
+	size = awl[i].dimpol_time_stride() * awl[i].siteSize();      
+	ptr_f0 = awl[i].ptr() + t*size;
+	ptr_f1 = ptr_f0 + awl[i].flav_offset();
+      }else{
+	int ii = i-nl;
+	assert(awh[ii].dimpol_flavor_timeslice_contiguous());	  
+	size = awh[ii].dimpol_time_stride() * awh[ii].siteSize();
+	ptr_f0 = awh[ii].ptr() + t*size;
+	ptr_f1 = ptr_f0 + awh[ii].flav_offset();
+      }
+    }
+
     void free(){ awl.free(); awh.free(); }
   };
 
-  View view() const{ return View(wl, wh, *this); }
+  View view(ViewMode mode) const{ return View(mode, wl, wh, *this); }
+  //Open a view only to some subset of modes. Undefined behavior if you access one that you are not supposed to!
+  View view(ViewMode mode, const std::vector<bool> &modes_used) const{ return View(mode, wl, wh, *this, modes_used); }
+
+  void enqueuePrefetch(ViewMode mode, const std::vector<bool> &modes_used) const{
+    for(int i=0;i<nl;i++) if(modes_used[i])  wl[i]->enqueuePrefetch(mode);
+    for(int i=0;i<nhits;i++) if(modes_used[i+nl]) wh[i]->enqueuePrefetch(mode);
+  }   
+  static inline void startPrefetches(){ Policies::AllocPolicy::startPrefetches(); }
+  static inline void waitPrefetches(){ Policies::AllocPolicy::waitPrefetches(); }
   
   void importWl(const FermionFieldType &wlin, const int i){
     *wl[i] = wlin;
@@ -509,8 +532,6 @@ public:
   }
 
   //Get the diluted source with StandardIndex high-mode index dil_id.
-  //We use the same set of random numbers for each spin and dilution as we do not need to rely on stochastic cancellation to separate them
-  //For legacy reasons we use different random numbers for the two G-parity flavors, although this is not strictly necessary
   //Here dil_id is the combined spin-color/flavor/hit/tblock index
   template<typename TargetFermionFieldType>
   void getDilutedSource(TargetFermionFieldType &into, const int dil_id) const;
@@ -568,14 +589,6 @@ private:
   CPSfieldArray<FermionFieldType> wl;
   CPSfieldArray<FermionFieldType> wh; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
 
-  //#define ZEROSC_MANAGED
-  
-#ifdef ZEROSC_MANAGED
-  ManagedVector<FieldSiteType> zerosc;
-#else
-  FieldSiteType zerosc[12];
-#endif
-
   void initialize(const FieldInputParamType &field_setup_params);
 public:
   typedef TimeFlavorPackedIndexDilution DilutionType;
@@ -614,58 +627,6 @@ public:
   //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices: for i>=nl the modeIndexSet is used to obtain the appropriate mode 
   inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
  
-  //The flavor and timeslice dilutions are still packed so we must treat them differently
-  //Mode is a full 'StandardIndex', (unpacked mode index)
-  inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
-    static FieldSiteType zero(0.0);
-    if(mode < nl){
-      int site = getWl(mode).threeToFour(x3d,t);
-      return *(getWl(mode).site_ptr(site,flavor) + spin_color);
-    }else{
-      int mode_hit, mode_tblock, mode_spin_color,mode_flavor;
-      const StandardIndexDilution &dilfull = static_cast<StandardIndexDilution const&>(*this);
-      dilfull.indexUnmap(mode-nl,mode_hit,mode_tblock,mode_spin_color,mode_flavor);
-      //flavor and time block indices match those of the mode, the result is zero
-      int tblock = (t+GJP.TnodeSites()*GJP.TnodeCoor())/args.src_width;
-      if(flavor != mode_flavor || tblock != mode_tblock) return zero;
-
-      int site = getWh(mode_hit,mode_spin_color).threeToFour(x3d,t);
-      return *(getWh(mode_hit,mode_spin_color).site_ptr(site,flavor) +spin_color); //because we multiplied by an SU(3) matrix, the field is not just a delta function in spin/color
-    }
-  }
-  //Get a particular site/spin/color element of a given *native* (packed) mode 
-  inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
-    return i < nl ? 
-      *(wl[i]->site_ptr(site,flavor)+spin_color) :
-      *(wh[i-nl]->site_ptr(site,flavor)+spin_color); //spin_color index diluted out.
-  }
-
-  //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
-  inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
-    if(i<nl){
-      ptr = wl[i]->ptr(); size = wl[i]->size();
-    }else{
-      int ii = i-nl;
-      ptr = wh[ii]->ptr(); size = wh[ii]->size();
-    }
-  }
-
-  //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
-  inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
-    if(i<nl){
-      assert(wl[i]->dimpol_flavor_timeslice_contiguous());
-      size = wl[i]->dimpol_time_stride() * wl[i]->siteSize();      
-      ptr_f0 = wl[i]->ptr() + t*size;
-      ptr_f1 = ptr_f0 + wl[i]->flav_offset();
-    }else{
-      int ii = i-nl;
-      assert(wh[ii]->dimpol_flavor_timeslice_contiguous());	  
-      size = wh[ii]->dimpol_time_stride() * wh[ii]->siteSize();
-      ptr_f0 = wh[ii]->ptr() + t*size;
-      ptr_f1 = ptr_f0 + wh[ii]->flav_offset();
-    }
-  }
-  
   //Create a regular fermion field for a given full mode by unpacking the dilution
   void unpackMode(FermionFieldType &into, const int mode) const{
     if(mode < nl){
@@ -682,15 +643,17 @@ public:
       size_t size_3d = mode_packed.nodeSites(0)*mode_packed.nodeSites(1)*mode_packed.nodeSites(2);
       assert(mode_packed.nodeSites(3) == GJP.TnodeSites());
 
+      CPSautoView(into_v,into,HostWrite);
+      CPSautoView(mode_packed_v,mode_packed,HostRead);
+
       for(int t=0;t<GJP.TnodeSites();t++){
 	int tblock = (t+GJP.TnodeSites()*GJP.TnodeCoor())/args.src_width;
 	if(tblock != mode_tblock) continue;
-
 #pragma omp parallel for
 	for(size_t x3d=0;x3d<size_3d;x3d++){
 	  size_t x4d = mode_packed.threeToFour(x3d,t);
-	  FieldSiteType const* from_data = mode_packed.site_ptr(x4d,mode_flavor);
-	  FieldSiteType *to_data = into.site_ptr(x4d,mode_flavor);
+	  FieldSiteType const* from_data = mode_packed_v.site_ptr(x4d,mode_flavor);
+	  FieldSiteType *to_data = into_v.site_ptr(x4d,mode_flavor);
 	  memcpy(to_data,from_data,12*sizeof(FieldSiteType));
 	}
       }
@@ -701,13 +664,24 @@ public:
     typename CPSfieldArray<FermionFieldType>::View awl;
     typename CPSfieldArray<FermionFieldType>::View awh;
   public:
+    typedef mf_Policies Policies;
     typedef typename CPSfieldArray<FermionFieldType>::FieldView FermionFieldView;
     typedef typename FermionFieldType::FieldSiteType FieldSiteType;
+    typedef TimeFlavorPackedIndexDilution DilutionType;
 
-    View(const CPSfieldArray<FermionFieldType> &wlin,
+    View(ViewMode mode,
+	 const CPSfieldArray<FermionFieldType> &wlin,
 	 const CPSfieldArray<FermionFieldType> &whin,
-	 const TimeFlavorPackedIndexDilution &d): awl(wlin.view()), awh(whin.view()), TimeFlavorPackedIndexDilution(d){}
-      
+	 const TimeFlavorPackedIndexDilution &d): awl(wlin.view(mode)), awh(whin.view(mode)), TimeFlavorPackedIndexDilution(d){}
+
+    View(ViewMode mode,
+	 const CPSfieldArray<FermionFieldType> &wlin,
+	 const CPSfieldArray<FermionFieldType> &whin,
+	 const TimeFlavorPackedIndexDilution &d, const std::vector<bool> &modes_used):     awl(wlin.view(mode, std::vector<bool>(modes_used.begin(),modes_used.begin()+d.getNl()) ) ),
+											   awh(whin.view(mode, std::vector<bool>(modes_used.begin()+d.getNl(),modes_used.end()) ) ),
+											   TimeFlavorPackedIndexDilution(d){}
+
+    
     accelerator_inline FermionFieldView & getWl(const int i) const{ return awl[i]; }
     accelerator_inline FermionFieldView & getWh(const int hit, const int spin_color) const{ return awh[spin_color + 12*hit]; }
 
@@ -716,16 +690,89 @@ public:
     //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices: for i>=nl the modeIndexSet is used to obtain the appropriate mode 
     accelerator_inline FermionFieldView & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
 
+    //The flavor and timeslice dilutions are still packed so we must treat them differently
+    //Mode is a full 'StandardIndex', (unpacked mode index)
+    inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+      static FieldSiteType zero(0.0);
+      if(mode < nl){
+	int site = getWl(mode).threeToFour(x3d,t);
+	return *(getWl(mode).site_ptr(site,flavor) + spin_color);
+      }else{
+	int mode_hit, mode_tblock, mode_spin_color,mode_flavor;
+	const StandardIndexDilution &dilfull = static_cast<StandardIndexDilution const&>(*this);
+	dilfull.indexUnmap(mode-nl,mode_hit,mode_tblock,mode_spin_color,mode_flavor);
+	//flavor and time block indices match those of the mode, the result is zero
+	int tblock = (t+GJP.TnodeSites()*GJP.TnodeCoor())/args.src_width;
+	if(flavor != mode_flavor || tblock != mode_tblock) return zero;
+
+	int site = getWh(mode_hit,mode_spin_color).threeToFour(x3d,t);
+	return *(getWh(mode_hit,mode_spin_color).site_ptr(site,flavor) +spin_color); //because we multiplied by an SU(3) matrix, the field is not just a delta function in spin/color
+      }
+    }
+
     accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
       return i < nl ? 
 		 *(awl[i].site_ptr(site,flavor)+spin_color) :
 	*(awh[i-nl].site_ptr(site,flavor)+spin_color); //spin_color index diluted out.
     }
 
+    //BELOW are for use by the meson field
+    //For high modes it returns   wFFTP^(j_h,j_sc)_{sc',f'}(p,t) \delta_{f',j_f}   [cf a2a_dilutions.h]
+    //i is only used for low mode indices. If i>=nl  the appropriate data is picked using i_high_unmapped
+    //t is the local time
+    //Note: code not suitable for execution on device
+    inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
+      static FieldSiteType zerosc[12]; static bool init=false;
+      if(!init){ for(int i=0;i<12;i++) CPSsetZero(zerosc[i]); init = true; }
+
+      if(i >= nl) assert(i_high_unmapped.hit != -1 && i_high_unmapped.flavor != -1 && i_high_unmapped.spin_color != -1);
+      const FermionFieldView &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
+      bool zero_hint[2] = {false,false};
+      if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
+      
+      const int x4d = field.threeToFour(p3d,t);
+      return SCFvectorPtr<FieldSiteType>(zero_hint[0] ? &zerosc[0] : field.site_ptr(x4d,0), zero_hint[1] ? &zerosc[0] : field.site_ptr(x4d,1), zero_hint[0], zero_hint[1]);
+    }
+    
+    //For the mode i, get the base pointer and size (in units of FieldSiteType) of the field. Includes all flavors, contiguity guaranteed
+    inline void getModeData(FieldSiteType const* &ptr, size_t &size, const int i) const{
+      if(i<nl){
+	ptr = awl[i].ptr(); size = awl[i].size();
+      }else{
+	int ii = i-nl;
+	ptr = awh[ii].ptr(); size = awh[ii].size();
+      }
+    }
+
+    //For the mode i, get the base pointers for the provided timeslice (local) for each flavor along with the size (in units of FieldSiteType) of the timeslice field. Contiguity guaranteed
+    inline void getModeTimesliceData(FieldSiteType const* &ptr_f0, FieldSiteType const* &ptr_f1, size_t &size, const int i, const int t) const{
+      if(i<nl){
+	assert(awl[i].dimpol_flavor_timeslice_contiguous());
+	size = awl[i].dimpol_time_stride() * awl[i].siteSize();      
+	ptr_f0 = awl[i].ptr() + t*size;
+	ptr_f1 = ptr_f0 + awl[i].flav_offset();
+      }else{
+	int ii = i-nl;
+	assert(awh[ii].dimpol_flavor_timeslice_contiguous());	  
+	size = awh[ii].dimpol_time_stride() * awh[ii].siteSize();
+	ptr_f0 = awh[ii].ptr() + t*size;
+	ptr_f1 = ptr_f0 + awh[ii].flav_offset();
+      }
+    }
+
     void free(){ awl.free(); awh.free(); }
   };
 
-  View view() const{ return View(wl, wh, *this); }
+  View view(ViewMode mode) const{ return View(mode, wl, wh, *this); }
+  //Open a view only to some subset of modes. Undefined behavior if you access one that you are not supposed to!
+  View view(ViewMode mode, const std::vector<bool> &modes_used) const{ return View(mode, wl, wh, *this, modes_used); }
+
+  void enqueuePrefetch(ViewMode mode, const std::vector<bool> &modes_used) const{
+    for(int i=0;i<nl;i++) if(modes_used[i])  wl[i]->enqueuePrefetch(mode);
+    for(int i=0;i<12*nhits;i++) if(modes_used[i+nl]) wh[i]->enqueuePrefetch(mode);
+  }   
+  static inline void startPrefetches(){ Policies::AllocPolicy::startPrefetches(); }
+  static inline void waitPrefetches(){ Policies::AllocPolicy::waitPrefetches(); }
   
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
@@ -774,20 +821,7 @@ public:
     for(int i=0;i<nl;i++) wl[i]->zero();
     for(int i=0;i<12*nhits;i++) wh[i]->zero();
   }
-  
-  //BELOW are for use by the meson field
-  //For high modes it returns   wFFTP^(j_h,j_sc)_{sc',f'}(p,t) \delta_{f',j_f}   [cf a2a_dilutions.h]
-  //i is only used for low mode indices. If i>=nl  the appropriate data is picked using i_high_unmapped
-  //t is the local time
-  inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
-    if(i >= nl) assert(i_high_unmapped.hit != -1 && i_high_unmapped.flavor != -1 && i_high_unmapped.spin_color != -1);
-    const FermionFieldType &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
-    bool zero_hint[2] = {false,false};
-    if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
-
-    const int x4d = field.threeToFour(p3d,t);
-    return SCFvectorPtr<FieldSiteType>(zero_hint[0] ? &zerosc[0] : field.site_ptr(x4d,0), zero_hint[1] ? &zerosc[0] : field.site_ptr(x4d,1), zero_hint[0], zero_hint[1]);
-  }
+   
   //Return the pointer stride for between 3d coordinates for a given mode index and flavor. Relies on the dimension policy implementing dimpol_site_stride_3d
   inline int siteStride3D(const int i, const modeIndexSet &i_high_unmapped, const int f) const{ 
     const FermionFieldType &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);

@@ -24,7 +24,10 @@ void checkCPSfieldGridImpex5Dcb(typename A2Apolicies_grid::FgridGFclass &lattice
     cpscp1.importGridField(fivedin);
 
     CPSfermion5D<cps::ComplexD> cpscp2;
-    lattice.ImportFermion((Vector*)cpscp2.ptr(), fivedin);
+    {
+      CPSautoView(v,cpscp2,HostWrite);
+      lattice.ImportFermion((Vector*)v.ptr(), fivedin);
+    }
 
     assert(cpscp1.equals(cpscp2));
 
@@ -122,7 +125,7 @@ void testCPSfieldImpex(){
     }
 
 #ifdef USE_GRID
-    typedef CPSfermion4D<Grid::vComplexD, FourDSIMDPolicy<DynamicFlavorPolicy>,Aligned128AllocPolicy> CPSfermion4DGrid;
+    typedef CPSfermion4D<Grid::vComplexD, FourDSIMDPolicy<DynamicFlavorPolicy>,UVMallocPolicy> CPSfermion4DGrid;
     typedef typename CPSfermion4DGrid::InputParamType CPSfermion4DGridParams;
     CPSfermion4DGridParams gp;
     setupFieldParams<CPSfermion4DGrid>(gp);
@@ -327,7 +330,7 @@ void testCPSfieldIO(){
 #ifdef USE_GRID
       {
 	//Native write with SIMD intact
-	typedef CPSfield<Grid::vComplexD,12,FourDSIMDPolicy<DynamicFlavorPolicy>,Aligned128AllocPolicy> GridFieldType;
+	typedef CPSfield<Grid::vComplexD,12,FourDSIMDPolicy<DynamicFlavorPolicy>,UVMallocPolicy> GridFieldType;
 	typedef CPSfield<cps::ComplexD,12,FourDpolicy<DynamicFlavorPolicy> > ScalarFieldType;
 	typedef GridFieldType::InputParamType ParamType;
 
@@ -450,7 +453,7 @@ void testCPSfieldIO(){
 
 #ifdef USE_GRID
 	//Test for SIMD types too
-	typedef CPSfield<Grid::vComplexD,12,FourDSIMDPolicy<DynamicFlavorPolicy>,Aligned128AllocPolicy> GridFieldType;
+	typedef CPSfield<Grid::vComplexD,12,FourDSIMDPolicy<DynamicFlavorPolicy>,UVMallocPolicy> GridFieldType;
 	typedef GridFieldType::InputParamType ParamType;
 
 	ParamType params;

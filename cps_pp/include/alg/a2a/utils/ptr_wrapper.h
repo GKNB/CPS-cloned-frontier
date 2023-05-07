@@ -83,10 +83,10 @@ public:
     accelerator_inline T& operator*() const{ return *t; }
     accelerator_inline T* operator->() const{ return t; }
 
-    View(const ManagedPtrWrapper &r): t(r.t){}
+    View(ViewMode mode, const ManagedPtrWrapper &r): t(r.t){} //mode is unimportant for managed memory
   };
 
-  View view() const{ return View(*this); }
+  View view(ViewMode mode) const{ return View(mode, *this); }
   
   inline ManagedPtrWrapper(): t(NULL){};
 

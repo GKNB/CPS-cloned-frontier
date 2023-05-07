@@ -10,12 +10,15 @@ CPS_START_NAMESPACE
 //Output is a CPSfield<Matrix>  where Matrix is a spin-color(-flavor) matrix
 //conj_l and conj_r control whether the left/right vectors have the complex conjugate applied
 template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  template <typename> class rA2Afield>
-void mult(typename mult_vv_field<mf_Policies, lA2Afield, rA2Afield>::PropagatorField &into,
+	 template <typename> class lA2Afield,  template <typename> class rA2Afield,
+	 typename PropagatorField,
+	 typename std::enable_if< _mult_vMv_field_offload_fields_check_propagatorfield<mf_Policies,PropagatorField>::value, int>::type = 0	 
+	 >
+void mult(PropagatorField &into,
 	  const lA2Afield<mf_Policies> &l, 
 	  const rA2Afield<mf_Policies> &r,
 	  bool conj_l, bool conj_r){
-  return mult_vv_field<mf_Policies, lA2Afield, rA2Afield>::implementation(into, l, r, conj_l, conj_r);
+  return mult_vv_field<mf_Policies, lA2Afield, rA2Afield, PropagatorField>::implementation(into, l, r, conj_l, conj_r);
 }
 
 CPS_END_NAMESPACE

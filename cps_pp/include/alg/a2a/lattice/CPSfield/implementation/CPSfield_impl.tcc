@@ -57,11 +57,12 @@ struct normdefs<Grid::vComplexF>{
 
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 double CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::norm2() const{
+  CPSautoView(t_v,(*this),HostRead);
   SiteType accum[omp_get_max_threads()];
   memset(accum, 0, omp_get_max_threads()*sizeof(SiteType));
 #pragma omp parallel for schedule(static)  
   for(size_t i=0;i<this->nfsites();i++){
-    SiteType const *site = this->fsite_ptr(i);
+    SiteType const *site = t_v.fsite_ptr(i);
     for(int s=0;s<SiteSize;s++)
       accum[omp_get_thread_num()] = accum[omp_get_thread_num()] + normdefs<SiteType>::conjugate(site[s])*site[s];
   }
@@ -78,11 +79,12 @@ double CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::norm2() const{
 
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 double CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::norm2(const IncludeSite<MappingPolicy::EuclideanDimension> & restrictsites) const{
+  CPSautoView(t_v,(*this),HostRead);
   SiteType accum[omp_get_max_threads()];
   memset(accum, 0, omp_get_max_threads()*sizeof(SiteType));
 #pragma omp parallel for schedule(static)  
   for(size_t i=0;i<this->nfsites();i++){
-    SiteType const *site = this->fsite_ptr(i);
+    SiteType const *site = t_v.fsite_ptr(i);
     int x[MappingPolicy::EuclideanDimension]; int f;
     this->fsiteUnmap(i,x,f);
     if(!restrictsites.query(x,f)) continue;
@@ -162,33 +164,43 @@ public:
 //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::testRandom(const Float hi, const Float lo){
-  _testRandom<SiteType>::rand(this->f,this->fsize,hi,lo);
+  CPSautoView(t_v,(*this),HostWrite);
+  _testRandom<SiteType>::rand(t_v.ptr(),this->fsize,hi,lo);
 }
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 //Set this field to the average of this and a second field, r
-void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::average(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r, const bool &parallel){
+void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::average(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r, const bool parallel){
   //The beauty of having the ordering baked into the policy class is that we implicitly *know* the ordering of the second field, so we can just loop over the floats in a dumb way
+  CPSautoView(t_vr,(*this),HostRead); //need to read and write! This will ensure the data is where it is needed
+  CPSautoView(t_v,(*this),HostWrite);
+  CPSautoView(r_v,r,HostRead);
+  SiteType *tf=t_v.ptr();
+  SiteType const* rf=r_v.ptr();
+
   if(parallel){
 #pragma omp parallel for
-    for(size_t i=0;i<fsize;i++) f[i] = (f[i] + r.f[i])/2.0;
+    for(size_t i=0;i<fsize;i++) tf[i] = (tf[i] + rf[i])/2.0;
   }else{
-    for(size_t i=0;i<fsize;i++) f[i] = (f[i] + r.f[i])/2.0;
+    for(size_t i=0;i<fsize;i++) tf[i] = (tf[i] + rf[i])/2.0;
   }
 }
 
 //Implemenation objects for CPSfermion4d gauge fix
-template<typename mf_Complex, typename MappingPolicy>
+template<typename SIMDcomplex, typename SIMDmappingPolicy, typename FieldType>
 struct _gauge_fix_conv_gfix_mat{
-  static inline CPSfield<mf_Complex, 9, MappingPolicy> * convert(bool &delout, CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > &in, const typename MappingPolicy::ParamType &params){
-    CPSfield<mf_Complex, 9, MappingPolicy> * out = new CPSfield<mf_Complex, 9, MappingPolicy>(params);
+  typedef CPSfield<SIMDcomplex, 9, SIMDmappingPolicy, HostAllocPolicy> OutputType;
+
+  static inline OutputType * convert(bool &delout, FieldType &in, const typename SIMDmappingPolicy::ParamType &params){
+    OutputType * out = new OutputType(params);
     out->importField(in);
     delout = true;
     return out;
   }
 };
-template<>
-struct _gauge_fix_conv_gfix_mat<cps::ComplexD, FourDpolicy<DynamicFlavorPolicy> >{
-  static inline CPSfield<cps::ComplexD, 9, FourDpolicy<DynamicFlavorPolicy> > * convert(bool &delout, CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > &in, const NullObject &params){
+template<typename FieldType>
+struct _gauge_fix_conv_gfix_mat<cps::ComplexD, typename FieldType::FieldMappingPolicy, FieldType>{
+  typedef FieldType OutputType;
+  static inline FieldType * convert(bool &delout, FieldType &in, const NullObject &params){
     delout = false;
     return &in;    
   }
@@ -200,40 +212,51 @@ void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, 
   
   //Get the field of gauge fixing matrices in non-SIMD format
   NullObject null;
-  CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > gfix_mat(null);
-#pragma omp parallel for
-  for(size_t xf = 0; xf < gfix_mat.nfsites(); xf++){
-    int x[4]; int f;
-    gfix_mat.fsiteUnmap(xf,x,f);
-    Matrix const* mp = lat.FixGaugeMatrix(x,f);
-    if(mp == NULL) ERR.General("CPSfermion4D","gaugeFix","Gauge fixing matrix for site x=(%d,%d,%d,%d) f=%d doesn't exist!",x[0],x[1],x[2],x[3],f);
-    *( (Matrix*)gfix_mat.fsite_ptr(xf) ) = *mp;
-  }
-  bool delete_conv;
-  CPSfield<mf_Complex, 9, MappingPolicy> * gfix_mat_conv = _gauge_fix_conv_gfix_mat<mf_Complex,MappingPolicy>::convert(delete_conv, gfix_mat, this->getDimPolParams());
+  typedef CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy>, HostAllocPolicy > NonSIMDfieldType;
+  NonSIMDfieldType gfix_mat(null);
+  {
+    CPSautoView(gf_v,gfix_mat,HostWrite);
 
 #pragma omp parallel for
-  for(size_t xf = 0; xf < this->nfsites(); xf++){
-    mf_Complex *sc_base = this->fsite_ptr(xf);
-    CPScolorMatrix<mf_Complex> const &gfmat = * ((CPScolorMatrix<mf_Complex> const*) gfix_mat_conv->fsite_ptr(xf));
-
-    mf_Complex tmp[3];
-    
-    for(int s=0;s<4;s++){
-      mf_Complex* s_base = sc_base + 3 * s;
-      tmp[0] = *(s_base);
-      tmp[1] = *(s_base+1);
-      tmp[2] = *(s_base+2);
-      
-      if(!dagger)
-	for(int i=0;i<3;i++)
-	  s_base[i] = gfmat(i,0)*tmp[0] + gfmat(i,1)*tmp[1] + gfmat(i,2)*tmp[2];
-      else
-	for(int i=0;i<3;i++)
-	  s_base[i] = Grid::conjugate(gfmat(0,i))*tmp[0] + Grid::conjugate(gfmat(1,i))*tmp[1] + Grid::conjugate(gfmat(2,i))*tmp[2];
+    for(size_t xf = 0; xf < gfix_mat.nfsites(); xf++){
+      int x[4]; int f;
+      gfix_mat.fsiteUnmap(xf,x,f);
+      Matrix const* mp = lat.FixGaugeMatrix(x,f);
+      if(mp == NULL) ERR.General("CPSfermion4D","gaugeFix","Gauge fixing matrix for site x=(%d,%d,%d,%d) f=%d doesn't exist!",x[0],x[1],x[2],x[3],f);
+      *( (Matrix*)gf_v.fsite_ptr(xf) ) = *mp;
     }
   }
-  
+  //Need to convert to the SIMD format if necessary
+  bool delete_conv;
+  auto* gfix_mat_conv = _gauge_fix_conv_gfix_mat<mf_Complex,MappingPolicy,NonSIMDfieldType>::convert(delete_conv, gfix_mat, this->getDimPolParams());
+  {
+    CPSautoView(t_vr,(*this),HostRead);
+    CPSautoView(t_v,(*this),HostWrite);
+    CPSautoView(gf_v,(*gfix_mat_conv),HostRead);
+
+#pragma omp parallel for
+    for(size_t xf = 0; xf < this->nfsites(); xf++){
+      mf_Complex *sc_base = t_v.fsite_ptr(xf);
+      CPScolorMatrix<mf_Complex> const &gfmat = * ((CPScolorMatrix<mf_Complex> const*) gf_v.fsite_ptr(xf));
+
+      mf_Complex tmp[3];
+    
+      for(int s=0;s<4;s++){
+	mf_Complex* s_base = sc_base + 3 * s;
+	tmp[0] = *(s_base);
+	tmp[1] = *(s_base+1);
+	tmp[2] = *(s_base+2);
+      
+	if(!dagger)
+	  for(int i=0;i<3;i++)
+	    s_base[i] = gfmat(i,0)*tmp[0] + gfmat(i,1)*tmp[1] + gfmat(i,2)*tmp[2];
+	else
+	  for(int i=0;i<3;i++)
+	    s_base[i] = Grid::conjugate(gfmat(0,i))*tmp[0] + Grid::conjugate(gfmat(1,i))*tmp[1] + Grid::conjugate(gfmat(2,i))*tmp[2];
+      }
+    }
+  }  
+
   if(delete_conv) delete gfix_mat_conv;
 }
 
@@ -259,9 +282,9 @@ struct _apply_phase_site_op_impl{};
 
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 struct _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,complex_double_or_float_mark>{
-  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field;
+  typename CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::View &field;
 
-  _apply_phase_site_op_impl(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &fld, const int num_threads): field(fld){}
+  _apply_phase_site_op_impl(typename CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::View &fld, const int num_threads): field(fld){}
   
   void apply_phase_site_op(const int x_lcl[], const int flav, const int p[], const double punits[], const int thread){
     StaticAssert<MappingPolicy::EuclideanDimension >= 3> check;
@@ -287,9 +310,9 @@ template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 struct _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,grid_vector_complex_mark>{
   int nsimd;
   typedef typename mf_Complex::scalar_type stype;  
-  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field;
+  typename CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::View &field;
   
-  _apply_phase_site_op_impl(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &fld, const int num_threads): field(fld){
+  _apply_phase_site_op_impl(typename CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::View &fld, const int num_threads): field(fld){
     nsimd = field.Nsimd();
   }
   
@@ -330,8 +353,9 @@ template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>::applyPhase(const int p[], const bool parallel){
   double punits[3];
   CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(punits);
-
-  _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type> op(*this, parallel ? omp_get_max_threads() : 1);
+  CPSautoView(t_vr,(*this),HostRead);
+  CPSautoView(t_v,(*this),HostWrite);
+  _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type> op(t_v, parallel ? omp_get_max_threads() : 1);
 
   if(parallel){
 #pragma omp parallel for
@@ -352,6 +376,7 @@ void CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>::applyPhase(cons
 //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::setUniformRandom(const Float &hi, const Float &lo){
+  CPSautoView(t_v,(*this),HostWrite);
   typedef typename mf_Complex::value_type mf_Float;
   LRG.SetInterval(hi,lo);
   for(size_t i = 0; i < this->nsites()*this->nflavors(); ++i) {
@@ -359,7 +384,7 @@ void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::setUniformRandom(const 
     size_t st = i % this->nsites();
 
     LRG.AssignGenerator(st,flav);
-    mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
+    mf_Float *p = (mf_Float*)t_v.site_ptr(st,flav);
 
     for(size_t site_lcl_off=0;site_lcl_off<2*FieldSiteSize;site_lcl_off++)
       *(p++) = LRG.Urand(FOUR_D);
@@ -368,13 +393,14 @@ void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::setUniformRandom(const 
 
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::setGaussianRandom(){
+  CPSautoView(t_v,(*this),HostWrite);
   typedef typename mf_Complex::value_type mf_Float;
   for(size_t i = 0; i < this->nsites()*this->nflavors(); ++i) {
     int flav = i / this->nsites();
     size_t st = i % this->nsites();
 
     LRG.AssignGenerator(st,flav);
-    mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
+    mf_Float *p = (mf_Float*)t_v.site_ptr(st,flav);
 
     for(size_t site_lcl_off=0;site_lcl_off<2*FieldSiteSize;site_lcl_off++)
       *(p++) = LRG.Grand(FOUR_D);
@@ -383,13 +409,14 @@ void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::setGaussianRandom(){
 
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPSfermion5D<mf_Complex,MappingPolicy,AllocPolicy>::setGaussianRandom(){
+  CPSautoView(t_v,(*this),HostWrite);
   typedef typename mf_Complex::value_type mf_Float;
   for(size_t i = 0; i < this->nsites()*this->nflavors(); ++i) {
     int flav = i / this->nsites();
     size_t st = i % this->nsites();
 
     LRG.AssignGenerator(st,flav);
-    mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
+    mf_Float *p = (mf_Float*)t_v.site_ptr(st,flav);
 
     for(size_t site_lcl_off=0;site_lcl_off<2*FieldSiteSize;site_lcl_off++)
       *(p++) = LRG.Grand(FIVE_D);
@@ -400,24 +427,24 @@ void CPSfermion5D<mf_Complex,MappingPolicy,AllocPolicy>::setGaussianRandom(){
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 struct _ferm3d_gfix_impl{
 
-  static void gaugeFix(CPSfermion3D<mf_Complex,MappingPolicy,AllocPolicy> &field, Lattice &lat, const typename GaugeFix3DInfo<typename MappingPolicy::FieldFlavorPolicy>::InfoType &t, const bool &parallel){
-    if(GJP.Gparity() && field.nflavors() == 1) ERR.General("CPSfermion3D","gaugeFix(Lattice &, const int &, const bool &)","For one flavor fields with G-parity enabled, to gauge fix we need to know the flavor of this field\n");
+//   static void gaugeFix(CPSfermion3D<mf_Complex,MappingPolicy,AllocPolicy> &field, Lattice &lat, const typename GaugeFix3DInfo<typename MappingPolicy::FieldFlavorPolicy>::InfoType &t, const bool &parallel){
+//     if(GJP.Gparity() && field.nflavors() == 1) ERR.General("CPSfermion3D","gaugeFix(Lattice &, const int &, const bool &)","For one flavor fields with G-parity enabled, to gauge fix we need to know the flavor of this field\n");
 
-#define LOOP								\
-    for(size_t fi=0;fi<field.nfsites();fi++){				\
-      int x4d[4]; int f; field.fsiteUnmap(fi,x4d,f);			\
-      x4d[3] = t;							\
-      field.CPSfermion<mf_Complex,MappingPolicy>::gauge_fix_site_op(x4d,f,lat); \
-    }
+// #define LOOP								\
+//     for(size_t fi=0;fi<field.nfsites();fi++){				\
+//       int x4d[4]; int f; field.fsiteUnmap(fi,x4d,f);			\
+//       x4d[3] = t;							\
+//       field.CPSfermion<mf_Complex,MappingPolicy>::gauge_fix_site_op(x4d,f,lat); \
+//     }
 
-    if(parallel){
-#pragma omp parallel for
-      LOOP;
-    }else{
-      LOOP;
-    }
-#undef LOOP
-  }
+//     if(parallel){
+// #pragma omp parallel for
+//       LOOP;
+//     }else{
+//       LOOP;
+//     }
+// #undef LOOP
+//   }
 
 };
 //Partial specialization for one flavor. We must provide the flavor index for the gauge fixing matrix, i.e. the flavor that this field represents
@@ -427,13 +454,16 @@ struct _ferm3d_gfix_impl<mf_Complex,DimensionPolicy<FixedFlavorPolicy<1> >,Alloc
     printf("_ferm3d_gfix_impl::gauge_fix with time=%d, flav=%d\n",time_flav.first,time_flav.second);
     typedef typename mf_Complex::value_type mf_Float;
 
+    CPSautoView(f_vr,field,HostRead);
+    CPSautoView(f_v,field,HostWrite);
+
 #define SITE_OP								\
     int x4d[4]; field.siteUnmap(i,x4d);		\
     x4d[3] = time_flav.first;						\
     int gfmat_site = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] )); \
     mf_Complex tmp[3];							\
     const Matrix* gfmat = lat.FixGaugeMatrix(gfmat_site,time_flav.second);	\
-    mf_Complex* sc_base = field.site_ptr(x4d);			\
+    mf_Complex* sc_base = f_v.site_ptr(x4d);			\
     for(int s=0;s<4;s++){						\
       memcpy(tmp, sc_base + 3 * s, 3 * sizeof(mf_Complex));		\
       colorMatrixMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp); \
@@ -466,13 +496,14 @@ void CPSfermion3D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, 
 //Make a random complex scalar field of type
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPScomplex4D<mf_Complex,MappingPolicy,AllocPolicy>::setRandom(const RandomType &type){
+  CPSautoView(t_v,(*this),HostWrite);
   LRG.SetInterval(1, 0);
   for(size_t i = 0; i < this->sites*this->nflavors(); ++i) {
     int flav = i / this->nsites();
     size_t st = i % this->nsites();
 
     LRG.AssignGenerator(st,flav);
-    mf_Complex *p = this->site_ptr(st,flav);
+    mf_Complex *p = t_v.site_ptr(st,flav);
     RandomComplex<mf_Complex>::rand(p,type,FOUR_D);
   }
 }
@@ -480,6 +511,7 @@ void CPScomplex4D<mf_Complex,MappingPolicy,AllocPolicy>::setRandom(const RandomT
 //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPScomplex4D<mf_Complex,MappingPolicy,AllocPolicy>::setUniformRandom(const Float &hi, const Float &lo){
+  CPSautoView(t_v,(*this),HostWrite);
   typedef typename mf_Complex::value_type mf_Float;
   LRG.SetInterval(hi,lo);
   for(size_t i = 0; i < this->nsites()*this->nflavors(); ++i) {
@@ -487,7 +519,7 @@ void CPScomplex4D<mf_Complex,MappingPolicy,AllocPolicy>::setUniformRandom(const 
     size_t st = i % this->nsites();
 
     LRG.AssignGenerator(st,flav);
-    mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
+    mf_Float *p = (mf_Float*)t_v.site_ptr(st,flav);
 
     for(int i=0;i<2;i++)
       *(p++) = LRG.Urand(FOUR_D);
@@ -506,7 +538,10 @@ void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::fft(){
   
   typename FFTWwrapper<mf_Float>::complexType* fft_mem = FFTWwrapper<mf_Float>::alloc_complex(this_floatsize);
   
-  memcpy((void *)fft_mem, this->ptr(), this_floatsize*sizeof(mf_Float));
+  {
+    CPSautoView(t_v,(*this),HostRead);
+    memcpy((void *)fft_mem, t_v.ptr(), this_floatsize*sizeof(mf_Float));
+  }
 
   //Plan creation is expensive, so make it static
   static typename FFTWwrapper<mf_Float>::planType plan_src;
@@ -523,8 +558,10 @@ void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::fft(){
     size_t off = f * size_3d_glb;
     FFTWwrapper<mf_Float>::execute_dft(plan_src, fft_mem + off, fft_mem + off);
   }
-
-  memcpy((void *)this->ptr(), (void*)fft_mem, this_floatsize*sizeof(mf_Float));
+  {
+    CPSautoView(t_v,(*this),HostWrite);
+    memcpy((void *)t_v.ptr(), (void*)fft_mem, this_floatsize*sizeof(mf_Float));
+  }
   FFTWwrapper<mf_Float>::free(fft_mem);
 
   //FFTWwrapper<mf_Float>::cleanup(); //Don't need to cleanup, it doesn't have the function I initially thought
@@ -546,14 +583,16 @@ struct _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy
   static void doit(CPSfield<extComplex,1,extMapPolicy,extAllocPolicy> &to, const CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &from){
     const char *fname = "scatter(...)";
     int orig[3]; for(int i=0;i<3;i++) orig[i] = GJP.NodeSites(i)*GJP.NodeCoor(i);
-
+    CPSautoView(to_v,to,HostWrite);
+    CPSautoView(from_v,from,HostRead);
+    
 #pragma omp parallel for
     for(size_t i=0;i<to.nfsites();i++){
       int x[3]; int flavor;  to.fsiteUnmap(i,x,flavor); //unmap the target coordinate
       for(int j=0;j<3;j++) x[j] += orig[j]; //global coord
 
-      extComplex* tosite = to.fsite_ptr(i);
-      mf_Complex const* fromsite = from.site_ptr(x,flavor);
+      extComplex* tosite = to_v.fsite_ptr(i);
+      mf_Complex const* fromsite = from_v.site_ptr(x,flavor);
 
       *tosite = *fromsite;
     }	
@@ -574,23 +613,26 @@ struct _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy
     int nsimd = extComplex::Nsimd();
     std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim)); //get the vector offsets for the different SIMD packed sites
     for(int i=0;i<nsimd;i++) to.SIMDunmap(i,&packed_offsets[i][0]);
-    
+
+    CPSautoView(from_v,from,HostRead);    
+    CPSautoView(to_v,to,HostWrite);
+
 #pragma omp parallel for
     for(size_t i=0;i<to.nfsites();i++){
       int x[3]; int flavor;  to.fsiteUnmap(i,x,flavor); //unmap the target coordinate. This is a root coordinate, we need to construct the other offsets
       for(int j=0;j<3;j++) x[j] += orig[j]; //global coord
 
-      extComplex* toptr = to.fsite_ptr(i); 
+      extComplex* toptr = to_v.fsite_ptr(i); 
 
       //x is the root coordinate corresponding to SIMD packed index 0      
       std::vector<mf_Complex const*> ptrs(nsimd);
-      ptrs[0] = from.site_ptr(x,flavor);
+      ptrs[0] = from_v.site_ptr(x,flavor);
       
       int xx[ndim];
       for(int i=1;i<nsimd;i++){
 	for(int d=0;d<ndim;d++)
 	  xx[d] = x[d] + packed_offsets[i][d];  //xx = x + offset
-	ptrs[i] = from.site_ptr(xx,flavor);
+	ptrs[i] = from_v.site_ptr(xx,flavor);
       }
       to.SIMDpack(toptr, ptrs, 1);
     }	
@@ -657,12 +699,20 @@ struct _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
   static void gather(CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy> &into, const CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy> &from){
     const int dir = into.getDir();
 
-    const char *fname = "gather(...)";
     NullObject nullobj;
-    CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy> tmp1(nullobj);
-    CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy> tmp2(nullobj);
-    CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy>* send = const_cast<CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy>* >(&from);
-    CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy>* recv = &tmp2;
+    CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy> tmp1(nullobj), tmp2(nullobj);
+
+    CPSautoView(into_v,into,HostWrite);
+    CPSautoView(from_v,from,HostRead);
+    CPSautoView(tmp1_v,tmp1,HostWrite);
+    CPSautoView(tmp2_v,tmp2,HostWrite);
+
+    const char *fname = "gather(...)";
+
+    typedef typename CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy>::View ViewType;
+
+    ViewType* send = &from_v;
+    ViewType* recv = &tmp2_v;
 
     int cur_dir_origin = GJP.NodeSites(dir)*GJP.NodeCoor(dir);    
     int size_in_Float = from.size() * sizeof(SiteType) / sizeof(IFloat); //getPlusData measures the send/recv size in units of sizeof(IFloat)
@@ -675,7 +725,7 @@ struct _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
 	int x[MappingPolicy::EuclideanDimension]; int flavor;  send->fsiteUnmap(i,x,flavor); //unmap the buffer coordinate
 	x[dir] += cur_dir_origin; //now a global coordinate in the dir direction
 
-	SiteType* tosite = into.site_ptr(x,flavor);
+	SiteType* tosite = into_v.site_ptr(x,flavor);
 	SiteType* fromsite = send->fsite_ptr(i);
 
 	memcpy((void*)tosite, (void*)fromsite, into.siteSize()*sizeof(SiteType));
@@ -687,8 +737,8 @@ struct _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
 	cur_dir_origin %= (GJP.NodeSites(dir)*GJP.Nodes(dir));
 
 	if(shift == 0){
-	  recv = &tmp1;
-	  send = &tmp2;
+	  recv = &tmp1_v;
+	  send = &tmp2_v;
 	}else std::swap(send,recv);
       }
     }    
@@ -699,14 +749,16 @@ struct _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
     
     const char *fname = "scatter(...)";
     int cur_dir_origin = GJP.NodeSites(dir)*GJP.NodeCoor(dir);
-
+    CPSautoView(to_v,to,HostWrite);
+    CPSautoView(from_v,from,HostRead);
+    
 #pragma omp parallel for
     for(size_t i=0;i<to.nfsites();i++){
       int x[MappingPolicy::EuclideanDimension]; int flavor;  to.fsiteUnmap(i,x, flavor); //unmap the target coordinate
       x[dir] += cur_dir_origin; //now a global coordinate in the dir direction
       
-      SiteType* tosite = to.fsite_ptr(i);
-      SiteType const* fromsite = from.site_ptr(x,flavor);
+      SiteType* tosite = to_v.fsite_ptr(i);
+      SiteType const* fromsite = from_v.site_ptr(x,flavor);
       
       memcpy((void*)tosite, (void*)fromsite, from.siteSize()*sizeof(SiteType));
     }
@@ -777,8 +829,10 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy>::fft(co
   }
     
   typename FFTWwrapper<typename SiteType::value_type>::complexType *fftw_mem = FFTWwrapper<typename SiteType::value_type>::alloc_complex(size_1d_glb * n_fft);
-    
-  memcpy((void *)fftw_mem, this->ptr(), this->size()*sizeof(SiteType));
+  {
+    CPSautoView(t_v,(*this),HostRead);
+    memcpy((void *)fftw_mem, t_v.ptr(), this->size()*sizeof(SiteType));
+  }
 #pragma omp parallel for
   for(size_t n = 0; n < n_fft; n++) {
     int sc_id = n % sc_size;
@@ -788,10 +842,11 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy>::fft(co
   }
 
   //FFTWwrapper<SiteType>::cleanup(); //I think this actually destroys existing plans!
-
-  if(!inverse_transform) memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
-  else for(size_t i=0;i<this->size();i++) this->ptr()[i] = *( (SiteType*)fftw_mem+i )/double(size_1d_glb);
-  
+  {
+    CPSautoView(t_v,(*this),HostWrite);
+    if(!inverse_transform) memcpy(t_v.ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
+    else for(size_t i=0;i<this->size();i++) t_v.ptr()[i] = *( (SiteType*)fftw_mem+i )/double(size_1d_glb);
+  }
   FFTWwrapper<typename SiteType::value_type>::free(fftw_mem);
 }
 
@@ -832,18 +887,21 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy>::fft(co
   }
 
   typename FFTWwrapper<typename SiteType::value_type>::complexType *fftw_mem = FFTWwrapper<typename SiteType::value_type>::alloc_complex(size_1d_glb * n_fft * sc_size);
-    
-  memcpy((void *)fftw_mem, this->ptr(), this->size()*sizeof(SiteType));
+  {
+    CPSautoView(t_v,(*this),HostRead);
+    memcpy((void *)fftw_mem, t_v.ptr(), this->size()*sizeof(SiteType));
+  }
 #pragma omp parallel for
   for(size_t n = 0; n < n_fft; n++) {
     int chunk_id = n; //3d block index
     int off = size_1d_glb * sc_size * chunk_id;
     FFTWwrapper<typename SiteType::value_type>::execute_dft(plan_f[dir].getPlan(), fftw_mem + off, fftw_mem + off); 
   }
-
-  if(!inverse_transform) memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
-  else for(size_t i=0;i<this->size();i++) this->ptr()[i] = *( (SiteType*)fftw_mem+i )/double(size_1d_glb);
-  
+  {
+    CPSautoView(t_v,(*this),HostWrite);
+    if(!inverse_transform) memcpy(t_v.ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
+    else for(size_t i=0;i<this->size();i++) t_v.ptr()[i] = *( (SiteType*)fftw_mem+i )/double(size_1d_glb);
+  }
   FFTWwrapper<typename SiteType::value_type>::free(fftw_mem);
 }
 

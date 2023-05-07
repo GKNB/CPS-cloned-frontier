@@ -234,8 +234,8 @@ void testMesonFieldTraceProduct(const A2AArg &a2a_args, const double tol){
 
   //Test the GPU version with precomputed views
   {
-    CPSautoView(mf1_v, mf1);
-    CPSautoView(mf2_v, mf2);
+    CPSautoView(mf1_v, mf1, DeviceRead);
+    CPSautoView(mf2_v, mf2, DeviceRead);
     
     fast = 0;
     fast = trace_gpu(mf1,mf2, &mf1_v, &mf2_v);
@@ -302,8 +302,8 @@ void testMesonFieldTraceProductTblock(A2AArg a2a_args, const double tol){
 
   //Test the GPU version with precomputed views
   {
-    CPSautoView(mf1_v, mf1);
-    CPSautoView(mf2_v, mf2);
+    CPSautoView(mf1_v, mf1, DeviceRead);
+    CPSautoView(mf2_v, mf2, DeviceRead);
     
     fast = 0;
     fast = trace_gpu(mf1,mf2, &mf1_v, &mf2_v);
@@ -378,10 +378,11 @@ void checkunpacked(const MFtype &mf, ScalarComplexType const* into, double tol, 
   int cols_full = mf.getNcolsFull();
    
   bool fail = false;
+  CPSautoView(mf_v,mf,HostRead);
   for(int i=0;i<rows_full;i++){
     for(int j=0;j<cols_full;j++){
       Complex got = into[j+cols_full*i];
-      Complex expect = mf.elem(i,j);
+      Complex expect = mf_v.elem(i,j);
       
       double rdiff = fabs(got.real()-expect.real());
       double idiff = fabs(got.imag()-expect.imag());
@@ -443,7 +444,7 @@ void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
   //Do a test once with the view precreated
   {
     device_memset(device_into,0,into_size);
-    CPSautoView(mf1_v,mf1);
+    CPSautoView(mf1_v,mf1,DeviceRead);
 
     mf1.unpack_device(device_into, &mf1_v);
     memset(into,0,into_size);  
@@ -546,7 +547,7 @@ void testMesonFieldUnpackPackTblock(A2AArg a2a_args, const double tol){
   //Do a test once with the view precreated
   {
     device_memset(device_into,0,into_size);
-    CPSautoView(mf1_v,mf1);
+    CPSautoView(mf1_v,mf1,DeviceRead);
 
     mf1.unpack_device(device_into, &mf1_v);
     memset(into,0,into_size);  
@@ -620,7 +621,7 @@ void testMesonFieldUnpackPackTblock(A2AArg a2a_args, const double tol){
 
 void testMesonFieldNodeDistributeUnique(const A2AArg &a2a_args){
   //Generate a policy with the disk storage method so that we can test even for 1 rank
-  A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_NODESCRATCH);
+  A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_NODESCRATCH, UVMallocPolicy);
 
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
@@ -681,7 +682,7 @@ void testMesonFieldNodeDistributeOneSided(const A2AArg &a2a_args){
 
   //Require more than 1 node
   if(nodes > 1){
-    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTEDONESIDED);
+    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTEDONESIDED, UVMallocPolicy);
 
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     

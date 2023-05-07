@@ -16,10 +16,13 @@ inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<C
     int x[5]; int rem = i;
     for(int ii=0;ii<5;ii++){ x[ii] = rem % GJP.NodeSites(ii); rem /= GJP.NodeSites(ii); }
     
+    CPSautoView(A_v,A,HostRead);
+    CPSautoView(B_v,B,HostRead);
+    
     for(int f=0;f<GJP.Gparity()+1;f++){
       for(int sc=0;sc<24;sc++){
-	double vbfm = *((double*)A.site_ptr(i,f) + sc);
-	double vgrid = *((double*)B.site_ptr(i,f) + sc);
+	double vbfm = *((double*)A_v.site_ptr(i,f) + sc);
+	double vgrid = *((double*)B_v.site_ptr(i,f) + sc);
 	    
 	double diff_rat = fabs( 2.0 * ( vbfm - vgrid )/( vbfm + vgrid ) );
 	double rat_grid_bfm = vbfm/vgrid;
@@ -43,19 +46,37 @@ inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<C
   }
 }
 
+template<typename FieldTypeA,typename FieldTypeB>
+struct CPSfieldTypesSameUpToAllocPolicy{
+  enum { value =
+    std::is_same<typename FieldTypeA::FieldSiteType,typename FieldTypeB::FieldSiteType>::value
+    &&
+    FieldTypeA::FieldSiteSize == FieldTypeA::FieldSiteSize
+    &&
+    std::is_same<typename FieldTypeA::FieldMappingPolicy,typename FieldTypeB::FieldMappingPolicy>::value
+  };
+};
+
+
 //Compare general CPSfield
-template<typename FieldType, typename my_enable_if<_equal<typename ComplexClassify<typename FieldType::FieldSiteType>::type, complex_double_or_float_mark>::value,int>::type = 0>
-inline void compareField(const FieldType &A, const FieldType &B, const std::string &descr = "Field", const double tol = 1e-9, bool print_all = false){
-  typedef typename FieldType::FieldSiteType::value_type value_type;
-  
+template<typename FieldTypeA, typename FieldTypeB, typename std::enable_if<
+						     std::is_same<typename ComplexClassify<typename FieldTypeA::FieldSiteType>::type, complex_double_or_float_mark>::value
+						     &&
+						     CPSfieldTypesSameUpToAllocPolicy<FieldTypeA,FieldTypeB>::value
+						     ,int>::type = 0>
+inline void compareField(const FieldTypeA &A, const FieldTypeB &B, const std::string &descr = "Field", const double tol = 1e-9, bool print_all = false){
+  typedef typename FieldTypeA::FieldSiteType::value_type value_type;
+
+  CPSautoView(A_v,A,HostRead);
+  CPSautoView(B_v,B,HostRead);
   double fail = 0.;
   for(int xf=0;xf<A.nfsites();xf++){
-    int f; int x[FieldType::FieldMappingPolicy::EuclideanDimension];
+    int f; int x[FieldTypeA::FieldMappingPolicy::EuclideanDimension];
     A.fsiteUnmap(xf, x,f);
 
-    for(int i=0;i<FieldType::FieldSiteSize;i++){
-      value_type const* av = (value_type const*)(A.fsite_ptr(xf)+i);
-      value_type const* bv = (value_type const*)(B.fsite_ptr(xf)+i);
+    for(int i=0;i<FieldTypeA::FieldSiteSize;i++){
+      value_type const* av = (value_type const*)(A_v.fsite_ptr(xf)+i);
+      value_type const* bv = (value_type const*)(B_v.fsite_ptr(xf)+i);
       for(int reim=0;reim<2;reim++){
 	value_type diff_rat = (av[reim] == 0.0 && bv[reim] == 0.0) ? 0.0 : fabs( 2.*(av[reim]-bv[reim])/(av[reim]+bv[reim]) );
 	if(diff_rat > tol || print_all){
@@ -63,9 +84,9 @@ inline void compareField(const FieldType &A, const FieldType &B, const std::stri
 	  else std::cout << "Pass: ";
 	  
 	  std::cout << "coord=(";
-	  for(int xx=0;xx<FieldType::FieldMappingPolicy::EuclideanDimension-1;xx++)
+	  for(int xx=0;xx<FieldTypeA::FieldMappingPolicy::EuclideanDimension-1;xx++)
 	    std::cout << x[xx] << ", ";
-	  std::cout << x[FieldType::FieldMappingPolicy::EuclideanDimension-1];
+	  std::cout << x[FieldTypeA::FieldMappingPolicy::EuclideanDimension-1];
 
 	  std::cout << ") f=" << f << " i=" << i << " reim=" << reim << " A " << av[reim] << " B " << bv[reim] << " fracdiff " << diff_rat << std::endl;
 	  if(diff_rat > tol) fail = 1.;
@@ -93,7 +114,8 @@ inline void exportGridcb(CPSfermion5D<cps::ComplexD> &into, typename GridPolicie
   tmp_g = Grid::Zero();
 
   setCheckerboard(tmp_g, from);
-  latg.ImportFermion((Vector*)into.ptr(), tmp_g);
+  CPSautoView(into_v,into,HostWrite);
+  latg.ImportFermion((Vector*)into_v.ptr(), tmp_g);
 }
 #endif
 

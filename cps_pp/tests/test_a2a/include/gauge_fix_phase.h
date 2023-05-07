@@ -10,16 +10,19 @@ struct _gauge_fix_site_op_impl_test;
 
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 struct _gauge_fix_site_op_impl_test<mf_Complex,MappingPolicy,AllocPolicy,complex_double_or_float_mark>{
-  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field;
+  ViewAutoDestructWrapper<typename CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::View> field_v;
 
-  _gauge_fix_site_op_impl_test(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &f, const int num_threads): field(f){}
+  _gauge_fix_site_op_impl_test(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &f, const int num_threads){
+    { CPSautoView(f_v,f,HostRead); }    
+    field_v.reset(f.view(HostWrite));
+  }
 
   void gauge_fix_site_op(const int x4d[], const int f, Lattice &lat, const bool dagger, const int thread){
     typedef typename mf_Complex::value_type mf_Float;
     int i = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] ) );
     mf_Complex tmp[3];
     const Matrix* gfmat = lat.FixGaugeMatrix(i,f);
-    mf_Complex* sc_base = (mf_Complex*)field.site_ptr(x4d,f); //if Dimension < 4 the site_ptr method will ignore the remaining indices. Make sure this is what you want
+    mf_Complex* sc_base = (mf_Complex*)field_v->site_ptr(x4d,f); //if Dimension < 4 the site_ptr method will ignore the remaining indices. Make sure this is what you want
     for(int s=0;s<4;s++){
       memcpy(tmp, sc_base + 3 * s, 3 * sizeof(mf_Complex));
       if(!dagger)
@@ -36,15 +39,17 @@ template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 struct _gauge_fix_site_op_impl_test<mf_Complex,MappingPolicy,AllocPolicy,grid_vector_complex_mark>{
   typedef typename mf_Complex::scalar_type stype;
   int nsimd;
-  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field;
+  ViewAutoDestructWrapper<typename CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::View> field_v;
 
-  _gauge_fix_site_op_impl_test(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &f, const int num_threads): field(f){
-    nsimd = field.Nsimd();
+  _gauge_fix_site_op_impl_test(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &f, const int num_threads){
+    { CPSautoView(f_v,f,HostRead); }    
+    field_v.reset(f.view(HostWrite));
+    nsimd = f.Nsimd();
   }
   
   void gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat, const bool dagger, const int thread){
     //x4d is an outer site index
-    int nsimd = field.Nsimd();
+    int nsimd = mf_Complex::Nsimd();
     int ndim = MappingPolicy::EuclideanDimension;
     assert(ndim == 4);
 
@@ -54,7 +59,7 @@ struct _gauge_fix_site_op_impl_test<mf_Complex,MappingPolicy,AllocPolicy,grid_ve
     int lane_off[4];
     
     for(int lane=0;lane<nsimd;lane++){
-      field.SIMDunmap(lane, lane_off);		      
+      field_v->SIMDunmap(lane, lane_off);		      
       for(int xx=0;xx<4;xx++) x4d_lane[xx] = x4d[xx] + lane_off[xx];
       int gf_off = x4d_lane[0] + GJP.XnodeSites()*( x4d_lane[1] + GJP.YnodeSites()* ( x4d_lane[2] + GJP.ZnodeSites()*x4d_lane[3] ) );
       gf_base_ptrs[lane] = (cps::Complex*)lat.FixGaugeMatrix(gf_off,f);
@@ -73,7 +78,7 @@ struct _gauge_fix_site_op_impl_test<mf_Complex,MappingPolicy,AllocPolicy,grid_ve
     }
 
     //Do the matrix multiplication
-    mf_Complex* sc_base = field.site_ptr(x4d,f);
+    mf_Complex* sc_base = field_v->site_ptr(x4d,f);
     mf_Complex tmp[3];
     
     for(int s=0;s<4;s++){
@@ -177,9 +182,12 @@ void testGaugeFixAndPhasingGridStd(typename SIMDpolicyBase<4>::ParamType &simd_d
 			GJP.Bc(2)==BND_CND_GPARITY? 1 : 0 );
   ThreeMomentum p_minus = -p_plus;
 
-  typename A2Apolicies_std::FermionFieldType field_std;
+  typedef typename A2Apolicies_std::FermionFieldType StdFermionField;
+  typedef typename A2Apolicies_grid::FermionFieldType GridFermionField;
+  
+  StdFermionField field_std;
   field_std.testRandom();
-  typename A2Apolicies_grid::FermionFieldType field_grid(simd_dims);
+  GridFermionField field_grid(simd_dims);
   field_grid.importField(field_std);
 
   std::cout << "Import CPS->CPS/Grid " << field_std.norm2() << " " << field_grid.norm2() << std::endl;
@@ -189,7 +197,7 @@ void testGaugeFixAndPhasingGridStd(typename SIMDpolicyBase<4>::ParamType &simd_d
 
   std::cout << "After gauge fix CPS->CPS/Grid " << field_std.norm2() << " " << field_grid.norm2() << std::endl;
 
-  typename A2Apolicies_std::FermionFieldType field_std_tmp;
+  StdFermionField field_std_tmp;
   field_std_tmp.importField(field_grid);
 
   compareField(field_std, field_std_tmp, "Gauge fix test", 1e-10);
@@ -201,8 +209,8 @@ void testGaugeFixAndPhasingGridStd(typename SIMDpolicyBase<4>::ParamType &simd_d
   field_std_tmp.importField(field_grid);
   compareField(field_std, field_std_tmp, "Phase test", 1e-10);
 
-  CPSfermion4DglobalInOneDir<typename A2Apolicies_grid::ScalarComplexType> dbl_grid(0);
-  CPSfermion4DglobalInOneDir<typename A2Apolicies_std::ComplexType> dbl_std(0);
+  CPSfermion4DglobalInOneDir<typename A2Apolicies_grid::ScalarComplexType, typename GridFermionField::FieldFlavorPolicy, typename GridFermionField::FieldAllocPolicy > dbl_grid(0);
+  CPSfermion4DglobalInOneDir<typename A2Apolicies_std::ComplexType, typename StdFermionField::FieldFlavorPolicy, typename StdFermionField::FieldAllocPolicy> dbl_std(0);
 
   dbl_std.gather(field_std);
   dbl_std.fft();
