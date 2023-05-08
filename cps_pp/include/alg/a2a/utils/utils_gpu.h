@@ -202,6 +202,25 @@ inline void device_synchronize_copies(){
 #endif
 }
 
+inline void device_pin_memory(void const* ptr, size_t bytes){
+#if defined(GRID_CUDA)
+  assert(cudaHostRegister((void*)ptr,bytes,cudaHostRegisterDefault) == cudaSuccess);
+#elif defined(GRID_HIP)
+  assert(hipHostRegister((void*)ptr,bytes,hipHostRegisterDefault) == hipSuccess);
+#endif
+}
+inline void device_unpin_memory(void const* ptr){
+#if defined(GRID_CUDA)
+  assert(cudaHostUnregister((void*)ptr) == cudaSuccess);
+#elif defined(GRID_HIP)
+  assert(hipHostUnregister((void*)ptr) == hipSuccess);
+#endif
+}
+
+ 
+	 
+
+
 
 inline void device_profile_start(){
 #ifdef CPS_ENABLE_DEVICE_PROFILING
@@ -658,21 +677,34 @@ public:
     auto &q = queue;
     bool vrb = verbose;
     eng = new std::thread([&q,vrb]{
+      double time = -dclock();
+      size_t total_bytes =0;
+      
       //Find the largest entry for the pinned memory allocation
       size_t lrg=0;
       for(auto it=q.begin();it!=q.end();it++){
 	lrg = std::max(lrg,it->bytes);
+	total_bytes += it->bytes;
       }
+      //#define PIN_IN_PLACE    #Much slower and does not overlap with kernel
+#ifndef PIN_IN_PLACE
       if(vrb) std::cout << Grid::GridLogMessage << "Allocating " << lrg << " bytes of pinned memory" << std::endl;
       void *pmem = pinned_alloc_check(128,lrg);
-
+#endif
+      
       int i=0;
       while(!q.empty()){
 	entry e = q.back();
 	if(vrb) std::cout << Grid::GridLogMessage << "Queue entry " << i << " of size " << e.bytes << std::endl;
 	q.pop_back();
+#ifndef PIN_IN_PLACE
 	memcpy(pmem,e.from,e.bytes);
 	copy_host_to_device_async(e.to,pmem,e.bytes);
+#else
+	device_pin_memory(e.from,e.bytes);
+	copy_host_to_device_async(e.to,e.from,e.bytes);
+#endif
+	
 	//copy_host_to_device_async(e.to,e.from,e.bytes);
 	//copy_host_to_device(e.to,e.from,e.bytes);
 #ifdef GPU_VEC
@@ -681,10 +713,25 @@ public:
 	  acceleratorCopySynchronise(); //copyStream
 	}
 #endif
+
+#ifdef PIN_IN_PLACE
+	device_unpin_memory(e.from);
+#endif
+	
 	++i;
       }
+      
+#ifndef PIN_IN_PLACE
       pinned_free(pmem);
-      if(vrb) std::cout << Grid::GridLogMessage << "Transfers complete" << std::endl;
+#endif           
+     
+      if(vrb){
+	time += dclock();
+	double total_MB = double(total_bytes)/1024./1024.;
+	double rate = total_MB/time;
+	std::cout << Grid::GridLogMessage << "Transfers complete bytes " << total_MB << " MB in " << time << "s : rate " << rate << "MB/s" << std::endl;
+      }
+#undef PIN_IN_PLACE
     });
   
   }

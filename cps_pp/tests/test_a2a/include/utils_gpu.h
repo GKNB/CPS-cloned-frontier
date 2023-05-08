@@ -118,6 +118,7 @@ void testAsyncTransferManager(){
   void* cd = device_alloc_check(128,50*MB);
 
   asyncTransferManager man;
+  man.setVerbose(true);
   for(int i=0;i<100;i++){  
     man.enqueue(ad,ah,30*MB);
     man.enqueue(bd,bh,40*MB);
