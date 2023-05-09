@@ -20,6 +20,6 @@
 #define POLICIES_MACRO A2APOLICIES_TEMPLATE
 #endif
 
-POLICIES_MACRO(A2Apolicies, 1, BaseGridPoliciesGparity, ALLOC_TYPE, MF_STORAGE_TYPE, ExplicitCopyPoolAllocPolicy);
+POLICIES_MACRO(A2Apolicies, 1, BaseGridPoliciesGparity, ALLOC_TYPE, MF_STORAGE_TYPE, ExplicitCopyDiskBackedPoolAllocPolicy);
 
 #endif

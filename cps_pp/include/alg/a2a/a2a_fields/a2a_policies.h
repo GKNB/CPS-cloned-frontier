@@ -214,10 +214,10 @@ struct NAME{					\
 
 
 //Apply the template!
-A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleAutoAlloc, 0, BaseGridPolicies, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DEFAULT, ExplicitCopyPoolAllocPolicy);
-A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleManualAlloc, 0, BaseGridPolicies, SET_A2AVECTOR_MANUAL_ALLOC, SET_MFSTORAGE_DEFAULT, ExplicitCopyPoolAllocPolicy);
-A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleAutoAllocGparity, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DEFAULT, ExplicitCopyPoolAllocPolicy);
-A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleManualAllocGparity, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_MANUAL_ALLOC, SET_MFSTORAGE_DEFAULT, ExplicitCopyPoolAllocPolicy);
+A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleAutoAlloc, 0, BaseGridPolicies, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DEFAULT, ExplicitCopyDiskBackedPoolAllocPolicy);
+A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleManualAlloc, 0, BaseGridPolicies, SET_A2AVECTOR_MANUAL_ALLOC, SET_MFSTORAGE_DEFAULT, ExplicitCopyDiskBackedPoolAllocPolicy);
+A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleAutoAllocGparity, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DEFAULT, ExplicitCopyDiskBackedPoolAllocPolicy);
+A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleManualAllocGparity, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_MANUAL_ALLOC, SET_MFSTORAGE_DEFAULT, ExplicitCopyDiskBackedPoolAllocPolicy);
 
 #endif
 

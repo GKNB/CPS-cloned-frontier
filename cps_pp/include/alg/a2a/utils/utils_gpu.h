@@ -748,7 +748,760 @@ public:
   }
   
 };
+
+
+class DeviceMemoryPoolManager{
+public:
+  struct Handle;
+
+  struct Entry{
+    size_t bytes;
+    void* ptr;
+    Handle* owned_by;
+  };
+  typedef std::list<Entry>::iterator EntryIterator;
+
+  struct Handle{
+    bool valid;
+    bool lock_entry;
+    EntryIterator entry;
+    size_t bytes;
+
+    bool device_in_sync;
+    bool host_in_sync;
+    void* host_ptr;
+  };
+
+  typedef std::list<Handle>::iterator HandleIterator;
+
+  bool verbose;
+protected:
+
+  std::list<Entry> in_use_pool; //LRU
+  std::map<size_t,std::list<Entry>, std::greater<size_t> > free_pool; //sorted by size in descending order
+
+  std::list<Handle> handles; //active fields
+
+  std::list<HandleIterator> queued_prefetches; //track open prefetches
+  
+  size_t allocated;
+  size_t pool_max_size;
+
+  //Move the entry to the end and return a new iterator
+  EntryIterator touchEntry(EntryIterator entry){
+    if(verbose) std::cout << "Touching entry " << entry->ptr << std::endl;
+    Entry e = *entry;
+    in_use_pool.erase(entry);
+    return in_use_pool.insert(in_use_pool.end(),e);
+  }
+
+  EntryIterator evictEntry(EntryIterator entry, bool free_it){
+    if(verbose) std::cout << "Evicting entry " << entry->ptr << std::endl;
+	
+    if(entry->owned_by != nullptr){
+      if(verbose) std::cout << "Entry is owned by handle " << entry->owned_by << ", detaching" << std::endl;
+      Handle &hown = *entry->owned_by;
+      if(hown.lock_entry) ERR.General("DeviceMemoryPoolManager","evictEntry","Cannot evict a locked entry!");
+      //Copy data back to host if not in sync
+      if(!hown.host_in_sync){	
+	if(verbose) std::cout << "Host is not in sync with device, copying back before detach" << std::endl;
+	copy_device_to_host(hown.host_ptr,entry->ptr,hown.bytes);
+	hown.host_in_sync = true;
+      }
+      hown.device_in_sync = false;
+      entry->owned_by->valid = false; //evict
+    }
+    if(free_it){ 
+      device_free(entry->ptr); allocated -= entry->bytes; 
+      if(verbose) std::cout << "Freed memory " << entry->ptr << " of size " << entry->bytes << ". Allocated amount is now " << allocated << " vs max " << pool_max_size << std::endl;
+    }
+    return in_use_pool.erase(entry); //remove from list
+  }
+
+  void deallocateFreePool(size_t until_allocated_lte = 0){
+    //Start from the largest    
+    auto sit = free_pool.begin();
+    while(sit != free_pool.end()){
+      auto& entry_list = sit->second;
+
+      auto it = entry_list.begin();
+      while(it != entry_list.end()){
+	device_free(it->ptr); allocated -= it->bytes;
+	if(verbose) std::cout << "Freed memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << allocated << " vs max " << pool_max_size << std::endl;
+	it = entry_list.erase(it);
+
+	if(allocated <= until_allocated_lte){
+	  if(entry_list.size() == 0) free_pool.erase(sit); //if we break out after draining the list for a particular size, we need to remove that list from the map
+	  if(verbose) std::cout << "deallocateFreePool has freed enough memory" << std::endl;
+	  return;
+	}
+      }
+      sit = free_pool.erase(sit);
+    }
+    if(verbose) std::cout << "deallocateFreePool has freed all of its memory" << std::endl;
+  }
+
+  //Allocate a new entry of the given size and move to the end of the LRU queue, returning a pointer
+  EntryIterator allocEntry(size_t bytes){
+    Entry e;
+    e.bytes = bytes;
+    e.ptr = device_alloc_check(128,bytes);
+    allocated += bytes;
+    e.owned_by = nullptr;
+    if(verbose) std::cout << "Allocated entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << allocated << " vs max " << pool_max_size << std::endl;
+    return in_use_pool.insert(in_use_pool.end(),e);
+  }    
+
+  //Get an entry either new or from the pool
+  //It will automatically be moved to the end of the in_use_pool list
+  EntryIterator getEntry(size_t bytes){
+    if(verbose) std::cout << "Getting an entry of size " << bytes << std::endl;
+    if(bytes > pool_max_size) ERR.General("DeviceMemoryPoolManager","getEntry","Requested size is larger than the maximum pool size!");
+
+    //First check if we have an entry of the right size in the pool
+    auto fit = free_pool.find(bytes);
+    if(fit != free_pool.end()){
+      assert(fit->second.size() > 0);
+      Entry e = fit->second.back();
+      if(verbose) std::cout << "Found entry " << e.ptr << " in free pool" << std::endl;
+      if(fit->second.size() == 1) free_pool.erase(fit); //remove the entire, now-empty list
+      else fit->second.pop_back();
+      return in_use_pool.insert(in_use_pool.end(),e);
+    }
+    //Next, if we have enough room, allocate new memory
+    if(allocated + bytes <= pool_max_size){
+      if(verbose) std::cout << "Allocating new memory for entry" << std::endl;
+      return allocEntry(bytes);
+    }
+    //Next, we should free up unused blocks from the free pool
+    if(verbose) std::cout << "Clearing up space from the free pool to make room" << std::endl;
+    deallocateFreePool(pool_max_size - bytes);
+    if(allocated + bytes <= pool_max_size){
+      if(verbose) std::cout << "Allocating new memory for entry" << std::endl;
+      return allocEntry(bytes);
+    }
+
+    //Evict old data until we have enough room
+    //If we hit an entry with just the right size, reuse the pointer
+    if(verbose) std::cout << "Evicting data to make room" << std::endl;
+    auto it = in_use_pool.begin();
+    while(it != in_use_pool.end()){
+      if(verbose) std::cout << "Attempting to evict entry " << it->ptr << std::endl;
+
+      if(it->owned_by->lock_entry){ //don't evict an entry that is currently in use
+      	if(verbose) std::cout << "Entry is assigned to an open view or prefetch for handle " << it->owned_by << ", skipping" << std::endl;
+      	++it;
+      	continue;
+      }
+
+      bool erase = true;
+      void* reuse;
+      if(it->bytes == bytes){
+	if(verbose) std::cout << "Found entry " << it->ptr << " has the right size, yoink" << std::endl;
+	reuse = it->ptr;
+	erase = false;
+      }
+      it = evictEntry(it, erase);
+
+      if(!erase){
+	if(verbose) std::cout << "Reusing memory " << reuse << std::endl;
+	//reuse existing allocation
+	Entry e;
+	e.bytes = bytes;
+	e.ptr = reuse;
+	e.owned_by = nullptr;
+	return in_use_pool.insert(in_use_pool.end(),e);
+      }else if(allocated + bytes <= pool_max_size){ //allocate if we have enough room
+	if(verbose) std::cout << "Memory available " << allocated << " is now sufficient, allocating" << std::endl;
+	return allocEntry(bytes);
+      }
+    }	
+    ERR.General("DeviceMemoryPoolManager","getEntry","Was not able to get an entry for %lu bytes",bytes);
+  }
+
+
+public:
+
+  DeviceMemoryPoolManager(): allocated(0), pool_max_size(1024*1024*1024), verbose(false){}
+  DeviceMemoryPoolManager(size_t max_size): DeviceMemoryPoolManager(){
+    pool_max_size = max_size;
+  }
+
+  ~DeviceMemoryPoolManager(){
+    auto it = in_use_pool.begin();
+    while(it != in_use_pool.end()){
+      it = evictEntry(it, true);
+    }
+    deallocateFreePool();
+  }
+
+  void setVerbose(bool to){ verbose = to; }
+
+  //Set the pool max size. When the next eviction cycle happens the extra memory will be deallocated
+  void setPoolMaxSize(size_t to){ pool_max_size = to; }
+
+  size_t getAllocated() const{ return allocated; }
+
+  HandleIterator allocate(size_t bytes){
+    if(verbose) std::cout << "Request for allocation of size " << bytes << std::endl;
+    Handle h;
+    h.valid = true;
+    h.entry = getEntry(bytes);
+    h.bytes = bytes;
+    h.host_ptr = memalign_check(128,bytes);
+    h.host_in_sync = true;
+    h.device_in_sync = true;
+    h.lock_entry = false;
+
+    HandleIterator it = handles.insert(handles.end(),h);
+    it->entry->owned_by = &(*it);
+    return it;
+  }
+
+  void* openView(ViewMode mode, HandleIterator h){
+    h->lock_entry = true; //make sure it isn't evicted!
+    if(mode == HostRead){
+      if(!h->host_in_sync){
+	if(!h->valid) ERR.General("DeviceMemoryPoolManager","openView","Host is not in sync but device side has been evicted!");
+	copy_device_to_host(h->host_ptr,h->entry->ptr,h->bytes);
+	h->host_in_sync=true;
+      }
+      return h->host_ptr;
+    }else if(mode == HostWrite){
+      h->device_in_sync = false;
+      h->host_in_sync=true;
+      return h->host_ptr;
+    }else{ //mode == DeviceRead || mode == DeviceWrite
+      if(h->valid){
+	h->entry = touchEntry(h->entry); //touch the entry and refresh the iterator
+      }else{
+	//find a new entry
+	h->entry = getEntry(h->bytes);
+	h->valid = true;
+	h->entry->owned_by = &(*h);
+	assert(!h->device_in_sync);
+      }
+      if(mode == DeviceRead && !h->device_in_sync){
+	copy_host_to_device(h->entry->ptr,h->host_ptr,h->bytes);
+	h->device_in_sync = true;
+      }else if(mode == DeviceWrite){
+	h->device_in_sync = true;
+	h->host_in_sync = false;
+      }
+      return h->entry->ptr;
+    }
     
+  }
+
+  void closeView(HandleIterator h){
+    h->lock_entry = false;
+  }
+
+  void enqueuePrefetch(ViewMode mode, HandleIterator h){    
+    if(mode == HostRead){
+      //no support for device->host async copies yet
+    }else if(mode == DeviceRead){
+      if(h->valid){
+	h->entry = touchEntry(h->entry); //touch the entry to make it less likely to be evicted; benefit even if already in sync
+      }else{
+	//find a new entry
+	h->entry = getEntry(h->bytes);
+	h->valid = true;
+	h->entry->owned_by = &(*h);
+	assert(!h->device_in_sync);
+      }
+      if(!h->device_in_sync){
+	asyncTransferManager::globalInstance().enqueue(h->entry->ptr,h->host_ptr,h->bytes);
+	h->device_in_sync = true; //technically true only if the prefetch is complete; make sure to wait!!
+	h->lock_entry = true; //use this flag also for prefetches to ensure the memory region is not evicted while the async copy is happening
+	queued_prefetches.push_back(h);
+      }
+    }
+  }
+
+  void startPrefetches(){
+    if(queued_prefetches.size()==0) return;
+    asyncTransferManager::globalInstance().start();
+  }
+  void waitPrefetches(){
+    if(queued_prefetches.size()==0) return;   
+    asyncTransferManager::globalInstance().wait();
+    for(auto h : queued_prefetches) h->lock_entry=false; //unlock
+    queued_prefetches.clear();
+  }
+  
+  void free(HandleIterator h){
+    if(h->valid){
+      if(verbose) std::cout << "Freeing ptr " << h->entry->ptr << " of size " << h->entry->bytes << " into free pool" << std::endl;
+      //Remove entry from in-use pool
+      Entry e = *(h->entry);
+      in_use_pool.erase(h->entry);
+      e.owned_by = nullptr;
+      free_pool[e.bytes].push_back(e);
+    }
+    //Free host memory
+    ::free(h->host_ptr);
+    //Remove handle
+    if(verbose) std::cout << "Freed host ptr " << h->host_ptr << ", removing handle" << std::endl;
+    handles.erase(h);
+  }
+
+  // size_t getUnused() const{
+  // }    
+
+  inline static DeviceMemoryPoolManager & globalPool(){
+    static DeviceMemoryPoolManager pool;
+    return pool;
+  }      
+
+};
+
+
+
+
+
+//3-level memory pool manager with device,host,disk storage locations with eviction possible from device, host
+class HolisticMemoryPoolManager{
+public:
+  struct Handle;
+
+  struct Entry{
+    size_t bytes;
+    void* ptr;
+    Handle* owned_by;
+  };
+  typedef std::list<Entry>::iterator EntryIterator;
+
+  struct Handle{
+    bool lock_entry;
+
+    bool device_valid;
+    EntryIterator device_entry;
+
+    bool host_valid;
+    EntryIterator host_entry;
+
+    size_t bytes;
+
+    bool device_in_sync;
+    bool host_in_sync;
+    bool disk_in_sync;
+    std::string disk_file;
+
+    bool initialized; //keep track of whether the data has had a write
+  };
+
+  typedef std::list<Handle>::iterator HandleIterator;
+
+  enum Pool { DevicePool, HostPool };
+  
+protected:
+  bool verbose;
+  std::list<Handle> handles; //active fields
+
+  std::list<Entry> device_in_use_pool; //LRU
+  std::map<size_t,std::list<Entry>, std::greater<size_t> > device_free_pool; //sorted by size in descending order
+  std::list<HandleIterator> device_queued_prefetches; //track open prefetches to device from host
+
+  std::list<Entry> host_in_use_pool; //LRU
+  std::map<size_t,std::list<Entry>, std::greater<size_t> > host_free_pool; //sorted by size in descending order
+  std::list<HandleIterator> host_queued_prefetches; //track open prefetches to host from disk
+
+  inline std::list<Entry> & getLRUpool(Pool pool){ return pool == DevicePool ? device_in_use_pool : host_in_use_pool; }
+  inline std::map<size_t,std::list<Entry>, std::greater<size_t> > & getFreePool(Pool pool){ return pool == DevicePool ? device_free_pool : host_free_pool; }
+  inline std::string poolName(Pool pool){ return pool == DevicePool ? "DevicePool" : "HostPool"; }   
+  
+  size_t device_allocated;
+  size_t host_allocated;
+  size_t device_pool_max_size;
+  size_t host_pool_max_size;
+
+  std::string disk_root; //root location for temp files, default "."
+  
+  //Allocate a new entry of the given size and move to the end of the LRU queue, returning a pointer
+  EntryIterator allocEntry(size_t bytes, Pool pool){
+    Entry e;
+    e.bytes = bytes;
+    e.owned_by = nullptr;
+    if(pool == DevicePool){
+      e.ptr = device_alloc_check(128,bytes);
+      device_allocated += bytes;
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Allocated device entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
+    }else{ //HostPool
+      e.ptr = memalign_check(128,bytes);
+      host_allocated += bytes;
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Allocated host entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;
+    }
+    auto &p = getLRUpool(pool);
+    return p.insert(p.end(),e);
+  }
+
+  //Relinquish the entry
+  void relinquishEntry(EntryIterator it, Pool pool){
+    if(verbose) std::cout << "HolisticMemoryPoolManager: Relinquishing " << it->ptr << " of size " << it->bytes << " from " << poolName(pool) << std::endl;
+    Entry e = *it;
+    getLRUpool(pool).erase(it);
+    e.owned_by = nullptr;
+    getFreePool(pool)[e.bytes].push_back(e);
+  }
+  
+  //Free the memory associated with an entry
+  void freeEntry(EntryIterator it, Pool pool){       
+    if(pool == DevicePool){
+      device_free(it->ptr); device_allocated -= it->bytes;
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Freed device memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
+    }else{ //DevicePool
+      ::free(it->ptr); host_allocated -= it->bytes;
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Freed host memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;	
+    }
+  }
+  
+  void deallocateFreePool(Pool pool, size_t until_allocated_lte = 0){
+    size_t &allocated = (pool == DevicePool ? device_allocated : host_allocated);
+    if(verbose) std::cout << "HolisticMemoryPoolManager: Deallocating free " << poolName(pool) << " until " << until_allocated_lte << " remaining. Current " << allocated << std::endl;
+    auto &free_pool = getFreePool(pool);
+    
+    //Start from the largest    
+    auto sit = free_pool.begin();
+    while(sit != free_pool.end()){
+      auto& entry_list = sit->second;
+
+      auto it = entry_list.begin();
+      while(it != entry_list.end()){
+	freeEntry(it, pool);
+	it = entry_list.erase(it);
+
+	if(allocated <= until_allocated_lte){
+	  if(entry_list.size() == 0) free_pool.erase(sit); //if we break out after draining the list for a particular size, we need to remove that list from the map
+	  if(verbose) std::cout << "HolisticMemoryPoolManager: deallocateFreePool has freed enough memory" << std::endl;
+	  return;
+	}
+      }
+      sit = free_pool.erase(sit);
+    }
+    if(verbose) std::cout << "HolisticMemoryPoolManager: deallocateFreePool has freed all of its memory" << std::endl;
+  }
+
+  //Get an entry either new or from the pool
+  //It will automatically be moved to the end of the in_use_pool list
+  EntryIterator getEntry(size_t bytes, Pool pool){
+    if(verbose) std::cout << "HolisticMemoryPoolManager: Getting an entry of size " << bytes << " from " << poolName(pool) << std::endl;
+    size_t pool_max_size = ( pool == DevicePool ? device_pool_max_size : host_pool_max_size );
+    size_t &allocated = (pool == DevicePool ? device_allocated : host_allocated);
+    
+    if(bytes > pool_max_size) ERR.General("HolisticMemoryPoolManager","getEntry","Requested size is larger than the maximum pool size!");
+
+    auto &LRUpool = getLRUpool(pool);
+    auto &free_pool = getFreePool(pool);
+    
+    //First check if we have an entry of the right size in the pool
+    auto fit = free_pool.find(bytes);
+    if(fit != free_pool.end()){
+      assert(fit->second.size() > 0);
+      Entry e = fit->second.back();
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Found entry " << e.ptr << " in free pool" << std::endl;
+      if(fit->second.size() == 1) free_pool.erase(fit); //remove the entire, now-empty list
+      else fit->second.pop_back();
+      return LRUpool.insert(LRUpool.end(),e);
+    }
+    //Next, if we have enough room, allocate new memory
+    if(allocated + bytes <= pool_max_size){
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Allocating new memory for entry" << std::endl;
+      return allocEntry(bytes, pool);
+    }
+    //Next, we should free up unused blocks from the free pool
+    if(verbose) std::cout << "HolisticMemoryPoolManager: Clearing up space from the free pool to make room" << std::endl;
+    deallocateFreePool(pool, pool_max_size - bytes);
+    if(allocated + bytes <= pool_max_size){
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Allocating new memory for entry" << std::endl;
+      return allocEntry(bytes, pool);
+    }
+
+    //Evict old data until we have enough room
+    //If we hit an entry with just the right size, reuse the pointer
+    if(verbose) std::cout << "HolisticMemoryPoolManager: Evicting data to make room" << std::endl;
+    auto it = LRUpool.begin();
+    while(it != LRUpool.end()){
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Attempting to evict entry " << it->ptr << std::endl;
+
+      if(it->owned_by->lock_entry){ //don't evict an entry that is currently in use
+      	if(verbose) std::cout << "HolisticMemoryPoolManager: Entry is assigned to an open view or prefetch for handle " << it->owned_by << ", skipping" << std::endl;
+      	++it;
+      	continue;
+      }
+
+      bool erase = true;
+      void* reuse;
+      if(it->bytes == bytes){
+	if(verbose) std::cout << "HolisticMemoryPoolManager: Found entry " << it->ptr << " has the right size, yoink" << std::endl;
+	reuse = it->ptr;
+	erase = false;
+      }
+      it = evictEntry(it, erase, pool);
+
+      if(!erase){
+	if(verbose) std::cout << "HolisticMemoryPoolManager: Reusing memory " << reuse << std::endl;
+	//reuse existing allocation
+	Entry e;
+	e.bytes = bytes;
+	e.ptr = reuse;
+	e.owned_by = nullptr;
+	return LRUpool.insert(LRUpool.end(),e);
+      }else if(allocated + bytes <= pool_max_size){ //allocate if we have enough room
+	if(verbose) std::cout << "HolisticMemoryPoolManager: Memory available " << allocated << " is now sufficient, allocating" << std::endl;
+	return allocEntry(bytes,pool);
+      }
+    }	
+    ERR.General("HolisticMemoryPoolManager","getEntry","Was not able to get an entry for %lu bytes",bytes);
+  }
+
+  void attachEntry(Handle &handle, Pool pool){
+    if(pool == DevicePool){
+      handle.device_entry = getEntry(handle.bytes, DevicePool);
+      handle.device_valid = true;
+      handle.device_entry->owned_by = &handle;
+    }else{
+      handle.host_entry = getEntry(handle.bytes, HostPool);
+      handle.host_valid = true;
+      handle.host_entry->owned_by = &handle;
+    }
+  }
+  //Move the entry to the end and return a new iterator
+  void touchEntry(Handle &handle, Pool pool){
+    EntryIterator &entry = pool == DevicePool ? handle.device_entry : handle.host_entry;    
+    Entry e = *entry;
+    if(verbose) std::cout << "HolisticMemoryPoolManager: Touching entry " << e.ptr << " in " << poolName(pool) << std::endl;
+    auto &p = getLRUpool(pool);
+    p.erase(entry);
+    entry = p.insert(p.end(),e);
+  }
+
+  
+  void syncDeviceToHost(Handle &handle){
+    assert(handle.initialized);
+    if(!handle.host_in_sync){
+      assert(handle.device_in_sync && handle.device_valid);
+      if(!handle.host_valid) attachEntry(handle, HostPool);
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Synchronizing device " << handle.device_entry->ptr << " to host " << handle.host_entry->ptr << std::endl;
+      copy_device_to_host(handle.host_entry->ptr, handle.device_entry->ptr, handle.bytes);
+      handle.host_in_sync = true;
+    }
+  }
+  void syncHostToDevice(Handle &handle){
+    assert(handle.initialized);
+    if(!handle.device_in_sync){
+      assert(handle.host_in_sync && handle.host_valid);
+      if(!handle.device_valid) attachEntry(handle, DevicePool);
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Synchronizing host " << handle.host_entry->ptr << " to device " << handle.device_entry->ptr << std::endl;
+      copy_host_to_device(handle.device_entry->ptr, handle.host_entry->ptr, handle.bytes);
+      handle.device_in_sync = true;
+    }
+  }  
+  void syncHostToDisk(Handle &handle){
+    assert(handle.initialized);
+    if(!handle.disk_in_sync){
+      assert(handle.host_in_sync && handle.host_valid);
+      static size_t idx = 0;
+      if(handle.disk_file == ""){
+	handle.disk_file = disk_root + "/mempool." + std::to_string(UniqueID()) + "." + std::to_string(idx++);
+      }
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Synchronizing host " << handle.host_entry->ptr << " to disk " << handle.disk_file << std::endl;
+      std::fstream f(handle.disk_file.c_str(), std::ios::out | std::ios::binary);
+      if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncHostToDisk","Failed to open file %s for write\n",handle.disk_file.c_str());
+      f.write((char*)handle.host_entry->ptr, handle.bytes);
+      if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncHostToDisk","Write error in file %s\n",handle.disk_file.c_str());
+      f.flush(); //should ensure data is written to disk immediately and not kept around in some memory buffer, but may slow things down
+
+      handle.disk_in_sync = true;
+    }
+  }
+  void syncDiskToHost(Handle &handle){
+    assert(handle.initialized);
+    if(!handle.host_in_sync){
+      assert(handle.disk_in_sync && handle.disk_file != "");
+      if(!handle.host_valid) attachEntry(handle, HostPool);      
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Synchronizing disk " << handle.disk_file << " to host " << handle.host_entry->ptr << std::endl;
+      std::fstream f(handle.disk_file.c_str(), std::ios::in | std::ios::binary);
+      if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncDiskToHost","Failed to open file %s for write\n",handle.disk_file.c_str());
+      f.read((char*)handle.host_entry->ptr, handle.bytes);
+      if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncDiskToHost","Write error in file %s\n",handle.disk_file.c_str());
+      handle.host_in_sync = true;
+    }
+  }
+
+  void detachEntry(Handle &handle, Pool pool){
+    if(pool == DevicePool){
+      //Copy data back to host if not in sync
+      if(handle.device_in_sync && !handle.host_in_sync){
+	if(verbose) std::cout << "HolisticMemoryPoolManager: Host is not in sync with device, copying back before detach" << std::endl;
+	syncDeviceToHost(handle);
+      }
+      handle.device_in_sync = false;      
+      handle.device_valid = false; //evict
+    }else{
+      //Copy data to disk if not in sync
+      if(handle.host_in_sync && !handle.disk_in_sync){
+	if(verbose) std::cout << "HolisticMemoryPoolManager: Disk is not in sync with device, copying back before detach" << std::endl;
+	syncHostToDisk(handle);
+      }
+      handle.host_in_sync = false;
+      handle.host_valid = false; //evict
+    }
+  }
+  
+  //Evict an entry (with optional freeing of associated memory), and return an entry to the next item in the LRU
+  EntryIterator evictEntry(EntryIterator entry, bool free_it, Pool pool){
+    if(verbose) std::cout << "HolisticMemoryPoolManager: Evicting entry " << entry->ptr << " from " << poolName(pool) << std::endl;
+	
+    if(entry->owned_by != nullptr){
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Entry is owned by handle " << entry->owned_by << ", detaching" << std::endl;
+      Handle &hown = *entry->owned_by;
+      if(hown.lock_entry) ERR.General("DeviceMemoryPoolManager","evictEntry","Cannot evict a locked entry!");
+      detachEntry(hown,pool);
+    }
+    if(free_it) freeEntry(entry, pool);
+    return getLRUpool(pool).erase(entry); //remove from list
+  }
+
+public:
+
+  HolisticMemoryPoolManager(): device_allocated(0), device_pool_max_size(1024*1024*1024), host_allocated(0), host_pool_max_size(1024*1024*1024), verbose(false), disk_root("."){}
+  HolisticMemoryPoolManager(size_t max_size_device, size_t max_size_host): HolisticMemoryPoolManager(){
+    device_pool_max_size = max_size_device;
+    host_pool_max_size = max_size_host;
+  }
+
+  ~HolisticMemoryPoolManager(){
+    auto it = device_in_use_pool.begin();
+    while(it != device_in_use_pool.end()){
+      freeEntry(it, DevicePool);
+      it = device_in_use_pool.erase(it);
+    }
+    it = host_in_use_pool.begin();
+    while(it != host_in_use_pool.end()){
+      freeEntry(it, HostPool);
+      it = host_in_use_pool.erase(it);
+    }
+    deallocateFreePool(HostPool);
+    deallocateFreePool(DevicePool);
+  }
+
+  void setVerbose(bool to){ verbose = to; }
+
+  void setDiskRoot(const std::string &to){ disk_root = to; }
+  
+  //Set the pool max size. When the next eviction cycle happens the extra memory will be deallocated
+  void setPoolMaxSize(size_t to, Pool pool){
+    auto &m = (pool == DevicePool ? device_pool_max_size : host_pool_max_size );
+    m = to;
+  }
+
+  size_t getAllocated(Pool pool) const{ return pool == DevicePool ? device_allocated : host_allocated; }
+
+  HandleIterator allocate(size_t bytes, Pool pool = DevicePool){
+    if(verbose) std::cout << "HolisticMemoryPoolManager: Request for allocation of size " << bytes << " in " << poolName(pool) << std::endl;
+
+    HandleIterator it = handles.insert(handles.end(),Handle());
+    Handle &h = *it;
+    h.host_in_sync = false;
+    h.device_in_sync = false;
+    h.disk_in_sync = false;
+    h.lock_entry = false;
+    h.device_valid = false;
+    h.host_valid = false;
+    h.bytes = bytes;
+    h.disk_file = "";
+    h.initialized = false;
+    attachEntry(h,pool);
+    return it;
+  }
+
+  void* openView(ViewMode mode, HandleIterator h){
+    h->lock_entry = true; //make sure it isn't evicted!
+    if(mode == HostRead || mode == HostWrite){
+      if(!h->host_valid) attachEntry(*h,HostPool);
+      else touchEntry(*h, HostPool); //move to end of LRU
+
+      if(mode == HostRead && !h->host_in_sync){
+	if(h->device_in_sync) syncDeviceToHost(*h);
+	else if(h->disk_in_sync) syncDiskToHost(*h);
+	else if(h->initialized) ERR.General("HolisticMemoryPoolManager","openView (HostRead)","Data has been initialized but no active copy!");
+	//Allow copies from uninitialized data, eg in copy constructor called during initialization of vector of fields
+      }else if(mode == HostWrite){
+	h->device_in_sync = false;
+	h->disk_in_sync = false;
+	h->host_in_sync = true;
+	h->initialized = true;
+      }
+      return h->host_entry->ptr;
+    }else{ //mode == DeviceRead || mode == DeviceWrite
+      if(!h->device_valid) attachEntry(*h,DevicePool);
+      else touchEntry(*h, DevicePool); //move to end of LRU
+
+      if(mode == DeviceRead && !h->device_in_sync){
+	if(h->host_in_sync) syncHostToDevice(*h);
+	else if(h->disk_in_sync){
+	  syncDiskToHost(*h);
+	  syncHostToDevice(*h);
+	}
+	else if(h->initialized) ERR.General("HolisticMemoryPoolManager","openView (DeviceRead)","Data has been initialized but no active copy!");
+      }else if(mode == DeviceWrite){
+	h->device_in_sync = true;
+	h->disk_in_sync = false;
+	h->host_in_sync = false;
+	h->initialized = true;
+      }
+      return h->device_entry->ptr;
+    }
+  }
+
+  void closeView(HandleIterator h){
+    h->lock_entry = false;
+  }
+
+  void enqueuePrefetch(ViewMode mode, HandleIterator h){    
+    if(mode == HostRead){
+      //no support for device->host async copies yet
+    }else if(mode == DeviceRead && h->host_valid && h->host_in_sync){
+      if(!h->device_valid) attachEntry(*h,DevicePool);
+      else touchEntry(*h, DevicePool); //move to end of LRU
+      if(!h->device_in_sync){
+	asyncTransferManager::globalInstance().enqueue(h->device_entry->ptr,h->host_entry->ptr,h->bytes);
+	h->device_in_sync = true; //technically true only if the prefetch is complete; make sure to wait!!
+	h->lock_entry = true; //use this flag also for prefetches to ensure the memory region is not evicted while the async copy is happening
+	device_queued_prefetches.push_back(h);
+      }
+    }
+  }
+
+  void startPrefetches(){
+    if(device_queued_prefetches.size()==0) return;
+    asyncTransferManager::globalInstance().start();
+  }
+  void waitPrefetches(){
+    if(device_queued_prefetches.size()==0) return;   
+    asyncTransferManager::globalInstance().wait();
+    for(auto h : device_queued_prefetches) h->lock_entry=false; //unlock
+    device_queued_prefetches.clear();
+  }
+  
+  void free(HandleIterator h){
+    if(h->device_valid) relinquishEntry(h->device_entry, DevicePool);
+    if(h->host_valid) relinquishEntry(h->host_entry, HostPool);
+    if(h->disk_file != ""){
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Erasing cache file " << h->disk_file << std::endl;
+      remove(h->disk_file.c_str());
+    }
+    handles.erase(h);
+  }
+
+  inline static HolisticMemoryPoolManager & globalPool(){
+    static HolisticMemoryPoolManager pool;
+    return pool;
+  }      
+
+};
+
 
 
 CPS_END_NAMESPACE

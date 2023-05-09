@@ -519,4 +519,86 @@ void testPoolAllocator(){
   std::cout << "testPoolAllocator passed" << std::endl;
 }
 
+
+void testHolisticPoolAllocator(){
+  std::cout << "Starting testHolisticPoolAllocator" << std::endl;
+  size_t MB = 1024*1024;
+  size_t max_size = 3*MB;
+
+  {
+    std::cout << "TEST: Test device pool eviction to host" << std::endl;
+    HolisticMemoryPoolManager pool(max_size, max_size);  
+    pool.setVerbose(true);
+
+    //Allocate full size on device
+    auto h1 = pool.allocate(max_size, HolisticMemoryPoolManager::DevicePool);
+    assert(h1->device_valid);
+    assert(pool.getAllocated(HolisticMemoryPoolManager::DevicePool) == max_size);
+
+    //Touch the device data to mark device side in sync
+    {
+      void* p = pool.openView(DeviceWrite,h1);
+      device_memset(p,0x1A,max_size);
+      pool.closeView(h1);
+    }
+
+    //Try to allocate again on device, it should evict the current entry to host
+    auto h2 = pool.allocate(max_size, HolisticMemoryPoolManager::DevicePool);
+    assert(h2->device_valid);
+    assert(pool.getAllocated(HolisticMemoryPoolManager::DevicePool) == max_size);
+
+    assert(!h1->device_valid);
+    assert(h1->host_valid);
+    assert(pool.getAllocated(HolisticMemoryPoolManager::HostPool) == max_size);
+    {
+      char* p = (char*)pool.openView(HostRead,h1);
+      assert(*p == 0x1A);
+      pool.closeView(h1);
+    }
+    
+  }
+
+  {
+    std::cout << "TEST: Test host pool eviction to disk" << std::endl;
+    HolisticMemoryPoolManager pool(max_size, max_size);  
+    pool.setVerbose(true);
+
+    //Allocate full size on host
+    auto h1 = pool.allocate(max_size, HolisticMemoryPoolManager::HostPool);
+    assert(h1->host_valid);
+    assert(pool.getAllocated(HolisticMemoryPoolManager::HostPool) == max_size);
+
+    //Touch the host data to mark host side in sync
+    {
+      void* p = pool.openView(HostWrite,h1);
+      memset(p,0x1A,max_size);
+      pool.closeView(h1);
+    }
+
+    //Try to allocate again on host, it should evict the current entry to disk
+    auto h2 = pool.allocate(max_size, HolisticMemoryPoolManager::HostPool);
+    assert(h2->host_valid);
+    assert(pool.getAllocated(HolisticMemoryPoolManager::HostPool) == max_size);
+
+    assert(!h1->host_valid);
+    assert(h1->disk_in_sync);
+    {
+      char* p = (char*)pool.openView(HostRead,h1); //pull back from disk, should also evict h2
+      assert(*p == 0x1A);
+      pool.closeView(h1);
+    }
+    assert(!h2->host_valid);
+    //assert(h2->disk_in_sync); //actually no, because data was never written to h2 there is no need to store it when evicted
+
+    std::cout << "TEST: Check (manually) that the files are deleted:" << std::endl;
+    pool.free(h1);
+    //pool.free(h2);
+    
+    
+  }
+  
+  std::cout << "testHolisticPoolAllocator passed" << std::endl;
+}
+
+
 CPS_END_NAMESPACE

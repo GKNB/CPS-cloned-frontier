@@ -9,8 +9,8 @@
 #include<alg/a2a/utils.h>
 
 CPS_START_NAMESPACE 
-
-typedef ExplicitCopyPoolAllocPolicy CPSfieldDefaultAllocPolicy;
+typedef ExplicitCopyDiskBackedPoolAllocPolicy CPSfieldDefaultAllocPolicy;
+//typedef ExplicitCopyPoolAllocPolicy CPSfieldDefaultAllocPolicy;
 //typedef UVMallocPolicy CPSfieldDefaultAllocPolicy;
 
 typedef std::complex<float> ComplexF;
