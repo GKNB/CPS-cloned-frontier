@@ -174,7 +174,7 @@ void A2AvectorW<mf_Policies>::getSpinColorDilutedSource(FermionFieldType &into, 
   const char* fname = "getSpinColorDilutedSource(...)";
   
   into.zero();
-  CPSautoView(into_v,into,HostWrite);
+  CPSautoView(into_v,into,HostReadWrite);
   CPSautoView(wh_v,(*wh[hit]),HostRead);
 #pragma omp parallel for
   for(int i=0;i<wh[hit]->nfsites();i++){ //same mapping, different site_size

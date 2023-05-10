@@ -412,8 +412,10 @@ struct MultiSrcVectorPolicies{
 	if(do_setup) mf_st[s]->operator[](t).setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
 	else{	
 	  auto &mf_tarray = *mf_st[s];
-	  CPSautoView(mf_st_v,mf_tarray[t],HostRead);
-	  assert(mf_st_v.ptr() != NULL);
+	  {
+	    CPSautoView(mf_st_v,mf_tarray[t],HostRead);
+	    assert(mf_st_v.ptr() != NULL);
+	  }
 	  mf_tarray[t].zero();
 	}
     }
@@ -423,8 +425,7 @@ struct MultiSrcVectorPolicies{
       typename mf_Policies::ScalarComplexType const* v = mf_accum_thr[thr](i,j);
       for(int s=0;s<mfPerTimeSlice;s++){
 	auto const &mf_tarray = *mf_st[s];
-	CPSautoView(mf_st_v,mf_tarray[t],HostWrite);
-	CPSautoView(mf_st_vr,mf_tarray[t],HostRead);
+	CPSautoView(mf_st_v,mf_tarray[t],HostReadWrite);
 	mf_st_v(i,j) += v[s];
       }
     }

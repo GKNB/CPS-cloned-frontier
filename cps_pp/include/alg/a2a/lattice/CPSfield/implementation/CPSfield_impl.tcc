@@ -171,8 +171,7 @@ template< typename SiteType, int SiteSize, typename MappingPolicy, typename Allo
 //Set this field to the average of this and a second field, r
 void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::average(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r, const bool parallel){
   //The beauty of having the ordering baked into the policy class is that we implicitly *know* the ordering of the second field, so we can just loop over the floats in a dumb way
-  CPSautoView(t_vr,(*this),HostRead); //need to read and write! This will ensure the data is where it is needed
-  CPSautoView(t_v,(*this),HostWrite);
+  CPSautoView(t_v,(*this),HostReadWrite);
   CPSautoView(r_v,r,HostRead);
   SiteType *tf=t_v.ptr();
   SiteType const* rf=r_v.ptr();
@@ -230,8 +229,7 @@ void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, 
   bool delete_conv;
   auto* gfix_mat_conv = _gauge_fix_conv_gfix_mat<mf_Complex,MappingPolicy,NonSIMDfieldType>::convert(delete_conv, gfix_mat, this->getDimPolParams());
   {
-    CPSautoView(t_vr,(*this),HostRead);
-    CPSautoView(t_v,(*this),HostWrite);
+    CPSautoView(t_v,(*this),HostReadWrite);
     CPSautoView(gf_v,(*gfix_mat_conv),HostRead);
 
 #pragma omp parallel for
@@ -353,8 +351,7 @@ template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>::applyPhase(const int p[], const bool parallel){
   double punits[3];
   CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(punits);
-  CPSautoView(t_vr,(*this),HostRead);
-  CPSautoView(t_v,(*this),HostWrite);
+  CPSautoView(t_v,(*this),HostReadWrite);
   _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type> op(t_v, parallel ? omp_get_max_threads() : 1);
 
   if(parallel){
@@ -454,8 +451,7 @@ struct _ferm3d_gfix_impl<mf_Complex,DimensionPolicy<FixedFlavorPolicy<1> >,Alloc
     printf("_ferm3d_gfix_impl::gauge_fix with time=%d, flav=%d\n",time_flav.first,time_flav.second);
     typedef typename mf_Complex::value_type mf_Float;
 
-    CPSautoView(f_vr,field,HostRead);
-    CPSautoView(f_v,field,HostWrite);
+    CPSautoView(f_v,field,HostReadWrite);
 
 #define SITE_OP								\
     int x4d[4]; field.siteUnmap(i,x4d);		\

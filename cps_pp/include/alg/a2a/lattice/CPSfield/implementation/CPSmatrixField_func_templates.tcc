@@ -103,8 +103,7 @@ template<typename T, typename Functor>
 CPSmatrixField<T> & unop_self_v(CPSmatrixField<T> &m, const Functor &l){
   using namespace Grid;
   constexpr int nsimd = T::scalar_type::Nsimd();
-  CPSautoView(mvr,m,DeviceRead);
-  CPSautoView(mv,m,DeviceWrite);
+  CPSautoView(mv,m,DeviceReadWrite);
   accelerator_for(x4d, m.size(), nsimd,
 		    {
 		      int lane = Grid::acceleratorSIMTlane(nsimd);

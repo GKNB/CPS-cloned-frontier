@@ -94,6 +94,8 @@ void testMFmult(const A2AArg &a2a_args, const double tol){
     c_base_2.pack(lrup);
     std::cout << "Second host impl norm2(c_base_2)=" << c_base_2.norm2() << std::endl;
     assert(c_base_2.equals(c_base, tol, true));
+
+    free(lup); free(rup); free(lrup);
   }
   
   A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> c;

@@ -78,6 +78,8 @@ void testMesonFieldReadWrite(const A2AArg &a2a_args){
     assert( mfrb.equals(mfb,1e-18,true) );
     assert( mfrc.equals(mfc,1e-18,true) );
     if(!UniqueID()) printf("Passed mf multi IO test\n");
+    if(fp) delete fp;
+    if(ifp) delete ifp;
   }
   {
     std::vector< A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfv(3);

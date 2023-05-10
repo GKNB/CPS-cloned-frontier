@@ -161,8 +161,12 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
 
-  //if(1) testPoolAllocator();
   /*
+   */
+  if(1) testPoolAllocator();
+  if(1) testAsyncTransferManager();
+  if(1) testHolisticPoolAllocator();
+
   if(1) testCPSfieldDeviceCopy<A2Apolicies_grid>();
   if(1) testAutoView();
   if(1) testViewArray();
@@ -270,20 +274,21 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
 
+  
   if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
 
   if(1) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
+  
   if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
   if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
-  */
+
   if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-  /*
   if(1) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
   									 V_grid, W_grid,
   									 lattice, simd_dims_3d, tol);
@@ -302,7 +307,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) demonstrateFFTreln<A2Apolicies_std>(a2a_arg);
   if(1) testA2AvectorFFTrelnGparity<A2Apolicies_grid>(a2a_arg, lattice);
   if(1) testMultiSource<A2Apolicies_grid>(a2a_arg, lattice);
+
   if(1) testSumSource<A2Apolicies_grid>(a2a_arg, lattice);
+
   if(1) testMfFFTreln<A2Apolicies_grid>(a2a_arg, lattice);
   if(1) testA2AFFTinv<A2Apolicies_grid>(a2a_arg, lattice);
   if(1) testGridg5Contract<grid_Complex>();
@@ -329,11 +336,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) testMesonFieldNodeDistributeUnique(a2a_arg);
   if(1) testMesonFieldNodeDistributeOneSided(a2a_arg);
-  */
 
-  //if(1) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
+  if(1) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
 
- /*
   //if(1) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);  Current compilation issues on Intel
 
   if(1) testA2AvectorWnorm<A2Apolicies_grid>(a2a_arg);
@@ -348,10 +353,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testXconjWsrcFull<A2Apolicies_grid>(lattice);
   if(1) testXconjWsrcCConjRelnV<A2Apolicies_grid>(lattice);
   if(1) testXconjWsrcCConjReln<A2Apolicies_grid>(lattice);
+    /*  
   */
-
-  //testAsyncTransferManager();
-  //testHolisticPoolAllocator();
 }
 
 
@@ -559,6 +562,10 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss  << argv[i+1]; ss >> nl;
       if(!UniqueID()) printf("Set nl to %d\n", nl);
       i+=2;
+    }else if( cmd == "-mempool_verbose"){
+      HolisticMemoryPoolManager::globalPool().setVerbose(true);
+      DeviceMemoryPoolManager::globalPool().setVerbose(true);
+      i++;
     }else{
       bool is_grid_arg = false;
       for(int ii=0;ii<ngrid_arg;ii++){

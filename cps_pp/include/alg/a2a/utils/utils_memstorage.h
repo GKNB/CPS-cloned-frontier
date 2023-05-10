@@ -162,9 +162,8 @@ public:
     r.ptr = NULL;
   }
 
-
   inline void* data(){ return ptr; }
-  inline void const* data() const{ return ptr; }
+  inline void const* data() const{ return ptr; } 
 };
 
 //A version that keeps all meson fields in each node's memory. Gather and distribute have no effect.

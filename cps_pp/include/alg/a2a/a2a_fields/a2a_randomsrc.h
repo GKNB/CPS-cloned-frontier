@@ -165,8 +165,7 @@ public:
 
     {
       CPSautoView(src_in_v,src_in,HostRead);
-      {CPSautoView(src_out_v,src_out,HostRead); } //preserve initial state
-      CPSautoView(src_out_v,src_out,HostWrite); 
+      CPSautoView(src_out_v,src_out,HostReadWrite); 
     
       for(int tglob=tglob_start; tglob < tglob_lessthan; tglob++){
 	int tlcl = tglob - GJP.TnodeCoor()*GJP.TnodeSites();
@@ -243,8 +242,7 @@ public:
     size_t fsize = into.getMode(0).size();
     typedef typename FermionField::FieldSiteType SiteType;
 
-    {CPSautoView(into_v,into,HostRead);}
-    CPSautoView(into_v,into,HostWrite);
+    CPSautoView(into_v,into,HostReadWrite);
     
     StandardIndexDilution stdidx(into.getArgs());
     //Loop over column indices that are not being manipulated

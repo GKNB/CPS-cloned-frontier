@@ -98,6 +98,9 @@ void testhostDeviceMirroredContainer(){
 
     if(fail) ERR.General("","testhostDeviceMirroredContainer","Async copy test failed");
   }
+
+  device_free(tmp_gpu);
+  free(tmp_host);
   
   std::cout << "testhostDeviceMirroredContainer passed" << std::endl;
 }

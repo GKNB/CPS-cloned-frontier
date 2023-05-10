@@ -258,6 +258,7 @@ public:
 
 template<typename GridA2Apolicies>
 void testKtoPiPiType4FieldContraction(const double tol){
+  std::cout << "Starting testKtoPiPiType4FieldContraction" << std::endl;
   typedef typename GridA2Apolicies::ComplexType ComplexType;
   typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
   typedef CPSspinColorFlavorMatrix<ComplexType> VectorMatrixType;
@@ -266,7 +267,7 @@ void testKtoPiPiType4FieldContraction(const double tol){
   static const int nsimd = GridA2Apolicies::ComplexType::Nsimd();
   typename PropagatorField::InputParamType simd_dims;
   PropagatorField::SIMDdefaultLayout(simd_dims,nsimd,2);
-  
+
   PropagatorField part1(simd_dims), part2_L(simd_dims), part2_H(simd_dims);
   {
     CPSautoView(part1_v,part1,HostWrite);
@@ -335,9 +336,9 @@ void testKtoPiPiType4FieldContraction(const double tol){
       }
     }
   }
-  
-  ComputeKtoPiPiGparityTest<GridA2Apolicies>::type4_contract_test(got_r, t_K, part1, part2_L, part2_H);
 
+  ComputeKtoPiPiGparityTest<GridA2Apolicies>::type4_contract_test(got_r, t_K, part1, part2_L, part2_H);
+  
   got_r.nodeSum();
   expect_r.threadSum();
   expect_r.nodeSum();
@@ -361,7 +362,7 @@ void testKtoPiPiType4FieldContraction(const double tol){
   }
   if(fail) ERR.General("","","KtoPiPi type4 contract failed\n");
     
-
+  std::cout << "Passed testKtoPiPiType4FieldContraction" << std::endl;
 }
 
 
@@ -369,7 +370,7 @@ void testKtoPiPiType4FieldContraction(const double tol){
 
 template<typename GridA2Apolicies>
 void testKtoPiPiType4FieldFull(const A2AArg &a2a_args, const double tol){
-  std::cout << "Starting type4 full test\n";
+  std::cout << "Starting testKtoPiPiType4FieldFull" << std::endl;;
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -557,7 +558,7 @@ void testKtoPiPiType1GridOmpStd(const A2AArg &a2a_args,
 
 template<typename GridA2Apolicies>
 void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
-  std::cout << "Starting testKtoPiPiType1FieldFull type1 full test\n";
+  std::cout << "Starting testKtoPiPiType1FieldFull" << std::endl;
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -639,7 +640,7 @@ void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
 
 template<typename GridA2Apolicies>
 void testKtoPiPiType2FieldFull(const A2AArg &a2a_args, const double tol){
-  std::cout << "Starting type2 full test\n";
+  std::cout << "Starting testKtoPiPiType2FieldFull" << std::endl;
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -741,7 +742,7 @@ void testKtoPiPiType2FieldFull(const A2AArg &a2a_args, const double tol){
 
 template<typename GridA2Apolicies>
 void testKtoPiPiType3FieldFull(const A2AArg &a2a_args, const double tol){
-  std::cout << "Starting type3 full test\n";
+  std::cout << "Starting testKtoPiPiType3FieldFull" << std::endl;
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 

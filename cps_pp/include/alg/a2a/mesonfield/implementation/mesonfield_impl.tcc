@@ -23,8 +23,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::plus_equals(const A2AmesonF
      !lindexdilution.paramsEqual(with.lindexdilution) || !rindexdilution.paramsEqual(with.rindexdilution) ){
     ERR.General("A2AmesonField","plus_equals(..)","Second meson field must have the same underlying parameters\n");
   }
-  CPSautoView(t_v,(*this),HostWrite);
-  CPSautoView(t_vr,(*this),HostRead);
+  CPSautoView(t_v,(*this),HostReadWrite);
   CPSautoView(with_v,with,HostRead);
 
   if(parallel){
@@ -37,8 +36,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::plus_equals(const A2AmesonF
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::times_equals(const ScalarComplexType f,const bool parallel){
-  CPSautoView(t_v,(*this),HostWrite);
-  CPSautoView(t_vr,(*this),HostRead);
+  CPSautoView(t_v,(*this),HostReadWrite);
 
   if(parallel){
 #pragma omp_parallel for
@@ -68,8 +66,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::average(const A2AmesonField
      !lindexdilution.paramsEqual(with.lindexdilution) || !rindexdilution.paramsEqual(with.rindexdilution) ){
     ERR.General("A2AmesonField","average(..)","Second meson field must have the same underlying parameters\n");
   }
-  CPSautoView(t_v,(*this),HostWrite);
-  CPSautoView(t_vr,(*this),HostRead);
+  CPSautoView(t_v,(*this),HostReadWrite);
   CPSautoView(with_v,with,HostRead);
 
   if(parallel){
@@ -260,7 +257,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(bool require){
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View::View(ViewMode mode, const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize), device_ptr(false),
 																     tl(mf.tl), tr(mf.tr), parent(&mf){
-  if(mode == HostRead || mode == HostWrite){
+  if(mode == HostRead || mode == HostWrite || mode == HostReadWrite){
     data = (ScalarComplexType *)mf.data();
   }else if(mode == DeviceRead){  
 #ifdef GPU_VEC
@@ -272,7 +269,7 @@ A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View::View(ViewMode mode, const 
     data = (ScalarComplexType *)mf.data();
 #endif //GPU_VEC
   }else{
-    ERR.General("A2AmesonField::View","Constructor","DeviceWrite view is not implemented");
+    ERR.General("A2AmesonField::View","Constructor","DeviceWrite, DeviceReadWrite views are not implemented");
   }
 }
 

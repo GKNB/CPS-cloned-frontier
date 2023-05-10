@@ -250,6 +250,10 @@ void testGridFieldImpex(typename GridA2Apolicies::FgridGFclass &lattice){
       peekLane(sp[lane], *vp, lane);
       std::cout << sp[lane] << std::endl;
     }
+
+    free(vp);
+    free(sp);
+    free(sp2);
   }
   
   Grid::GridCartesian *FGrid = lattice.getFGrid();

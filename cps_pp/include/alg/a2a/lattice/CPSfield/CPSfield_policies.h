@@ -75,9 +75,9 @@ public:
 
   inline void enqueuePrefetch(ViewMode mode) const{
     if(_ptr){
-      if(mode == HostRead){
+      if(mode == HostRead || mode == HostReadWrite){
 	device_UVM_prefetch_host(_ptr,_byte_size);
-      }else if(mode == DeviceRead){
+      }else if(mode == DeviceRead || mode == DeviceReadWrite){
 	device_UVM_prefetch_device(_ptr,_byte_size);
       }
     }
@@ -115,7 +115,7 @@ protected:
     _byte_size = byte_size;
   }
   inline void _free(){
-    if(_ptr) managed_free(_ptr);
+    if(_ptr) ::free(_ptr);
   }
   inline void writeParams(std::ostream &file) const{
     writePolicyName(file, "ALLOCPOLICY", "HostAllocPolicy");
@@ -154,15 +154,16 @@ class ExplicitCopyAllocPolicy{
 
 protected:
   struct AllocView{
-    void* ptr;
-    inline void* operator()(){ return ptr; }
+    hostDeviceMirroredContainer<char>::View v;
+    
+    inline void* operator()(){ return (void*)v.data(); }
 
     AllocView() = default;
     AllocView(const AllocView &r) = default;
     AllocView(AllocView &&r) = default;
-    AllocView(void* ptr): ptr(ptr){}
+    AllocView(hostDeviceMirroredContainer<char>::View v): v(v){}
 
-    inline void free(){}
+    inline void free(){ v.free(); }
   };
 
   ExplicitCopyAllocPolicy(): _con(nullptr){}
@@ -189,16 +190,7 @@ protected:
 
   inline AllocView _getAllocView(ViewMode mode) const{
     assert(_con);
-    switch(mode){
-    case HostRead:
-      return AllocView((void*)_con->getHostReadPtr());
-    case HostWrite:
-      return AllocView((void*)_con->getHostWritePtr());	
-    case DeviceRead:
-      return AllocView((void*)_con->getDeviceReadPtr());
-    case DeviceWrite:
-      return AllocView((void*)_con->getDeviceWritePtr());	
-    };
+    return AllocView(_con->view(mode));
   }
   
 public: 

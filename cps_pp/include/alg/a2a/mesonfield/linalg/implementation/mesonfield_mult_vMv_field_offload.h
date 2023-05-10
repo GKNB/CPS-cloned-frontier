@@ -534,8 +534,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       for(int e: local_timeslices_v) local_timeslices.getHostWritePtr()[i++] = e;
     }
         
-    { CPSautoView(into_rv,into,DeviceRead); } //preserve initial state
-    CPSautoView(into_v,into,DeviceWrite);
+    CPSautoView(into_v,into,DeviceReadWrite);
 
     //This version is designed for l, r with the same temporal src_width
     int ntblocks = l.getNtBlocks();

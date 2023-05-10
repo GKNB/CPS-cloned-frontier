@@ -159,8 +159,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
     if(shmem_iblock_size == 0) assert(0);
 
     using namespace Grid;
-    { CPSautoView(into_v,into,DeviceRead); } //preserve initial state
-    CPSautoView(into_v,into,DeviceWrite);
+    CPSautoView(into_v,into,DeviceReadWrite);
     accelerator_for_shmem(x4d, 
 			  vol4d, 
 			  nsimd, 
@@ -258,8 +257,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
     static const int shmem_iblock_size = 4;
     
     using namespace Grid;
-    { CPSautoView(into_v,into,DeviceRead); }
-    CPSautoView(into_v,into,DeviceWrite);    
+    CPSautoView(into_v,into,DeviceReadWrite);    
     accelerator_for(x4d, 
 		    vol4d, 
 		    nsimd, 

@@ -252,7 +252,7 @@ struct hasFreeMethod<T, typename Void<decltype( ((T*)(NULL))->free() )>::type>{
   enum{ value = 1 };
 };
 
-enum ViewMode { HostRead, HostWrite, DeviceRead, DeviceWrite };
+enum ViewMode { HostRead, HostWrite, DeviceRead, DeviceWrite, HostReadWrite, DeviceReadWrite };
 
 //Because View classes cannot have non-trivial destructors, if the view requires a free it needs to be managed externally
 //This class calls free on the view (if it has a free method). It should be constructed after the view (and be destroyed before, which should happen automatically at the end of the scope)
@@ -354,7 +354,7 @@ private:
     freeData();
     sz = n;
     size_t byte_size = n*sizeof(ViewType);
-    if(mode == DeviceRead || mode == DeviceWrite){
+    if(mode == DeviceRead || mode == DeviceWrite || mode == DeviceReadWrite){
       v = (ViewType *)device_alloc_check(byte_size);
       copy_host_to_device(v, host_views, byte_size);
       loc = Device;
@@ -467,7 +467,7 @@ private:
   void placeData(ViewMode mode, ViewType* host_view){
     freeData();
     size_t byte_size = sizeof(ViewType);
-    if(mode == DeviceRead || mode == DeviceWrite){
+    if(mode == DeviceRead || mode == DeviceWrite || mode == DeviceReadWrite){
       v = (ViewType *)device_alloc_check(byte_size);
       copy_host_to_device(v, host_view, byte_size);
       loc = Device;
@@ -632,6 +632,12 @@ public:
 	ptr = (T*)con.getDeviceReadPtr(); break;
       case DeviceWrite:
 	ptr = (T*)con.getDeviceWritePtr(); break;
+      case HostReadWrite:
+	con.getHostReadPtr();
+	ptr = (T*)con.getHostWritePtr(); break;
+      case DeviceReadWrite:
+	con.getDeviceReadPtr();
+	ptr = (T*)con.getDeviceWritePtr(); break;	
       default:
 	assert(0); break;
       };
@@ -639,9 +645,13 @@ public:
     View(const View &v)=default;
     View(View &&v)=default;
 
+    accelerator_inline T* data(){ return ptr; }
+    accelerator_inline T const* data() const{ return ptr; }
+    
     accelerator_inline T& operator[](size_t i){ return ptr[i]; }
     accelerator_inline const T& operator[](size_t i) const{ return ptr[i]; }
     accelerator_inline size_t size() const{ return n; }
+    void free(){}
   };
   
   View view(ViewMode mode) const{
@@ -788,11 +798,9 @@ protected:
   size_t pool_max_size;
 
   //Move the entry to the end and return a new iterator
-  EntryIterator touchEntry(EntryIterator entry){
+  void touchEntry(EntryIterator entry){
     if(verbose) std::cout << "Touching entry " << entry->ptr << std::endl;
-    Entry e = *entry;
-    in_use_pool.erase(entry);
-    return in_use_pool.insert(in_use_pool.end(),e);
+    in_use_pool.splice(in_use_pool.end(),in_use_pool,entry); //doesn't invalidate any iterators :)
   }
 
   EntryIterator evictEntry(EntryIterator entry, bool free_it){
@@ -960,20 +968,35 @@ public:
 
   void* openView(ViewMode mode, HandleIterator h){
     h->lock_entry = true; //make sure it isn't evicted!
-    if(mode == HostRead){
-      if(!h->host_in_sync){
+    bool is_host = (mode == HostRead || mode == HostWrite || mode == HostReadWrite);
+    bool read(false), write(false);
+
+    switch(mode){
+    case HostRead:
+    case DeviceRead:
+      read=true; break;
+    case HostWrite:
+    case DeviceWrite:
+      write=true; break;
+    case HostReadWrite:
+    case DeviceReadWrite:
+      write=read=true; break;
+    }
+
+    if(is_host){
+      if(read && !h->host_in_sync){
 	if(!h->valid) ERR.General("DeviceMemoryPoolManager","openView","Host is not in sync but device side has been evicted!");
 	copy_device_to_host(h->host_ptr,h->entry->ptr,h->bytes);
 	h->host_in_sync=true;
       }
+      if(write){
+	h->host_in_sync = true;
+	h->device_in_sync = false;
+      }
       return h->host_ptr;
-    }else if(mode == HostWrite){
-      h->device_in_sync = false;
-      h->host_in_sync=true;
-      return h->host_ptr;
-    }else{ //mode == DeviceRead || mode == DeviceWrite
+    }else{ //device
       if(h->valid){
-	h->entry = touchEntry(h->entry); //touch the entry and refresh the iterator
+	touchEntry(h->entry); //touch the entry and refresh the iterator
       }else{
 	//find a new entry
 	h->entry = getEntry(h->bytes);
@@ -981,12 +1004,14 @@ public:
 	h->entry->owned_by = &(*h);
 	assert(!h->device_in_sync);
       }
-      if(mode == DeviceRead && !h->device_in_sync){
+      
+      if(read && !h->device_in_sync){
 	copy_host_to_device(h->entry->ptr,h->host_ptr,h->bytes);
 	h->device_in_sync = true;
-      }else if(mode == DeviceWrite){
-	h->device_in_sync = true;
+      }
+      if(write){
 	h->host_in_sync = false;
+	h->device_in_sync = true;
       }
       return h->entry->ptr;
     }
@@ -998,11 +1023,11 @@ public:
   }
 
   void enqueuePrefetch(ViewMode mode, HandleIterator h){    
-    if(mode == HostRead){
+    if(mode == HostRead || mode == HostReadWrite){
       //no support for device->host async copies yet
-    }else if(mode == DeviceRead){
+    }else if(mode == DeviceRead || mode == DeviceReadWrite){
       if(h->valid){
-	h->entry = touchEntry(h->entry); //touch the entry to make it less likely to be evicted; benefit even if already in sync
+	touchEntry(h->entry); //touch the entry to make it less likely to be evicted; benefit even if already in sync
       }else{
 	//find a new entry
 	h->entry = getEntry(h->bytes);
@@ -1045,9 +1070,6 @@ public:
     if(verbose) std::cout << "Freed host ptr " << h->host_ptr << ", removing handle" << std::endl;
     handles.erase(h);
   }
-
-  // size_t getUnused() const{
-  // }    
 
   inline static DeviceMemoryPoolManager & globalPool(){
     static DeviceMemoryPoolManager pool;
@@ -1136,8 +1158,8 @@ protected:
     return p.insert(p.end(),e);
   }
 
-  //Relinquish the entry
-  void relinquishEntry(EntryIterator it, Pool pool){
+  //Relinquish the entry from the LRU and put in the free pool
+  void moveEntryToFreePool(EntryIterator it, Pool pool){
     if(verbose) std::cout << "HolisticMemoryPoolManager: Relinquishing " << it->ptr << " of size " << it->bytes << " from " << poolName(pool) << std::endl;
     Entry e = *it;
     getLRUpool(pool).erase(it);
@@ -1268,14 +1290,11 @@ protected:
   }
   //Move the entry to the end and return a new iterator
   void touchEntry(Handle &handle, Pool pool){
-    EntryIterator &entry = pool == DevicePool ? handle.device_entry : handle.host_entry;    
-    Entry e = *entry;
-    if(verbose) std::cout << "HolisticMemoryPoolManager: Touching entry " << e.ptr << " in " << poolName(pool) << std::endl;
+    EntryIterator entry = pool == DevicePool ? handle.device_entry : handle.host_entry;
+    if(verbose) std::cout << "HolisticMemoryPoolManager: Touching entry " << entry->ptr << " in " << poolName(pool) << std::endl;
     auto &p = getLRUpool(pool);
-    p.erase(entry);
-    entry = p.insert(p.end(),e);
+    p.splice(p.end(),p,entry); //doesn't invalidate any iterators :)
   }
-
   
   void syncDeviceToHost(Handle &handle){
     assert(handle.initialized);
@@ -1329,37 +1348,76 @@ protected:
     }
   }
 
-  void detachEntry(Handle &handle, Pool pool){
-    if(pool == DevicePool){
-      //Copy data back to host if not in sync
-      if(handle.device_in_sync && !handle.host_in_sync){
-	if(verbose) std::cout << "HolisticMemoryPoolManager: Host is not in sync with device, copying back before detach" << std::endl;
-	syncDeviceToHost(handle);
+  void syncForRead(Handle &handle, Pool pool){
+    if(pool == HostPool){    
+      if(!handle.host_in_sync){
+	if(handle.device_in_sync) syncDeviceToHost(handle);
+	else if(handle.disk_in_sync) syncDiskToHost(handle);
+	else if(handle.initialized) ERR.General("HolisticMemoryPoolManager","syncForRead (HostRead)","Data has been initialized but no active copy!");
+	//Allow copies from uninitialized data, eg in copy constructor called during initialization of vector of fields
       }
-      handle.device_in_sync = false;      
-      handle.device_valid = false; //evict
-    }else{
-      //Copy data to disk if not in sync
-      if(handle.host_in_sync && !handle.disk_in_sync){
-	if(verbose) std::cout << "HolisticMemoryPoolManager: Disk is not in sync with device, copying back before detach" << std::endl;
-	syncHostToDisk(handle);
+    }else{ //DevicePool
+      if(!handle.device_in_sync){	      
+	if(handle.host_in_sync) syncHostToDevice(handle);
+	else if(handle.disk_in_sync){
+	  syncDiskToHost(handle);
+	  syncHostToDevice(handle);
+	}
+	else if(handle.initialized) ERR.General("HolisticMemoryPoolManager","syncForRead (DeviceRead)","Data has been initialized but no active copy!");
       }
-      handle.host_in_sync = false;
-      handle.host_valid = false; //evict
     }
   }
-  
+
+  void markForWrite(Handle &handle, Pool pool){
+    if(pool == HostPool){
+      handle.host_in_sync = true;
+      handle.device_in_sync = false;
+      handle.disk_in_sync = false;
+      handle.initialized = true;
+    }else{ //DevicePool
+      handle.host_in_sync = false;
+      handle.device_in_sync = true;
+      handle.disk_in_sync = false;
+      handle.initialized = true;
+    }
+  }   
+
+  void prepareEntryForView(Handle &handle, Pool pool){
+    bool valid = pool == DevicePool ? handle.device_valid : handle.host_valid;
+    if(!valid) attachEntry(handle,pool);
+    else touchEntry(handle, pool); //move to end of LRU
+  }
+ 
   //Evict an entry (with optional freeing of associated memory), and return an entry to the next item in the LRU
   EntryIterator evictEntry(EntryIterator entry, bool free_it, Pool pool){
     if(verbose) std::cout << "HolisticMemoryPoolManager: Evicting entry " << entry->ptr << " from " << poolName(pool) << std::endl;
 	
     if(entry->owned_by != nullptr){
       if(verbose) std::cout << "HolisticMemoryPoolManager: Entry is owned by handle " << entry->owned_by << ", detaching" << std::endl;
-      Handle &hown = *entry->owned_by;
-      if(hown.lock_entry) ERR.General("DeviceMemoryPoolManager","evictEntry","Cannot evict a locked entry!");
-      detachEntry(hown,pool);
+      Handle &handle = *entry->owned_by;
+      if(handle.lock_entry) ERR.General("DeviceMemoryPoolManager","evictEntry","Cannot evict a locked entry!");
+
+      if(pool == DevicePool){
+	//Copy data back to host if not in sync
+	if(handle.device_in_sync && !handle.host_in_sync){
+	  if(verbose) std::cout << "HolisticMemoryPoolManager: Host is not in sync with device, copying back before detach" << std::endl;
+	  syncDeviceToHost(handle);
+	}
+	handle.device_entry->owned_by = nullptr;
+	handle.device_in_sync = false;      
+	handle.device_valid = false; //evict
+      }else{
+	//Copy data to disk if not in sync
+	if(handle.host_in_sync && !handle.disk_in_sync){
+	  if(verbose) std::cout << "HolisticMemoryPoolManager: Disk is not in sync with device, copying back before detach" << std::endl;
+	  syncHostToDisk(handle);
+	}
+	handle.host_entry->owned_by = nullptr;
+	handle.host_in_sync = false;
+	handle.host_valid = false; //evict
+      }    
     }
-    if(free_it) freeEntry(entry, pool);
+    if(free_it) freeEntry(entry, pool); //deallocate the memory entirely (optional, we might want to reuse it)
     return getLRUpool(pool).erase(entry); //remove from list
   }
 
@@ -1372,6 +1430,7 @@ public:
   }
 
   ~HolisticMemoryPoolManager(){
+    std::cout << "~HolisticMemoryPoolManager handles.size()=" << handles.size() << " device_in_use_pool.size()=" << device_in_use_pool.size() << " host_in_use_pool.size()=" << host_in_use_pool.size() << std::endl;
     auto it = device_in_use_pool.begin();
     while(it != device_in_use_pool.end()){
       freeEntry(it, DevicePool);
@@ -1418,53 +1477,37 @@ public:
 
   void* openView(ViewMode mode, HandleIterator h){
     h->lock_entry = true; //make sure it isn't evicted!
-    if(mode == HostRead || mode == HostWrite){
-      if(!h->host_valid) attachEntry(*h,HostPool);
-      else touchEntry(*h, HostPool); //move to end of LRU
-
-      if(mode == HostRead && !h->host_in_sync){
-	if(h->device_in_sync) syncDeviceToHost(*h);
-	else if(h->disk_in_sync) syncDiskToHost(*h);
-	else if(h->initialized) ERR.General("HolisticMemoryPoolManager","openView (HostRead)","Data has been initialized but no active copy!");
-	//Allow copies from uninitialized data, eg in copy constructor called during initialization of vector of fields
-      }else if(mode == HostWrite){
-	h->device_in_sync = false;
-	h->disk_in_sync = false;
-	h->host_in_sync = true;
-	h->initialized = true;
-      }
-      return h->host_entry->ptr;
-    }else{ //mode == DeviceRead || mode == DeviceWrite
-      if(!h->device_valid) attachEntry(*h,DevicePool);
-      else touchEntry(*h, DevicePool); //move to end of LRU
-
-      if(mode == DeviceRead && !h->device_in_sync){
-	if(h->host_in_sync) syncHostToDevice(*h);
-	else if(h->disk_in_sync){
-	  syncDiskToHost(*h);
-	  syncHostToDevice(*h);
-	}
-	else if(h->initialized) ERR.General("HolisticMemoryPoolManager","openView (DeviceRead)","Data has been initialized but no active copy!");
-      }else if(mode == DeviceWrite){
-	h->device_in_sync = true;
-	h->disk_in_sync = false;
-	h->host_in_sync = false;
-	h->initialized = true;
-      }
-      return h->device_entry->ptr;
+    Pool pool = (mode == HostRead || mode == HostWrite || mode == HostReadWrite) ? HostPool : DevicePool;   
+    prepareEntryForView(*h,pool); 
+    bool read(false), write(false);
+    
+    switch(mode){
+    case HostRead:
+    case DeviceRead:
+      read=true; break;
+    case HostWrite:
+    case DeviceWrite:
+      write=true; break;
+    case HostReadWrite:
+    case DeviceReadWrite:
+      write=read=true; break;
     }
-  }
+
+    if(read) syncForRead(*h,pool);
+    if(write) markForWrite(*h,pool);
+
+    return pool == HostPool ? h->host_entry->ptr : h->device_entry->ptr;
+  }  
 
   void closeView(HandleIterator h){
     h->lock_entry = false;
   }
 
   void enqueuePrefetch(ViewMode mode, HandleIterator h){    
-    if(mode == HostRead){
+    if(mode == HostRead || mode == HostReadWrite){
       //no support for device->host async copies yet
-    }else if(mode == DeviceRead && h->host_valid && h->host_in_sync){
-      if(!h->device_valid) attachEntry(*h,DevicePool);
-      else touchEntry(*h, DevicePool); //move to end of LRU
+    }else if( (mode == DeviceRead || mode == DeviceReadWrite) && h->host_valid && h->host_in_sync){
+      prepareEntryForView(*h,DevicePool); 
       if(!h->device_in_sync){
 	asyncTransferManager::globalInstance().enqueue(h->device_entry->ptr,h->host_entry->ptr,h->bytes);
 	h->device_in_sync = true; //technically true only if the prefetch is complete; make sure to wait!!
@@ -1486,8 +1529,8 @@ public:
   }
   
   void free(HandleIterator h){
-    if(h->device_valid) relinquishEntry(h->device_entry, DevicePool);
-    if(h->host_valid) relinquishEntry(h->host_entry, HostPool);
+    if(h->device_valid) moveEntryToFreePool(h->device_entry, DevicePool);
+    if(h->host_valid) moveEntryToFreePool(h->host_entry, HostPool);
     if(h->disk_file != ""){
       if(verbose) std::cout << "HolisticMemoryPoolManager: Erasing cache file " << h->disk_file << std::endl;
       remove(h->disk_file.c_str());

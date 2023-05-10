@@ -168,7 +168,7 @@ public:
     void free();
   };
 
-  //Accepts HostRead, HostWrite, DeviceRead,   *NOT* DeviceWrite
+  //Accepts HostRead, HostWrite, HostReadWrite, DeviceRead,   *NOT* DeviceWrite
   inline View view(ViewMode mode) const{ return View(mode, *this); }
 
 
@@ -368,8 +368,7 @@ public:
   static void read(std::istream *file_ptr, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs);
 
   void nodeSum(){ //don't call unless you know what you're doing
-    CPSautoView(t_v,(*this),HostWrite);
-    CPSautoView(t_vr,(*this),HostRead);
+    CPSautoView(t_v,(*this),HostReadWrite);
     globalSum( (typename ScalarComplexType::value_type*)t_v.ptr(),2*fsize);
   }
 };

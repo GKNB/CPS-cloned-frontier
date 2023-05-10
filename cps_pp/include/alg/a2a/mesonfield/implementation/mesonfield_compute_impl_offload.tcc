@@ -205,8 +205,10 @@ struct SingleSrcVectorPoliciesSIMDoffload{
     for(int t=0;t<Lt;t++) 
       if(do_setup) mf_t[t].setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
       else{
-	CPSautoView(mf_t_v,mf_t[t],HostRead);
-	assert(mf_t_v.ptr() != NULL);
+	{
+	  CPSautoView(mf_t_v,mf_t[t],HostRead);
+	  assert(mf_t_v.ptr() != NULL);
+	}
 	mf_t[t].zero();
       }
   }
@@ -260,8 +262,10 @@ struct MultiSrcVectorPoliciesSIMDoffload{
       for(int t=0;t<Lt;t++) 
 	if(do_setup) mf_st[s]->operator[](t).setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
 	else{
-	  CPSautoView(mf_st_v, (*mf_st[t])[t], HostRead);
-	  assert(mf_st_v.ptr() != NULL);
+	  {
+	    CPSautoView(mf_st_v, (*mf_st[t])[t], HostRead);
+	    assert(mf_st_v.ptr() != NULL);
+	  }
 	  mf_st[s]->operator[](t).zero();
 	}
     }
