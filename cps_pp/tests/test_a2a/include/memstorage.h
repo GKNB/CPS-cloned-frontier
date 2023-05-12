@@ -341,6 +341,9 @@ void testPoolAllocator(){
     assert(pool.getAllocated() == 3*MB); //doesn't free memory!
     auto h7 = pool.allocate(1*MB);
     assert(h7->entry->ptr == expect_ptr); //should reuse the new free block
+
+    pool.free(h2); pool.free(h3); pool.free(h4); pool.free(h5); pool.free(h6); pool.free(h7);
+    
     std::cout << ">>>>testPoolAllocator test subset teardown" << std::endl;
   }
 
@@ -359,7 +362,8 @@ void testPoolAllocator(){
     //it should free up both of them to make room
     auto h3 = pool.allocate(2*MB);
     assert(h3->valid);
-    std::cout << ">>>>testPoolAllocator test subset teardown" << std::endl;
+    pool.free(h3);
+    std::cout << ">>>>testPoolAllocator test subset teardown" << std::endl;    
   }
 
   {
@@ -467,7 +471,10 @@ void testPoolAllocator(){
       if(fail) ERR.General("","testPoolAllocator","View test 4 failed");
     }
 
-
+    pool.free(h);
+    pool.free(h2);
+    device_free(tmp_gpu);
+    free(tmp_host);
   }
 
   {
@@ -513,6 +520,8 @@ void testPoolAllocator(){
     assert(r2 == 6.284);
     pool.closeView(h1);
     pool.closeView(h2);
+
+    pool.free(h1); pool.free(h2);
   }
 
   asyncTransferManager::globalInstance().setVerbose(false);

@@ -7,6 +7,7 @@
 #include "utils_malloc.h"
 #include "utils_parallel.h"
 #include "reuse_block_allocator.h"
+#include "utils_gpu.h"
 
 CPS_START_NAMESPACE
 
@@ -163,7 +164,40 @@ public:
   }
 
   inline void* data(){ return ptr; }
-  inline void const* data() const{ return ptr; } 
+  inline void const* data() const{ return ptr; }
+
+
+  struct AllocView{
+    void* ptr;
+    ViewMode mode;
+    void* host_ptr;
+    size_t size;
+    
+    accelerator_inline void* operator()(){ return ptr; }
+
+    AllocView() = default;
+    AllocView(const AllocView &r) = default;
+    AllocView(AllocView &&r) = default;
+    AllocView(ViewMode mode, const MemoryStorageBase &parent): mode(mode), size(parent._size){
+      if(mode == DeviceRead || mode == DeviceWrite || mode == DeviceReadWrite){
+	ptr = device_alloc_check(128,size);
+	host_ptr = parent.ptr;
+	if(mode == DeviceRead || mode == DeviceReadWrite){
+	  copy_host_to_device(ptr,host_ptr,size);
+	}
+      }else{
+	ptr = parent.ptr;
+      }
+    }
+
+    void free(){
+      if(mode == DeviceWrite || mode == DeviceReadWrite){
+	copy_device_to_host(host_ptr, ptr, size);	
+      }
+    }
+  };
+  AllocView allocView(ViewMode mode) const{ return AllocView(mode,*this); }
+  
 };
 
 //A version that keeps all meson fields in each node's memory. Gather and distribute have no effect.
@@ -988,6 +1022,37 @@ public:
       madvise(ptr, _size, MADV_DONTNEED);
     }else assert(0);  
   }
+
+  struct AllocView{
+    void* ptr;
+    ViewMode mode;
+    void* host_ptr;
+    size_t size;
+    
+    accelerator_inline void* operator()(){ return ptr; }
+
+    AllocView() = default;
+    AllocView(const AllocView &r) = default;
+    AllocView(AllocView &&r) = default;
+    AllocView(ViewMode mode, const MmapMemoryStorage &parent): mode(mode), size(parent._size){
+      if(mode == DeviceRead || mode == DeviceWrite || mode == DeviceReadWrite){
+	ptr = device_alloc_check(128,size);
+	host_ptr = parent.ptr;
+	if(mode == DeviceRead || mode == DeviceReadWrite){
+	  copy_host_to_device(ptr,host_ptr,size);
+	}
+      }else{
+	ptr = parent.ptr;
+      }
+    }
+
+    void free(){
+      if(mode == DeviceWrite || mode == DeviceReadWrite){
+	copy_device_to_host(host_ptr, ptr, size);	
+      }
+    }
+  };
+  AllocView allocView(ViewMode mode) const{ return AllocView(mode,*this); }
 };
 
 

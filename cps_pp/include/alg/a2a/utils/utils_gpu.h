@@ -6,6 +6,7 @@
 #include<config.h>
 #include "template_wizardry.h"
 #include "utils_malloc.h"
+#include<util/time_cps.h>
 
 #ifdef USE_GRID
 #include<Grid/Grid.h>

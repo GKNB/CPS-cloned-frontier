@@ -69,7 +69,8 @@ public:
    
     int fsize; //in units of ScalarComplexType
     ScalarComplexType *data;
-    bool device_ptr;
+    typename mf_Policies::MesonFieldDistributedStorageType::AllocView alloc_view;
+    
   public:
     typedef mf_Policies Policies;
     typedef typename A2AfieldL<mf_Policies>::DilutionType LeftInputDilutionType;
@@ -96,7 +97,7 @@ public:
 
     View(ViewMode mode, const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf);
     
-    accelerator_inline ScalarComplexType* ptr(){ assert(!device_ptr); return (ScalarComplexType*)data; } //Use at your own risk
+    accelerator_inline ScalarComplexType* ptr(){ return (ScalarComplexType*)data; }
     accelerator_inline ScalarComplexType const* ptr() const{ return (ScalarComplexType const*)data; }
 
     //Access elements with compressed mode index

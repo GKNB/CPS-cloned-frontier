@@ -255,29 +255,14 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(bool require){
 
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View::View(ViewMode mode, const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize), device_ptr(false),
-																     tl(mf.tl), tr(mf.tr), parent(&mf){
-  if(mode == HostRead || mode == HostWrite || mode == HostReadWrite){
-    data = (ScalarComplexType *)mf.data();
-  }else if(mode == DeviceRead){  
-#ifdef GPU_VEC
-    size_t bsize = fsize * sizeof(ScalarComplexType);
-    data = (ScalarComplexType *)device_alloc_check(bsize);
-    copy_host_to_device(data, mf.data(), bsize);
-    device_ptr = true;
-#else //GPU_VEC
-    data = (ScalarComplexType *)mf.data();
-#endif //GPU_VEC
-  }else{
-    ERR.General("A2AmesonField::View","Constructor","DeviceWrite, DeviceReadWrite views are not implemented");
-  }
+A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View::View(ViewMode mode, const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize),
+																     tl(mf.tl), tr(mf.tr), parent(&mf), alloc_view(mf.allocView(mode)){
+  data = (ScalarComplexType *)alloc_view();
 }
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View::free(){
-#ifdef GPU_VEC
-  if(device_ptr) device_free(data);
-#endif
+  alloc_view.free();
 }
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
