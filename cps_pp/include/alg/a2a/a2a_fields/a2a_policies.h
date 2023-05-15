@@ -19,11 +19,14 @@ CPS_START_NAMESPACE
 #define SET_MFSTORAGE_INMEM typedef InMemMemoryStorage MesonFieldDistributedStorageType
 //   meson fields are stored with a file-backed mmap region
 #define SET_MFSTORAGE_MMAP typedef MmapMemoryStorage MesonFieldDistributedStorageType
-
+//   meson fields are stored in disk-backed memory with LRU queue and eviction capabilities
+#define SET_MFSTORAGE_MEMPOOL typedef DiskBackedMemoryPoolStorage MesonFieldDistributedStorageType
 
 //   Default to distributed storage (overrideable with compile option)
 #ifndef SET_MFSTORAGE_DEFAULT
 #define SET_MFSTORAGE_DEFAULT SET_MFSTORAGE_DISTRIBUTED
+//SET_MFSTORAGE_MEMPOOL
+
 #endif
 
 //Type policies needed for sources

@@ -5,65 +5,78 @@ CPS_START_NAMESPACE
 void testMemoryStorageBase(){
   std::cout << "Starting testMemoryStorageBase" << std::endl;
   MemoryStorageBase store;
-  assert(store.data() == NULL);
+  assert(!store.isInitialized());
 
   store.alloc(128, 10*sizeof(double));
-  assert(store.data() != NULL);
-  
-  double* ptr = (double*)store.data();
-  for(int i=0;i<10;i++) ptr[i] = i;
+  assert(store.isInitialized());
+
+  {
+    CPSautoView(store_v,store,HostWrite);    
+    double* ptr = (double*)store_v();
+    for(int i=0;i<10;i++) ptr[i] = i;
+  }
 
   //Test copy constructor
   {
     MemoryStorageBase store2(store);
-    assert(store2.data() != NULL);
-    double* ptr2 = (double*)store2.data();
-    
+    assert(store2.isInitialized());
+    CPSautoView(store2_v,store2,HostRead);    
+    double* ptr2 = (double*)store2_v();    
     for(int i=0;i<10;i++) assert(ptr2[i] == double(i));
   }
 
   //Test copy
   {
     MemoryStorageBase store2;
-    assert(store2.data() == NULL);
+    assert(!store2.isInitialized());
     store2 = store;
-
-    double* ptr2 = (double*)store2.data();
-    
+    CPSautoView(store2_v,store2,HostRead);
+    double* ptr2 = (double*)store2_v();    
     for(int i=0;i<10;i++) assert(ptr2[i] == double(i));
   }
 
   //Test move
   {
     MemoryStorageBase store2(store);
-    assert(store2.data() != NULL);
-    
-    void* ptr2 = store2.data();
+    assert(store2.isInitialized());
 
+    void* ptr2;
+    {
+      CPSautoView(store2_v,store2,HostRead);
+      ptr2 = store2_v();
+    }
     MemoryStorageBase store3;
     store3.move(store2);
 
-    assert(store2.data() == NULL);
-    assert(store3.data() == ptr2);
+    assert(!store2.isInitialized());
+    assert(store3.isInitialized());
+    CPSautoView(store3_v,store3,HostRead);
+    assert(store3_v() == ptr2);
   }    
 
   //Test free
   store.freeMem();
-  assert(store.data() == NULL);
+  assert(!store.isInitialized());
   
   //Test use of external buffer
   void* ext = memalign(128,10*sizeof(double));
   store.enableExternalBuffer(ext, 10*sizeof(double), 128);
   
   store.alloc(128, 10*sizeof(double));
-  assert(store.data() == ext);
+  {
+    CPSautoView(store_v,store,HostRead);  
+    assert(store_v() == ext);
+  }
   store.freeMem();
  
   //Test disable
   store.disableExternalBuffer();
   
   store.alloc(128, 10*sizeof(double));
-  assert(store.data() != ext);
+  {
+    CPSautoView(store_v,store,HostRead);  
+    assert(store_v() != ext);
+  }
   std::cout << "testMemoryStorageBase passed" << std::endl;
 }
 
@@ -78,46 +91,61 @@ class BurstBufferMemoryStorageTest: public BurstBufferMemoryStorage{
 void testBurstBufferMemoryStorage(){
   std::cout << "Starting testBurstBufferMemoryStorage" << std::endl;
   BurstBufferMemoryStorage store;
-  assert(store.data() == NULL);
+  assert(!store.isInitialized());
 
   store.alloc(128, 10*sizeof(double));
-  assert(store.data() != NULL);
-  
-  double* ptr = (double*)store.data();
-  for(int i=0;i<10;i++) ptr[i] = i;
+  assert(store.isInitialized());
+
+  {
+    CPSautoView(store_v,store,HostWrite);
+    double* ptr = (double*)store_v();
+    for(int i=0;i<10;i++) ptr[i] = i;
+  }
 
   store.distribute();
 
-  assert(store.data() == NULL);
+  assert(!store.isInitialized());
   assert( (( BurstBufferMemoryStorageTest& )store).isOnDisk() == true );
   assert( (( BurstBufferMemoryStorageTest& )store).getChecksum() != 0 );
 
   store.gather(true);
-  assert(store.data() != NULL);
-  
-  ptr = (double*)store.data();
-    
-  for(int i=0;i<10;i++) assert(ptr[i] == double(i));
+  assert(store.isInitialized() );
+
+  {
+    CPSautoView(store_v,store,HostRead);
+    double* ptr = (double*)store_v();    
+    for(int i=0;i<10;i++) assert(ptr[i] == double(i));
+  }
   
   //Test copy uses different file
   BurstBufferMemoryStorage store2(store);
   assert( (( BurstBufferMemoryStorageTest& )store2).getFile() != (( BurstBufferMemoryStorageTest& )store).getFile() );
-  assert(store2.data() != store.data());
-
-  double* ptr2 = (double*)store2.data();
-  for(int i=0;i<10;i++) assert(ptr2[i] == double(i));
+  {
+    CPSautoView(store2_v,store2,HostRead);
+    CPSautoView(store_v,store,HostRead);
+    assert(store2_v() != store_v());
+    
+    double* ptr2 = (double*)store2_v();
+    for(int i=0;i<10;i++) assert(ptr2[i] == double(i));
+  }
   
   //Test move
   std::string f2 = (( BurstBufferMemoryStorageTest& )store2).getFile();
-  void* d2 = store2.data();
+  void* d2;
+  {
+    CPSautoView(store2_v,store2,HostRead);
+    d2 = store2_v();
+  }
   BurstBufferMemoryStorage store3;
   store3.move(store2);
   assert( (( BurstBufferMemoryStorageTest& )store3).getFile() == f2 );
-  assert( store2.data() == NULL );
+  assert( !store2.isInitialized());
   assert( (( BurstBufferMemoryStorageTest& )store2).isOnDisk() == false );
-  assert( store3.data() == d2 );
 
-  double* ptr3 = (double*)store3.data();
+  CPSautoView(store3_v,store3,HostRead);  
+  assert( store3_v() == d2 );
+
+  double* ptr3 = (double*)store3_v();
   for(int i=0;i<10;i++) assert(ptr3[i] == double(i));
 
   std::cout << "testBurstBufferMemoryStorage passed" << std::endl;
@@ -129,42 +157,54 @@ void testDistributedStorage(){
   for(int i=0;i<4;i++) nodes *= GJP.Nodes(i);
   if(nodes > 1){
     DistributedMemoryStorage store;
-    assert(store.data() == NULL);
+    assert(!store.isInitialized() );
 
     store.alloc(128, 10*sizeof(double));
-    assert(store.data() != NULL);
-  
-    double* ptr = (double*)store.data();
-    for(int i=0;i<10;i++) ptr[i] = i;
+    assert(store.isInitialized() );
+
+    {
+      CPSautoView(store_v,store,HostWrite);
+      double* ptr = (double*)store_v();
+      for(int i=0;i<10;i++) ptr[i] = i;
+    }
 
     store.distribute();
 
     assert(store.masterUID() != -1);
-    if(store.masterUID() == UniqueID()) assert(store.data() != NULL);
-    else  assert(store.data() == NULL);
+    if(store.masterUID() == UniqueID()) assert(store.isInitialized() );
+    else  assert(!store.isInitialized() );
 
     store.gather(true);
-    assert(store.data() != NULL);
-  
-    ptr = (double*)store.data();
-    
-    for(int i=0;i<10;i++) assert(ptr[i] == double(i));
+    assert(store.isInitialized());
+
+    void* store_p;
+    {
+      CPSautoView(store_v,store,HostRead);
+      double* ptr = (double*)store_v();    
+      for(int i=0;i<10;i++) assert(ptr[i] == double(i));
+      store_p = store_v();
+    }
   
     //Test copy 
     DistributedMemoryStorage store2(store);
-    assert(store2.data() != store.data());
     assert(store2.masterUID() == store.masterUID());
-
-    double* ptr2 = (double*)store2.data();
-    for(int i=0;i<10;i++) assert(ptr2[i] == double(i));
+    {
+      CPSautoView(store2_v,store2,HostRead);
+      assert(store2_v() != store_p);
+      double* ptr2 = (double*)store2_v();
+      for(int i=0;i<10;i++) assert(ptr2[i] == double(i));
+    }
   
     //Test move
     DistributedMemoryStorage store3;
     store3.move(store2);
-    assert( store2.data() == NULL );
+    assert( !store2.isInitialized() );
 
-    double* ptr3 = (double*)store3.data();
-    for(int i=0;i<10;i++) assert(ptr3[i] == double(i));
+    {
+      CPSautoView(store3_v,store3,HostRead);
+      double* ptr3 = (double*)store3_v();
+      for(int i=0;i<10;i++) assert(ptr3[i] == double(i));
+    }
   
     std::cout << "testDistributedStorage passed" << std::endl;
   }else{
@@ -178,41 +218,52 @@ void testDistributedStorageOneSided(){
   for(int i=0;i<4;i++) nodes *= GJP.Nodes(i);
   if(nodes > 1){
     DistributedMemoryStorageOneSided store;
-    assert(store.data() == NULL);
+    assert(!store.isInitialized() );
 
     store.alloc(128, 10*sizeof(double));
-    assert(store.data() != NULL);
-  
-    double* ptr = (double*)store.data();
-    for(int i=0;i<10;i++) ptr[i] = i;
+    assert(store.isInitialized());
+
+    {
+      CPSautoView(store_v,store,HostWrite);
+      double* ptr = (double*)store_v();
+      for(int i=0;i<10;i++) ptr[i] = i;
+    }
 
     store.distribute();
 
     assert(store.masterUID() != -1);
-    if(store.masterUID() == UniqueID()) assert(store.data() != NULL);
-    else  assert(store.data() == NULL);
+    if(store.masterUID() == UniqueID()) assert(store.isInitialized() );
+    else  assert(!store.isInitialized() );
 
     store.gather(true);
-    assert(store.data() != NULL);
-  
-    ptr = (double*)store.data();
-    
-    for(int i=0;i<10;i++) assert(ptr[i] == double(i));
+    assert(store.isInitialized() );
+
+    void *store_p;
+    {
+      CPSautoView(store_v,store,HostRead);
+      double* ptr = (double*)store_v();
+      for(int i=0;i<10;i++) assert(ptr[i] == double(i));
+      store_p = store_v();
+    }
   
     //Test copy 
     DistributedMemoryStorageOneSided store2(store);
-    assert(store2.data() != store.data());
     assert(store2.masterUID() == store.masterUID());
 
-    double* ptr2 = (double*)store2.data();
-    for(int i=0;i<10;i++) assert(ptr2[i] == double(i));
-  
+    {
+      CPSautoView(store2_v,store2,HostRead);
+      assert(store2_v() != store_p);
+      double* ptr2 = (double*)store2_v();
+      for(int i=0;i<10;i++) assert(ptr2[i] == double(i));
+    }
+    
     //Test move
     DistributedMemoryStorageOneSided store3;
     store3.move(store2);
-    assert( store2.data() == NULL );
+    assert( !store2.isInitialized() );
 
-    double* ptr3 = (double*)store3.data();
+    CPSautoView(store3_v,store3,HostRead);
+    double* ptr3 = (double*)store3_v();
     for(int i=0;i<10;i++) assert(ptr3[i] == double(i));
   
     std::cout << "testDistributedStorageOneSided passed" << std::endl;
@@ -226,38 +277,52 @@ void testDistributedStorageOneSided(){
 void testMmapMemoryStorage(){
   std::cout << "Starting testMmapMemoryStorage" << std::endl;
   MmapMemoryStorage store;
-  assert(store.data() == NULL);
+  assert(!store.isInitialized() );
 
   store.alloc(128, 10*sizeof(double));
-  assert(store.data() != NULL);
-  
-  double* ptr = (double*)store.data();
-  for(int i=0;i<10;i++) ptr[i] = i;
+  assert(store.isInitialized() );
 
+  {
+    CPSautoView(store_v,store,HostWrite);
+    double* ptr = (double*)store_v();
+    for(int i=0;i<10;i++) ptr[i] = i;
+  }
+    
   store.distribute();
   
   //Can still read here, distribute just advises the OS that the pages are not expected to be needed soon
-  assert(store.data() != NULL);
-  for(int i=0;i<10;i++) assert(ptr[i] == double(i));
+  assert(store.isInitialized() );
+
+  void* store_p ;
+  {
+    CPSautoView(store_v,store,HostRead);
+    double* ptr = (double*)store_v();
+    for(int i=0;i<10;i++) assert(ptr[i] == double(i));
+    store_p = store_v();
+  }
 
   store.gather(true);
-  assert(store.data() != NULL);
+  assert(store.isInitialized() );
   
    
   //Test copy uses different
   MmapMemoryStorage store2(store);
   assert( store2.getFilename() != store.getFilename() );
-  assert(store2.data() != store.data());
-
-  double* ptr2 = (double*)store2.data();
-  for(int i=0;i<10;i++) assert(ptr2[i] == double(i));
+  {
+    CPSautoView(store2_v,store2,HostRead);
+    assert(store2_v() != store_p);
+    double* ptr2 = (double*)store2_v();
+    for(int i=0;i<10;i++) assert(ptr2[i] == double(i));
+  }
   
   //Test move
   MmapMemoryStorage store3;
   store3.move(store2);
   assert( store2.getFilename() == "" );
-  assert( store2.data() == NULL );
-  double* ptr3 = (double*)store3.data();
+  assert( !store2.isInitialized() );
+
+  CPSautoView(store3_v,store3,HostRead);
+  double* ptr3 = (double*)store3_v();
   for(int i=0;i<10;i++) assert(ptr3[i] == double(i));
   
 

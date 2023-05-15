@@ -166,7 +166,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testPoolAllocator();
   if(1) testAsyncTransferManager();
   if(1) testHolisticPoolAllocator();
-
+  if(1) testMesonFieldViews<A2Apolicies_grid>(a2a_arg);
+  
   if(1) testCPSfieldDeviceCopy<A2Apolicies_grid>();
   if(1) testAutoView();
   if(1) testViewArray();
@@ -356,7 +357,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   /*
   */
-  //if(1) testMesonFieldViews<A2Apolicies_grid>(a2a_arg);
+
 }
 
 

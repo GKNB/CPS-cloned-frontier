@@ -706,9 +706,9 @@ void testMesonFieldNodeDistributeOneSided(const A2AArg &a2a_args){
 	mf1[t].nodeDistribute();
 	std::cout << "t=" << t << " master uid " << mf1[t].masterUID() << std::endl;	
 	if(UniqueID() == mf1[t].masterUID()){
-	  assert(mf1[t].data() != nullptr);
+	  assert(mf1[t].isInitialized());
 	}else{
-	  assert(mf1[t].data() == nullptr);
+	  assert(!mf1[t].isInitialized());
 	}
       }
     }
@@ -717,7 +717,7 @@ void testMesonFieldNodeDistributeOneSided(const A2AArg &a2a_args){
       std::cout << "Checking gather" << std::endl;
       for(int t=0;t<Lt;t++){
 	mf1[t].nodeGet();
-	assert(mf1[t].data() != nullptr);
+	assert(mf1[t].isInitialized());
 	assert(mf1[t].equals(mf1_cp[t],1e-12,true));	       
       }
     }    

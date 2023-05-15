@@ -1162,10 +1162,15 @@ protected:
   //Relinquish the entry from the LRU and put in the free pool
   void moveEntryToFreePool(EntryIterator it, Pool pool){
     if(verbose) std::cout << "HolisticMemoryPoolManager: Relinquishing " << it->ptr << " of size " << it->bytes << " from " << poolName(pool) << std::endl;
-    Entry e = *it;
-    getLRUpool(pool).erase(it);
-    e.owned_by = nullptr;
-    getFreePool(pool)[e.bytes].push_back(e);
+    it->owned_by = nullptr;
+    auto &from = getLRUpool(pool);
+    auto &to = getFreePool(pool)[it->bytes];
+    to.splice(to.end(),from,it);
+    
+    // Entry e = *it;
+    // getLRUpool(pool).erase(it);
+    // e.owned_by = nullptr;
+    // getFreePool(pool)[e.bytes].push_back(e);
   }
   
   //Free the memory associated with an entry
@@ -1220,12 +1225,26 @@ protected:
     //First check if we have an entry of the right size in the pool
     auto fit = free_pool.find(bytes);
     if(fit != free_pool.end()){
-      assert(fit->second.size() > 0);
-      Entry e = fit->second.back();
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Found entry " << e.ptr << " in free pool" << std::endl;
-      if(fit->second.size() == 1) free_pool.erase(fit); //remove the entire, now-empty list
-      else fit->second.pop_back();
-      return LRUpool.insert(LRUpool.end(),e);
+      auto &entry_list = fit->second;      
+      assert(entry_list.size() > 0);
+      if(entry_list.back().bytes != bytes){
+	std::ostringstream os; os << "In pool of size " << bytes << "(check key " << fit->first << ") found entry of size " << entry_list.back().bytes << "! List has size " << entry_list.size() << " and full set of sizes: ";
+	for(auto e=entry_list.begin();e!=entry_list.end();e++) os << e->bytes <<  " ";
+	os << std::endl;
+	ERR.General("HolisticMemoryPoolManager","getEntry","%s",os.str().c_str());
+      }      
+      //assert(entry_list.back().bytes == bytes);
+      
+      if(verbose) std::cout << "HolisticMemoryPoolManager: Found entry " << entry_list.back().ptr << " in free pool" << std::endl;      
+      LRUpool.splice(LRUpool.end(), entry_list, std::prev(entry_list.end()));
+
+      if(fit->second.size() == 0) free_pool.erase(fit); //remove the entire, now-empty list
+      return std::prev(LRUpool.end());
+           
+      // Entry e = fit->second.back();
+      // if(fit->second.size() == 1) free_pool.erase(fit); //remove the entire, now-empty list
+      // else fit->second.pop_back();
+      // return LRUpool.insert(LRUpool.end(),e);
     }
     //Next, if we have enough room, allocate new memory
     if(allocated + bytes <= pool_max_size){

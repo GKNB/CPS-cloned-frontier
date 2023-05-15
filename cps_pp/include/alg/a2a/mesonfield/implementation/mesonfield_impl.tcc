@@ -256,7 +256,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(bool require){
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View::View(ViewMode mode, const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize),
-																     tl(mf.tl), tr(mf.tr), parent(&mf), alloc_view(mf.allocView(mode)){
+																     tl(mf.tl), tr(mf.tr), parent(&mf), alloc_view(mf.mf_Policies::MesonFieldDistributedStorageType::view(mode)){
   data = (ScalarComplexType *)alloc_view();
 }
 

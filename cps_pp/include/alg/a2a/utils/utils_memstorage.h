@@ -163,11 +163,9 @@ public:
     r.ptr = NULL;
   }
 
-  inline void* data(){ return ptr; }
-  inline void const* data() const{ return ptr; }
-
-
-  struct AllocView{
+  inline bool isInitialized() const{ return ptr != NULL; }
+  
+  struct View{
     void* ptr;
     ViewMode mode;
     void* host_ptr;
@@ -175,10 +173,11 @@ public:
     
     accelerator_inline void* operator()(){ return ptr; }
 
-    AllocView() = default;
-    AllocView(const AllocView &r) = default;
-    AllocView(AllocView &&r) = default;
-    AllocView(ViewMode mode, const MemoryStorageBase &parent): mode(mode), size(parent._size){
+    View() = default;
+    View(const View &r) = default;
+    View(View &&r) = default;
+    View(ViewMode mode, const MemoryStorageBase &parent): mode(mode), size(parent._size){
+      assert(parent.isInitialized());
       if(mode == DeviceRead || mode == DeviceWrite || mode == DeviceReadWrite){
 	ptr = device_alloc_check(128,size);
 	host_ptr = parent.ptr;
@@ -191,12 +190,13 @@ public:
     }
 
     void free(){
-      if(mode == DeviceWrite || mode == DeviceReadWrite){
-	copy_device_to_host(host_ptr, ptr, size);	
+      if(mode == DeviceWrite || mode == DeviceReadWrite || mode == DeviceRead){
+	if(mode == DeviceWrite || mode == DeviceReadWrite) copy_device_to_host(host_ptr, ptr, size);
+	device_free(ptr);
       }
     }
   };
-  AllocView allocView(ViewMode mode) const{ return AllocView(mode,*this); }
+  View view(ViewMode mode) const{ return View(mode,*this); }
   
 };
 
@@ -936,6 +936,8 @@ public:
 
   inline bool isOnNode() const{ return ptr != NULL; }
 
+  inline bool isInitialized() const{ return ptr != NULL; }
+  
   //does nothing
   void enableExternalBuffer(void* p, size_t sz, int align){ }
   void disableExternalBuffer(){ }
@@ -1001,10 +1003,7 @@ public:
     r.filename = "";
   }
 
-  inline void* data(){ return ptr; }
-  inline void const* data() const{ return ptr; }
-
-  void gather(bool require){
+ void gather(bool require){
     if(ptr != NULL){
       madvise(ptr, _size, MADV_SEQUENTIAL); //hopefully this will cause it to read ahead
       char volatile *pPage = (char *)ptr;
@@ -1023,7 +1022,7 @@ public:
     }else assert(0);  
   }
 
-  struct AllocView{
+  struct View{
     void* ptr;
     ViewMode mode;
     void* host_ptr;
@@ -1031,10 +1030,11 @@ public:
     
     accelerator_inline void* operator()(){ return ptr; }
 
-    AllocView() = default;
-    AllocView(const AllocView &r) = default;
-    AllocView(AllocView &&r) = default;
-    AllocView(ViewMode mode, const MmapMemoryStorage &parent): mode(mode), size(parent._size){
+    View() = default;
+    View(const View &r) = default;
+    View(View &&r) = default;
+    View(ViewMode mode, const MmapMemoryStorage &parent): mode(mode), size(parent._size){
+      assert(parent.isInitialized());
       if(mode == DeviceRead || mode == DeviceWrite || mode == DeviceReadWrite){
 	ptr = device_alloc_check(128,size);
 	host_ptr = parent.ptr;
@@ -1047,12 +1047,111 @@ public:
     }
 
     void free(){
-      if(mode == DeviceWrite || mode == DeviceReadWrite){
-	copy_device_to_host(host_ptr, ptr, size);	
+      if(mode == DeviceWrite || mode == DeviceReadWrite || mode == DeviceRead){
+	if(mode == DeviceWrite || mode == DeviceReadWrite) copy_device_to_host(host_ptr, ptr, size);
+	device_free(ptr);
       }
     }
   };
-  AllocView allocView(ViewMode mode) const{ return AllocView(mode,*this); }
+  View view(ViewMode mode) const{ return View(mode,*this); }
+};
+
+
+
+
+
+
+class DiskBackedMemoryPoolStorage{
+protected:
+  HolisticMemoryPoolManager::HandleIterator h;
+  bool initialized;
+public:
+
+  DiskBackedMemoryPoolStorage(): initialized(false){
+    std::cout << "USING DiskBackedMemoryPoolStorage" << std::endl;
+  }
+
+  DiskBackedMemoryPoolStorage(const DiskBackedMemoryPoolStorage &r): DiskBackedMemoryPoolStorage(){
+    if(r.initialized){
+      size_t size = r.h->bytes;
+      this->alloc(128,size);
+      auto tv = this->view(HostWrite);
+      auto rv = r.view(HostRead);
+      memcpy(tv(),rv(),size);
+      tv.free(); rv.free();
+    }
+  }
+  
+  DiskBackedMemoryPoolStorage & operator=(const DiskBackedMemoryPoolStorage &r){
+    if(!r.initialized){ this->freeMem(); return *this; }
+
+    size_t size = r.h->bytes;
+    
+    if(initialized && h->bytes != size) this->freeMem();
+    if(!initialized) this->alloc(128,size);
+    
+    auto tv = this->view(HostWrite);
+    auto rv = r.view(HostRead);
+    memcpy(tv(),rv(),size);
+    tv.free(); rv.free();
+    
+    return *this;
+  }
+
+  ~DiskBackedMemoryPoolStorage(){ freeMem(); }
+
+  inline bool isInitialized() const{ return initialized; }
+  
+  inline bool isOnNode() const{ return true; }
+
+  //does nothing
+  void enableExternalBuffer(void* p, size_t sz, int align){ }
+  void disableExternalBuffer(){ }
+  void flush(){ }
+  
+  void alloc(int alignment, size_t size){
+    assert(!initialized);
+    h = HolisticMemoryPoolManager::globalPool().allocate(size, HolisticMemoryPoolManager::HostPool);
+    initialized = true;
+  }
+
+  void freeMem(){
+    if(initialized){
+      HolisticMemoryPoolManager::globalPool().free(h);
+      initialized = false;
+    }
+  }
+
+  void move(DiskBackedMemoryPoolStorage &r){
+    h=r.h;
+    initialized = r.initialized;
+    r.initialized=false;
+  }
+
+  void gather(bool require){
+    //todo - add prefetch
+  }
+  void distribute(){
+  }
+
+  struct View{
+    void* ptr;
+    HolisticMemoryPoolManager::HandleIterator h;
+    
+    accelerator_inline void* operator()(){ return ptr; }
+
+    View() = default;
+    View(const View &r) = default;
+    View(View &&r) = default;
+    View(ViewMode mode, const DiskBackedMemoryPoolStorage &parent): h(parent.h), ptr(nullptr){
+      if(parent.initialized) ptr = HolisticMemoryPoolManager::globalPool().openView(mode, h);
+    }
+
+    void free(){
+      if(ptr != nullptr) HolisticMemoryPoolManager::globalPool().closeView(h);
+    }
+  };
+  View view(ViewMode mode) const{ return View(mode,*this); }
 };
 
 

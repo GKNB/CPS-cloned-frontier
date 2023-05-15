@@ -69,7 +69,7 @@ public:
    
     int fsize; //in units of ScalarComplexType
     ScalarComplexType *data;
-    typename mf_Policies::MesonFieldDistributedStorageType::AllocView alloc_view;
+    typename mf_Policies::MesonFieldDistributedStorageType::View alloc_view;
     
   public:
     typedef mf_Policies Policies;
@@ -185,10 +185,10 @@ public:
     int old_fsize = fsize;
     fsize = nmodes_l*nmodes_r;
 
-    if(this->data() != NULL && old_fsize != fsize ){
+    if(this->isInitialized() && old_fsize != fsize ){
       this->freeMem();
       this->alloc(128, fsize * sizeof(ScalarComplexType)); 
-    }else if(this->data() == NULL){
+    }else if(!this->isInitialized()){
       this->alloc(128, fsize * sizeof(ScalarComplexType)); 
     }
     zero();
