@@ -83,29 +83,32 @@ void compute_simple(fMatrix<ComplexType> &into, const std::vector<FermionFieldTy
   if(mode0.nodeSites(3) != GJP.TnodeSites()) ERR.General("","compute_simple","Not implemented for fields where node time dimension != GJP.TnodeSites()\n");
 
   int nf = GJP.Gparity() + 1;
+  int nthr = omp_get_max_threads();
   
   int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
   if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
-
     CPSautoView(M_v,M,HostRead);
     
-#pragma omp parallel for
     for(int i = 0; i < nv; i++){
       CPSautoView(l_i_v,l[i],HostRead);
       
       for(int j = 0; j < nv; j++) {
 	CPSautoView(r_j_v,r[j],HostRead);
-	
-	ComplexType &into_ij = into(i,j);
-	into_ij = 0.;
-	
+
+	ComplexType into_ij_thr[nthr];
+	for(int thr=0;thr<nthr;thr++) into_ij_thr[thr]=0;
+
+#pragma omp parallel for
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
 	  size_t x4d = mode0.threeToFour(p_3d,t_lcl);
 	  SCFvectorPtr<ComplexType> lscf(l_i_v.site_ptr(x4d,0), nf==1 ? NULL : l_i_v.site_ptr(x4d,1),false,false);
 	  SCFvectorPtr<ComplexType> rscf(r_j_v.site_ptr(x4d,0), nf==1 ? NULL : r_j_v.site_ptr(x4d,1),false,false);
 	  
-	  M_v(into_ij,lscf,rscf,p_3d,t);
+	  M_v(into_ij_thr[omp_get_thread_num()],lscf,rscf,p_3d,t);
 	}
+	ComplexType &into_ij = into(i,j);
+	into_ij = into_ij_thr[0];
+	for(int thr=1;thr<nthr;thr++) into_ij += into_ij_thr[thr];
       }
     }
   }
@@ -357,11 +360,18 @@ struct SingleSrcVectorPolicies{
 	mf_t[t].zero();
       }
   }
-  static inline void sumThreadedResults(mfVectorType &mf_t, AccumMatrixType const* mf_accum_thr, const int i, const int j, const int t, const int nthread){
-    CPSautoView(mf_t_v,mf_t[t],HostWrite);
-    for(int thr=0;thr<nthread;thr++)
-      mf_t_v(i,j) += mf_accum_thr[thr](i,j);
+
+  static void sumThreadedResults(mfVectorType &mf_t, AccumMatrixType const* mf_accum_thr, const int t, const int nthread){
+    CPSautoView(mf_t_v,mf_t[t],HostReadWrite);
+    size_t nrow = mf_t_v.getNrows(), ncol = mf_t_v.getNcols();
+#pragma omp parallel for
+    for(size_t ij=0;ij<nrow*ncol;ij++){ // j + ncol*i
+      size_t i = ij / ncol, j = ij % ncol;
+      for(int thr=0;thr<nthread;thr++)
+	mf_t_v(i,j) += mf_accum_thr[thr](i,j);
+    }
   }
+
 
   //Used to get information about rows and cols
   static inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_t, const int t){
@@ -420,14 +430,20 @@ struct MultiSrcVectorPolicies{
 	}
     }
   }
-  inline void sumThreadedResults(mfVectorType &mf_st, AccumMatrixType const* mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
-    for(int thr=0;thr<nthread;thr++){
-      typename mf_Policies::ScalarComplexType const* v = mf_accum_thr[thr](i,j);
-      for(int s=0;s<mfPerTimeSlice;s++){
-	auto const &mf_tarray = *mf_st[s];
-	CPSautoView(mf_st_v,mf_tarray[t],HostReadWrite);
-	mf_st_v(i,j) += v[s];
-      }
+
+  inline void sumThreadedResults(mfVectorType &mf_st, AccumMatrixType const* mf_accum_thr, const int t, const int nthread){
+    ViewAutoDestructWrapper<typename MesonFieldType::View> mf_sview[mfPerTimeSlice];
+    for(int s=0;s<mfPerTimeSlice;s++) mf_sview[s].reset( (*mf_st[s])[t].view(HostReadWrite));
+
+    size_t nrow = (*mf_st[0])[t].getNrows(), ncol = (*mf_st[0])[t].getNcols();
+#pragma omp parallel for
+    for(size_t sij=0;sij<mfPerTimeSlice*nrow*ncol;sij++){ // j + ncol*(i + nrow*s)
+      size_t s = sij;
+      size_t j = s % ncol; s /= ncol;
+      size_t i = s % nrow; s /= nrow;
+      
+      for(int thr=0;thr<nthread;thr++)
+	(*mf_sview[s])(i,j) += mf_accum_thr[thr](i,j)[s];
     }
   }
 
@@ -465,14 +481,22 @@ struct SingleSrcVectorPoliciesSIMD{
     for(int t=0;t<Lt;t++) 
       if(do_setup) mf_t[t].setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
       else{
-	assert(mf_t[t].ptr() != NULL);
+	assert(mf_t[t].isInitialized());
 	mf_t[t].zero();
       }
   }
-  static inline void sumThreadedResults(mfVectorType &mf_t, AccumMatrixType const* mf_accum_thr, const int i, const int j, const int t, const int nthread){
-    Grid::vComplexD tmp = mf_accum_thr[0](i,j);
-    for(int thr=1;thr<nthread;thr++) tmp += mf_accum_thr[thr](i,j);
-    mf_t[t](i,j) += Reduce(tmp);
+
+  static void sumThreadedResults(mfVectorType &mf_t, AccumMatrixType const* mf_accum_thr, const int t, const int nthread){
+    CPSautoView(mf_t_v,mf_t[t],HostReadWrite);
+    size_t nrow = mf_t_v.getNrows(), ncol = mf_t_v.getNcols();
+#pragma omp parallel for
+    for(size_t ij=0;ij<nrow*ncol;ij++){ // j + ncol*i
+      size_t i = ij / ncol, j = ij % ncol;
+      Grid::vComplexD tmp = mf_accum_thr[0](i,j);
+      for(int thr=1;thr<nthread;thr++)
+	tmp += mf_accum_thr[thr](i,j);
+      mf_t_v(i,j) += Reduce(tmp);
+    }
   }
 
   //Used to get information about rows and cols
@@ -490,7 +514,8 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 struct MultiSrcVectorPoliciesSIMD{
   int mfPerTimeSlice;
   
-  typedef std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
+  typedef A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> MesonFieldType;
+  typedef std::vector< std::vector<MesonFieldType, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
   typedef InPlaceMatrixMulti<Grid::vComplexD> AccumMatrixType;
 
   inline size_t mf_Accum_bytes(){ return mfPerTimeSlice*sizeof(Grid::vComplexD); }
@@ -512,21 +537,29 @@ struct MultiSrcVectorPoliciesSIMD{
       for(int t=0;t<Lt;t++) 
 	if(do_setup) mf_st[s]->operator[](t).setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
 	else{
-	  assert(mf_st[s]->operator[](t).ptr() != NULL);
+	  assert(mf_st[s]->operator[](t).isInitialized());
 	  mf_st[s]->operator[](t).zero();
 	}
     }
   }
-  inline void sumThreadedResults(mfVectorType &mf_st, AccumMatrixType const* mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
-    Grid::vComplexD tmp[mfPerTimeSlice];
-    for(int s=0;s<mfPerTimeSlice;s++) tmp[s] = mf_accum_thr[0](i,j)[s];
 
-    for(int thr=1;thr<nthread;thr++)
-      for(int s=0;s<mfPerTimeSlice;s++)
-    	tmp[s] += mf_accum_thr[thr](i,j)[s];
+  inline void sumThreadedResults(mfVectorType &mf_st, AccumMatrixType const* mf_accum_thr, const int t, const int nthread){
+    ViewAutoDestructWrapper<typename MesonFieldType::View> mf_sview[mfPerTimeSlice];
+    for(int s=0;s<mfPerTimeSlice;s++) mf_sview[s].reset( (*mf_st[s])[t].view(HostReadWrite));
 
-    for(int s=0;s<mfPerTimeSlice;s++)
-      mf_st[s]->operator[](t)(i,j) += Reduce(tmp[s]);    
+    size_t nrow = (*mf_st[0])[t].getNrows(), ncol = (*mf_st[0])[t].getNcols();
+#pragma omp parallel for
+    for(size_t sij=0;sij<mfPerTimeSlice*nrow*ncol;sij++){ // j + ncol*(i + nrow*s)
+      size_t s = sij;
+      size_t j = s % ncol; s /= ncol;
+      size_t i = s % nrow; s /= nrow;
+      
+      Grid::vComplexD tmp = mf_accum_thr[0](i,j)[s];
+      for(int thr=1;thr<nthread;thr++)
+	tmp += mf_accum_thr[thr](i,j)[s];
+
+      (*mf_sview[s])(i,j) += Reduce(tmp);
+    }
   }
 
   //Used to get information about rows and cols
@@ -647,7 +680,6 @@ struct mfComputeGeneral: public mfVectorPolicies{
 #endif
 	
 #ifndef MEMTEST_MODE
-      //__SSC_MARK(0x1);
 
 #pragma omp parallel
       {
@@ -696,19 +728,10 @@ struct mfComputeGeneral: public mfVectorPolicies{
 	  
 	  }
 	}
-#pragma omp barrier
-
-	const int nthread = omp_get_num_threads();
-	const int ijwork = nmodes_l * nmodes_r;
-	size_t thr_ijwork, thr_ijoff;
-	thread_work(thr_ijwork, thr_ijoff, ijwork, me, nthread);
-	for(int ij=thr_ijoff; ij<thr_ijoff + thr_ijwork; ij++){  //ij = j + mf_t[t].nmodes_r * i
-	  int i=ij / nmodes_r;
-	  int j=ij % nmodes_r;
-	  this->sumThreadedResults(mf_t,mf_accum_thr,i,j,t,nthread);
-	}		
-      
       }//end of parallel region
+
+      this->sumThreadedResults(mf_t,mf_accum_thr,t,nthread);
+
 
       //__SSC_MARK(0x2);
 #endif //memtest mode

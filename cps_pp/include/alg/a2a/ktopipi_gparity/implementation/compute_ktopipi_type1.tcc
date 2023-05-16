@@ -189,7 +189,6 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_mult_vMv_setup(vMv_split_VWVW &mu
   mult_vMv_split_part1_pi1.setup( vL, mf_pi1[t_pi1], wL, top_glb, i_ind_vw, j_ind_vw);
   mult_vMv_split_part1_pi2.setup( vL, mf_pi2[t_pi2], wL, top_glb, i_ind_vw, j_ind_vw);
   
-#pragma omp parallel for
   for(int tkpi_idx=0;tkpi_idx<ntsep_k_pi;tkpi_idx++){
     int t_dis = modLt(top_glb - t_K_all[tkpi_idx], Lt);
     if(t_dis >= tsep_k_pi[tkpi_idx] || t_dis == 0) continue; //save time by skipping setup on those we are not going to use

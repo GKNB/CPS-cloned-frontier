@@ -286,7 +286,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack(typename mf_Policies
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack_device(typename mf_Policies::ScalarComplexType* into, A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View const* view) const{
-#if !defined(USE_GRID) || !defined(GPU_VEC)
+#if !defined(USE_GRID) || ( !defined(GPU_VEC) && !defined(FORCE_A2A_OFFLOAD) )
   unpack(into); //into must be a host pointer here
 #else
   A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View *vp = const_cast<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View *>(view);
@@ -348,7 +348,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack(typename mf_Policies::
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack_device(typename mf_Policies::ScalarComplexType const* from){
-#if !defined(USE_GRID) || !defined(GPU_VEC)
+#if !defined(USE_GRID) || ( !defined(GPU_VEC) && !defined(FORCE_A2A_OFFLOAD) )
   pack(from);
 #else  
   int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();

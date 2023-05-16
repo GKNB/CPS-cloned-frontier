@@ -8,7 +8,7 @@ void testvMvGridOrigGparity(const A2AArg &a2a_args, const int nthreads, const do
   //#define BASIC_GRID_VMV
 #define GRID_VMV
 #define GRID_SPLIT_LITE_VMV;
-#define GRID_FIELD_SIMPLE
+  //#define GRID_FIELD_SIMPLE
   
   std::cout << "Starting testvMvGridOrigGparity : vMv tests\n";
 
@@ -226,7 +226,7 @@ void testvMvGridOrigGparityTblock(A2AArg a2a_args, const int nthreads, const dou
   #define GRID_VMV
   #define GRID_SPLIT_LITE_VMV;
   #define FIELD
-  #define GRID_FIELD_SIMPLE
+  //#define GRID_FIELD_SIMPLE
     
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 

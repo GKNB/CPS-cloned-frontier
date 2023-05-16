@@ -1,7 +1,7 @@
 //Compute meson fields from V and W vectors. Include host implementation always and offload (GPU) version if offloading. Choose latter for default function if offloading with Grid vector policies
 #include "mesonfield_compute_impl_cpu.tcc" //host implementation
 
-#ifdef GPU_VEC
+#if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
 #include "mesonfield_compute_impl_offload.tcc" //offload implementation
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>

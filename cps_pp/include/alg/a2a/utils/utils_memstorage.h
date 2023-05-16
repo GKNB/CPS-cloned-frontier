@@ -1068,7 +1068,6 @@ protected:
 public:
 
   DiskBackedMemoryPoolStorage(): initialized(false){
-    std::cout << "USING DiskBackedMemoryPoolStorage" << std::endl;
   }
 
   DiskBackedMemoryPoolStorage(const DiskBackedMemoryPoolStorage &r): DiskBackedMemoryPoolStorage(){

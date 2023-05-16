@@ -79,7 +79,7 @@ public:
     typedef typename FlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
     typedef typename FlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
-    
+
     //Size in complex
     accelerator_inline int size() const{ return fsize; }
 

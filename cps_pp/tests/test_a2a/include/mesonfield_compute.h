@@ -6,7 +6,7 @@ CPS_START_NAMESPACE
 template<typename A2Apolicies_std>
 void testMesonFieldComputeReference(const A2AArg &a2a_args, double tol){
 
-  std::cout << "Starting test of reference implementation" << std::endl;
+  std::cout << "Starting testMesonFieldComputeReference test of reference implementation " << std::endl;
   typedef flavorMatrixSpinColorContract<15,true,false> SCconPol;
   typedef GparityNoSourceInnerProduct<typename A2Apolicies_std::ComplexType, SCconPol> InnerProductType;
   InnerProductType inner(sigma3);
@@ -54,7 +54,7 @@ void testMesonFieldComputeReference(const A2AArg &a2a_args, double tol){
   }  
   assert(err == false);
 
-  std::cout << "Passed testMesonFieldComputeSingleReference tests" << std::endl;
+  std::cout << "Passed testMesonFieldComputeReference tests" << std::endl;
 }
 
 

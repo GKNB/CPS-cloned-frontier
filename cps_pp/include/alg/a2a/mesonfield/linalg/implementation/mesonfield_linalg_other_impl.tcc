@@ -59,8 +59,7 @@ typename mf_Policies::ScalarComplexType trace_cpu(const A2AmesonField<mf_Policie
   return into;
 }
    
-
-#ifdef GPU_VEC
+#if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
 
 struct mesonfield_trace_prod_gpu_timings{
   struct _data{
@@ -292,7 +291,7 @@ void trace(fMatrix<typename mf_Policies::ScalarComplexType> &into, const std::ve
 
 #ifndef MEMTEST_MODE
   if(do_work){
-#ifdef GPU_VEC
+#if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
     typedef typename A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR>::View LviewType;
     typedef typename A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR>::View RviewType;
     std::vector<ViewAutoDestructWrapper<LviewType> > l_views(l.size());

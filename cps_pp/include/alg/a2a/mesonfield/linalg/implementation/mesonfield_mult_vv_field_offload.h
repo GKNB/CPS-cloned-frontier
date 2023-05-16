@@ -275,7 +275,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 		      int t_glob = top + t_off;
 		      int t_glob_block = t_glob / src_width;
 
-		      VectorMatrixType &vsite_mat = *into.fsite_ptr(x4d);
+		      VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
 		      size_t niprimeb_subblocks = (niprime_block + shmem_iblock_size - 1)/shmem_iblock_size;
 		      for(int iprimeb_subblock=0; iprimeb_subblock < niprimeb_subblocks; iprimeb_subblock++){
 			size_t iprimeb_start = iprimeb_subblock * shmem_iblock_size;

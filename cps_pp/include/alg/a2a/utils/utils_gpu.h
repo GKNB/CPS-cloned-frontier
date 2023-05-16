@@ -562,13 +562,17 @@ public:
   }  
 
   T* getHostWritePtr(){
+#ifdef GPU_VEC
     host_in_sync = true;
     device_in_sync = false;
+#endif
     return host;
   }
   T* getDeviceWritePtr(){
+#ifdef GPU_VEC
     device_in_sync = true;
     host_in_sync = false;
+#endif
     return device;
   }
   
@@ -595,20 +599,22 @@ public:
   //Synchronize the host and device with an asynchronous copy. Requires pinned memory
   //NOTE: While the sync flag will be set, the state is undefined until the copy stream has been synchronized
   void asyncHostDeviceSync(){
-#ifdef GPU_VEC
 #if defined(GRID_CUDA) || defined(GRID_HIP)
     if(!use_pinned_mem) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Requires use of pinned memory");
 #endif   
     if(!device_in_sync && !host_in_sync) ERR.General("hostDeviceMirroredContainer","asyncHostDeviceSync","Invalid state");
     if(!device_in_sync){
+#ifdef GPU_VEC
       copy_host_to_device_async(device,host,byte_size());
+#endif
       device_in_sync = true;
     }
     if(!host_in_sync){
+#ifdef GPU_VEC
       copy_device_to_host_async(host,device,byte_size());
+#endif
       host_in_sync = true;
     }
-#endif
   }
   
   ~hostDeviceMirroredContainer(){
@@ -1143,6 +1149,7 @@ protected:
   
   //Allocate a new entry of the given size and move to the end of the LRU queue, returning a pointer
   EntryIterator allocEntry(size_t bytes, Pool pool){
+    sanityCheck();
     Entry e;
     e.bytes = bytes;
     e.owned_by = nullptr;
@@ -1159,22 +1166,47 @@ protected:
     return p.insert(p.end(),e);
   }
 
+  void sanityCheck(){
+#ifdef ENABLE_MEMPOOL_SANITY_CHECK
+    for(int p=0;p<2;p++){
+      Pool pool = p==0 ? DevicePool : HostPool;
+      auto const &fp = getFreePool(pool);
+      for(auto fit = fp.begin(); fit != fp.end(); fit++){
+	auto const &entry_list = fit->second;
+	size_t bytes = fit->first;
+	size_t sz = entry_list.size();
+	size_t cnt =0;
+	for(auto it = entry_list.begin(); it != entry_list.end(); it++){	  
+	  ++cnt;
+	  if(it->bytes != bytes){
+	    std::ostringstream os; 
+	    os << "Found entry of size " << it->bytes << " in " << poolName(pool) << " free pool for size " << bytes << "!";
+	    ERR.General("HolisticMemoryPoolManager","sanityCheck",os.str().c_str());
+	  }
+	}
+	if(cnt != sz){
+	  std::ostringstream os; 
+	  os << "Mismatch in list size: list claims " << sz << " but counted " << cnt << ". Corruption?";
+	  ERR.General("HolisticMemoryPoolManager","sanityCheck",os.str().c_str());
+	}
+      }
+    }
+#endif
+  }
+
   //Relinquish the entry from the LRU and put in the free pool
   void moveEntryToFreePool(EntryIterator it, Pool pool){
+    sanityCheck();
     if(verbose) std::cout << "HolisticMemoryPoolManager: Relinquishing " << it->ptr << " of size " << it->bytes << " from " << poolName(pool) << std::endl;
     it->owned_by = nullptr;
     auto &from = getLRUpool(pool);
     auto &to = getFreePool(pool)[it->bytes];
     to.splice(to.end(),from,it);
-    
-    // Entry e = *it;
-    // getLRUpool(pool).erase(it);
-    // e.owned_by = nullptr;
-    // getFreePool(pool)[e.bytes].push_back(e);
   }
   
   //Free the memory associated with an entry
   void freeEntry(EntryIterator it, Pool pool){       
+    sanityCheck();
     if(pool == DevicePool){
       device_free(it->ptr); device_allocated -= it->bytes;
       if(verbose) std::cout << "HolisticMemoryPoolManager: Freed device memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
@@ -1185,6 +1217,7 @@ protected:
   }
   
   void deallocateFreePool(Pool pool, size_t until_allocated_lte = 0){
+    sanityCheck();
     size_t &allocated = (pool == DevicePool ? device_allocated : host_allocated);
     if(verbose) std::cout << "HolisticMemoryPoolManager: Deallocating free " << poolName(pool) << " until " << until_allocated_lte << " remaining. Current " << allocated << std::endl;
     auto &free_pool = getFreePool(pool);
@@ -1213,6 +1246,7 @@ protected:
   //Get an entry either new or from the pool
   //It will automatically be moved to the end of the in_use_pool list
   EntryIterator getEntry(size_t bytes, Pool pool){
+    sanityCheck();
     if(verbose) std::cout << "HolisticMemoryPoolManager: Getting an entry of size " << bytes << " from " << poolName(pool) << std::endl;
     size_t pool_max_size = ( pool == DevicePool ? device_pool_max_size : host_pool_max_size );
     size_t &allocated = (pool == DevicePool ? device_allocated : host_allocated);
@@ -1221,7 +1255,7 @@ protected:
 
     auto &LRUpool = getLRUpool(pool);
     auto &free_pool = getFreePool(pool);
-    
+
     //First check if we have an entry of the right size in the pool
     auto fit = free_pool.find(bytes);
     if(fit != free_pool.end()){
@@ -1233,24 +1267,20 @@ protected:
 	os << std::endl;
 	ERR.General("HolisticMemoryPoolManager","getEntry","%s",os.str().c_str());
       }      
-      //assert(entry_list.back().bytes == bytes);
       
       if(verbose) std::cout << "HolisticMemoryPoolManager: Found entry " << entry_list.back().ptr << " in free pool" << std::endl;      
       LRUpool.splice(LRUpool.end(), entry_list, std::prev(entry_list.end()));
 
       if(fit->second.size() == 0) free_pool.erase(fit); //remove the entire, now-empty list
       return std::prev(LRUpool.end());
-           
-      // Entry e = fit->second.back();
-      // if(fit->second.size() == 1) free_pool.erase(fit); //remove the entire, now-empty list
-      // else fit->second.pop_back();
-      // return LRUpool.insert(LRUpool.end(),e);
     }
+
     //Next, if we have enough room, allocate new memory
     if(allocated + bytes <= pool_max_size){
       if(verbose) std::cout << "HolisticMemoryPoolManager: Allocating new memory for entry" << std::endl;
       return allocEntry(bytes, pool);
     }
+
     //Next, we should free up unused blocks from the free pool
     if(verbose) std::cout << "HolisticMemoryPoolManager: Clearing up space from the free pool to make room" << std::endl;
     deallocateFreePool(pool, pool_max_size - bytes);
@@ -1293,16 +1323,20 @@ protected:
 	if(verbose) std::cout << "HolisticMemoryPoolManager: Memory available " << allocated << " is now sufficient, allocating" << std::endl;
 	return allocEntry(bytes,pool);
       }
-    }	
+    }
+
     ERR.General("HolisticMemoryPoolManager","getEntry","Was not able to get an entry for %lu bytes",bytes);
   }
 
   void attachEntry(Handle &handle, Pool pool){
+    sanityCheck();
     if(pool == DevicePool){
+      assert(!handle.device_valid);
       handle.device_entry = getEntry(handle.bytes, DevicePool);
       handle.device_valid = true;
       handle.device_entry->owned_by = &handle;
     }else{
+      assert(!handle.host_valid);
       handle.host_entry = getEntry(handle.bytes, HostPool);
       handle.host_valid = true;
       handle.host_entry->owned_by = &handle;
@@ -1310,6 +1344,7 @@ protected:
   }
   //Move the entry to the end and return a new iterator
   void touchEntry(Handle &handle, Pool pool){
+    sanityCheck();
     EntryIterator entry = pool == DevicePool ? handle.device_entry : handle.host_entry;
     if(verbose) std::cout << "HolisticMemoryPoolManager: Touching entry " << entry->ptr << " in " << poolName(pool) << std::endl;
     auto &p = getLRUpool(pool);
@@ -1317,6 +1352,7 @@ protected:
   }
   
   void syncDeviceToHost(Handle &handle){
+    sanityCheck();
     assert(handle.initialized);
     if(!handle.host_in_sync){
       assert(handle.device_in_sync && handle.device_valid);
@@ -1327,6 +1363,7 @@ protected:
     }
   }
   void syncHostToDevice(Handle &handle){
+    sanityCheck();
     assert(handle.initialized);
     if(!handle.device_in_sync){
       assert(handle.host_in_sync && handle.host_valid);
@@ -1337,6 +1374,7 @@ protected:
     }
   }  
   void syncHostToDisk(Handle &handle){
+    sanityCheck();
     assert(handle.initialized);
     if(!handle.disk_in_sync){
       assert(handle.host_in_sync && handle.host_valid);
@@ -1355,6 +1393,7 @@ protected:
     }
   }
   void syncDiskToHost(Handle &handle){
+    sanityCheck();
     assert(handle.initialized);
     if(!handle.host_in_sync){
       assert(handle.disk_in_sync && handle.disk_file != "");
@@ -1369,6 +1408,7 @@ protected:
   }
 
   void syncForRead(Handle &handle, Pool pool){
+    sanityCheck();
     if(pool == HostPool){    
       if(!handle.host_in_sync){
 	if(handle.device_in_sync) syncDeviceToHost(handle);
@@ -1389,6 +1429,7 @@ protected:
   }
 
   void markForWrite(Handle &handle, Pool pool){
+    sanityCheck();
     if(pool == HostPool){
       handle.host_in_sync = true;
       handle.device_in_sync = false;
@@ -1403,6 +1444,7 @@ protected:
   }   
 
   void prepareEntryForView(Handle &handle, Pool pool){
+    sanityCheck();
     bool valid = pool == DevicePool ? handle.device_valid : handle.host_valid;
     if(!valid) attachEntry(handle,pool);
     else touchEntry(handle, pool); //move to end of LRU
@@ -1410,6 +1452,7 @@ protected:
  
   //Evict an entry (with optional freeing of associated memory), and return an entry to the next item in the LRU
   EntryIterator evictEntry(EntryIterator entry, bool free_it, Pool pool){
+    sanityCheck();
     if(verbose) std::cout << "HolisticMemoryPoolManager: Evicting entry " << entry->ptr << " from " << poolName(pool) << std::endl;
 	
     if(entry->owned_by != nullptr){
@@ -1478,6 +1521,9 @@ public:
   size_t getAllocated(Pool pool) const{ return pool == DevicePool ? device_allocated : host_allocated; }
 
   HandleIterator allocate(size_t bytes, Pool pool = DevicePool){
+    if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","allocate","Cannot call in OMP parallel region");
+
+    sanityCheck();
     if(verbose) std::cout << "HolisticMemoryPoolManager: Request for allocation of size " << bytes << " in " << poolName(pool) << std::endl;
 
     HandleIterator it = handles.insert(handles.end(),Handle());
@@ -1496,6 +1542,8 @@ public:
   }
 
   void* openView(ViewMode mode, HandleIterator h){
+    if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","openView","Cannot call in OMP parallel region");
+    sanityCheck();
     h->lock_entry = true; //make sure it isn't evicted!
     Pool pool = (mode == HostRead || mode == HostWrite || mode == HostReadWrite) ? HostPool : DevicePool;   
     prepareEntryForView(*h,pool); 
@@ -1520,10 +1568,13 @@ public:
   }  
 
   void closeView(HandleIterator h){
+    if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","closeView","Cannot call in OMP parallel region");
     h->lock_entry = false;
   }
 
   void enqueuePrefetch(ViewMode mode, HandleIterator h){    
+    if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","enqueuePrefetch","Cannot call in OMP parallel region");
+    sanityCheck();
     if(mode == HostRead || mode == HostReadWrite){
       //no support for device->host async copies yet
     }else if( (mode == DeviceRead || mode == DeviceReadWrite) && h->host_valid && h->host_in_sync){
@@ -1538,10 +1589,14 @@ public:
   }
 
   void startPrefetches(){
+    if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","startPrefetches","Cannot call in OMP parallel region");
+    sanityCheck();
     if(device_queued_prefetches.size()==0) return;
     asyncTransferManager::globalInstance().start();
   }
   void waitPrefetches(){
+    if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","waitPrefetches","Cannot call in OMP parallel region");
+    sanityCheck();
     if(device_queued_prefetches.size()==0) return;   
     asyncTransferManager::globalInstance().wait();
     for(auto h : device_queued_prefetches) h->lock_entry=false; //unlock
@@ -1549,6 +1604,8 @@ public:
   }
   
   void free(HandleIterator h){
+    if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","free","Cannot call in OMP parallel region");
+    sanityCheck();
     if(h->device_valid) moveEntryToFreePool(h->device_entry, DevicePool);
     if(h->host_valid) moveEntryToFreePool(h->host_entry, HostPool);
     if(h->disk_file != ""){

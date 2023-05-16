@@ -123,11 +123,14 @@ public:
       typename gw::matrix_complex *rreord_gsl = gw::matrix_complex_alloc(nj,nk);
       
 #ifndef MEMTEST_MODE
+      {
+	CPSautoView(lreord_v,lreord,HostRead);
+	CPSautoView(rreord_v,rreord,HostRead);	
       
 #pragma omp parallel for
       for(int i=0;i<ni;i++)
 	for(int j=0;j<nj;j++){
-	  const ScalarComplexType & el = lreord(i, j);
+	  const ScalarComplexType & el = lreord_v(i, j);
 	  mf_Float *el_gsl = (mf_Float*)gw::matrix_complex_ptr(lreord_gsl,i,j);
 	  *(el_gsl++) = el.real();
 	  *(el_gsl) = el.imag();
@@ -136,13 +139,15 @@ public:
 #pragma omp parallel for
       for(int j=0;j<nj;j++)
 	for(int k=0;k<nk;k++){
-	  const ScalarComplexType & el = rreord(j, k);
+	  const ScalarComplexType & el = rreord_v(j, k);
 	  mf_Float *el_gsl = (mf_Float*)gw::matrix_complex_ptr(rreord_gsl,j,k);
 	  *(el_gsl++) = el.real();
 	  *(el_gsl) = el.imag();
 	}
-      
+
+      }      
 #endif
+
       
       static const int lcol_stride = 1;      
       const int rrow_stride = rreord.getNcols();
@@ -150,6 +155,7 @@ public:
       typename gw::complex one; GSL_SET_COMPLEX(&one,1.0,0.0);
       typename gw::complex zero; GSL_SET_COMPLEX(&zero,0.0,0.0);
       
+      CPSautoView(out_v,out,HostWrite);
 #pragma omp parallel for
       for(int i0k0 = node_off; i0k0 < node_off + node_work; ++i0k0){
 	int rem = i0k0;
@@ -173,12 +179,14 @@ public:
 #ifndef MEMTEST_MODE
 	gw::matrix_complex_set_zero(tmp_out);
 	gw::blas_gemm(CblasNoTrans, CblasNoTrans, one, ijblock, jkblock, zero, tmp_out);
-	
-	for(int i=0;i<bi;i++) 
-	  for(int k=0;k<bk;k++){
-	    mf_Float const* el = (mf_Float const*)gw::matrix_complex_ptr(tmp_out,i,k);
-	    out(i0+i,k0+k) = ScalarComplexType(el[0],el[1]);
+	{
+	  for(int i=0;i<bi;i++){
+	    for(int k=0;k<bk;k++){
+	      mf_Float const* el = (mf_Float const*)gw::matrix_complex_ptr(tmp_out,i,k);
+	      out_v(i0+i,k0+k) = ScalarComplexType(el[0],el[1]);
+	    }
 	  }
+	}
 #endif	
 	gw::matrix_complex_free(tmp_out);
       }
@@ -299,7 +307,10 @@ public:
 	rreord_tbuf[t] = (ScalarComplexType*)memalign_check(128, nj*bk*sizeof(ScalarComplexType));
 	prod_tmp_tbuf[t] = (ScalarComplexType*)memalign_check(128, bi*bk*sizeof(ScalarComplexType));
       }
-     
+      CPSautoView(l_v,l,HostRead);
+      CPSautoView(r_v,r,HostRead);
+      CPSautoView(out_v,out,HostWrite);
+
 #pragma omp parallel for
       for(int i0k0 = node_off; i0k0 < node_off + node_work; ++i0k0){
 	int rem = i0k0;
@@ -314,7 +325,7 @@ public:
 	  for(int j=0;j<nj;j++){
 	    int j_actual = jlmap[j];
 	    int off = j + nj*(i-i0);
-	    lreord[off] = l(i,j_actual);
+	    lreord[off] = l_v(i,j_actual);
 	  }
 	}
 	//Get the sub-matrix of r of size nj*bk and starting at coordinate (0,k0) of the row-reordered matrix
@@ -324,7 +335,7 @@ public:
 	  int j_actual = jrmap[j];
 	  for(int k=k0;k<bk+k0;k++){
 	    int off = (k-k0) + bk*j;
-	    rreord[off] = r(j_actual,k);
+	    rreord[off] = r_v(j_actual,k);
 	  }
 	}
 
@@ -345,7 +356,7 @@ public:
 	
 	for(int i=0;i<bi;i++) 
 	  for(int k=0;k<bk;k++)
-	    out(i0+i,k0+k) = prod_tmp[k + bk*i]; //row-major
+	    out_v(i0+i,k0+k) = prod_tmp[k + bk*i]; //row-major
 #endif	
       }
 
