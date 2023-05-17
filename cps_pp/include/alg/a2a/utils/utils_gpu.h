@@ -243,49 +243,21 @@ inline void device_profile_stop(){
 }
 
 
-//Check if a class T has a method "free"
-template<typename T, typename U = void>
-struct hasFreeMethod{
-  enum{ value = 0 };
-};
-template<typename T>
-struct hasFreeMethod<T, typename Void<decltype( ((T*)(NULL))->free() )>::type>{
-  enum{ value = 1 };
-};
-
 enum ViewMode { HostRead, HostWrite, DeviceRead, DeviceWrite, HostReadWrite, DeviceReadWrite };
 
 //Because View classes cannot have non-trivial destructors, if the view requires a free it needs to be managed externally
-//This class calls free on the view (if it has a free method). It should be constructed after the view (and be destroyed before, which should happen automatically at the end of the scope)
-//Static methods are also provided to wrap the free call if not present
-template<typename ViewType, int hasFreeMethod>
-struct _viewDeallocator{};
-
+//This class calls free on the view. It should be constructed after the view (and be destroyed before, which should happen automatically at the end of the scope)
 template<typename ViewType>
-struct _viewDeallocator<ViewType,0>{
+struct viewDeallocator{
   ViewType &v;
-  _viewDeallocator(ViewType &v): v(v){}
+  viewDeallocator(ViewType &v): v(v){}
 
-  ~_viewDeallocator(){
-  }
-
-  static void free(ViewType &v){}
-};
-
-template<typename ViewType>
-struct _viewDeallocator<ViewType,1>{
-  ViewType &v;
-  _viewDeallocator(ViewType &v): v(v){}
-
-  ~_viewDeallocator(){
+  ~viewDeallocator(){
     v.free();
   }
 
   static void free(ViewType &v){ v.free(); }
 };
-
-template<typename ViewType>
-using viewDeallocator = _viewDeallocator<ViewType, hasFreeMethod<ViewType>::value>;  
 
 #define CPSautoView(ViewName, ObjName, mode)		\
   auto ViewName = ObjName .view(mode); \
@@ -313,7 +285,7 @@ public:
 
   void reset(ViewType *vin){
     if(v){ 
-      viewDeallocator<ViewType>::free(*v);
+      v->free();
       delete v;
     }
     v = vin;
@@ -331,7 +303,7 @@ public:
 
   ~ViewAutoDestructWrapper(){
     if(v){ 
-      viewDeallocator<ViewType>::free(*v);
+      v->free();
       delete v;
     }
   }
@@ -368,19 +340,15 @@ private:
   void freeData(){
     if(v){
       if(loc == Host){
-	if(hasFreeMethod<ViewType>::value){
-	  for(size_t i=0;i<sz;i++) viewDeallocator<ViewType>::free(v[i]); //so it compiles even if the view doesn't have a free method
-	}
+	for(size_t i=0;i<sz;i++) v[i].free(); //so it compiles even if the view doesn't have a free method
 	::free(v);
       }else{
 	//The views may have allocs that need to be freed. This can only be done from the host, so we need to copy back
-	if(hasFreeMethod<ViewType>::value){
-	  size_t byte_size = sz*sizeof(ViewType);
-	  ViewType* tmpv = (ViewType*)malloc(byte_size);
-	  copy_device_to_host(tmpv, v, byte_size);
-	  for(size_t i=0;i<sz;i++) viewDeallocator<ViewType>::free(tmpv[i]); //so it compiles even if the view doesn't have a free method
-	  ::free(tmpv);
-	}
+	size_t byte_size = sz*sizeof(ViewType);
+	ViewType* tmpv = (ViewType*)malloc(byte_size);
+	copy_device_to_host(tmpv, v, byte_size);
+	for(size_t i=0;i<sz;i++) tmpv[i].free();
+	::free(tmpv);
 	device_free(v);
       }
       
@@ -481,19 +449,15 @@ private:
   void freeData(){
     if(v){
       if(loc == Host){
-	if(hasFreeMethod<ViewType>::value){
-	  viewDeallocator<ViewType>::free(*v); //so it compiles even if the view doesn't have a free method
-	}
+	v->free();
 	::free(v);
       }else{
 	//The views may have allocs that need to be freed. This can only be done from the host, so we need to copy back
-	if(hasFreeMethod<ViewType>::value){
-	  size_t byte_size = sizeof(ViewType);
-	  ViewType* tmpv = (ViewType*)malloc(byte_size);
-	  copy_device_to_host(tmpv, v, byte_size);
-	  viewDeallocator<ViewType>::free(*tmpv); //so it compiles even if the view doesn't have a free method
-	  ::free(tmpv);
-	}
+	size_t byte_size = sizeof(ViewType);
+	ViewType* tmpv = (ViewType*)malloc(byte_size);
+	copy_device_to_host(tmpv, v, byte_size);
+	tmpv->free();
+	::free(tmpv);
 	device_free(v);
       }
       
