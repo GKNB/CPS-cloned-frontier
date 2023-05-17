@@ -170,6 +170,10 @@ inline void printMem(const std::string &reason = "", int node = 0, FILE* stream 
   if(UniqueID()==node){
     fprintf(stream, "printMem node %d: Resident set size %f MB\n", node, double(getRSS())/1024.);
   }
+
+  if(UniqueID()==node){
+    fprintf(stream, "%s\n", HolisticMemoryPoolManager::globalPool().report().c_str());
+  }
   
   fflush(stream);
 }

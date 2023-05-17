@@ -407,6 +407,8 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
 
   //----------------------------Compute the pipi 2pt function ---------------------------------------
   if(cmdline.do_pipi) computePiPi2ptFromFile(mf_ll_con, "pipi_correlators.in", all_pimom, conf, params, "_symm");
+
+  std::cout << "Completed contractions" << std::endl;
 }
 
 

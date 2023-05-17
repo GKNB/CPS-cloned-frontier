@@ -70,9 +70,11 @@ int main (int argc,char **argv )
       of << "Config " << conf << " complete in " << conf_time << "s\n";
     }
 
+    std::cout << "Completed configuration " << conf << std::endl;
+    
   }//end of config loop
 
-  if(!UniqueID()) printf("Done\n");
+  if(!UniqueID()){ printf("Done\n"); fflush(stdout); }
   End();
 
   HeapProfilerStop();

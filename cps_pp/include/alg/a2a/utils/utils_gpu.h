@@ -7,6 +7,7 @@
 #include "template_wizardry.h"
 #include "utils_malloc.h"
 #include<util/time_cps.h>
+#include<omp.h>
 
 #ifdef USE_GRID
 #include<Grid/Grid.h>
@@ -1520,6 +1521,32 @@ public:
 
   size_t getAllocated(Pool pool) const{ return pool == DevicePool ? device_allocated : host_allocated; }
 
+  //Return the amount of data (in bytes) associated with objects whose only representation is on disk
+  size_t getDiskCachedBytes() const{
+    size_t out = 0;
+    for(auto const &h : handles)
+      if(h.initialized && !h.device_in_sync && !h.host_in_sync && h.disk_file.size() )
+	out += h.bytes;
+    return out;
+  }
+  //Return the total disk usage (i.e. even if the disk representation is out of date or not the primary copy)
+  size_t getDiskUsedBytes() const{
+    size_t out = 0;
+    for(auto const &h : handles)
+      if(h.initialized && h.disk_file.size() )
+	out += h.bytes;
+    return out;
+  }
+
+  std::string report() const{
+    std::ostringstream os;
+    os << "HolisticMemoryPoolManager consumption - device: " << double(device_allocated)/1024./1024.
+       << " MB, host: " << double(host_allocated)/1024./1024.
+       << " MB, disk (cached): " << double(getDiskCacheBytes())/1024./1024.
+       << " MB, disk (total): " << double(getDiskUsedBytes())/1024/1024. << " MB";
+    return os.str();
+  }
+  
   HandleIterator allocate(size_t bytes, Pool pool = DevicePool){
     if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","allocate","Cannot call in OMP parallel region");
 
