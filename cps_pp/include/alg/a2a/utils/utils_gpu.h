@@ -312,17 +312,19 @@ public:
 
 
 //A class to contain an array of views. The views are assigned on the host but copied to the device
-template<typename vtype>
+template<typename T>
 class ViewArray{
 public:
-  typedef vtype ViewType;
+  typedef typename T::View ViewType;
 private:
   ViewType *v;
+  ViewType *host_v;
   size_t sz;
 
   enum DataLoc { Host, Device };
   DataLoc loc;
 
+  //takes ownership of host_views memory region
   void placeData(ViewMode mode, ViewType* host_views, size_t n){
     freeData();
     sz = n;
@@ -331,24 +333,21 @@ private:
       v = (ViewType *)device_alloc_check(byte_size);
       copy_host_to_device(v, host_views, byte_size);
       loc = Device;
+      host_v = host_views;
     }else{
-      v = (ViewType *)malloc(byte_size);
-      memcpy(v,host_views,byte_size);
+      v = host_v = host_views;
       loc = Host;
     }
   }
   void freeData(){
     if(v){
       if(loc == Host){
-	for(size_t i=0;i<sz;i++) v[i].free(); //so it compiles even if the view doesn't have a free method
-	::free(v);
+	for(size_t i=0;i<sz;i++) v[i].free();
+	::free(v); //also frees host_v
       }else{
-	//The views may have allocs that need to be freed. This can only be done from the host, so we need to copy back
-	size_t byte_size = sz*sizeof(ViewType);
-	ViewType* tmpv = (ViewType*)malloc(byte_size);
-	copy_device_to_host(tmpv, v, byte_size);
-	for(size_t i=0;i<sz;i++) tmpv[i].free();
-	::free(tmpv);
+	//The views may have allocs that need to be freed. This can only be done from the host
+	for(size_t i=0;i<sz;i++) host_v[i].free();
+	::free(host_v);
 	device_free(v);
       }
       
@@ -363,23 +362,15 @@ public:
   
   ViewArray(): v(nullptr), sz(0){}
 
-  //Create the viewarray object from an array of views vin of size n generated on the host
-  //Use inplace new to generate the array because views don't tend to have default constructors
-  ViewArray(ViewMode mode, ViewType *vin, size_t n): ViewArray(){ assign(mode, vin, n); }
-
   //This version generates the host array of views automatically  
-  template<typename T>
   ViewArray(ViewMode mode, const std::vector<T*> &obj_ptrs) : ViewArray(){ assign(mode,obj_ptrs); }
 
-  template<typename T>
   ViewArray(ViewMode mode, const std::vector<T> &objs) : ViewArray(){ assign(mode,objs); }
-
   
   ViewArray(const ViewArray &r) = default;
   ViewArray(ViewArray &&r) = default;
 
   //This version generates the host array of views automatically
-  template<typename T>
   void assign(ViewMode mode, const std::vector<T*> &obj_ptrs){
     size_t n = obj_ptrs.size();
     size_t byte_size = n*sizeof(ViewType);
@@ -387,11 +378,9 @@ public:
     for(size_t i=0;i<n;i++){
       new (tmpv+i) ViewType(obj_ptrs[i]->view(mode));
     }
-    assign(mode,tmpv,n);
-    ::free(tmpv);
+    placeData(mode,tmpv,n);
   }  
 
-  template<typename T>
   void assign(ViewMode mode, const std::vector<T> &objs){
     size_t n = objs.size();
     size_t byte_size = n*sizeof(ViewType);
@@ -399,16 +388,8 @@ public:
     for(size_t i=0;i<n;i++){
       new (tmpv+i) ViewType(objs[i].view(mode));
     }
-    assign(mode,tmpv,n);
-    ::free(tmpv);
+    placeData(mode,tmpv,n);
   }  
-
-
-  //Create the viewarray object from an array of views vin of size n generated on the host
-  //Use inplace new to generate the array because views don't tend to have default constructors
-  void assign(ViewMode mode, ViewType *vin, size_t n){
-    placeData(mode,vin,n);
-  }
 
   //Deallocation must be either manually called or use CPSautoView  
   void free(){
@@ -423,26 +404,27 @@ public:
 //A class to contain a pointer to a view that is automatically copied to the device.
 //This, for example, allows the creation of dynamic containers of view objects that don't have default constructors
 //In terms of functionality it is the same as a ViewArray of size 1
-template<typename vtype>
+template<typename T>
 class ViewPointerWrapper{
 public:
-  typedef vtype ViewType;
+  typedef typename T::View ViewType;
 private:
   ViewType *v;
+  ViewType *host_v;
 
   enum DataLoc { Host, Device };
   DataLoc loc;
 
-  void placeData(ViewMode mode, ViewType* host_view){
+  void placeData(ViewMode mode, ViewType *host_view){
     freeData();
     size_t byte_size = sizeof(ViewType);
     if(mode == DeviceRead || mode == DeviceWrite || mode == DeviceReadWrite){
       v = (ViewType *)device_alloc_check(byte_size);
       copy_host_to_device(v, host_view, byte_size);
+      host_v = host_view;
       loc = Device;
     }else{
-      v = (ViewType *)malloc(byte_size);
-      memcpy(v,host_view,byte_size);
+      v=host_v=host_view;
       loc = Host;
     }
   }
@@ -450,14 +432,11 @@ private:
     if(v){
       if(loc == Host){
 	v->free();
-	::free(v);
+	::free(v); //also frees host_v
       }else{
-	//The views may have allocs that need to be freed. This can only be done from the host, so we need to copy back
-	size_t byte_size = sizeof(ViewType);
-	ViewType* tmpv = (ViewType*)malloc(byte_size);
-	copy_device_to_host(tmpv, v, byte_size);
-	tmpv->free();
-	::free(tmpv);
+	//The views may have allocs that need to be freed. This can only be done from the host
+	host_v->free();
+	::free(host_v);
 	device_free(v);
       }
       
@@ -470,15 +449,16 @@ public:
   
   ViewPointerWrapper(): v(nullptr){}
 
-  ViewPointerWrapper(ViewMode mode, const ViewType &vin): ViewPointerWrapper(){ assign(mode, vin); }
+  ViewPointerWrapper(ViewMode mode, const T &obj): ViewPointerWrapper(){ assign(mode, obj); }
  
   ViewPointerWrapper(const ViewPointerWrapper &r) = default;
   ViewPointerWrapper(ViewPointerWrapper &&r) = default;
 
-  //Create the viewarray object from an array of views vin of size n generated on the host
-  //Use inplace new to generate the array because views don't tend to have default constructors
-  void assign(ViewMode mode, const ViewType &vin){
-    placeData(mode, (ViewType*)&vin);
+  void assign(ViewMode mode, const T &obj){
+    size_t byte_size = sizeof(ViewType);
+    ViewType* tmpv = (ViewType*)malloc(byte_size);
+    new (tmpv) ViewType(obj.view(mode));
+    placeData(mode, tmpv);
   }
 
   //Deallocation must be either manually called or use CPSautoView  
@@ -744,7 +724,7 @@ public:
 
   struct Handle{
     bool valid;
-    bool lock_entry;
+    size_t lock_entry;
     EntryIterator entry;
     size_t bytes;
 
@@ -930,7 +910,7 @@ public:
     h.host_ptr = memalign_check(128,bytes);
     h.host_in_sync = true;
     h.device_in_sync = true;
-    h.lock_entry = false;
+    h.lock_entry = 0;
 
     HandleIterator it = handles.insert(handles.end(),h);
     it->entry->owned_by = &(*it);
@@ -938,7 +918,7 @@ public:
   }
 
   void* openView(ViewMode mode, HandleIterator h){
-    h->lock_entry = true; //make sure it isn't evicted!
+    ++h->lock_entry; //make sure it isn't evicted!
     bool is_host = (mode == HostRead || mode == HostWrite || mode == HostReadWrite);
     bool read(false), write(false);
 
@@ -990,7 +970,8 @@ public:
   }
 
   void closeView(HandleIterator h){
-    h->lock_entry = false;
+    assert(h->lock_entry);
+    --h->lock_entry;
   }
 
   void enqueuePrefetch(ViewMode mode, HandleIterator h){    
@@ -1009,7 +990,7 @@ public:
       if(!h->device_in_sync){
 	asyncTransferManager::globalInstance().enqueue(h->entry->ptr,h->host_ptr,h->bytes);
 	h->device_in_sync = true; //technically true only if the prefetch is complete; make sure to wait!!
-	h->lock_entry = true; //use this flag also for prefetches to ensure the memory region is not evicted while the async copy is happening
+	++h->lock_entry; //use this flag also for prefetches to ensure the memory region is not evicted while the async copy is happening
 	queued_prefetches.push_back(h);
       }
     }
@@ -1022,7 +1003,7 @@ public:
   void waitPrefetches(){
     if(queued_prefetches.size()==0) return;   
     asyncTransferManager::globalInstance().wait();
-    for(auto h : queued_prefetches) h->lock_entry=false; //unlock
+    for(auto h : queued_prefetches){ assert(h->lock_entry); --h->lock_entry;  }//unlock
     queued_prefetches.clear();
   }
   
@@ -1066,7 +1047,7 @@ public:
   typedef std::list<Entry>::iterator EntryIterator;
 
   struct Handle{
-    bool lock_entry;
+    size_t lock_entry;
 
     bool device_valid;
     EntryIterator device_entry;
@@ -1495,7 +1476,7 @@ public:
     h.host_in_sync = false;
     h.device_in_sync = false;
     h.disk_in_sync = false;
-    h.lock_entry = false;
+    h.lock_entry = 0;
     h.device_valid = false;
     h.host_valid = false;
     h.bytes = bytes;
@@ -1507,9 +1488,8 @@ public:
 
   void* openView(ViewMode mode, HandleIterator h){
     if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","openView","Cannot call in OMP parallel region");
-    if(h->lock_entry) ERR.General("HolisticMemoryPoolManager","openView","Attempting to open view on a locked object. Multiple views to the same object are not supported");
     sanityCheck();
-    h->lock_entry = true; //make sure it isn't evicted!
+    ++h->lock_entry; //make sure it isn't evicted!
     Pool pool = (mode == HostRead || mode == HostWrite || mode == HostReadWrite) ? HostPool : DevicePool;   
     prepareEntryForView(*h,pool); 
     bool read(false), write(false);
@@ -1534,8 +1514,8 @@ public:
 
   void closeView(HandleIterator h){
     if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","closeView","Cannot call in OMP parallel region");
-    if(!h->lock_entry) ERR.General("HolisticMemoryPoolManager","closeView","Lock state has already been unset; this should not happen");
-    h->lock_entry = false;
+    if(h->lock_entry == 0) ERR.General("HolisticMemoryPoolManager","closeView","Lock state has already been decremented to 0; this should not happen");
+    --h->lock_entry;
   }
 
   void enqueuePrefetch(ViewMode mode, HandleIterator h){    
@@ -1548,7 +1528,7 @@ public:
       if(!h->device_in_sync){
 	asyncTransferManager::globalInstance().enqueue(h->device_entry->ptr,h->host_entry->ptr,h->bytes);
 	h->device_in_sync = true; //technically true only if the prefetch is complete; make sure to wait!!
-	h->lock_entry = true; //use this flag also for prefetches to ensure the memory region is not evicted while the async copy is happening
+	++h->lock_entry; //use this flag also for prefetches to ensure the memory region is not evicted while the async copy is happening
 	device_queued_prefetches.push_back(h);
       }
     }
@@ -1565,13 +1545,18 @@ public:
     sanityCheck();
     if(device_queued_prefetches.size()==0) return;   
     asyncTransferManager::globalInstance().wait();
-    for(auto h : device_queued_prefetches) h->lock_entry=false; //unlock
+    for(auto h : device_queued_prefetches){
+      if(h->lock_entry == 0) ERR.General("HolisticMemoryPoolManager","waitPrefetches","lock_entry has already been decremented to 0; this should not happen");
+      --h->lock_entry; //unlock
+    }
     device_queued_prefetches.clear();
   }
   
   void free(HandleIterator h){
     if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","free","Cannot call in OMP parallel region");
     sanityCheck();
+    if(h->lock_entry) ERR.General("HolisticMemoryPoolManager","free","Attempting to free locked entry");
+
     if(h->device_valid) moveEntryToFreePool(h->device_entry, DevicePool);
     if(h->host_valid) moveEntryToFreePool(h->host_entry, HostPool);
     if(h->disk_file != ""){

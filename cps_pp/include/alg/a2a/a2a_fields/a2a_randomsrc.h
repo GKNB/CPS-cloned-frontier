@@ -49,7 +49,7 @@ public:
 
     LRG.SetInterval(1, 0);
     size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
-    ViewArray<typename ScalarComplexFieldType::View> views(HostWrite,tmp);
+    ViewArray<ScalarComplexFieldType> views(HostWrite,tmp);
     for(size_t i = 0; i < sites*flavors; ++i) {
       int flav = i / sites;
       size_t st = i % sites;
@@ -108,7 +108,7 @@ public:
     LRG.SetInterval(1, 0);
     size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
 
-    ViewArray<typename ScalarComplexFieldType::View> views(HostWrite,tmp);
+    ViewArray<ScalarComplexFieldType> views(HostWrite,tmp);
 
     for(size_t st = 0; st < sites; ++st) {
       LRG.AssignGenerator(st,0);

@@ -491,9 +491,9 @@ struct _getSource< std::vector<SourceType*>, Idx >{
     return shifted_sources[shift_idx]->template getSource<Idx>();
   }
 };
-template<typename SourceViewType, int Idx>
-struct _getSource< ViewArray<SourceViewType>, Idx >{
-  static accelerator_inline auto doit(const int shift_idx, const ViewArray<SourceViewType> &shifted_sources)-> const decltype(shifted_sources[shift_idx].template getSource<Idx>()) &  {
+template<typename SourceType, int Idx>
+struct _getSource< ViewArray<SourceType>, Idx >{
+  static accelerator_inline auto doit(const int shift_idx, const ViewArray<SourceType> &shifted_sources)-> const decltype(shifted_sources[shift_idx].template getSource<Idx>()) &  {
     return shifted_sources[shift_idx].template getSource<Idx>();
   }
 };
@@ -597,7 +597,7 @@ public:
   }
   
   class View: public SpinColorContractPolicy{
-    ViewArray<typename SourceType::View> shifted_sources;
+    ViewArray<SourceType> shifted_sources;
     FlavorMatrixType sigma;
 
     //Single src, output vector indexed by src shift index

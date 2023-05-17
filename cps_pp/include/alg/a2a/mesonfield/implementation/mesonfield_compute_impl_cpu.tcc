@@ -124,53 +124,56 @@ void compute_simple(fMatrix<ComplexType> &into, const std::vector<FermionFieldTy
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct>
 void compute_simple(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, const int t){
   into.setup(l,r,t,t); //both vectors have same timeslice
-  
-  CPSautoView(l_v,l,HostRead);
-  CPSautoView(r_v,r,HostRead);
-  CPSautoView(into_v,into,HostWrite);
-  CPSautoView(M_v,M,HostRead);
-  
-  if(!UniqueID()) printf("Starting simple meson field compute for timeslice %d with %d threads\n",t, omp_get_max_threads());
 
-  typedef typename mf_Policies::FermionFieldType::FieldSiteType ComplexType;
+  {
+    CPSautoView(l_v,l,HostRead);
+    CPSautoView(r_v,r,HostRead);
+    CPSautoView(into_v,into,HostWrite);
+    CPSautoView(M_v,M,HostRead);
   
-  const typename mf_Policies::FermionFieldType &mode0 = l.getMode(0);
-  const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
-  if(mode0.nodeSites(3) != GJP.TnodeSites()) ERR.General("","compute_simple","Not implemented for fields where node time dimension != GJP.TnodeSites()\n");
+    if(!UniqueID()) printf("Starting simple meson field compute for timeslice %d with %d threads\n",t, omp_get_max_threads());
 
-  int nv = l.getNv(); assert(r.getNv() == nv);
-  int nf = l.getNflavors();
+    typedef typename mf_Policies::FermionFieldType::FieldSiteType ComplexType;
   
-  int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
-  if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
+    const typename mf_Policies::FermionFieldType &mode0 = l.getMode(0);
+    const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+    if(mode0.nodeSites(3) != GJP.TnodeSites()) ERR.General("","compute_simple","Not implemented for fields where node time dimension != GJP.TnodeSites()\n");
+
+    int nv = l.getNv(); assert(r.getNv() == nv);
+    int nf = l.getNflavors();
+  
+    int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+    if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
 
 #pragma omp parallel for
-    for(int i = 0; i < nv; i++){
-      typename mf_Policies::ComplexType mf_accum;
+      for(int i = 0; i < nv; i++){
+	typename mf_Policies::ComplexType mf_accum;
 
-      for(int j = 0; j < nv; j++) {
+	for(int j = 0; j < nv; j++) {
 
-	typename mf_Policies::ScalarComplexType *into_ij = into_v.elem_ptr(i,j); //will be null for implicitly zero elements
-	if(into_ij != NULL){	
-	  mf_accum = 0.;
+	  typename mf_Policies::ScalarComplexType *into_ij = into_v.elem_ptr(i,j); //will be null for implicitly zero elements
+	  if(into_ij != NULL){	
+	    mf_accum = 0.;
 	  
-	  for(int p_3d = 0; p_3d < size_3d; p_3d++) {
-	    ComplexType ll[nf*12], rr[nf*12];
-	    for(int f=0;f<nf;f++){
-	      for(int sc=0;sc<12;sc++){
-		ll[sc + 12*f] = l_v.elem(i,p_3d,t_lcl,sc,f);
-		rr[sc + 12*f] = r_v.elem(j,p_3d,t_lcl,sc,f);
+	    for(int p_3d = 0; p_3d < size_3d; p_3d++) {
+	      ComplexType ll[nf*12], rr[nf*12];
+	      for(int f=0;f<nf;f++){
+		for(int sc=0;sc<12;sc++){
+		  ll[sc + 12*f] = l_v.elem(i,p_3d,t_lcl,sc,f);
+		  rr[sc + 12*f] = r_v.elem(j,p_3d,t_lcl,sc,f);
+		}
 	      }
+	      SCFvectorPtr<ComplexType> lscf(ll,nf==1 ? NULL : (ll+12),false,false);
+	      SCFvectorPtr<ComplexType> rscf(rr,nf==1 ? NULL : (rr+12),false,false);
+	      M_v(mf_accum,lscf,rscf,p_3d,t);
 	    }
-	    SCFvectorPtr<ComplexType> lscf(ll,nf==1 ? NULL : (ll+12),false,false);
-	    SCFvectorPtr<ComplexType> rscf(rr,nf==1 ? NULL : (rr+12),false,false);
-	    M_v(mf_accum,lscf,rscf,p_3d,t);
+	    *into_ij = mf_accum; //reduce?
 	  }
-	  *into_ij = mf_accum; //reduce?
 	}
       }
     }
   }
+
   cps::sync();
   into.nodeSum();
 }

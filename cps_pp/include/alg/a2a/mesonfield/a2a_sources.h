@@ -543,8 +543,7 @@ define_test_has_enum(nSources); //a test for multisrc types (all should have enu
 namespace A2AmultiSource_ns{
   template<typename CurElem>
   struct getSourceViewList{
-    typedef typename CurElem::ValueType::View ViewType;
-    typedef ViewPointerWrapper<ViewType> ViewTypeWrapper; //ViewPointerWrapper allows us to wrap and thus dynamically create views that don't have default constructors
+    typedef ViewPointerWrapper<typename CurElem::ValueType> ViewTypeWrapper; //ViewPointerWrapper allows us to wrap and thus dynamically create views that don't have default constructors
     typedef Elem<ViewTypeWrapper, typename getSourceViewList<typename CurElem::NextType>::type > type;
   };
   template<>
@@ -557,7 +556,7 @@ namespace A2AmultiSource_ns{
   template<typename CurSourceViewElem, typename CurSourceElem>
   struct createViews{
     static void doit(ViewMode mode, CurSourceViewElem &sve, const CurSourceElem &se){
-      sve.v.assign(mode,se.v.view(mode)); //copies view to GPU memory
+      sve.v.assign(mode,se.v);
       createViews<typename CurSourceViewElem::NextType, typename CurSourceElem::NextType>::doit(mode, sve.n, se.n);
     }
   };
