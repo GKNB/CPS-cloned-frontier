@@ -154,6 +154,8 @@ public:
 
     View() = default;
     View(const View &r) = default;
+
+    void free(){ src.free(); }
   };
 
   View view(ViewMode mode) const{ return View(mode, *this); }
@@ -311,6 +313,8 @@ public:
 
     View() = default;
     View(const View &r) = default;
+
+    void free(){ src.free(); }
   };
 
   View view(ViewMode mode) const{ return View(mode, *this); }
@@ -458,6 +462,8 @@ public:
 
     View() = default;
     View(const View &r) = default;
+
+    void free(){}
   };
 
   View view(ViewMode mode) const{ return View(mode, *this); }

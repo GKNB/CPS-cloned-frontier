@@ -53,6 +53,8 @@ public:
     }
         
     View(ViewMode mode, const A2Asource &r): src(r.src->view(mode)){}
+
+    void free(){ src.free(); }
   };
 
   View view(ViewMode mode) const{ return View(mode,*this); }
@@ -123,11 +125,13 @@ public:
     //Generate a global 4d source
     CPSglobalComplexSpatial<cps::ComplexD,OneFlavorPolicy> glb; //always of this type
     glb.zero();
-    CPSautoView(gb, glb, HostWrite);
+    {
+      CPSautoView(gb, glb, HostWrite);
 #pragma omp_parallel for
-    for(size_t i=0;i<glb.nsites();i++){
-      int x[3]; glb.siteUnmap(i,x); 
-      *gb.site_ptr(i) = static_cast<Child const*>(this)->value(x,glb_size);
+      for(size_t i=0;i<glb.nsites();i++){
+	int x[3]; glb.siteUnmap(i,x); 
+	*gb.site_ptr(i) = static_cast<Child const*>(this)->value(x,glb_size);
+      }
     }
     //Perform the FFT and pull out this nodes subvolume
     glb.fft();

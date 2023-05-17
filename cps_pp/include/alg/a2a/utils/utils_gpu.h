@@ -1543,6 +1543,7 @@ public:
 
   void* openView(ViewMode mode, HandleIterator h){
     if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","openView","Cannot call in OMP parallel region");
+    if(h->lock_entry) ERR.General("HolisticMemoryPoolManager","openView","Attempting to open view on a locked object. Multiple views to the same object are not supported");
     sanityCheck();
     h->lock_entry = true; //make sure it isn't evicted!
     Pool pool = (mode == HostRead || mode == HostWrite || mode == HostReadWrite) ? HostPool : DevicePool;   
@@ -1569,6 +1570,7 @@ public:
 
   void closeView(HandleIterator h){
     if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","closeView","Cannot call in OMP parallel region");
+    if(!h->lock_entry) ERR.General("HolisticMemoryPoolManager","closeView","Lock state has already been unset; this should not happen");
     h->lock_entry = false;
   }
 
