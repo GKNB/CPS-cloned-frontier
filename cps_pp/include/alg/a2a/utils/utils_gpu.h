@@ -1487,7 +1487,7 @@ public:
     std::ostringstream os;
     os << "HolisticMemoryPoolManager consumption - device: " << double(device_allocated)/1024./1024.
        << " MB, host: " << double(host_allocated)/1024./1024.
-       << " MB, disk (cached): " << double(getDiskCacheBytes())/1024./1024.
+       << " MB, disk (cached): " << double(getDiskCachedBytes())/1024./1024.
        << " MB, disk (total): " << double(getDiskUsedBytes())/1024/1024. << " MB";
     return os.str();
   }
@@ -1600,6 +1600,9 @@ public:
 
 };
 
+inline std::string memPoolManagerReport(){
+  return HolisticMemoryPoolManager::globalPool().report();
+}
 
 
 CPS_END_NAMESPACE
