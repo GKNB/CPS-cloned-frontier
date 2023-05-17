@@ -35,7 +35,7 @@ typename mf_Policies::ScalarComplexType trace_cpu(const A2AmesonField<mf_Policie
 #ifndef MEMTEST_MODE
   const int n_threads = omp_get_max_threads();
   std::vector<ScalarComplexType, BasicAlignedAllocator<ScalarComplexType> > ret_vec(n_threads,ScalarComplexType(0.,0.));
-   
+  
   CPSautoView(l_v,l,HostRead);
   CPSautoView(r_v,r,HostRead);
 

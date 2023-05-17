@@ -224,19 +224,7 @@ void testA2AfieldAccess(){
 }
 
 
-struct autoViewTest1{
-  double v;
-  bool free_called;
-  autoViewTest1(): free_called(false){}
-  
-  struct View{    
-    double v;
-    View(const autoViewTest1 &p, ViewMode mode): v(p.v){}
-  };
-  View view(ViewMode mode) const{ return View(*this,mode); }
-};
-
-struct autoViewTest2{
+struct autoViewTest{
   double v;
   bool free_called;    
   
@@ -244,24 +232,14 @@ struct autoViewTest2{
     double v;
     bool* free_called;
     
-    View(autoViewTest2 &p, ViewMode mode): v(p.v), free_called(&p.free_called){}
+    View(autoViewTest &p, ViewMode mode): v(p.v), free_called(&p.free_called){}
     void free(){ *free_called = true; }
   };
   View view(ViewMode mode){ return View(*this,mode); }
 };
 
 void testAutoView(){ 
-  autoViewTest1 t1;
-  t1.v = 3.14;
-  
-  {  
-    CPSautoView(t1_v, t1, DeviceRead);
-
-    assert(t1_v.v == t1.v);
-  }
-  assert( t1.free_called == false );
-
-  autoViewTest2 t2;
+  autoViewTest t2;
   t2.v = 6.28;
   
   {  
@@ -274,50 +252,14 @@ void testAutoView(){
 }
 
 void testViewArray(){
-  //Test for a type that doesn't have a free method in its view
-  std::vector<autoViewTest1> t1(2);
-  t1[0].v = 3.14;
-  t1[1].v = 6.28;
-  
-  std::vector<autoViewTest1*> t1_p = { &t1[0], &t1[1] };
-  ViewArray<typename autoViewTest1::View> t1_v(DeviceRead,t1_p);
-
   double* into = (double*)managed_alloc_check(2*sizeof(double));
 
-  using Grid::acceleratorThreads;
-
-#ifdef GRID_CUDA
-  using Grid::acceleratorAbortOnGpuError;
-#elif defined(GRID_SYCL)
-  using Grid::theGridAccelerator;
-#endif
-#if defined(GRID_HIP) || defined(GRID_CUDA)
-  using Grid::LambdaApply;
-  #if defined(GRID_HIP)
-  using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
-  #endif
-#endif
-
-  {
-    using namespace Grid;
-    accelerator_for(x, 100, 1,
-		    {
-		      if(x==0 || x==1){
-			into[x] = t1_v[x].v;
-		      }
-		    });
-  }
-  assert(into[0] == 3.14);
-  assert(into[1] == 6.28);
-
-
-  //Test for a type that does have a free method in its view
-  std::vector<autoViewTest2> t2(2);
+  std::vector<autoViewTest> t2(2);
   t2[0].v = 31.4;
   t2[1].v = 62.8;
   
-  std::vector<autoViewTest2*> t2_p = { &t2[0], &t2[1] };
-  ViewArray<typename autoViewTest2::View> t2_v(DeviceRead,t2_p);
+  std::vector<autoViewTest*> t2_p = { &t2[0], &t2[1] };
+  ViewArray<autoViewTest> t2_v(DeviceRead,t2_p);
 
   {
     using namespace Grid;

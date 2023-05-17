@@ -53,6 +53,8 @@ public:
     }
         
     View(ViewMode mode, const A2Asource &r): src(r.src->view(mode)){}
+
+    void free(){ src.free(); }
   };
 
   View view(ViewMode mode) const{ return View(mode,*this); }
@@ -123,11 +125,13 @@ public:
     //Generate a global 4d source
     CPSglobalComplexSpatial<cps::ComplexD,OneFlavorPolicy> glb; //always of this type
     glb.zero();
-    CPSautoView(gb, glb, HostWrite);
+    {
+      CPSautoView(gb, glb, HostWrite);
 #pragma omp_parallel for
-    for(size_t i=0;i<glb.nsites();i++){
-      int x[3]; glb.siteUnmap(i,x); 
-      *gb.site_ptr(i) = static_cast<Child const*>(this)->value(x,glb_size);
+      for(size_t i=0;i<glb.nsites();i++){
+	int x[3]; glb.siteUnmap(i,x); 
+	*gb.site_ptr(i) = static_cast<Child const*>(this)->value(x,glb_size);
+      }
     }
     //Perform the FFT and pull out this nodes subvolume
     glb.fft();
@@ -539,8 +543,7 @@ define_test_has_enum(nSources); //a test for multisrc types (all should have enu
 namespace A2AmultiSource_ns{
   template<typename CurElem>
   struct getSourceViewList{
-    typedef typename CurElem::ValueType::View ViewType;
-    typedef ViewPointerWrapper<ViewType> ViewTypeWrapper; //ViewPointerWrapper allows us to wrap and thus dynamically create views that don't have default constructors
+    typedef ViewPointerWrapper<typename CurElem::ValueType> ViewTypeWrapper; //ViewPointerWrapper allows us to wrap and thus dynamically create views that don't have default constructors
     typedef Elem<ViewTypeWrapper, typename getSourceViewList<typename CurElem::NextType>::type > type;
   };
   template<>
@@ -553,7 +556,7 @@ namespace A2AmultiSource_ns{
   template<typename CurSourceViewElem, typename CurSourceElem>
   struct createViews{
     static void doit(ViewMode mode, CurSourceViewElem &sve, const CurSourceElem &se){
-      sve.v.assign(mode,se.v.view(mode)); //copies view to GPU memory
+      sve.v.assign(mode,se.v);
       createViews<typename CurSourceViewElem::NextType, typename CurSourceElem::NextType>::doit(mode, sve.n, se.n);
     }
   };
