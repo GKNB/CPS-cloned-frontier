@@ -29,6 +29,7 @@ inline void gaugeFixUnity(Lattice &lat, const FixGaugeArg &fix_gauge_arg){
   int h_planes[num];
   for(int i=0; i<num; i++) h_planes[i] = start + step * i;
 
+  if(lat.FixGaugePtr() != nullptr) lat.FixGaugeFree();  
   lat.FixGaugeAllocate(fix, num, h_planes);
   
 #pragma omp parallel for

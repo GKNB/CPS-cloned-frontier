@@ -694,7 +694,7 @@ Matrix& FixHPlane::findA()
 	  //CK crosses a G-parity boundary, must complex conjugate the L and G
 	  mStarDotMStarPlus( (IFloat*)&tmp_m, (IFloat*)&G(i), (IFloat*)&L(i) ); 
 	}else{
-	  tmp_m.DotMPlus(G(i), L(i));
+	  tmp_m.DotMPlus(G(i), L(i)); //tmp_m += G(n-1)*L(n-1)
 	}
       }
       // End modification
@@ -714,13 +714,13 @@ Matrix& FixHPlane::findA()
 	//index[i] is node_size[i]-1 rather than node_size[i] as index was decreased after G was called
 	mStarDotMPlus( (IFloat*)&tmp_m, (IFloat*)&G_plus_i, (IFloat*)&tmp_m1 );
       }else{
-	tmp_m.DotMPlus(G_plus_i, tmp_m1);
+	tmp_m.DotMPlus(G_plus_i, tmp_m1); //tmp_m += G(n+1)L(n)^dag
 
       }
     }
 
     tmp_m1.Dagger(G_loc());  // local G
-    A_buf.DotMEqual(tmp_m, tmp_m1);
+    A_buf.DotMEqual(tmp_m, tmp_m1);    //   \sum_j G(n-j)L(n-j)G(n)^dag + G(n+1)L(n)^dag G^dag(n)   = \sum_j  Lj(n-j) + Lj(n)^dag
     return A_buf;
 }
 

@@ -27,6 +27,18 @@ public:
 	int max_iter_num;
 };
 
+class VML;
+class FixGaugeArgGrid {
+public:
+	 bool Encode(char *filename,char *instance);
+	 bool Decode(char *filename,char *instance);
+	 bool Vml(VML *vmls,char *instance);
+	FixGaugeType fix_gauge_kind;
+	Float stop_cond;
+	int max_iter_num;
+	Float alpha;
+};
+
 /* the xdr functions */
 
 #ifdef __cplusplus
@@ -35,9 +47,11 @@ extern "C" {
 
 #if defined(__STDC__) || defined(__cplusplus)
 extern  bool_t vml_FixGaugeArg (VML *, char *instance, FixGaugeArg*);
+extern  bool_t vml_FixGaugeArgGrid (VML *, char *instance, FixGaugeArgGrid*);
 
 #else /* K&R C */
 extern  bool_t vml_FixGaugeArg (VML *, char *instance, FixGaugeArg*);
+extern  bool_t vml_FixGaugeArgGrid (VML *, char *instance, FixGaugeArgGrid*);
 
 #endif /* K&R C */
 

@@ -203,7 +203,23 @@ struct GridTensorConvert<Grid::iLorentzColourMatrix<complex_scalar>, CPScomplex>
 	  grid(mu)()(i,j) = *cps++;
   }
 };
+template<typename complex_scalar, typename CPScomplex>
+struct GridTensorConvert<Grid::iColourMatrix<complex_scalar>, CPScomplex>{
+  static_assert(!Grid::isSIMDvectorized<complex_scalar>::value && Grid::isComplex<complex_scalar>::value, "Only applies to scalar complex types");
 
+  //3*3 complex
+  //We have assured the input is not SIMD vectorized so the output type is the same
+  inline static void doit(CPScomplex* cps, const Grid::iColourMatrix<complex_scalar> &grid, const int f){
+    for(int i=0;i<3;i++)
+      for(int j=0;j<3;j++)
+	*cps++ = grid()()(i,j);
+  }
+  inline static void doit(Grid::iColourMatrix<complex_scalar> &grid, CPScomplex const* cps, const int f){
+    for(int i=0;i<3;i++)
+      for(int j=0;j<3;j++)
+	grid()()(i,j) = *cps++;
+  }
+};
 
 template<int Ndim>
 struct dimensionMap{};

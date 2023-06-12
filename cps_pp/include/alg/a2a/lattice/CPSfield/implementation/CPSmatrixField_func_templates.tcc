@@ -145,7 +145,22 @@ auto unop(const CPSmatrixField<T> &in, const Lambda &l)-> CPSmatrixField<typenam
 		    );
   return out;
 }
-
+//Unary-self operation for functionality that acts on scalar data
+template<typename T, typename Lambda>
+CPSmatrixField<T> & unop_self(CPSmatrixField<T> &in, const Lambda &l){
+  using namespace Grid;
+  constexpr int nsimd = T::scalar_type::Nsimd();
+  CPSautoView(iv,in,DeviceReadWrite);
+  accelerator_for(x4d, in.size(), nsimd,
+		    {
+		      typedef SIMT<T> ACC;
+		      auto aa = ACC::read(*iv.site_ptr(x4d));
+		      l(aa);
+		      ACC::write(*iv.site_ptr(x4d), aa);
+		    }
+		    );
+  return in;
+}
 
 /*
   Expect functor of the form, e.g.

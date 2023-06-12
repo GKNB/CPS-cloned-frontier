@@ -370,6 +370,21 @@ accelerator_inline T Transpose(const T& r){
   return out;
 }
 
+template<typename T>
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<T>::value,T>::type cconj(const T &in){
+  T out;
+  typename T::scalar_type const* pin = in.scalarTypePtr();
+  typename T::scalar_type* pout = out.scalarTypePtr();
+  for(int i=0;i<in.nScalarType();i++) pout[i] = cps::cconj(pin[i]);
+  return out;
+}
+template<typename T>
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<T>::value,T>::type Dagger(const T &in){
+  T tmp = Transpose(in);
+  return cconj(tmp);
+}
+
+
 //Perform SIMD reductions
 #ifdef USE_GRID
 template<typename VectorMatrixType, typename my_enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type>

@@ -162,6 +162,35 @@ accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::typ
     }      
 }
 
+//Complex scalar  * matrix
+template<typename T, typename U> 
+accelerator_inline typename my_enable_if<is_complex_double_or_float<T>::value && is_grid_vector_complex<U>::value, void>::type scalar_mult_pre(U &out, const T &a, const U &b, const int lane){
+  SIMT<U>::write(out,  
+		 a * SIMT<U>::read(b,lane), 
+		 lane);
+}
+
+template<typename T, typename U> 
+accelerator_inline typename my_enable_if<is_complex_double_or_float<T>::value && isCPSsquareMatrix<U>::value, void>::type scalar_mult_pre(U &out, const T &a, const U &b, const int lane){
+  for(int i=0;i<U::Size;i++)
+    for(int j=0;j<U::Size;j++)
+      scalar_mult_pre(out(i,j), a, b(i,j), lane);
+}
+
+//Complex SIMDvec  * matrix
+template<typename T, typename U> 
+accelerator_inline typename my_enable_if<is_grid_vector_complex<T>::value && is_grid_vector_complex<U>::value, void>::type vscalar_mult_pre(U &out, const T &a, const U &b, const int lane){
+  SIMT<U>::write(out,  
+		 SIMT<U>::read(a,lane) * SIMT<U>::read(b,lane), 
+		 lane);
+}
+
+template<typename T, typename U> 
+accelerator_inline typename my_enable_if<is_grid_vector_complex<T>::value && isCPSsquareMatrix<U>::value, void>::type vscalar_mult_pre(U &out, const T &a, const U &b, const int lane){
+  for(int i=0;i<U::Size;i++)
+    for(int j=0;j<U::Size;j++)
+      vscalar_mult_pre(out(i,j), a, b(i,j), lane);
+}
 
 //////////////////////////////////// ADD/SUBTRACT ///////////////////////////////////////////////////
 
@@ -326,6 +355,11 @@ struct _cconj_SIMT<T,cps_square_matrix_mark>{
 template<typename U> 
 accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type cconj(U &out, const U &in, const int lane){
   _cconj_SIMT<U, cps_square_matrix_mark>::doit(out, in, lane);
+}
+
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type cconj(U &inout, const int lane){
+  _cconj_SIMT<U, cps_square_matrix_mark>::doit(inout, inout, lane);
 }
 
 ////////////////////// PARTIAL TRACE ////////////////////////////////////////////////

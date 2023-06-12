@@ -4,6 +4,7 @@
 //These are alternatives to Matrix, WilsonMatrix, SpinColorFlavorMatrix
 #include<util/flavormatrix.h>
 #include <alg/a2a/utils/template_wizardry.h>
+#include <alg/a2a/utils/utils_complex.h>
 
 CPS_START_NAMESPACE
 
@@ -127,6 +128,12 @@ accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, typename U
 
 template<typename T>
 accelerator_inline T Transpose(const T& r);
+
+template<typename T>
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<T>::value, T>::type cconj(const T &in);
+
+template<typename T>
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<T>::value, T>::type Dagger(const T &in);
 
 //Perform SIMD reductions of all elements
 #ifdef USE_GRID

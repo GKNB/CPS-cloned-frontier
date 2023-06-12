@@ -6,6 +6,7 @@
 #endif
 #include "spin_color_matrices.h"
 #include <alg/a2a/utils/SIMT.h>
+#include <alg/a2a/utils/utils_complex.h>
 
 CPS_START_NAMESPACE 
 
@@ -35,13 +36,28 @@ accelerator_inline typename my_enable_if<is_grid_vector_complex<U>::value, void>
 template<typename U> 
 accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type madd(U &out, const U &a, const U &b, const int lane);
 
-//multiply
+//matrix * matrix
 template<typename U> 
 accelerator_inline typename my_enable_if<is_grid_vector_complex<U>::value, void>::type mult(U &out, const U &a, const U &b, const int lane);
 
 template<typename U> 
 accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type mult(U &out, const U &a, const U &b, const int lane);
 
+//scalar * matrix
+template<typename T, typename U> 
+accelerator_inline typename my_enable_if<is_complex_double_or_float<T>::value && is_grid_vector_complex<U>::value, void>::type scalar_mult_pre(U &out, const T &a, const U &b, const int lane);
+
+template<typename T, typename U> 
+accelerator_inline typename my_enable_if<is_complex_double_or_float<T>::value && isCPSsquareMatrix<U>::value, void>::type scalar_mult_pre(U &out, const T &a, const U &b, const int lane);
+
+//vscalar * matrix
+template<typename T, typename U> 
+accelerator_inline typename my_enable_if<is_grid_vector_complex<T>::value && is_grid_vector_complex<U>::value, void>::type vscalar_mult_pre(U &out, const T &a, const U &b, const int lane);
+
+template<typename T, typename U> 
+accelerator_inline typename my_enable_if<is_grid_vector_complex<T>::value && isCPSsquareMatrix<U>::value, void>::type vscalar_mult_pre(U &out, const T &a, const U &b, const int lane);
+
+//add
 template<typename U> 
 accelerator_inline typename my_enable_if<is_grid_vector_complex<U>::value, void>::type add(U &out, const U &a, const U &b, const int lane);
 
@@ -81,6 +97,10 @@ accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::typ
 //complex conjugate
 template<typename U> 
 accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type cconj(U &out, const U &in, const int lane);
+
+//selt complex conjugate
+template<typename U> 
+accelerator_inline typename my_enable_if<isCPSsquareMatrix<U>::value, void>::type cconj(U &inout, const int lane);
 
 //trace over single index
 template<int RemoveDepth, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>

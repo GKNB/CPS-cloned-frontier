@@ -30,6 +30,16 @@ struct _transposeV{
   }
 };
 
+template<typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
+struct _daggerV{
+  typedef VectorMatrixType OutputType;
+  accelerator_inline void operator()(VectorMatrixType &out, const VectorMatrixType &in, const int lane) const{ 
+    Transpose(out, in, lane);
+    cconj(out,lane);
+  }
+};
+
+
 template<int Index, typename VectorMatrixType, typename std::enable_if<isCPSsquareMatrix<VectorMatrixType>::value, int>::type = 0>
 struct _transIdx{
   typedef VectorMatrixType OutputType;
@@ -200,6 +210,16 @@ struct _timesV{
   }
 };
 
+template<typename ScalarType, typename VectorMatrixType>
+struct _scalarTimesVPre{
+  typedef VectorMatrixType OutputType;
+  accelerator_inline void operator()(VectorMatrixType &out, const ScalarType &a, const VectorMatrixType &b, const int lane) const{ 
+    scalar_mult_pre(out, a, b, lane);
+  }
+};
+
+
+
 template<typename VectorMatrixType>
 struct _addV{
   typedef VectorMatrixType OutputType;
@@ -367,4 +387,11 @@ struct _pr_scf_V{
   accelerator_inline void operator()(CPSspinColorFlavorMatrix<ComplexType> &in, const int lane) const{ 
     pr(in, type, lane);
   }
+};
+
+template<typename T>
+struct _setUnit{
+  accelerator_inline void operator()(T &m) const{
+    m.unit();
+  } 
 };

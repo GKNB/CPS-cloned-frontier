@@ -287,4 +287,163 @@ void testGaugeFixInvertible(Lattice &lat){
 }
 
 
+
+
+//Test the application of a gauge rotation using CPSmatrixField vs CPSField
+void testGfixCPSmatrixField(Lattice &lat, const SIMDdims<4> &simd_dims){
+  std::cout << "Starting testGfixCPSmatrixField" << std::endl;
+  //Generate a random gauge fixing matrix
+  typedef CPSfield<cps::ComplexD,9,FourDpolicy<OneFlavorPolicy> > GaugeRotLinField;
+  typedef CPSfield<cps::ComplexD,4*9,FourDpolicy<OneFlavorPolicy> > GaugeLinField;
+
+  NullObject null_obj;
+  GaugeRotLinField gfmat_s(null_obj); 
+  gfmat_s.testRandom();
+
+  std::vector<GaugeRotLinField> gfmat_plus_s(4, null_obj);
+  for(int i=0;i<4;i++)
+    gfmat_plus_s[i] = CshiftCconjBc(gfmat_s, i, -1); //data motion leftward
+ 
+  GaugeLinField gauge_s((cps::ComplexD*)lat.GaugeField(),null_obj);
+  std::vector<GaugeRotLinField> gauge_rotated_s(4,null_obj);
+
+  for(int mu=0;mu<4;mu++){
+    CPSautoView(gauge_rotated_s_v, gauge_rotated_s[mu],HostWrite);
+    CPSautoView(gfmat_s_v, gfmat_s, HostRead);
+    CPSautoView(gfmat_plus_mu_v, gfmat_plus_s[mu], HostRead);
+    CPSautoView(gauge_s_v, gauge_s,HostWrite);
+#pragma omp parallel for
+    for(size_t i=0;i<GJP.VolNodeSites();i++){
+      Matrix g_plus_dag;  g_plus_dag.Dagger( *((Matrix*)gfmat_plus_mu_v.site_ptr(i)) );
+      Matrix g = *((Matrix*)gfmat_s_v.site_ptr(i) );
+      Matrix U = *( ((Matrix*)gauge_s_v.site_ptr(i)) + mu );
+      *((Matrix*)gauge_rotated_s_v.site_ptr(i) ) = g*U*g_plus_dag;
+    }
+  }
+
+  //SIMD-ize gauge field
+  CPSfield<Grid::vComplexD,4*9,FourDSIMDPolicy<OneFlavorPolicy> > gauge_v(simd_dims);
+  gauge_v.importField(gauge_s);
+  CPSfield<Grid::vComplexD,9,FourDSIMDPolicy<OneFlavorPolicy> > gfmat_v(simd_dims); 
+  gfmat_v.importField(gfmat_s);
+
+  typedef CPSmatrixField<CPScolorMatrix<Grid::vComplexD> > CPSgfMatrixField;
+  std::vector< CPSgfMatrixField > Umu(4, simd_dims);
+  for(int i=0;i<4;i++) Umu[i] = gaugeFixTest::getUmu(gauge_v,i);
+  
+  CPSgfMatrixField gfmat = linearRepack<CPScolorMatrix<Grid::vComplexD> >(gfmat_v);
+  std::vector< CPSgfMatrixField > gauge_rotated(4, simd_dims);
+
+  for(int mu=0;mu<4;mu++){
+    CPSmatrixField<CPScolorMatrix<Grid::vComplexD> > g_plus_mu = CshiftCconjBc(gfmat, mu, -1);
+    gauge_rotated[mu] = gaugeFixTest::computeLj(Umu[mu],gfmat,g_plus_mu,mu);
+  }
+
+  for(int mu=0;mu<4;mu++){
+    auto gauge_rotated_up_v = linearUnpack(gauge_rotated[mu]);
+    GaugeRotLinField gauge_rotated_up_s(null_obj); gauge_rotated_up_s.importField(gauge_rotated_up_v);
+
+    GaugeRotLinField diff = gauge_rotated_up_s - gauge_rotated_s[mu];
+    double n2 = diff.norm2();
+    std::cout << mu << " " << n2 << std::endl;
+    if(n2 > 1e-10) ERR.General("","testGfixCPSmatrixField","Test failed");
+  }
+  std::cout << "testGfixCPSmatrixField passed" << std::endl;
+}
+
+//Test the Grid implementation of gauge fixing vs CPS
+void testGridGaugeFix(Lattice &lat, double gfix_alpha, const SIMDdims<4> &simd_dims){
+  int Lt=GJP.Tnodes()*GJP.TnodeSites();
+
+  FixGaugeType types[2] = {FIX_GAUGE_LANDAU,FIX_GAUGE_COULOMB_T};
+  std::string descr[2] = {"Landau","Coulomb-T"};
+  int nhyperplane[2] = {1,Lt};
+  int orthog_dir[2] = {-1,3};
+
+  for(int type=0;type<2;type++){
+    std::cout << "Checking " << descr[type] << " gauge fixing" << std::endl;
+    FixGaugeArg farg_orig;
+    farg_orig.fix_gauge_kind = types[type];
+    farg_orig.hyperplane_start = 0;
+    farg_orig.hyperplane_step = 1;
+    farg_orig.hyperplane_num = nhyperplane[type];
+    farg_orig.stop_cond = 1e-8;
+    farg_orig.max_iter_num = 100000;
+
+    FixGaugeArgGrid farg_grid;
+    farg_grid.fix_gauge_kind = types[type];
+    farg_grid.stop_cond = 1e-8;
+    farg_grid.max_iter_num = 100000;
+    farg_grid.alpha = gfix_alpha;
+
+    typedef CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > CPSvField;
+    typedef CPSfield<cps::ComplexD,9,FourDpolicy<OneFlavorPolicy> > CPS1fvField;
+
+    NullObject null_obj;
+
+    doGaugeFix(lat,false,farg_orig);
+    CPSvField orig_gfmat = getGaugeFixingMatrix(lat);
+    CPS1fvField orig_gfmat_1f = getGaugeFixingMatrixFlavor0(lat);
+
+    std::cout << "Check CPS gauge fixing condition " << gaugeFixTest::delta(lat, simd_dims, orthog_dir[type]) << std::endl;
+    
+    //Gauge fix with Grid
+    doGaugeFix(lat,false,farg_grid);
+   
+    CPSvField grid_gfmat = getGaugeFixingMatrix(lat);
+    CPS1fvField grid_gfmat_1f = getGaugeFixingMatrixFlavor0(lat);
+
+    //Check
+    std::cout << "Check Grid gauge fixing condition " << gaugeFixTest::delta(lat, simd_dims, orthog_dir[type]) << std::endl;
+
+    CPSvField diff = grid_gfmat - orig_gfmat;
+    double n2 = diff.norm2();
+    
+    std::cout << "Test CPS vs Grid gauge fix: " << n2 << " (expect 0)" << std::endl;    
+
+    CPS1fvField diff1f = grid_gfmat_1f - orig_gfmat_1f;
+    n2 = diff1f.norm2();
+    std::cout << "Test CPS vs Grid gauge fix (f=0): " << n2 << " (expect 0)" << std::endl;
+
+    //Try applying CPS gauge fixing to the config then applying Grid's. It should converge quickly with a unit matrix transform
+    CPSfield<cps::ComplexD,4*9,FourDpolicy<DynamicFlavorPolicy> > cps_gauge_s((cps::ComplexD*)lat.GaugeField(),null_obj); //backup original cfg
+    
+    doGaugeFix(lat,false,farg_orig); //CPS gfix
+    std::cout << "Recheck CPS gauge fixing condition " << gaugeFixTest::delta(lat, simd_dims, orthog_dir[type]) << std::endl;
+    gaugeFixCPSlattice(lat);
+    doGaugeFix(lat,false,farg_orig); //CPS gfix
+    std::cout << "Recheck CPS gauge fixing condition 2 " << gaugeFixTest::delta(lat, simd_dims, orthog_dir[type]) << std::endl;
+
+    doGaugeFix(lat,false,farg_grid);
+    std::cout << "Check Grid gauge fixing condition on lattice gauge fixed under CPS " << gaugeFixTest::delta(lat, simd_dims, orthog_dir[type]) << std::endl;
+    
+    //Expect GFmat to be unit matrix
+    grid_gfmat_1f = getGaugeFixingMatrixFlavor0(lat);
+    CPS1fvField expect(null_obj);
+    {
+      CPScolorMatrix<cps::Complex> one_c;
+      one_c.unit();
+
+      CPSautoView(expect_v,expect,HostWrite);
+#pragma omp parallel for
+      for(size_t i=0;i<GJP.VolNodeSites();i++){
+	memcpy(expect_v.site_ptr(i), &one_c, 9*sizeof(cps::ComplexD));
+      }
+    }
+    CPS1fvField diff_1f = grid_gfmat_1f - expect;
+    std::cout << "Check resulting Grid GF matrices are unit matrix: " << diff_1f.norm2() << " (expect 0)" << std::endl;
+    
+    //Put the gauge field back as it was!
+    {
+      CPSautoView(cps_gauge_s_v,cps_gauge_s,HostRead);
+      memcpy(lat.GaugeField(), cps_gauge_s_v.ptr(), cps_gauge_s_v.size()*sizeof(cps::ComplexD));
+    }
+
+  }
+
+
+
+}
+
+
 CPS_END_NAMESPACE

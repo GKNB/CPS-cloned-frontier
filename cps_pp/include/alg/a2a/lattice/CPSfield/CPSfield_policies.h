@@ -1106,7 +1106,7 @@ private:
     logical_vol = 1;
     for(int i=0;i<4;i++){
       simd_dims[i] = _simd_dims[i];
-      assert(GJP.NodeSites(i) % simd_dims[i] == 0);
+      if(GJP.NodeSites(i) % simd_dims[i] != 0) ERR.General("FourDSIMDPolicy","setup","NodeSites in direction %d, %d is not divisible by simd_dims %d", i, GJP.NodeSites(i), simd_dims[i]);
       logical_dim[i] = GJP.NodeSites(i)/simd_dims[i];
       logical_vol *= logical_dim[i];
     }

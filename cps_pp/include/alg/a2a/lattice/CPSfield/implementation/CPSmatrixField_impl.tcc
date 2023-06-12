@@ -91,6 +91,11 @@ inline CPSmatrixField<VectorMatrixType> cconj(const CPSmatrixField<VectorMatrixT
   return unop_v(a, _cconjV<VectorMatrixType>());
 }
 
+template<typename VectorMatrixType>
+inline CPSmatrixField<VectorMatrixType> Dagger(const CPSmatrixField<VectorMatrixType> &a){
+  return unop_v(a, _daggerV<VectorMatrixType>());
+}
+
 //Left multiplication by gamma matrix
 template<typename ComplexType>
 inline CPSmatrixField<CPSspinMatrix<ComplexType> > gl_r(const CPSmatrixField<CPSspinMatrix<ComplexType> > &in, const int dir){
@@ -152,6 +157,42 @@ template<typename VectorMatrixType>
 inline CPSmatrixField<VectorMatrixType> operator*(const CPSmatrixField<VectorMatrixType> &a, const CPSmatrixField<VectorMatrixType> &b){
   return binop_v(a,b,_timesV<VectorMatrixType>());
 }
+template<typename ScalarType, typename VectorMatrixType, typename std::enable_if< is_complex_double_or_float<ScalarType>::value, int>::type >
+inline CPSmatrixField<VectorMatrixType> operator*(const ScalarType &a, const CPSmatrixField<VectorMatrixType> &b){
+  using namespace Grid;
+  constexpr int nsimd = getScalarType<VectorMatrixType, typename MatrixTypeClassify<VectorMatrixType>::type>::type::Nsimd();
+  CPSmatrixField<VectorMatrixType> out(b.getDimPolParams());
+  CPSautoView(ov,out,DeviceWrite);
+  CPSautoView(bv,b,DeviceRead);
+  
+  accelerator_for(x4d, bv.size(), nsimd,
+		    {
+		      int lane = Grid::acceleratorSIMTlane(nsimd);
+		      scalar_mult_pre(*ov.site_ptr(x4d), a, *bv.site_ptr(x4d), lane);
+		    }
+		    );
+  return out;
+}
+template<typename VectorScalarType, typename VectorMatrixType, typename std::enable_if< is_grid_vector_complex<VectorScalarType>::value, int>::type >
+inline CPSmatrixField<VectorMatrixType> operator*(const CPSmatrixField<VectorScalarType> &a, const CPSmatrixField<VectorMatrixType> &b){
+  using namespace Grid;
+  constexpr int nsimd = getScalarType<VectorMatrixType, typename MatrixTypeClassify<VectorMatrixType>::type>::type::Nsimd();
+  CPSmatrixField<VectorMatrixType> out(b.getDimPolParams());
+  CPSautoView(ov,out,DeviceWrite);
+  CPSautoView(bv,b,DeviceRead);
+  CPSautoView(av,a,DeviceRead);
+  
+  accelerator_for(x4d, bv.size(), nsimd,
+		    {
+		      int lane = Grid::acceleratorSIMTlane(nsimd);
+		      vscalar_mult_pre(*ov.site_ptr(x4d), *av.site_ptr(x4d), *bv.site_ptr(x4d), lane);
+		    }
+		    );
+  return out;
+}
+
+
+
 template<typename VectorMatrixType>
 inline CPSmatrixField<VectorMatrixType> operator+(const CPSmatrixField<VectorMatrixType> &a, const CPSmatrixField<VectorMatrixType> &b){
   return binop_v(a,b,_addV<VectorMatrixType>());
@@ -188,6 +229,12 @@ inline CPSmatrixField<VectorMatrixType> & timesMinusI(CPSmatrixField<VectorMatri
 template<typename VectorMatrixType>
 inline CPSmatrixField<VectorMatrixType> & timesMinusOne(CPSmatrixField<VectorMatrixType> &in){
   return unop_self_v(in,_timesMinusOneV<VectorMatrixType>());
+}
+
+//in -> unit matrix
+template<typename VectorMatrixType>
+inline CPSmatrixField<VectorMatrixType> & setUnit(CPSmatrixField<VectorMatrixType> &inout){
+  return unop_self(inout, _setUnit<VectorMatrixType>());
 }
 
 //Left multiplication by gamma matrix
@@ -488,3 +535,44 @@ ManagedVector<VectorMatrixType> localNodeSpatialSum(const CPSmatrixField<VectorM
   return out;
 }
 
+//Unpack a CPSmatrixField into a linear array format
+template<typename VectorMatrixType>
+CPSfield<typename VectorMatrixType::scalar_type, VectorMatrixType::nScalarType(), FourDSIMDPolicy<OneFlavorPolicy>, CPSfieldDefaultAllocPolicy> linearUnpack(const CPSmatrixField<VectorMatrixType> &in){
+  typedef typename VectorMatrixType::scalar_type scalar_type;
+  CPSfield<scalar_type, VectorMatrixType::nScalarType(), FourDSIMDPolicy<OneFlavorPolicy>, CPSfieldDefaultAllocPolicy> out(in.getDimPolParams());
+  CPSautoView(out_v,out,HostWrite);
+  CPSautoView(in_v,in,HostRead);
+#pragma omp parallel for
+  for(size_t s=0;s<in_v.nsites();s++){
+    scalar_type *out_p = out_v.site_ptr(s);
+    scalar_type const* in_p = (scalar_type const*)in_v.site_ptr(s);
+    memcpy(out_p,in_p,VectorMatrixType::nScalarType()*sizeof(scalar_type));
+  }
+  return out;
+}
+
+//Pack a CPSmatrixField from a linear array format
+template<typename VectorMatrixType>
+CPSmatrixField<VectorMatrixType> linearRepack(const CPSfield<typename VectorMatrixType::scalar_type, VectorMatrixType::nScalarType(), FourDSIMDPolicy<OneFlavorPolicy>, CPSfieldDefaultAllocPolicy> &in){
+  typedef typename VectorMatrixType::scalar_type scalar_type;
+  CPSmatrixField<VectorMatrixType> out(in.getDimPolParams());
+  CPSautoView(out_v,out,HostWrite);
+  CPSautoView(in_v,in,HostRead);
+#pragma omp parallel for
+  for(size_t s=0;s<in_v.nsites();s++){
+    scalar_type *out_p = (scalar_type*)out_v.site_ptr(s);
+    scalar_type const* in_p = in_v.site_ptr(s);
+    memcpy(out_p,in_p,VectorMatrixType::nScalarType()*sizeof(scalar_type));
+  }
+  return out;
+}    
+
+//Cshift a field in the direction mu, for a field with complex-conjugate BCs in chosen directions
+//Cshift(+mu) : f'(x) = f(x-\hat mu)
+//Cshift(-mu) : f'(x) = f(x+\hat mu)
+template<typename VectorMatrixType>
+CPSmatrixField<VectorMatrixType> CshiftCconjBc(const CPSmatrixField<VectorMatrixType> &field, int mu, int pm, const std::vector<int> &conj_dirs){
+  auto up = linearUnpack(field);
+  auto r = CshiftCconjBc(up,mu,pm,conj_dirs);
+  return linearRepack<VectorMatrixType>(r);
+}
