@@ -94,6 +94,7 @@ public:
 		int *split_grid_geometry_val;
 	} split_grid_geometry;
 	MADWFparams madwf_params;
+	A2AhighModeSourceType highmode_source;
 	   void print(const std::string &prefix ="");
 	   void deep_copy(const CGcontrols &rhs);
 };

@@ -1199,4 +1199,17 @@ struct vml_enum_map A2A_ZMobiusGammaSource_map[] = {
 	{"A2A_ZMobiusGammaSource","A2A_ZMobiusGammaSourceCompute",A2A_ZMobiusGammaSourceCompute},
 	{NULL,NULL,0}
 };
+
+bool_t
+vml_A2AhighModeSourceType (VML *vmls, char *name,A2AhighModeSourceType *objp)
+{
+	if (!vml_enum (vmls,name,(enum_t *)objp,A2AhighModeSourceType_map))
+		return FALSE;
+	return TRUE;
+}
+struct vml_enum_map A2AhighModeSourceType_map[] = {
+	{"A2AhighModeSourceType","A2AhighModeSourceTypeOrig",A2AhighModeSourceTypeOrig},
+	{"A2AhighModeSourceType","A2AhighModeSourceTypeXconj",A2AhighModeSourceTypeXconj},
+	{NULL,NULL,0}
+};
 CPS_END_NAMESPACE
