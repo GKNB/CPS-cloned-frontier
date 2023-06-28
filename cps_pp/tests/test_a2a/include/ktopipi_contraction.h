@@ -258,6 +258,7 @@ public:
 
 template<typename GridA2Apolicies>
 void testKtoPiPiType4FieldContraction(const double tol){
+  std::cout << "Starting testKtoPiPiType4FieldContraction" << std::endl;
   typedef typename GridA2Apolicies::ComplexType ComplexType;
   typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
   typedef CPSspinColorFlavorMatrix<ComplexType> VectorMatrixType;
@@ -266,30 +267,36 @@ void testKtoPiPiType4FieldContraction(const double tol){
   static const int nsimd = GridA2Apolicies::ComplexType::Nsimd();
   typename PropagatorField::InputParamType simd_dims;
   PropagatorField::SIMDdefaultLayout(simd_dims,nsimd,2);
-  
+
   PropagatorField part1(simd_dims), part2_L(simd_dims), part2_H(simd_dims);
-  for(size_t x4d=0; x4d< part1.size(); x4d++){
-    for(int s1=0;s1<4;s1++){
-      for(int c1=0;c1<3;c1++){
-	for(int f1=0;f1<2;f1++){
-	  for(int s2=0;s2<4;s2++){
-	    for(int c2=0;c2<3;c2++){
-	      for(int f2=0;f2<2;f2++){
-		{
-		  ComplexType &v = (*part1.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
-		  for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
-		}		
+  {
+    CPSautoView(part1_v,part1,HostWrite);
+    CPSautoView(part2_L_v,part2_L,HostWrite);
+    CPSautoView(part2_H_v,part2_H,HostWrite);
+  
+    for(size_t x4d=0; x4d< part1.size(); x4d++){
+      for(int s1=0;s1<4;s1++){
+	for(int c1=0;c1<3;c1++){
+	  for(int f1=0;f1<2;f1++){
+	    for(int s2=0;s2<4;s2++){
+	      for(int c2=0;c2<3;c2++){
+		for(int f2=0;f2<2;f2++){
+		  {
+		    ComplexType &v = (*part1_v.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
+		    for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+		  }		
 
-		{
-		  ComplexType &v = (*part2_L.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
-		  for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
-		}		
+		  {
+		    ComplexType &v = (*part2_L_v.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
+		    for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+		  }		
 
-		{
-		  ComplexType &v = (*part2_H.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
-		  for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
-		}		
+		  {
+		    ComplexType &v = (*part2_H_v.site_ptr(x4d))(s1,s2)(c1,c2)(f1,f2);
+		    for(int s=0;s<nsimd;s++) v.putlane( ScalarComplexType( LRG.Urand(FOUR_D), LRG.Urand(FOUR_D) ), s );
+		  }		
 
+		}
 	      }
 	    }
 	  }
@@ -297,7 +304,7 @@ void testKtoPiPiType4FieldContraction(const double tol){
       }
     }
   }
-
+  
   typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
 
   static const int n_contract = 10; //ten type4 diagrams
@@ -308,25 +315,30 @@ void testKtoPiPiType4FieldContraction(const double tol){
   ResultsContainerType got_r(n_contract);
 
   int t_K = 1;
-
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
-  for(int t_loc=0;t_loc<GJP.TnodeSites();t_loc++){
-    int t_glob = t_loc + GJP.TnodeSites()*GJP.TnodeCoor();
-    int t_dis =  ComputeKtoPiPiGparityBase::modLt(t_glob - t_K, Lt);
+  {
+    CPSautoView(part1_v,part1,HostRead);
+    CPSautoView(part2_L_v,part2_L,HostRead);
+    CPSautoView(part2_H_v,part2_H,HostRead);
+   
+    for(int t_loc=0;t_loc<GJP.TnodeSites();t_loc++){
+      int t_glob = t_loc + GJP.TnodeSites()*GJP.TnodeCoor();
+      int t_dis =  ComputeKtoPiPiGparityBase::modLt(t_glob - t_K, Lt);
     
-    size_t vol3d = part1.size()/GJP.TnodeSites();
+      size_t vol3d = part1.size()/GJP.TnodeSites();
 #pragma omp parallel for
-    for(size_t x3d=0;x3d<vol3d;x3d++){
-      int me = omp_get_thread_num();
-      ComputeKtoPiPiGparityTest<GridA2Apolicies>::type4_contract_test(expect_r, t_K, t_dis, me,
-								      *part1.site_ptr(part1.threeToFour(x3d,t_loc)),
-								      *part2_L.site_ptr(part1.threeToFour(x3d,t_loc)),
-								      *part2_H.site_ptr(part1.threeToFour(x3d,t_loc)));
+      for(size_t x3d=0;x3d<vol3d;x3d++){
+	int me = omp_get_thread_num();
+	ComputeKtoPiPiGparityTest<GridA2Apolicies>::type4_contract_test(expect_r, t_K, t_dis, me,
+									*part1_v.site_ptr(part1.threeToFour(x3d,t_loc)),
+									*part2_L_v.site_ptr(part1.threeToFour(x3d,t_loc)),
+									*part2_H_v.site_ptr(part1.threeToFour(x3d,t_loc)));
+      }
     }
   }
 
   ComputeKtoPiPiGparityTest<GridA2Apolicies>::type4_contract_test(got_r, t_K, part1, part2_L, part2_H);
-
+  
   got_r.nodeSum();
   expect_r.threadSum();
   expect_r.nodeSum();
@@ -350,7 +362,7 @@ void testKtoPiPiType4FieldContraction(const double tol){
   }
   if(fail) ERR.General("","","KtoPiPi type4 contract failed\n");
     
-
+  std::cout << "Passed testKtoPiPiType4FieldContraction" << std::endl;
 }
 
 
@@ -358,7 +370,7 @@ void testKtoPiPiType4FieldContraction(const double tol){
 
 template<typename GridA2Apolicies>
 void testKtoPiPiType4FieldFull(const A2AArg &a2a_args, const double tol){
-  std::cout << "Starting type4 full test\n";
+  std::cout << "Starting testKtoPiPiType4FieldFull" << std::endl;;
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -546,7 +558,7 @@ void testKtoPiPiType1GridOmpStd(const A2AArg &a2a_args,
 
 template<typename GridA2Apolicies>
 void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
-  std::cout << "Starting testKtoPiPiType1FieldFull type1 full test\n";
+  std::cout << "Starting testKtoPiPiType1FieldFull" << std::endl;
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -628,7 +640,7 @@ void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
 
 template<typename GridA2Apolicies>
 void testKtoPiPiType2FieldFull(const A2AArg &a2a_args, const double tol){
-  std::cout << "Starting type2 full test\n";
+  std::cout << "Starting testKtoPiPiType2FieldFull" << std::endl;
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -730,7 +742,7 @@ void testKtoPiPiType2FieldFull(const A2AArg &a2a_args, const double tol){
 
 template<typename GridA2Apolicies>
 void testKtoPiPiType3FieldFull(const A2AArg &a2a_args, const double tol){
-  std::cout << "Starting type3 full test\n";
+  std::cout << "Starting testKtoPiPiType3FieldFull" << std::endl;
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 

@@ -179,8 +179,8 @@ public:
   typedef typename AlignedVector<SCFmat>::type SCFmatVector;
   typedef CPSmatrixField<SCFmat> SCFmatrixField;
 
-  typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> ResultsContainerType;
-  typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> MixDiagResultsContainerType;
+  typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, Aligned128AllocPolicy> ResultsContainerType;
+  typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, Aligned128AllocPolicy> MixDiagResultsContainerType;
 
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> mf_WW;
@@ -344,7 +344,7 @@ public:
 		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-#ifdef GPU_VEC
+#if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
     if(!UniqueID()) printf("Using type1 field implementation\n");
     type1_field(result, tsep_k_pi, tsep_pion, tstep, p_pi_1, mf_kaon, mf_pions, vL, vH, wL, wH); //falls back to CPU implementation for non-SIMD data
 #else
@@ -456,7 +456,7 @@ public:
 			   const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 			   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 			   const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-#ifdef GPU_VEC
+#if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
     if(!UniqueID()) printf("Using type2 field implementation\n");
     type2_field(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
 #else
@@ -594,7 +594,7 @@ public:
 		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-#ifdef GPU_VEC
+#if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
     if(!UniqueID()) printf("Using type3 field implementation\n");
     type3_field(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
 #else
@@ -700,7 +700,7 @@ public:
 		    const std::vector<mf_WW > &mf_kaon,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-#ifdef GPU_VEC
+#if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
     if(!UniqueID()) printf("Using type4 field implementation\n");
     type4_field(result, mix4, tstep, mf_kaon, vL, vH, wL, wH);
 #else

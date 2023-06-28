@@ -138,15 +138,7 @@ public:
   SCspinInnerProduct(const SourceType &_src): src(_src){ }
 
   static inline int mfPerTimeSlice(){ return _mfPerTimeSlice<SourceType>(); }
-
-  template<typename AccumType>  
-  inline void operator()(AccumType &into, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-    assert(mfPerTimeSlice() == 1); //not yet generalized to multi-src types
-    auto out = GeneralSpinColorContractSelect<smatidx,mf_Complex,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit(l.getPtr(0),r.getPtr(0));
-    auto site_val = src.siteComplex(p);
-    doAccum(into,out * site_val);
-  }
-  
+ 
   class View{
     typename SourceType::View src;
    
@@ -158,13 +150,15 @@ public:
       doAccum(into,out * site_val);
     }
 
-    View(const SCspinInnerProduct &r): src(r.src.view()){};
+    View(ViewMode mode, const SCspinInnerProduct &r): src(r.src.view(mode)){};
 
     View() = default;
     View(const View &r) = default;
+
+    void free(){ src.free(); }
   };
 
-  View view() const{ return View(*this); }
+  View view(ViewMode mode) const{ return View(mode, *this); }
 
 };
 
@@ -263,38 +257,7 @@ class GparityInnerProduct: public SpinColorContractPolicy{
   
   template<typename S>
   inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return 1; }
-
-  //Single source
-  template<typename AccumType, typename S>
-  inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
-  do_op(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-#ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr; //scalar on GPU, vector otherwise
-    this->spinColorContract(lMr,l,r);
-    
-    //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
-    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
-    src.siteFmat(phi,p);
-    phi.pl(sigma);
-
-    //Do the sum over the SIMD vectorized sites
-    doAccum(out, TransLeftTrace(lMr, phi));
-#endif
-  }  
-  
-  //Multi source
-  //Does out += op(l,r,p,t);
-  template<typename AccumVtype, typename S>
-  inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
-  do_op(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-#ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr; //scalar on GPU, vectorized otherwise
-    this->spinColorContract(lMr,l,r);
-
-    _siteFmatRecurse<SourceType,mf_Complex,SourceType::nSources>::doit(out,src,sigma,p,lMr);
-#endif
-  }
-  
+ 
 public:
   typedef SourceType InnerProductSourceType;
 
@@ -303,11 +266,6 @@ public:
   //When running with a multisrc type this returns the number of meson fields per timeslice = nSources
   inline int mfPerTimeSlice() const{ return _mfPerTimeSlice<SourceType>(); }
   
-  template<typename AccumType>
-  inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-    do_op<AccumType,SourceType>(out,l,r,p,t);
-  }
-
   inline SourceType * getSource(){ return &src; }
 
   class View: public SpinColorContractPolicy{
@@ -351,13 +309,15 @@ public:
       do_op<AccumType,SourceType>(out,l,r,p,t);
     }
 
-    View(const GparityInnerProduct &r): src(r.src.view()), sigma(r.sigma), SpinColorContractPolicy(r){};  //: src(r.src.view()), sigma(r.sigma), SpinColorContractPolicy(r){}
+    View(ViewMode mode, const GparityInnerProduct &r): src(r.src.view(mode)), sigma(r.sigma), SpinColorContractPolicy(r){};  //: src(r.src.view()), sigma(r.sigma), SpinColorContractPolicy(r){}
 
     View() = default;
     View(const View &r) = default;
+
+    void free(){ src.free(); }
   };
 
-  View view() const{ return View(*this); }
+  View view(ViewMode mode) const{ return View(mode, *this); }
 };
 
 template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
@@ -469,30 +429,44 @@ template<typename mf_Complex, typename SpinColorContractPolicy>
 class GparityNoSourceInnerProduct: public SpinColorContractPolicy{
   FlavorMatrixType sigma;
 
-  template<typename AccumType>
-  accelerator_inline void 
-  do_op(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-#ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr; //scalar on GPU, vector otherwise
-    this->spinColorContract(lMr,l,r);
-    
-    //Compute   lMr[f1,f3] sigma[f1,f3]  =   lMr^T[f3,f1] sigma[f1,f3]
-    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
-    phi.unit();
-    phi.pl(sigma);
-
-    //Do the sum over the SIMD vectorized sites
-    doAccum(out, TransLeftTrace(lMr, phi));
-#endif
-  }  
-
 public:
   GparityNoSourceInnerProduct(const FlavorMatrixType &_sigma): sigma(_sigma){ }
- 
-  template<typename AccumType>
-  accelerator_inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-    do_op<AccumType>(out,l,r,p,t);
-  }  
+
+  class View: public SpinColorContractPolicy{
+    FlavorMatrixType sigma;    
+    
+    template<typename AccumType>
+    accelerator_inline void 
+    do_op(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
+      FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr; //scalar on GPU, vector otherwise
+      this->spinColorContract(lMr,l,r);
+    
+      //Compute   lMr[f1,f3] sigma[f1,f3]  =   lMr^T[f3,f1] sigma[f1,f3]
+      FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
+      phi.unit();
+      phi.pl(sigma);
+
+      //Do the sum over the SIMD vectorized sites
+      doAccum(out, TransLeftTrace(lMr, phi));
+#endif
+    }  
+   
+  public:
+    template<typename AccumType>
+    accelerator_inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+      do_op<AccumType>(out,l,r,p,t);
+    }
+
+    View(ViewMode mode, const GparityNoSourceInnerProduct &r): sigma(r.sigma), SpinColorContractPolicy(r){};
+
+    View() = default;
+    View(const View &r) = default;
+
+    void free(){}
+  };
+
+  View view(ViewMode mode) const{ return View(mode, *this); }
 
   inline int mfPerTimeSlice() const{ return 1; }
 };
@@ -517,9 +491,9 @@ struct _getSource< std::vector<SourceType*>, Idx >{
     return shifted_sources[shift_idx]->template getSource<Idx>();
   }
 };
-template<typename SourceViewType, int Idx>
-struct _getSource< ViewArray<SourceViewType>, Idx >{
-  static accelerator_inline auto doit(const int shift_idx, const ViewArray<SourceViewType> &shifted_sources)-> const decltype(shifted_sources[shift_idx].template getSource<Idx>()) &  {
+template<typename SourceType, int Idx>
+struct _getSource< ViewArray<SourceType>, Idx >{
+  static accelerator_inline auto doit(const int shift_idx, const ViewArray<SourceType> &shifted_sources)-> const decltype(shifted_sources[shift_idx].template getSource<Idx>()) &  {
     return shifted_sources[shift_idx].template getSource<Idx>();
   }
 };
@@ -590,36 +564,7 @@ class GparitySourceShiftInnerProduct: public SpinColorContractPolicy{
   //When running with a single src type this returns the number of meson fields per timeslice = nshift
   template<typename S>
   inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return shifts.size(); }
-
-
-  //Single src, output vector indexed by src shift index
-  template<typename AccumVtype, typename S>
-  inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
-  do_op(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-#ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr;
-    this->spinColorContract(lMr,l,r);
-
-    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
-    for(int i=0;i<shifted_sources.size();i++){
-      shifted_sources[i]->siteFmat(phi,p);
-      phi.pl(sigma);
-      doAccum(out[i],TransLeftTrace(lMr, phi));
-    }
-#endif
-  }  
-
-  //Multi src. output indexed by source_idx + nSources*shift_idx
-  template<typename AccumVtype,typename S>
-  inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
-  do_op(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-#ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr;
-    this->spinColorContract(lMr,l,r);
-    _siteFmatRecurseShift<S,mf_Complex,S::nSources>::doit(out,shifted_sources,sigma,p,lMr);
-#endif
-  }
-  
+ 
 public: 
   typedef SourceType InnerProductSourceType;
   
@@ -651,13 +596,8 @@ public:
     }    
   }
   
-  template<typename AccumVtype>
-  inline void operator()(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-    return do_op<AccumVtype,SourceType>(out,l,r,p,t);
-  }
- 
   class View: public SpinColorContractPolicy{
-    ViewArray<typename SourceType::View> shifted_sources;
+    ViewArray<SourceType> shifted_sources;
     FlavorMatrixType sigma;
 
     //Single src, output vector indexed by src shift index
@@ -689,7 +629,7 @@ public:
     }
     
   public:    
-    View(const GparitySourceShiftInnerProduct &p): shifted_sources(p.shifted_sources), sigma(p.sigma), SpinColorContractPolicy(p){
+    View(ViewMode mode, const GparitySourceShiftInnerProduct &p): shifted_sources(mode,p.shifted_sources), sigma(p.sigma), SpinColorContractPolicy(p){
     }
 
     template<typename AccumVtype>
@@ -700,7 +640,7 @@ public:
     void free(){ shifted_sources.free(); }
   };
     
-  View view() const{ return View(*this); }
+  View view(ViewMode mode) const{ return View(mode,*this); }
     
 };
 

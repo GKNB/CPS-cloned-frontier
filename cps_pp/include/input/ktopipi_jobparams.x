@@ -34,6 +34,8 @@ class CGcontrols{
   int split_grid_geometry<>; //if using a split-Grid technique, how do you want to divide up the lattice?
   
   MADWFparams madwf_params; //if CGalgorithm ==  AlgorithmMixedPrecisionMADWF, get the MADWF parameters from here
+  
+  A2AhighModeSourceType highmode_source;
 
   rpccommand GENERATE_PRINT_METHOD;
   rpccommand GENERATE_DEEPCOPY_METHOD;

@@ -73,8 +73,8 @@ void benchmarkMfTraceProdGPU(const A2AArg &a2a_args, const int ntests){
 
   //"Hot" performance uses precomputed views
   {
-    CPSautoView(mf_v,mf);
-    CPSautoView(mf2_v,mf2);
+    CPSautoView(mf_v,mf, DeviceRead);
+    CPSautoView(mf2_v,mf2, DeviceRead);
     
     time = 0;
     for(int test=0;test<ntests;test++){

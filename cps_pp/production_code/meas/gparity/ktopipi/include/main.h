@@ -106,7 +106,8 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
 #ifdef USE_DESTRUCTIVE_FFT
       W.allocModes();
 #endif
-      W.setWhRandom();
+      A2AhighModeSourceOriginal<A2Apolicies> Wsrc_impl;
+      Wsrc_impl.setHighModeSources(W);
     }
     
     //-------------------- Strange quark Lanczos ---------------------//

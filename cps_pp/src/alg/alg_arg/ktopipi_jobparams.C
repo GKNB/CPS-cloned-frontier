@@ -165,6 +165,8 @@ vml_CGcontrols (VML *vmls, char *name,CGcontrols *objp)
 		 return FALSE;
 	 if (!vml_MADWFparams (vmls, "madwf_params", &objp->madwf_params))
 		 return FALSE;
+	 if (!vml_A2AhighModeSourceType (vmls, "highmode_source", &objp->highmode_source))
+		 return FALSE;
 	 vml_class_end(vmls,"CGcontrols",name);
 	return TRUE;
 }
@@ -180,6 +182,7 @@ void rpc_print<CGcontrols>::doit(CGcontrols const &what, const std::string &pref
 	rpc_print<int>::doit(what.multiCG_block_size,spaces+" multiCG_block_size = ");
 	rpc_print<int *>::doit(what.split_grid_geometry.split_grid_geometry_val,what.split_grid_geometry.split_grid_geometry_len,spaces+" split_grid_geometry = ");
 	rpc_print<MADWFparams>::doit(what.madwf_params,spaces+" madwf_params = ");
+	rpc_print<A2AhighModeSourceType>::doit(what.highmode_source,spaces+" highmode_source = ");
 	std::cout << spaces << "}\n";
 }
 void CGcontrols::print(const std::string &prefix){
@@ -196,6 +199,7 @@ void rpc_deepcopy<CGcontrols>::doit(CGcontrols &into, CGcontrols const &from){
 	  into.split_grid_geometry.split_grid_geometry_len = from.split_grid_geometry.split_grid_geometry_len;
 	  rpc_deepcopy<int *>::doit(into.split_grid_geometry.split_grid_geometry_val,from.split_grid_geometry.split_grid_geometry_val,from.split_grid_geometry.split_grid_geometry_len);
 	  rpc_deepcopy<MADWFparams>::doit(into.madwf_params,from.madwf_params);
+	  rpc_deepcopy<A2AhighModeSourceType>::doit(into.highmode_source,from.highmode_source);
 }
 void CGcontrols::deep_copy(CGcontrols const &rhs){
 	rpc_deepcopy<CGcontrols>::doit(*this,rhs);

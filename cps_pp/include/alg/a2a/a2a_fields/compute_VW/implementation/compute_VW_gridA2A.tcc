@@ -92,6 +92,17 @@ struct computeVW_impl{
     UGridD(lattice.getUGrid()), UGridF(lattice.getUGridF()), UrbGridD(lattice.getUrbGrid()), UrbGridF(lattice.getUrbGridF()),
     UmuD(lattice.getUmu()),
     use_split_grid(false){
+
+    //Setup the W src policy
+    std::unique_ptr<A2AhighModeSource<Policies> > Wsrc_impl;
+    switch(cg.highmode_source){
+    case A2AhighModeSourceTypeOrig:
+      Wsrc_impl.reset(new A2AhighModeSourceOriginal<Policies>()); break;
+    case A2AhighModeSourceTypeXconj:
+      Wsrc_impl.reset(new A2AhighModeSourceXconj<Policies>()); break;
+    default:
+      assert(0);
+    }
     
     UmuF.reset(new Grid::LatticeGaugeFieldF(UGridF));
     precisionChange(*UmuF, *UmuD);
@@ -156,7 +167,7 @@ struct computeVW_impl{
 
       A2AhighModeComputeGeneric<GridFermionFieldD> vwhighimpl(vwlowimpl_inner, inv4d);
 
-      computeVWhigh(V,W,evecs,vwhighimpl, cg.multiCG_block_size);
+      computeVWhigh(V,W,*Wsrc_impl,evecs,vwhighimpl, cg.multiCG_block_size);
     }else{
       A2ASchurOriginalOperatorImpl<GridDiracD> SchurOpD(*OpD);
       A2ASchurOriginalOperatorImpl<GridDiracF> SchurOpF(*OpF);
@@ -164,7 +175,7 @@ struct computeVW_impl{
       A2AlowModeComputeSchurPreconditioned<GridDiracD> vwlowimpl(SchurOpD);
       computeVWlow(V,W,evecs,vwlowimpl);
 
-      std::unique_ptr<A2AdeflatedInverter5dBase<GridFermionFieldD> > inv5d;
+      std::unique_ptr<A2Ainverter5dBase<GridFermionFieldD> > inv5d;
 
       /////Required only for split CG
       std::unique_ptr<A2ASchurOriginalOperatorImpl<GridDiracD> > SSchurOpD;
@@ -173,13 +184,14 @@ struct computeVW_impl{
 
       if(cg.CGalgorithm == AlgorithmCG){
 	std::cout << Grid::GridLogMessage << "Using double precision CG solver" << std::endl;
-	inv5d.reset(new A2Ainverter5dCG<GridFermionFieldD>(SchurOpD.getLinOp(),evecs,cg.CG_tolerance,cg.CG_max_iters));
+	inv5d.reset(new A2Ainverter5dCG<GridFermionFieldD>(SchurOpD.getLinOp(),cg.CG_tolerance,cg.CG_max_iters));
       }else if(cg.CGalgorithm == AlgorithmMixedPrecisionReliableUpdateCG){
 	std::cout << Grid::GridLogMessage << "Using mixed precision reliable update CG solver" << std::endl;
 	assert(cg.reliable_update_transition_tol == 0);
-	inv5d.reset(new A2Ainverter5dReliableUpdateCG<GridFermionFieldD,GridFermionFieldF>(SchurOpD.getLinOp(),SchurOpF.getLinOp(),evecs,FrbGridF,
+	inv5d.reset(new A2Ainverter5dReliableUpdateCG<GridFermionFieldD,GridFermionFieldF>(SchurOpD.getLinOp(),SchurOpF.getLinOp(),FrbGridF,
 											   cg.CG_tolerance,cg.CG_max_iters,cg.reliable_update_delta));
       }else if(cg.CGalgorithm == AlgorithmMixedPrecisionRestartedCG){
+	//note, we use the evecs to deflate again on each restart
 	std::cout << Grid::GridLogMessage << "Using mixed precision restarted CG solver" << std::endl;
 	inv5d.reset(new A2Ainverter5dMixedPrecCG<GridFermionFieldD,GridFermionFieldF>(SchurOpD.getLinOp(),SchurOpF.getLinOp(),evecs,FrbGridF,
 										      cg.CG_tolerance,cg.CG_max_iters,cg.mixedCG_init_inner_tolerance));
@@ -189,21 +201,24 @@ struct computeVW_impl{
 
 	SSchurOpD.reset(new A2ASchurOriginalOperatorImpl<GridDiracD>(*SOpD));
 	SSchurOpF.reset(new A2ASchurOriginalOperatorImpl<GridDiracF>(*SOpF));
-	inv5d.reset(new A2Ainverter5dReliableUpdateSplitCG<GridFermionFieldD,GridFermionFieldF>(SSchurOpD->getLinOp(),SSchurOpF->getLinOp(), evecs, SFrbGridD.get(), SFrbGridF.get(), 
+	inv5d.reset(new A2Ainverter5dReliableUpdateSplitCG<GridFermionFieldD,GridFermionFieldF>(SSchurOpD->getLinOp(),SSchurOpF->getLinOp(), SFrbGridD.get(), SFrbGridF.get(), 
 												Nsplit, cg.CG_tolerance,cg.CG_max_iters,cg.reliable_update_delta));
       }else{
 	assert(0);
       }
 
-      //A2Ainverter4dSchurPreconditioned<GridDiracD> inv4d(SchurOpD, *inv5d);  
-      //A2AhighModeComputeGeneric<GridFermionFieldD> vwhighimpl(vwlowimpl, inv4d);
-
+#if 0
+      //Slower, original version
+      A2AdeflatedInverter5dWrapper<GridFermionFieldD> inv5d_defl_wrap(evecs, *inv5d);
+      A2Ainverter4dSchurPreconditioned<GridDiracD> inv4d(SchurOpD, inv5d_defl_wrap);  
+      A2AhighModeComputeGeneric<GridFermionFieldD> vwhighimpl(vwlowimpl, inv4d);
+#else
       //Use the high mode implementation that combines the low mode part calculation with computing the guess
-      //We should disable the initial deflation on the 5D solvers as it will already be performed
-      inv5d->enableInitialDeflation(false);
+      //No need for initial deflation
       A2AhighModeComputeSchurPreconditioned<GridDiracD> vwhighimpl(SchurOpD, *inv5d);
+#endif
 
-      computeVWhigh(V,W,evecs,vwhighimpl, cg.multiCG_block_size);
+      computeVWhigh(V,W,*Wsrc_impl,evecs,vwhighimpl, cg.multiCG_block_size);
     }
   }
 };

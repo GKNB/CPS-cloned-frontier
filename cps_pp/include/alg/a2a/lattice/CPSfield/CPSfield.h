@@ -9,6 +9,9 @@
 #include<alg/a2a/utils.h>
 
 CPS_START_NAMESPACE 
+typedef ExplicitCopyDiskBackedPoolAllocPolicy CPSfieldDefaultAllocPolicy;
+//typedef ExplicitCopyPoolAllocPolicy CPSfieldDefaultAllocPolicy;
+//typedef UVMallocPolicy CPSfieldDefaultAllocPolicy;
 
 typedef std::complex<float> ComplexF;
 typedef std::complex<double> ComplexD;
@@ -23,17 +26,16 @@ inline CPSfield_checksumType checksumTypeFromString(const std::string &str){
 }
 
 //A wrapper for a CPS-style field. Most functionality is generic so it can do quite a lot of cool things
-template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy = StandardAllocPolicy>
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfield: public MappingPolicy, public AllocPolicy{
-  SiteType* f;
 protected:
   size_t fsize; //number of SiteType in the array = SiteSize * fsites
 
   void alloc(){
-    this->_alloc((void**)&f, fsize*sizeof(SiteType));
+    this->_alloc(fsize*sizeof(SiteType));
   }
   void freemem(){
-    if(f) this->_free((void*)f);
+    this->_free();
   }
 
 public:
@@ -44,82 +46,17 @@ public:
   
   typedef typename MappingPolicy::ParamType InputParamType;
 
-  CPSfield(const InputParamType &params): MappingPolicy(params){
-    fsize = this->nfsites() * SiteSize;
-    alloc();
-  }
-  CPSfield(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r): fsize(r.fsize), MappingPolicy(r){
-    alloc();
-    memcpy(f,r.f,sizeof(SiteType) * fsize);
-  }
-
-  CPSfield(CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &&r): fsize(r.fsize), MappingPolicy(r), f(r.f){
-    r.f = NULL;
-    r.fsize = 0;
-  }
-
-  //Copy from external pointer. Make sure you set the params and policies correctly because it has no way of bounds checking
-  CPSfield(SiteType const* copyme, const InputParamType &params): MappingPolicy(params){
-    fsize = this->nfsites() * SiteSize;
-    alloc();
-    memcpy(f,copyme,sizeof(SiteType) * fsize);
-  }
-
-  //Self destruct initialized (no more sfree!!)
-  virtual ~CPSfield(){
-    freemem();    
-  }
-  
-  //Set the field to zero
-  void zero(){
-    memset(f, 0, sizeof(SiteType) * fsize);      
-  }
-
-  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &operator=(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r){
-    static_cast<MappingPolicy&>(*this) = r; //copy policy info
-
-    size_t old_fsize = fsize;
-    fsize = r.fsize;
-
-    if(fsize != old_fsize){
-      freemem();
-      alloc();
-    }
-    memcpy(f,r.f,sizeof(SiteType) * fsize);
-    return *this;
-  }
-
-  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &operator=(CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &&r){
-    freemem();
-    f = r.f;
-    fsize = r.fsize;
-    r.f = NULL;
-    r.fsize = 0;
-    return *this;
-  }
-
-
-  static std::size_t byte_size(const InputParamType &params){
-    CPSfield<SiteType,SiteSize,MappingPolicy,NullAllocPolicy> tmp(params); //doesn't allocate
-    std::size_t out = SiteSize * sizeof(SiteType);
-    return tmp.nfsites() * out;
-  }
-  std::size_t byte_size() const{
-    return this->nfsites() * SiteSize * sizeof(SiteType);
-  }
-  
-  //Set each element to a uniform random number in the specified range.
-  //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
-  void testRandom(const Float hi = 0.5, const Float lo = -0.5);
-
   //Accelerator accessor functionality
   class View: public MappingPolicy{
+    typename AllocPolicy::AllocView aview;
     SiteType* f; //assumes unified memory
   protected:
     size_t fsize; //number of SiteType in the array = SiteSize * fsites
   public:
-    View(const CPSfield &field): f(field.f), fsize(field.fsize), MappingPolicy(field){ assert(FieldAllocPolicy::UVMenabled == 1); }
+    View(typename AllocPolicy::AllocView aview, const CPSfield &field): aview(aview), f( (SiteType*)aview() ), fsize(field.fsize), MappingPolicy(field){}
     
+    void free(){ aview.free(); }
+
     //Number of SiteType per site
     accelerator_inline int siteSize() const{ return SiteSize; }
 
@@ -157,7 +94,78 @@ public:
   };
 
   //Return a view object for use on the accelerator
-  View view() const{ return View(*this); }
+  View view(ViewMode mode) const{ return View(this->_getAllocView(mode),*this); }
+
+  CPSfield(const InputParamType &params): MappingPolicy(params){
+    fsize = this->nfsites() * SiteSize;
+    alloc();
+  }
+  CPSfield(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r): fsize(r.fsize), MappingPolicy(r){
+    alloc();
+    CPSautoView(r_v,r,HostRead);
+    CPSautoView(t_v,(*this),HostWrite);
+    memcpy(t_v.ptr(),r_v.ptr(),sizeof(SiteType) * fsize);
+  }
+
+  CPSfield(CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &&r): fsize(r.fsize), MappingPolicy(r){
+    r.AllocPolicy::_move(*this); //move into provided object!
+  }
+
+  //Copy from external pointer. Make sure you set the params and policies correctly because it has no way of bounds checking
+  CPSfield(SiteType const* copyme, const InputParamType &params): MappingPolicy(params){
+    fsize = this->nfsites() * SiteSize;
+    alloc();
+    CPSautoView(t_v,(*this),HostWrite);
+    memcpy(t_v.ptr(),copyme,sizeof(SiteType) * fsize);
+  }
+
+  //Self destruct initialized (no more sfree!!)
+  virtual ~CPSfield(){
+    freemem();    
+  }
+  
+  //Set the field to zero
+  void zero(){
+    CPSautoView(t_v,(*this),HostWrite);
+    memset(t_v.ptr(), 0, sizeof(SiteType) * fsize);      
+  }
+
+  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &operator=(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r){
+    static_cast<MappingPolicy&>(*this) = r; //copy policy info
+
+    size_t old_fsize = fsize;
+    fsize = r.fsize;
+
+    if(fsize != old_fsize){
+      freemem();
+      alloc();
+    }
+    CPSautoView(r_v,r,HostRead);
+    CPSautoView(t_v,(*this),HostWrite);
+    memcpy(t_v.ptr(),r_v.ptr(),sizeof(SiteType) * fsize);
+    return *this;
+  }
+
+  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &operator=(CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &&r){
+    freemem();
+    fsize = r.fsize;
+    r.AllocPolicy::_move(*this);
+    return *this;
+  }
+
+  static std::size_t byte_size(const InputParamType &params){
+    CPSfield<SiteType,SiteSize,MappingPolicy,NullAllocPolicy> tmp(params); //doesn't allocate
+    std::size_t out = SiteSize * sizeof(SiteType);
+    return tmp.nfsites() * out;
+  }
+  std::size_t byte_size() const{
+    return this->nfsites() * SiteSize * sizeof(SiteType);
+  }
+  
+  //Set each element to a uniform random number in the specified range.
+  //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
+  void testRandom(const Float hi = 0.5, const Float lo = -0.5);
+
 
   
   //Number of SiteType per site
@@ -166,43 +174,18 @@ public:
   //Number of SiteType in field
   inline size_t size() const{ return fsize; }
 
-  //Accessors
-  inline SiteType* ptr(){ return f; }
-  inline SiteType const* ptr() const{ return f; }
-
   //Accessors *do not check bounds*
   //int fsite is the linearized N-dimensional site/flavorcoordinate with the mapping specified by the policy class
   inline size_t fsite_offset(const size_t fsite) const{ return SiteSize*fsite; }
   
-  inline SiteType* fsite_ptr(const size_t fsite){  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
-    return f + SiteSize*fsite;
-  }
-  inline SiteType const* fsite_ptr(const size_t fsite) const{  //fsite is in the internal flavor/Euclidean mapping of the MappingPolicy. Use only if you know what you are doing
-    return f + SiteSize*fsite;
-  }
-
   //int site is the linearized N-dimension Euclidean coordinate with mapping specified by the policy class
   inline size_t site_offset(const size_t site, const int flav = 0) const{ return SiteSize*this->siteFsiteConvert(site,flav); }
   inline size_t site_offset(const int x[], const int flav = 0) const{ return SiteSize*this->fsiteMap(x,flav); }
 
-  inline SiteType* site_ptr(const size_t site, const int flav = 0){  //site is in the internal Euclidean mapping of the MappingPolicy
-    return f + SiteSize*this->siteFsiteConvert(site,flav);
-  }
-  inline SiteType* site_ptr(const int x[], const int flav = 0){ 
-    return f + SiteSize*this->fsiteMap(x,flav);
-  }    
-
-  inline SiteType const* site_ptr(const size_t site, const int flav = 0) const{  //site is in the internal Euclidean mapping of the MappingPolicy
-    return f + SiteSize*this->siteFsiteConvert(site,flav);
-  }
-  inline SiteType const* site_ptr(const int x[], const int flav = 0) const{ 
-    return f + SiteSize*this->fsiteMap(x,flav);
-  }    
- 
   inline size_t flav_offset() const{ return SiteSize*this->fsiteFlavorOffset(); } //pointer offset between flavors
 
   //Set this field to the average of this and a second field, r
-  void average(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r, const bool &parallel = true);
+  void average(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r, const bool parallel = true);
 
   //Import and export field with arbitrary MappingPolicy (must have same Euclidean dimension!) and precision. Must have same SiteSize and FlavorPolicy
   //Optional inclusion of a mask for accepting sites from the input field
@@ -213,8 +196,9 @@ public:
   void exportField(CPSfield<extSiteType,SiteSize,extMapPol,extAllocPol> &r, IncludeSite<MappingPolicy::EuclideanDimension> const* fromsitemask = NULL) const;
 
   bool equals(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r) const{
+    CPSautoView(t_v,(*this),HostRead); CPSautoView(r_v,r,HostRead);
     for(size_t i=0;i<fsize;i++)
-      if(!cps::equals(f[i],r.f[i])) return false;
+      if(!cps::equals(t_v.ptr()[i],r_v.ptr()[i])) return false;
     return true;
   }
 
@@ -224,8 +208,13 @@ public:
   
   template<typename extField>
   bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance) const{
+    CPSautoView(t_v,(*this),HostRead);
+    CPSautoView(r_v,r,HostRead);
+    SiteType const* tf = t_v.ptr();
+    SiteType const* rf = r_v.ptr();
+
     for(size_t i=0;i<fsize;i++){
-      if( fabs(f[i] - r.f[i]) > tolerance) return false;
+      if( fabs(tf[i] - rf[i]) > tolerance) return false;
     }
     return true;
   }
@@ -237,8 +226,13 @@ public:
   
   template<typename extField>
   bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance, bool verbose = false) const{
+    CPSautoView(t_v,(*this),HostRead);
+    CPSautoView(r_v,r,HostRead);
+    SiteType const* tf = t_v.ptr();
+    SiteType const* rf = r_v.ptr();
+    
     for(size_t i=0;i<fsize;i++){
-      if( fabs(f[i].real() - r.f[i].real()) > tolerance || fabs(f[i].imag() - r.f[i].imag()) > tolerance ){
+      if( fabs(tf[i].real() - rf[i].real()) > tolerance || fabs(tf[i].imag() - rf[i].imag()) > tolerance ){
 	if(verbose && !UniqueID()){
 	  size_t rem = i;
 	  size_t s = rem % SiteSize; rem /= SiteSize;
@@ -249,7 +243,7 @@ public:
 	  std::string coor_str = os.str();
 	  
 	  printf("Err: off %d  [s=%d coor=(%s) f=%d] this[%g,%g] vs that[%g,%g] : diff [%g,%g]\n",i, s,coor_str.c_str(),flav,
-		 f[i].real(),f[i].imag(),r.f[i].real(),r.f[i].imag(),fabs(f[i].real()-r.f[i].real()), fabs(f[i].imag()-r.f[i].imag()) );
+		 tf[i].real(),tf[i].imag(),rf[i].real(),rf[i].imag(),fabs(tf[i].real()-rf[i].real()), fabs(tf[i].imag()-rf[i].imag()) );
 	  fflush(stdout);
 	}
 	return false;
@@ -271,8 +265,8 @@ public:
     typedef typename extField::FieldSiteType::scalar_type ThatScalarType;
     typedef typename MappingPolicy::EquivalentScalarPolicy ScalarMapPol;
     NullObject null_obj;
-    CPSfield<ThisScalarType,SiteSize,ScalarMapPol, StandardAllocPolicy> tmp_this(null_obj);
-    CPSfield<ThatScalarType,SiteSize,ScalarMapPol, StandardAllocPolicy> tmp_that(null_obj);
+    CPSfield<ThisScalarType,SiteSize,ScalarMapPol> tmp_this(null_obj);
+    CPSfield<ThatScalarType,SiteSize,ScalarMapPol> tmp_that(null_obj);
     tmp_this.importField(*this);
     tmp_that.importField(r);
     return tmp_this.equals(tmp_that,tolerance,verbose);
@@ -295,13 +289,17 @@ public:
 #endif
 
   CPSfield & operator+=(const CPSfield &r){
+    CPSautoView(r_v,r,HostRead);
+    CPSautoView(t_v,(*this),HostWrite);
 #pragma omp parallel for
-    for(size_t i=0;i<fsize;i++) f[i] += r.f[i];
+    for(size_t i=0;i<fsize;i++) t_v.ptr()[i] += r_v.ptr()[i];
     return *this;
   }
   CPSfield & operator-=(const CPSfield &r){
+    CPSautoView(r_v,r,HostRead);
+    CPSautoView(t_v,(*this),HostWrite);
 #pragma omp parallel for
-    for(size_t i=0;i<fsize;i++) f[i] -= r.f[i];
+    for(size_t i=0;i<fsize;i++) t_v.ptr()[i] -= r_v.ptr()[i];
     return *this;
   }
 
@@ -360,7 +358,7 @@ public:
 
 
 
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion: public CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>{
 protected:
   //Obtain the basic unit of momentum given the boundary conditions
@@ -373,7 +371,7 @@ public:
   CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion);
 };
 
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion3D4Dcommon: public CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>{
 public:
   typedef CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> BaseType;
@@ -401,7 +399,7 @@ struct GaugeFix3DInfo<FixedFlavorPolicy<1> >{
   typedef std::pair<int,int> InfoType; //time, flavor (latter ignored if no GPBC)
 };
 
-template< typename mf_Complex, typename MappingPolicy = SpatialPolicy<DynamicFlavorPolicy>, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename MappingPolicy = SpatialPolicy<DynamicFlavorPolicy>, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion3D: public CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 3> check;
 
@@ -421,7 +419,7 @@ public:
   DEFINE_ADDSUB_DERIVED(CPSfermion3D);
 };
 
-template< typename mf_Complex, typename MappingPolicy = FourDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename MappingPolicy = FourDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion4D: public CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 4> check;
 public:
@@ -443,7 +441,7 @@ public:
   DEFINE_ADDSUB_DERIVED(CPSfermion4D);
 };
 
-template< typename mf_Complex, typename MappingPolicy = FiveDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename MappingPolicy = FiveDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion5D: public CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 5> check;
 public:  
@@ -457,7 +455,7 @@ public:
 };
 
 
-template< typename mf_Complex, typename MappingPolicy = FourDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename MappingPolicy = FourDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPScomplex4D: public CPSfield<mf_Complex,1,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 4> check;
 public:
@@ -475,7 +473,7 @@ public:
 };
 
 //3d complex number field
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPScomplexSpatial: public CPSfield<mf_Complex,1,SpatialPolicy<FlavorPolicy>,AllocPolicy>{
   typedef SpatialPolicy<FlavorPolicy> MappingPolicy;
 public:
@@ -486,7 +484,7 @@ public:
 };
 
 //Lattice-spanning 'global' 3d complex field
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSglobalComplexSpatial: public CPSfield<mf_Complex,1,GlobalSpatialPolicy<FlavorPolicy>,AllocPolicy>{
   typedef GlobalSpatialPolicy<FlavorPolicy> MappingPolicy;
 public:
@@ -506,7 +504,7 @@ public:
 
 
 //This field contains an entire row of sub-lattices along a particular dimension. Every node along that row contains an identical copy
-template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy = StandardAllocPolicy>
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfieldGlobalInOneDir: public CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>{
 public:
   typedef CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> BaseType;
@@ -527,7 +525,7 @@ public:
   DEFINE_ADDSUB_DERIVED(CPSfieldGlobalInOneDir);
 };
 
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion4DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir<FlavorPolicy>,AllocPolicy>{
 public:
   typedef CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir<FlavorPolicy>,AllocPolicy> BaseType;
@@ -535,7 +533,7 @@ public:
   CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion4DglobalInOneDir);  
   DEFINE_ADDSUB_DERIVED(CPSfermion4DglobalInOneDir);
 };
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion3DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir<FlavorPolicy>,AllocPolicy>{
 public:
   typedef CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir<FlavorPolicy>,AllocPolicy> BaseType;
@@ -546,7 +544,7 @@ public:
 
 
 ////////Checkerboarded types/////////////
-template< typename mf_Complex, typename CBpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename CBpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion5Dprec: public CPSfermion<mf_Complex,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy>{
 public:
   typedef CPSfermion<mf_Complex,FiveDevenOddpolicy<CBpolicy,FlavorPolicy>,AllocPolicy> BaseType;
@@ -556,7 +554,7 @@ public:
 };
 
 
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion5Dcb4Deven: public CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>{
 public:
   typedef CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy> BaseType;
@@ -564,7 +562,7 @@ public:
   CPSFIELD_DERIVED_DEFINE_CONSTRUCTORS_AND_COPY_ASSIGNMENT(BaseType,CPSfermion5Dcb4Deven);
   DEFINE_ADDSUB_DERIVED(CPSfermion5Dcb4Deven);
 };
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = CPSfieldDefaultAllocPolicy>
 class CPSfermion5Dcb4Dodd: public CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>{
 public:
   typedef CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy> BaseType;
@@ -581,10 +579,13 @@ using isCPSfieldType = has_enum_FieldSiteSize<T>;
 
 template<typename CPSfieldType, typename std::enable_if<isCPSfieldType<CPSfieldType>::value, int>::type = 0>
 CPSfieldType operator*(const CPSfieldType &f, const typename CPSfieldType::FieldSiteType &c){
-  CPSfieldType out(f);
+  CPSfieldType out(f.getDimPolParams());
+  CPSautoView(r_v,f,HostRead);
+  CPSautoView(t_v,out,HostWrite);
+
 #pragma omp parallel for
   for(size_t fi=0;fi< f.size();fi++){
-    out.ptr()[fi] = out.ptr()[fi] * c;
+    t_v.ptr()[fi] = r_v.ptr()[fi] * c;
   }
   return out;
 }

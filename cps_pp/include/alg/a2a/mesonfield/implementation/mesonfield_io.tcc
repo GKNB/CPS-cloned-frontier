@@ -44,7 +44,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(std::ostream *file_pt
     conv.setFileFormat(fileformat);
 
     int dsize = conv.size(dataformat);
-    unsigned int checksum = conv.checksum( (char*)this->data(), 2*fsize, dataformat);
+    CPSautoView(t_v,(*this),HostRead);
+    unsigned int checksum = conv.checksum( (char*)t_v.ptr(), 2*fsize, dataformat);
 
     //Header
     std::ostream &file = *file_ptr;     
@@ -96,7 +97,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(std::ostream *file_pt
     int fdinchunk = chunk/dsize;
     char* wbuf = (char*)malloc_check(chunk * sizeof(char)); 
       
-    char const* dptr = (char const*)this->data();
+    char const* dptr = (char const*)t_v.ptr();
 
     int off = 0;
     int nfd = 2*fsize;
@@ -252,6 +253,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
     ERR.General("A2AmesonField","read(const std::string &)","Error in reading mesonfield: read_fsize = %d versus computed fsize %d\n",read_fsize,fsize);
   }
   
+  CPSautoView(t_v,(*this),HostWrite);
+
   if(!UniqueID()){
     std::istream &file = *file_ptr;
     //Node 0 finish reading data
@@ -270,9 +273,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
     static const int chunk = 32768; //32kb chunks
     assert(chunk % dsize == 0);
     int fdinchunk = chunk/dsize;
-    char *rbuf = (char *)malloc_check(chunk * sizeof(char)); //leave room for auto null char
-      
-    char *dptr = (char *)this->data();
+    char *rbuf = (char *)malloc_check(chunk * sizeof(char)); //leave room for auto null char   
+    char *dptr = (char *)t_v.ptr();
 
     int off = 0;
     int nfd = 2*fsize;
@@ -299,14 +301,14 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
 
   //Broadcast data
 #ifdef USE_MPI
-  ret = MPI_Bcast(this->data(), 2*fsize*sizeof(typename ScalarComplexType::value_type) , MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
+  ret = MPI_Bcast(t_v.ptr(), 2*fsize*sizeof(typename ScalarComplexType::value_type) , MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
   if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read","Squirt data fail\n");
 #endif
   
   //Every node do the checksum
   FPConv conv;
   FP_FORMAT dataformat = FPformat<ScalarComplexType>::get();
-  unsigned int calc_cksum = conv.checksum((char*)this->data(), 2*fsize, dataformat);
+  unsigned int calc_cksum = conv.checksum((char*)t_v.ptr(), 2*fsize, dataformat);
 
   assert( calc_cksum == checksum );  
 }

@@ -29,7 +29,7 @@ void testCPSsquareMatrix(){
     scalar_type tr = sf1.Trace();
 
     std::cout << "Trace: ";
-    CPSprintT(std::cout, tr);
+    _print_T_sqmat(std::cout, tr);
     std::cout << std::endl;
 
     assert( tr == scalar_type(0.) );
@@ -37,7 +37,7 @@ void testCPSsquareMatrix(){
 
     cps::Complex dbl_trace = sf1.TraceIndex<0>().TraceIndex<0>();
     std::cout << "Trace(flavor)Trace(spin): ";
-    CPSprintT(std::cout, dbl_trace);
+    _print_T_sqmat(std::cout, dbl_trace);
     std::cout << std::endl;
     
     assert( tr == cps::Complex(0.) );
@@ -45,7 +45,7 @@ void testCPSsquareMatrix(){
     
     std::cout << "Trace product g5*g5=I_8x8: ";
     scalar_type tr_prod = Trace(sf1,sf1);
-    CPSprintT(std::cout, tr_prod);
+    _print_T_sqmat(std::cout, tr_prod);
     std::cout << std::endl;
 
     assert( tr_prod == scalar_type(8.) );
@@ -273,7 +273,10 @@ void testGparityInnerProduct(double tol){
   FlavorMatrixGeneral<T> prod = lg5r*s3;
   expect = prod.Trace();
 
-  inner(out,l,r,0,0);
+  {
+    CPSautoView(inner_v,inner,HostRead);
+    inner_v(out,l,r,0,0);
+  }
 
   std::cout << "Got (" << out.real() <<"," << out.imag() << ") expect (" << expect.real() <<"," << expect.imag() << ")  diff (" << out.real()-expect.real() << "," << out.imag()-expect.imag() << ")" << std::endl;
   
@@ -351,6 +354,73 @@ void testSCFmat(){
   }
 }
 
+
+#ifdef USE_GRID
+
+Grid::SpinVector operator*(CPSspinMatrix<Grid::ComplexD> &M, const Grid::SpinVector &v){
+  Grid::SpinVector out;
+  for(int i=0;i<4;i++){
+    out()(i)() = M(i,0)*v()(0)();
+    for(int j=1;j<4;j++){
+      out()(i)() = out()(i)() + M(i,j)*v()(j)();
+    }
+  }
+  return out;
+}
+#endif
+
+void test_gamma_CPS_vs_Grid(){
+#ifdef USE_GRID  
+  Grid::GridSerialRNG rng;
+  rng.SeedFixedIntegers(std::vector<int>({45,12,81,9}));
+
+  Grid::SpinVector v;
+  Grid::random(rng,v);
+  
+  Grid::Gamma ggrid[4] = { Grid::Gamma(Grid::Gamma::Algebra::GammaX) ,Grid::Gamma(Grid::Gamma::Algebra::GammaY), Grid::Gamma(Grid::Gamma::Algebra::GammaZ), Grid::Gamma(Grid::Gamma::Algebra::GammaT) };
+  for(int i=0;i<4;i++){
+    CPSspinMatrix<Grid::ComplexD> cg; cg.unit(); cg.gr(i);
+    Grid::SpinVector rg = ggrid[i] * v;
+    Grid::SpinVector rc = cg * v;
+    Grid::SpinVector d = rg - rc;
+    std::cout << "Test g" << i << " " << norm2(d) << std::endl;
+  }
+  Grid::Gamma g5grid(Grid::Gamma::Algebra::Gamma5);
+  {
+    CPSspinMatrix<Grid::ComplexD> cg; cg.unit(); cg.gr(-5);
+    Grid::SpinVector rg = g5grid * v;
+    Grid::SpinVector rc = cg * v;
+    Grid::SpinVector d = rg - rc;
+    std::cout << "Test g5 " << norm2(d) << std::endl;
+  }
+
+  CPSspinMatrix<Grid::ComplexD> C; C.unit(); C.gl(1).gl(3); //C=-gY gT = gT gY
+  CPSspinMatrix<Grid::ComplexD> X = C; X.gr(-5);
+  CPSspinMatrix<Grid::ComplexD> one; one.unit();
+  Grid::ComplexD _i(0,1);
+  CPSspinMatrix<Grid::ComplexD> Pplus = 0.5*(one + _i*X);
+  CPSspinMatrix<Grid::ComplexD> Pminus = 0.5*(one - _i*X);
+
+  Grid::Gamma Cgrid = Grid::Gamma(Grid::Gamma::Algebra::MinusGammaY) * Grid::Gamma(Grid::Gamma::Algebra::GammaT);      
+  {
+
+    Grid::SpinVector rg = Cgrid * v;
+    Grid::SpinVector rc = C * v;
+    Grid::SpinVector d = rg - rc;
+    std::cout << "Test C " << norm2(d) << std::endl;
+  }
+
+  Grid::Gamma Xgrid = Cgrid * g5grid;
+  {
+    Grid::SpinVector rg = Xgrid * v;
+    Grid::SpinVector rc = X * v;
+    Grid::SpinVector d = rg - rc;
+    std::cout << "Test X " << norm2(d) << std::endl;
+  }
+
+
+#endif
+}
 
 
 CPS_END_NAMESPACE

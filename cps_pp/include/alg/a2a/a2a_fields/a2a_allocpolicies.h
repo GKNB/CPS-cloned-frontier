@@ -7,6 +7,8 @@
 
 CPS_START_NAMESPACE
 
+//Allocation strategies for A2A vectors (manual or automatic allocation - for non-destructive and destructive ffts)
+
 template< typename mf_Policies> class A2AvectorV;
 template< typename mf_Policies> class A2AvectorVfftw;
 template< typename mf_Policies> class A2AvectorW;

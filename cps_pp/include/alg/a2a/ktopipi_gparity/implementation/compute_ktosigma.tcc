@@ -87,6 +87,12 @@ void ComputeKtoSigma<mf_Policies>::type12_omp(std::vector<ResultsContainerType> 
     
   vMv_split_shrbuf shared_buf_inst; 
 
+#ifdef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
+    CPSautoView(vL_v, vL, HostRead);
+    CPSautoView(vH_v, vH, HostRead);
+    CPSautoView(wL_v, wL, HostRead);
+#endif
+  
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
@@ -99,7 +105,7 @@ void ComputeKtoSigma<mf_Policies>::type12_omp(std::vector<ResultsContainerType> 
     setup_type12_pt2_split(part2_split,mf_S,top_glb, tS_subset_map, &shared_buf_inst);
     vmv_setup_time += dclock() - time;
 #endif
-
+    
 #pragma omp parallel for schedule(static)
     for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
       int thread_id = omp_get_thread_num();
@@ -112,7 +118,7 @@ void ComputeKtoSigma<mf_Policies>::type12_omp(std::vector<ResultsContainerType> 
 #ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
 	part2_split[tS_idx].contract(pt2_store[thread_id][tS_idx],xop3d_loc, false, true);
 #else
-	compute_type12_part2(pt2_store[thread_id][tS_idx], tS, top_loc, xop3d_loc, mf_S);
+	compute_type12_part2(pt2_store[thread_id][tS_idx], tS, top_loc, xop3d_loc, mf_S, vL_v, wL_v);
 #endif
 	if(!thread_id) pt2_time += dclock() - ttime;	  
       }
@@ -126,7 +132,7 @@ void ComputeKtoSigma<mf_Policies>::type12_omp(std::vector<ResultsContainerType> 
 #ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
 	part1_split[tK_subset_inv_map[tK_glb]].contract(pt1, xop3d_loc, false, true);
 #else
-	compute_type12_part1(pt1, tK_glb, top_loc, xop3d_loc);
+	compute_type12_part1(pt1, tK_glb, top_loc, xop3d_loc, vL_v, vH_v);
 #endif
 	if(!thread_id) pt1_time += dclock() - ttime;
 	    	 
@@ -288,6 +294,11 @@ void ComputeKtoSigma<mf_Policies>::type3_omp(std::vector<ResultsContainerType> &
 
   std::vector< SCFmatVector > pt1_store_allthr(omp_get_max_threads(), SCFmatVector(ntK_tS));
 
+  CPSautoView(vL_v, vL, HostRead);
+  CPSautoView(vH_v, vH, HostRead);
+  CPSautoView(wL_v, wL, HostRead);
+  CPSautoView(wH_v, wH, HostRead);
+  
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
@@ -297,7 +308,7 @@ void ComputeKtoSigma<mf_Policies>::type3_omp(std::vector<ResultsContainerType> &
     setup_type3_pt1_split(part1_split,top_glb,mf_prod,tK_tS_idx_map, &shared_buf_inst);
     vmv_setup_time += dclock() - time;
 #endif
-
+    
 #pragma omp parallel for schedule(static)
     for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
       int thread_id = omp_get_thread_num();
@@ -305,7 +316,7 @@ void ComputeKtoSigma<mf_Policies>::type3_omp(std::vector<ResultsContainerType> &
       double ttime = dclock();
 
       SCFmat pt2_L, pt2_H;
-      compute_type3_part2(pt2_L, pt2_H, top_loc, xop3d_loc);
+      compute_type3_part2(pt2_L, pt2_H, top_loc, xop3d_loc, vL_v, vH_v, wL_v, wH_v);
       if(!thread_id) pt2_time += dclock() - ttime;
 
       //Precompute part1
@@ -315,7 +326,7 @@ void ComputeKtoSigma<mf_Policies>::type3_omp(std::vector<ResultsContainerType> &
 #ifndef DISABLE_KTOSIGMA_TYPE3_SPLIT_VMV   
 	part1_split[i].contract(pt1_store[i], xop3d_loc, false, true);
 #else
-	compute_type3_part1(pt1_store[i], top_loc, xop3d_loc, mf_prod[i]);
+	compute_type3_part1(pt1_store[i], top_loc, xop3d_loc, mf_prod[i], vL_v, vH_v);
 #endif
 	if(!thread_id) pt1_time += dclock() - ttime;
       }
@@ -474,6 +485,11 @@ void ComputeKtoSigma<mf_Policies>::type4_omp(ResultsContainerType &result, MixDi
   double pt2_time = 0;
   double contract_time = 0;
 
+  CPSautoView(vL_v, vL, HostRead);
+  CPSautoView(vH_v, vH, HostRead);
+  CPSautoView(wL_v, wL, HostRead);
+  CPSautoView(wH_v, wH, HostRead);
+  
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
@@ -492,7 +508,7 @@ void ComputeKtoSigma<mf_Policies>::type4_omp(ResultsContainerType &result, MixDi
 
       ttime = dclock();
       SCFmat pt2_L, pt2_H;
-      compute_type4_part2(pt2_L, pt2_H, top_loc, xop3d_loc);
+      compute_type4_part2(pt2_L, pt2_H, top_loc, xop3d_loc, vL_v, vH_v, wL_v, wH_v);
       if(!thread_id) pt2_time += dclock() - ttime;
 
       for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
@@ -503,7 +519,7 @@ void ComputeKtoSigma<mf_Policies>::type4_omp(ResultsContainerType &result, MixDi
 #ifndef DISABLE_KTOSIGMA_TYPE4_SPLIT_VMV 
 	part1_split[ tK_subset_inv_map[tK_glb] ].contract(pt1,xop3d_loc,false,true);
 #else
-	compute_type4_part1(pt1, tK_glb, top_loc, xop3d_loc);
+	compute_type4_part1(pt1, tK_glb, top_loc, xop3d_loc, vL_v, vH_v);
 #endif
 	if(!thread_id) pt1_time += dclock() - ttime;
 

@@ -914,3 +914,9 @@ enum A2A_ZMobiusGammaSource{
      A2A_ZMobiusGammaSourceInput,
      A2A_ZMobiusGammaSourceCompute
 };
+
+enum A2AhighModeSourceType{
+     A2AhighModeSourceTypeOrig,
+     A2AhighModeSourceTypeXconj
+};
+     

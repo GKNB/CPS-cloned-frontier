@@ -60,35 +60,37 @@ void testCPSfieldArray(){
   farray[0].set(new FermionFieldType(field));
 
   ComplexType* into = (ComplexType*)managed_alloc_check(sizeof(ComplexType));
-  ComplexType expect = *field.site_ptr(size_t(0));
+  ComplexType expect;
+  {
+    CPSautoView(f_v,field,HostRead);
+    expect = *f_v.site_ptr(size_t(0));
+  }
 
-  std::cout << "Getting view" << std::endl;
-  CPSautoView(av, farray); //auto destruct memory alloced
    
-  using Grid::acceleratorThreads;
+  //using Grid::acceleratorThreads;
 
   typedef SIMT<ComplexType> ACC;
 
-#ifdef GRID_CUDA
-  using Grid::acceleratorAbortOnGpuError;	//FIXME: need to check if this logic here is correct! (Also 4 more places below!) I think Grid only implement that for CUDA
-#elif defined(GRID_SYCL)
-  using Grid::theGridAccelerator;
-#endif
+// #ifdef GRID_CUDA
+//   using Grid::acceleratorAbortOnGpuError;	//FIXME: need to check if this logic here is correct! (Also 4 more places below!) I think Grid only implement that for CUDA
+// #elif defined(GRID_SYCL)
+//   using Grid::theGridAccelerator;
+// #endif
 
-#if defined(GRID_HIP) || defined(GRID_CUDA)
-  using Grid::LambdaApply;
-  #if defined(GRID_HIP)
-  using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
-  #endif
-#endif
+// #if defined(GRID_HIP) || defined(GRID_CUDA)
+//   using Grid::LambdaApply;
+//   #if defined(GRID_HIP)
+//   using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
+//   #endif
+// #endif
 
 
   std::cout << "Starting kernel" << std::endl;
 
-  ComplexType* expect_p = farray[0]->fsite_ptr(size_t(0));
-  std::cout << "Site 0 ptr " << expect_p << std::endl;
-
   {
+    std::cout << "Getting view" << std::endl;
+    CPSautoView(av, farray, DeviceRead); //auto destruct memory alloced
+
     using namespace Grid;
     accelerator_for(x, farray[0]->size(), nsimd,
 		    {
@@ -164,8 +166,11 @@ void testA2AfieldAccess(){
   field.testRandom();
 
   ComplexType* into = (ComplexType*)managed_alloc_check(sizeof(ComplexType));
-  ComplexType expect = *field.site_ptr(size_t(0));
-  
+  ComplexType expect;
+  {
+    CPSautoView(f_v,field,HostRead);
+    expect = *f_v.site_ptr(size_t(0));
+  }
   A2AArg a2a_arg;
   a2a_arg.nl = 1;
   a2a_arg.nhits = 1;
@@ -181,25 +186,23 @@ void testA2AfieldAccess(){
 
   typedef SIMT<ComplexType> ACC;
 
-#ifdef GRID_CUDA
-  using Grid::acceleratorAbortOnGpuError;
-#elif defined(GRID_SYCL)
-  using Grid::theGridAccelerator;
-#endif
-#if defined(GRID_HIP) || defined(GRID_CUDA)
-  using Grid::LambdaApply;
-  #if defined(GRID_HIP)
-  using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
-  #endif
-#endif
+// #ifdef GRID_CUDA
+//   using Grid::acceleratorAbortOnGpuError;
+// #elif defined(GRID_SYCL)
+//   using Grid::theGridAccelerator;
+// #endif
+// #if defined(GRID_HIP) || defined(GRID_CUDA)
+//   using Grid::LambdaApply;
+//   #if defined(GRID_HIP)
+//   using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
+//   #endif
+// #endif
 
-  std::cout << "Generating views" << std::endl;
-  CPSautoView(vv, v);
-   
   size_t fsize = field.size();
  
   std::cout << "Starting kernel, fsize " << fsize << std::endl;
   {
+    CPSautoView(vv, v, DeviceRead);
     using namespace Grid;
     accelerator_for(x, fsize, nsimd,
 		    {
@@ -221,19 +224,7 @@ void testA2AfieldAccess(){
 }
 
 
-struct autoViewTest1{
-  double v;
-  bool free_called;
-  autoViewTest1(): free_called(false){}
-  
-  struct View{    
-    double v;
-    View(const autoViewTest1 &p): v(p.v){}
-  };
-  View view() const{ return View(*this); }
-};
-
-struct autoViewTest2{
+struct autoViewTest{
   double v;
   bool free_called;    
   
@@ -241,28 +232,18 @@ struct autoViewTest2{
     double v;
     bool* free_called;
     
-    View(autoViewTest2 &p): v(p.v), free_called(&p.free_called){}
+    View(autoViewTest &p, ViewMode mode): v(p.v), free_called(&p.free_called){}
     void free(){ *free_called = true; }
   };
-  View view(){ return View(*this); }
+  View view(ViewMode mode){ return View(*this,mode); }
 };
 
 void testAutoView(){ 
-  autoViewTest1 t1;
-  t1.v = 3.14;
-  
-  {  
-    CPSautoView(t1_v, t1);
-
-    assert(t1_v.v == t1.v);
-  }
-  assert( t1.free_called == false );
-
-  autoViewTest2 t2;
+  autoViewTest t2;
   t2.v = 6.28;
   
   {  
-    CPSautoView(t2_v, t2);
+    CPSautoView(t2_v, t2, DeviceRead);
 
     assert(t2_v.v == t2.v);
   }
@@ -271,50 +252,14 @@ void testAutoView(){
 }
 
 void testViewArray(){
-  //Test for a type that doesn't have a free method in its view
-  std::vector<autoViewTest1> t1(2);
-  t1[0].v = 3.14;
-  t1[1].v = 6.28;
-  
-  std::vector<autoViewTest1*> t1_p = { &t1[0], &t1[1] };
-  ViewArray<typename autoViewTest1::View> t1_v(t1_p);
-
   double* into = (double*)managed_alloc_check(2*sizeof(double));
 
-  using Grid::acceleratorThreads;
-
-#ifdef GRID_CUDA
-  using Grid::acceleratorAbortOnGpuError;
-#elif defined(GRID_SYCL)
-  using Grid::theGridAccelerator;
-#endif
-#if defined(GRID_HIP) || defined(GRID_CUDA)
-  using Grid::LambdaApply;
-  #if defined(GRID_HIP)
-  using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
-  #endif
-#endif
-
-  {
-    using namespace Grid;
-    accelerator_for(x, 100, 1,
-		    {
-		      if(x==0 || x==1){
-			into[x] = t1_v[x].v;
-		      }
-		    });
-  }
-  assert(into[0] == 3.14);
-  assert(into[1] == 6.28);
-
-
-  //Test for a type that does have a free method in its view
-  std::vector<autoViewTest2> t2(2);
+  std::vector<autoViewTest> t2(2);
   t2[0].v = 31.4;
   t2[1].v = 62.8;
   
-  std::vector<autoViewTest2*> t2_p = { &t2[0], &t2[1] };
-  ViewArray<typename autoViewTest2::View> t2_v(t2_p);
+  std::vector<autoViewTest*> t2_p = { &t2[0], &t2[1] };
+  ViewArray<autoViewTest> t2_v(DeviceRead,t2_p);
 
   {
     using namespace Grid;
@@ -360,25 +305,28 @@ void testCPSfieldDeviceCopy(){
   ComplexType* into = (ComplexType*)managed_alloc_check(sizeof(ComplexType));
   typedef SIMT<ComplexType> ACC;
 
-  ComplexType expect = *field.site_ptr(size_t(0));
-
-  using Grid::acceleratorThreads;
-
-#ifdef GRID_CUDA
-  using Grid::acceleratorAbortOnGpuError;
-#elif defined(GRID_SYCL)
-  using Grid::theGridAccelerator;
-#endif
-#if defined(GRID_HIP) || defined(GRID_CUDA)
-  using Grid::LambdaApply;
-  #if defined(GRID_HIP)
-  using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
-  #endif
-#endif
- 
-  auto field_v = field.view();
-
+  ComplexType expect;
   {
+    CPSautoView(field_v,field,HostRead);
+    expect = *field_v.site_ptr(size_t(0));
+  }
+
+//   using Grid::acceleratorThreads;
+
+// #ifdef GRID_CUDA
+//   using Grid::acceleratorAbortOnGpuError;
+// #elif defined(GRID_SYCL)
+//   using Grid::theGridAccelerator;
+// #endif
+// #if defined(GRID_HIP) || defined(GRID_CUDA)
+//   using Grid::LambdaApply;
+//   #if defined(GRID_HIP)
+//   using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
+//   #endif
+// #endif
+ 
+  {
+    CPSautoView(field_v,field,DeviceRead);
     using namespace Grid;
     accelerator_for(x, 1, nsimd,
 		    {
@@ -391,17 +339,16 @@ void testCPSfieldDeviceCopy(){
   
   assert( Reduce(expect == *into) );
 
-  //Test a view that is allocated in shared memory; basically a 1-element array
-  ManagedPtrWrapper<typename FermionFieldType::View> wrp(field.view());
+  //Test the wrapper allowing a view to be passed to the device through managed memory
+  ViewPointerWrapper<typename FermionFieldType::View> wrp(DeviceRead,field.view(DeviceRead));
   
   memset(into, 0, sizeof(ComplexType));
 
-  auto wrp_v = wrp.view();
   {
     using namespace Grid;
     accelerator_for(x, 1, nsimd,
 		    {
-		      auto v = ACC::read(*wrp_v->site_ptr(x));
+		      auto v = ACC::read(*wrp->site_ptr(x));
 		      ACC::write(*into, v);
 		    });
   }
@@ -411,7 +358,7 @@ void testCPSfieldDeviceCopy(){
   assert( Reduce(expect == *into) );  
 
   managed_free(into);
-
+  wrp.free();
 #endif
 }
 
@@ -444,29 +391,32 @@ void testMultiSourceDeviceCopy(){
   src.template getSource<0>().setup(rad,pbase, simd_dims_3d); //1s
   src.template getSource<1>().setup(2,0,0,rad,pbase, simd_dims_3d); //2s
 
-  auto src_v = src.view();
+  ComplexType expect1, expect2;
+  {
+    CPSautoView(src_v,src,HostRead);
+    expect1 = src_v.template getSource<0>().siteComplex(size_t(0));
+    expect2 = src_v.template getSource<1>().siteComplex(size_t(0));
+  }
 
-  ComplexType expect1 = src.template getSource<0>().siteComplex(size_t(0));
-  ComplexType expect2 = src.template getSource<1>().siteComplex(size_t(0));
+//   using Grid::acceleratorThreads;
 
-  using Grid::acceleratorThreads;
-
-#ifdef GRID_CUDA
-  using Grid::acceleratorAbortOnGpuError;
-#elif defined(GRID_SYCL)
-  using Grid::theGridAccelerator;
-#endif
-#if defined(GRID_HIP) || defined(GRID_CUDA)
-  using Grid::LambdaApply;
-  #if defined(GRID_HIP)
-  using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
-  #endif
-#endif
+// #ifdef GRID_CUDA
+//   using Grid::acceleratorAbortOnGpuError;
+// #elif defined(GRID_SYCL)
+//   using Grid::theGridAccelerator;
+// #endif
+// #if defined(GRID_HIP) || defined(GRID_CUDA)
+//   using Grid::LambdaApply;
+//   #if defined(GRID_HIP)
+//   using Grid::LambdaApply64;  //This is only defined for hip in Grid currently
+//   #endif
+// #endif
  
   ComplexType* into = (ComplexType*)managed_alloc_check(2*sizeof(ComplexType));
   typedef SIMT<ComplexType> ACC;
 
   {
+    CPSautoView(src_v,src,DeviceRead);
     using namespace Grid;
     accelerator_for(x, 100, nsimd,
 		    {
@@ -486,7 +436,6 @@ void testMultiSourceDeviceCopy(){
   assert( Reduce(expect2 == into[1]) );
 		  
   managed_free(into);
-  src_v.free();
   std::cout << "Passed testMultiSourceDeviceCopy" << std::endl;
 #endif
 }
@@ -518,8 +467,6 @@ void testFlavorProjectedSourceView(){
   
   vFmatType* into = (vFmatType*)managed_alloc_check(sizeof(vFmatType));
 
-  auto src_v = src.view();
-  
   typedef SIMT<ComplexType> ACC;
 
   //Check we can access the source sites
@@ -527,7 +474,7 @@ void testFlavorProjectedSourceView(){
     std::cout << "Checking site access" << std::endl;
     using namespace Grid;
     ComplexType *into_c = (ComplexType*)into;
-   
+    CPSautoView(src_v,src,DeviceRead);
     accelerator_for(x, 100, nsimd,
 		  {
 		    if(x==0){
@@ -535,7 +482,11 @@ void testFlavorProjectedSourceView(){
 		      ACC::write(*into_c,tmp);  
 		    }
 		  });
-    ComplexType expect = src.siteComplex(0);
+    ComplexType expect;
+    {
+      CPSautoView(src_v,src,HostRead);
+      expect = src_v.siteComplex(0);
+    }
 
     ScalarComplexType got_c = Reduce(*into_c);
     ScalarComplexType expect_c = Reduce(expect);
@@ -547,7 +498,7 @@ void testFlavorProjectedSourceView(){
   {
     std::cout << "Checking Fmat access" << std::endl;
     using namespace Grid;
- 
+    CPSautoView(src_v,src,DeviceRead);
     accelerator_for(x, 100, nsimd,
 		  {
 		    if(x==0){
@@ -560,11 +511,12 @@ void testFlavorProjectedSourceView(){
 		    }
 		  });
 
-    
-    vFmatType expect;
-    src.siteFmat(expect,0);
-    
-    assert(equals(*into,expect,1e-12));
+    FlavorMatrixGeneral<typename ACC::value_type> expect; //needs to compile for both host and device compiles so we need a mutable output type
+    {
+      CPSautoView(src_v,src,HostRead);
+      src_v.siteFmat(expect,0);      
+    }
+    assert(equals(*into, *( (vFmatType*)&expect ),1e-12));
   }
 
   managed_free(into);

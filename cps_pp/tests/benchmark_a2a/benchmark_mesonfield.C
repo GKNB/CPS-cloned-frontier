@@ -10,6 +10,8 @@ typedef void A2ApoliciesSIMDdoubleAutoAllocGparity;
 typedef void A2ApoliciesSIMDdoubleAutoAlloc;
 #endif
 
+A2APOLICIES_SIMD_TEMPLATE(A2ApoliciesSIMDdoubleAutoAllocGparityUVM, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DEFAULT, UVMallocPolicy);
+
 struct Options{
   bool load_lrg;
   std::string load_lrg_file;
@@ -146,7 +148,8 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 //   if(0) benchmarkmultGammaLeft(ntests, tol);
  
 // #ifdef USE_GRID
-//   if(0) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_params, ntests, nthreads);
+  //if(1) benchmarkMFcontract<ScalarA2ApoliciesType,A2ApoliciesSIMDdoubleAutoAllocGparityUVM>(a2a_params, ntests, nthreads); //UVM version
+  //if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_params, ntests, nthreads);
 //   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 //   if(0) benchmarkMultiShiftMFcontract<GridA2ApoliciesType>(a2a_args, opt.nshift);
 
@@ -164,12 +167,15 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 // #ifdef USE_GRID
 //   if(0) benchmarkvMvGridOrig<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 
-//   if(0) benchmarkvMvGridOffload<GridA2ApoliciesType,A2AvectorVfftw,A2AvectorWfftw>(a2a_args, ntests, nthreads);
-//   if(0) benchmarkvMvPartialTimeGridOffload<GridA2ApoliciesType>(a2a_args, ntests, opt.vMv_partial_timestart, opt.vMv_partial_timeend, opt.vMv_partial_compare_full);
+  //if(1) benchmarkvMvGridOffload<A2ApoliciesSIMDdoubleAutoAllocGparityUVM,A2AvectorVfftw,A2AvectorWfftw>(a2a_args, ntests, nthreads); //UVM version
+  if(1) benchmarkvMvGridOffload<GridA2ApoliciesType,A2AvectorVfftw,A2AvectorWfftw>(a2a_args, ntests, nthreads);
   
-//   if(0) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+//   if(0) benchmarkvMvPartialTimeGridOffload<GridA2ApoliciesType>(a2a_args, ntests, opt.vMv_partial_timestart, opt.vMv_partial_timeend, opt.vMv_partial_compare_full);
+
+  //if(1) benchmarkVVgridOffload<A2ApoliciesSIMDdoubleAutoAllocGparityUVM>(a2a_args, ntests, nthreads);
+  //if(1) benchmarkVVgridOffload<GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 //   if(0) benchmarkCPSmatrixField<GridA2ApoliciesType>(ntests);
-  if(1) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
+//  if(1) benchmarkKtoPiPiType1offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
 //   if(0) benchmarkKtoPiPiType4offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
 //   if(0) benchmarkKtoSigmaType12offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi); 
 //   if(1) benchmarkKtoSigmaType3offload<GridA2ApoliciesType>(a2a_args, lattice, opt.tsep_k_pi);
@@ -326,7 +332,12 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss << argv[i+1];
       ss >> opt.override_a2a_ntblocks;
       if(!UniqueID()) printf("Set #tblocks to %d\n",opt.override_a2a_ntblocks);
-      i+=2;            
+      i+=2;
+    }else if( cmd == "-gpu_pool_max_mem" ){
+      std::stringstream ss; ss << argv[i+1];
+      size_t v; ss >> v;
+      DeviceMemoryPoolManager::globalPool().setPoolMaxSize(v);
+      i+=2;
     }else{
       i++;
     }

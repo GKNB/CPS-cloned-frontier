@@ -4,31 +4,70 @@
 #include "mesonfield_mult_vMv_common.tcc"
 //Vector mesonfield outer product implementation
 
-template<typename mf_Policies, typename ImplPolicies,
-	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,
+template<typename ImplPolicies,
+	 typename lA2AfieldView, typename MesonFieldView, typename rA2AfieldView,
 	 typename ComplexClass>
 class _mult_vMv_impl_v{};
 
-template<typename mf_Policies, typename ImplPolicies,
-	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
+template<typename ImplPolicies,
+	 typename lA2AfieldView, typename MesonFieldView, typename rA2AfieldView
 	 >
-class _mult_vMv_impl_v<mf_Policies,ImplPolicies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,complex_double_or_float_mark>{ //necessary to avoid an annoying ambigous overload when mesonfield friends mult
+class _mult_vMv_impl_v<ImplPolicies,lA2AfieldView,MesonFieldView,rA2AfieldView,complex_double_or_float_mark>{ //necessary to avoid an annoying ambigous overload when mesonfield friends mult
 public:
-  typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+  typedef typename MesonFieldView::ScalarComplexType ScalarComplexType;
   typedef typename ImplPolicies::template MatrixType<ScalarComplexType> MatrixType;
+
+  //Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)
+  //Output as a GSL matrix. Can reuse previously allocated matrix providing its big enough
+  static typename gsl_wrapper<typename ScalarComplexType::value_type>::matrix_complex * GSLpackedColReorder(const MesonFieldView &M, const int idx_map[], int map_size, bool rowidx_used[],
+												     typename gsl_wrapper<typename ScalarComplexType::value_type>::matrix_complex *reuse ){
+    typedef gsl_wrapper<typename ScalarComplexType::value_type> gw;
+    assert(sizeof(typename gw::complex) == sizeof(ScalarComplexType));
+    int rows = M.getNrows();
+    int cols = M.getNcols();
+    
+    int nrows_used = 0;
+    for(int i_full=0;i_full<rows;i_full++) if(rowidx_used[i_full]) nrows_used++;
+    
+    typename gw::matrix_complex *M_packed;
+    if(reuse!=NULL){
+      M_packed = reuse;
+      M_packed->size1 = nrows_used;
+      M_packed->size2 = M_packed->tda = map_size;
+    }else M_packed = gw::matrix_complex_alloc(nrows_used,map_size);
+    
+    //Look for contiguous blocks in the idx_map we can take advantage of
+    std::vector<std::pair<int,int> > blocks;
+    find_contiguous_blocks(blocks,idx_map,map_size);
+
+    int i_packed = 0;
+    for(int i_full=0;i_full<rows;i_full++){
+      if(rowidx_used[i_full]){
+	ScalarComplexType const* mf_row_base = M.ptr() + cols*i_full; //meson field are row major so columns are contiguous
+	typename gw::complex* row_base = gw::matrix_complex_ptr(M_packed,i_packed,0); //GSL matrix are also row major
+	for(int b=0;b<blocks.size();b++){
+	  ScalarComplexType const* block_ptr = mf_row_base + idx_map[blocks[b].first];
+	  memcpy((void*)row_base,(void*)block_ptr,blocks[b].second*sizeof(ScalarComplexType));
+	  row_base += blocks[b].second;
+	}
+	i_packed++;
+      }
+    }
+
+    return M_packed;
+  }
+  
   //Form SpinColorFlavorMatrix prod1 = vL_i(\vec xop, top ; tpi2) [\sum_{\vec xpi2} wL_i^dag(\vec xpi2, tpi2) S2 vL_j(\vec xpi2, tpi2; top)] wL_j^dag(\vec xop,top)
 
   // l^i(xop,top) M^ij(tl,tr) r^j(xop,top)
   //argument xop is the *local* 3d site index in canonical ordering, top is the *local* time coordinate
   // Node local and unthreaded
-  static void mult(MatrixType &out, const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int xop, const int top, const bool conj_l, const bool conj_r){
-    typedef typename lA2AfieldL<mf_Policies>::DilutionType iLeftDilutionType;
-    typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::LeftDilutionType iRightDilutionType;
+  static void mult(MatrixType &out, const lA2AfieldView &l,  const MesonFieldView &M, const rA2AfieldView &r, const int xop, const int top, const bool conj_l, const bool conj_r){
+    typedef typename lA2AfieldView::DilutionType iLeftDilutionType;
+    typedef typename MesonFieldView::LeftDilutionType iRightDilutionType;
 
-    typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::RightDilutionType jLeftDilutionType;    
-    typedef typename rA2AfieldR<mf_Policies>::DilutionType jRightDilutionType;
+    typedef typename MesonFieldView::RightDilutionType jLeftDilutionType;    
+    typedef typename rA2AfieldView::DilutionType jRightDilutionType;
 
     out.zero();
     constexpr int nf = ImplPolicies::nf();
@@ -151,7 +190,7 @@ public:
       
       std::vector<int> &jlmap_this = jlmap[scf];
       
-      typename gw::matrix_complex * M_packed = M.GSLpackedColReorder(&jlmap_this.front(), nj_this, rowidx_used, M_packed_buffer); //packs the GSL matrix
+      typename gw::matrix_complex * M_packed = GSLpackedColReorder(M,&jlmap_this.front(), nj_this, rowidx_used, M_packed_buffer); //packs the GSL matrix
              
       int i_packed = 0;
       int i_packed_unmap[nrows_used];
@@ -204,7 +243,7 @@ public:
 
   }
 
-  static void mult_slow(MatrixType &out, const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int xop, const int top, const bool conj_l, const bool conj_r){
+  static void mult_slow(MatrixType &out, const lA2AfieldView &l,  const MesonFieldView &M, const rA2AfieldView &r, const int xop, const int top, const bool conj_l, const bool conj_r){
 
     int site4dop = xop + GJP.VolNodeSites()/GJP.TnodeSites()*top;
 
@@ -252,11 +291,12 @@ public:
 
 #ifdef USE_GRID
 
-template<typename mf_Policies, typename ImplPolicies,
-	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR>
-class _mult_vMv_impl_v<mf_Policies,ImplPolicies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,grid_vector_complex_mark>{ //for SIMD vectorized W and V vectors
+template<typename ImplPolicies,
+	 typename lA2AfieldView, typename MesonFieldView, typename rA2AfieldView
+	 >
+class _mult_vMv_impl_v<ImplPolicies,lA2AfieldView,MesonFieldView,rA2AfieldView,grid_vector_complex_mark>{ //for SIMD vectorized W and V vectors
 public:
+  typedef typename MesonFieldView::Policies mf_Policies;
   typedef typename mf_Policies::ComplexType SIMDcomplexType;
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
   typedef typename ImplPolicies::template MatrixType<SIMDcomplexType> MatrixType;
@@ -268,12 +308,12 @@ public:
   //argument xop is the *local* 3d site index of the reduced (logical) lattice in canonical ordering, top is the *local* time coordinate
   //it is assumed that the lattice is not SIMD vectorized in the time direction
   // Node local and unthreaded
-  static void mult(MatrixType &out, const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int xop, const int top, const bool conj_l, const bool conj_r){
-    typedef typename lA2AfieldL<mf_Policies>::DilutionType iLeftDilutionType;
-    typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::LeftDilutionType iRightDilutionType;
+  static void mult(MatrixType &out, const lA2AfieldView &l,  const MesonFieldView &M, const rA2AfieldView &r, const int xop, const int top, const bool conj_l, const bool conj_r){
+    typedef typename lA2AfieldView::DilutionType iLeftDilutionType;
+    typedef typename MesonFieldView::LeftDilutionType iRightDilutionType;
 
-    typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::RightDilutionType jLeftDilutionType;    
-    typedef typename rA2AfieldR<mf_Policies>::DilutionType jRightDilutionType;
+    typedef typename MesonFieldView::RightDilutionType jLeftDilutionType;    
+    typedef typename rA2AfieldView::DilutionType jRightDilutionType;
 
     assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
     
@@ -419,7 +459,7 @@ public:
 
 
 
-  static void mult_slow(MatrixType &out, const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int xop, const int top, const bool conj_l, const bool conj_r){
+  static void mult_slow(MatrixType &out, const lA2AfieldView &l,  const MesonFieldView &M, const rA2AfieldView &r, const int xop, const int top, const bool conj_l, const bool conj_r){
     assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
     
     int site4dop = l.getMode(0).threeToFour(xop,top);
@@ -470,41 +510,34 @@ public:
 };
 
 // l^i(xop,top) M^ij r^j(xop,top)
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  
-	 template <typename> class MA2AfieldL,  template <typename> class MA2AfieldR,
-	 template <typename> class rA2Afield  
+template<typename lA2AfieldView, typename MesonFieldView, typename rA2AfieldView, 
+	 typename std::enable_if<  std::is_same<typename lA2AfieldView::Policies, typename rA2AfieldView::Policies>::value && std::is_same<typename lA2AfieldView::Policies, typename MesonFieldView::Policies>::value, int>::type
 	 >
-void mult(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l,  const A2AmesonField<mf_Policies,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Policies> &r, const int xop, const int top, const bool conj_l, const bool conj_r){
-  _mult_vMv_impl_v<mf_Policies,_mult_vMv_impl_v_GparityPolicy,lA2Afield,MA2AfieldL,MA2AfieldR,rA2Afield, typename ComplexClassify<typename mf_Policies::ComplexType>::type >::mult(out,l,M,r,xop,top,conj_l,conj_r);
+void mult(CPSspinColorFlavorMatrix<typename MesonFieldView::Policies::ComplexType> &out, const lA2AfieldView &l,  const MesonFieldView &M, const rA2AfieldView &r, const int xop, const int top, const bool conj_l, const bool conj_r){
+  _mult_vMv_impl_v<_mult_vMv_impl_v_GparityPolicy,lA2AfieldView,MesonFieldView,rA2AfieldView, typename ComplexClassify<typename MesonFieldView::Policies::ComplexType>::type >::mult(out,l,M,r,xop,top,conj_l,conj_r);
 }
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  
-	 template <typename> class MA2AfieldL,  template <typename> class MA2AfieldR,
-	 template <typename> class rA2Afield  
+
+template<typename lA2AfieldView, typename MesonFieldView, typename rA2AfieldView, 
+	 typename std::enable_if<  std::is_same<typename lA2AfieldView::Policies, typename rA2AfieldView::Policies>::value && std::is_same<typename lA2AfieldView::Policies, typename MesonFieldView::Policies>::value, int>::type = 0
 	 >
-void mult_slow(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l,  const A2AmesonField<mf_Policies,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Policies> &r, const int xop, const int top, const bool conj_l, const bool conj_r){
-  _mult_vMv_impl_v<mf_Policies,_mult_vMv_impl_v_GparityPolicy,lA2Afield,MA2AfieldL,MA2AfieldR,rA2Afield, typename ComplexClassify<typename mf_Policies::ComplexType>::type >::mult_slow(out,l,M,r,xop,top,conj_l,conj_r);
+void mult_slow(CPSspinColorFlavorMatrix<typename MesonFieldView::Policies::ComplexType> &out, const lA2AfieldView &l,  const MesonFieldView &M, const rA2AfieldView &r, const int xop, const int top, const bool conj_l, const bool conj_r){
+  _mult_vMv_impl_v<_mult_vMv_impl_v_GparityPolicy,lA2AfieldView,MesonFieldView,rA2AfieldView, typename ComplexClassify<typename MesonFieldView::Policies::ComplexType>::type >::mult_slow(out,l,M,r,xop,top,conj_l,conj_r);
 }
 
 
 
 // l^i(xop,top) M^ij r^j(xop,top)
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  
-	 template <typename> class MA2AfieldL,  template <typename> class MA2AfieldR,
-	 template <typename> class rA2Afield  
+template<typename lA2AfieldView, typename MesonFieldView, typename rA2AfieldView, 
+	 typename std::enable_if<  std::is_same<typename lA2AfieldView::Policies, typename rA2AfieldView::Policies>::value && std::is_same<typename lA2AfieldView::Policies, typename MesonFieldView::Policies>::value, int>::type
 	 >
-void mult(CPSspinColorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l,  const A2AmesonField<mf_Policies,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Policies> &r, const int xop, const int top, const bool conj_l, const bool conj_r){
-  _mult_vMv_impl_v<mf_Policies,_mult_vMv_impl_v_StandardPolicy,lA2Afield,MA2AfieldL,MA2AfieldR,rA2Afield, typename ComplexClassify<typename mf_Policies::ComplexType>::type >::mult(out,l,M,r,xop,top,conj_l,conj_r);
+void mult(CPSspinColorMatrix<typename MesonFieldView::Policies::ComplexType> &out, const lA2AfieldView &l,  const MesonFieldView &M, const rA2AfieldView &r, const int xop, const int top, const bool conj_l, const bool conj_r){
+  _mult_vMv_impl_v<_mult_vMv_impl_v_StandardPolicy,lA2AfieldView,MesonFieldView,rA2AfieldView, typename ComplexClassify<typename MesonFieldView::Policies::ComplexType>::type >::mult(out,l,M,r,xop,top,conj_l,conj_r);
 }
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  
-	 template <typename> class MA2AfieldL,  template <typename> class MA2AfieldR,
-	 template <typename> class rA2Afield  
+template<typename lA2AfieldView, typename MesonFieldView, typename rA2AfieldView, 
+	 typename std::enable_if<  std::is_same<typename lA2AfieldView::Policies, typename rA2AfieldView::Policies>::value && std::is_same<typename lA2AfieldView::Policies, typename MesonFieldView::Policies>::value, int>::type = 0
 	 >
-void mult_slow(CPSspinColorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l,  const A2AmesonField<mf_Policies,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Policies> &r, const int xop, const int top, const bool conj_l, const bool conj_r){
-  _mult_vMv_impl_v<mf_Policies,_mult_vMv_impl_v_StandardPolicy,lA2Afield,MA2AfieldL,MA2AfieldR,rA2Afield, typename ComplexClassify<typename mf_Policies::ComplexType>::type >::mult_slow(out,l,M,r,xop,top,conj_l,conj_r);
+void mult_slow(CPSspinColorMatrix<typename MesonFieldView::Policies::ComplexType> &out, const lA2AfieldView &l,  const MesonFieldView &M, const rA2AfieldView &r, const int xop, const int top, const bool conj_l, const bool conj_r){
+  _mult_vMv_impl_v<_mult_vMv_impl_v_StandardPolicy,lA2AfieldView,MesonFieldView,rA2AfieldView, typename ComplexClassify<typename MesonFieldView::Policies::ComplexType>::type >::mult_slow(out,l,M,r,xop,top,conj_l,conj_r);
 }
 
 

@@ -30,44 +30,90 @@ public:
 
   class View{
     FieldView *v;
+    FieldView *host_v; //host-side duplicate of views used for freeing
+    unsigned char* unset; //which views are not actually open. Should not be accessed on device
     size_t sz;
+
+    enum DataLoc { Host, Device };
+    DataLoc loc;
+    
+    void placeData(ViewMode mode, FieldView* host_views, size_t n){
+      sz = n;
+      size_t byte_size = n*sizeof(FieldView);
+      host_v = host_views;
+      
+      if(mode == DeviceRead || mode == DeviceWrite || mode == DeviceReadWrite){
+	v = (FieldView *)device_alloc_check(byte_size);
+	copy_host_to_device(v, host_views, byte_size);
+	loc = Device;
+      }else{
+	v = host_views;
+	loc = Host;
+      }
+    } 
+    
+    void assign(ViewMode mode, const CPSfieldArray &a){
+      size_t byte_size = a.size() * sizeof(FieldView);
+      int n = a.size();
+      
+      unset = (unsigned char*)malloc(n*sizeof(unsigned char));
+      memset(unset,0x0,n*sizeof(unsigned char));
+      
+      FieldView* _host_v = (FieldView*)malloc(byte_size);
+      for(size_t i=0;i<n;i++){
+  	assert(a[i].assigned());
+  	new (_host_v+i) FieldView(a[i]->view(mode));
+      }     
+      placeData(mode,_host_v,n);
+    }
+
+    void assign(ViewMode mode, const CPSfieldArray &a, const std::vector<bool> &subset){
+      size_t byte_size = a.size() * sizeof(FieldView);
+      int n = a.size();
+
+      unset = (unsigned char*)malloc(n*sizeof(unsigned char));
+      memset(unset,0x0,n*sizeof(unsigned char));
+      
+      FieldView* _host_v = (FieldView*)malloc(byte_size);
+      for(size_t i=0;i<n;i++){
+	if(subset[i]){
+	  assert(a[i].assigned());
+	  new (_host_v+i) FieldView(a[i]->view(mode));
+	}else{
+	  unset[i] = (unsigned char)0x1;
+	}	  
+      }
+      placeData(mode,_host_v,n);
+    }
+
   public:
     size_t size() const{ return sz; }
 
-    View(): v(nullptr), sz(0){}
-    View(const CPSfieldArray &a): View(){ assign(a); }
+    View(): v(nullptr), host_v(nullptr), sz(0), unset(nullptr){}
+    View(ViewMode mode, const CPSfieldArray &a): View(){ assign(mode,a); }
+    View(ViewMode mode, const CPSfieldArray &a, const std::vector<bool> &subset): View(){ assign(mode,a,subset); }    
     View(const View &r) = default;
-    View(View &&r) = default;
-        
-    void assign(const CPSfieldArray &a){
-      if(v != nullptr) device_free(v); //could be reused
-      
-      size_t byte_size = a.size() * sizeof(FieldView);
-      v = (FieldView*)device_alloc_check(byte_size);
-      sz = a.size();
-
-      FieldView* tmpv = (FieldView*)malloc(byte_size);
-      for(size_t i=0;i<sz;i++){
-  	assert(a[i].assigned());
-  	new (tmpv+i) FieldView(a[i]->view());
-      }
-      copy_host_to_device(v, tmpv, byte_size);
-
-      for(size_t i=0;i<sz;i++)
-  	tmpv[i].~FieldView();
-      ::free(tmpv);
-    }
-
+    View(View &&r) = default;        
+   
     //Deallocation must be either manually called or use CPSautoView
     void free(){
-      if(v) device_free(v);
+      if(v){
+	if(loc == Device){
+	  device_free(v);
+	}//otherwise v = host_v and we should avoid freeing twice
+	for(size_t i=0;i<sz;i++) if(unset[i]==(unsigned char)0x0) host_v[i].free(); 
+	::free(host_v);
+	::free(unset);
+      }
     }
 
     accelerator_inline FieldView & operator[](const size_t i) const{ return v[i]; }
   };
 
-  View view() const{ return View(*this); }
-
+  View view(ViewMode mode) const{ return View(mode, *this); }
+  //Open a view only to some subset of elements. Undefined behavior if you access one that you are not supposed to!
+  View view(ViewMode mode, const std::vector<bool> &subset) const{ return View(mode, *this, subset); }
+  
   //Free all memory
   void free(){
     std::vector<PtrWrapper<FieldType> >().swap(v);

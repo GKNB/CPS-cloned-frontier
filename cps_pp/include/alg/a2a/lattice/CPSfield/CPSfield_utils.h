@@ -16,10 +16,13 @@ inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<C
     int x[5]; int rem = i;
     for(int ii=0;ii<5;ii++){ x[ii] = rem % GJP.NodeSites(ii); rem /= GJP.NodeSites(ii); }
     
+    CPSautoView(A_v,A,HostRead);
+    CPSautoView(B_v,B,HostRead);
+    
     for(int f=0;f<GJP.Gparity()+1;f++){
       for(int sc=0;sc<24;sc++){
-	double vbfm = *((double*)A.site_ptr(i,f) + sc);
-	double vgrid = *((double*)B.site_ptr(i,f) + sc);
+	double vbfm = *((double*)A_v.site_ptr(i,f) + sc);
+	double vgrid = *((double*)B_v.site_ptr(i,f) + sc);
 	    
 	double diff_rat = fabs( 2.0 * ( vbfm - vgrid )/( vbfm + vgrid ) );
 	double rat_grid_bfm = vbfm/vgrid;
@@ -43,19 +46,37 @@ inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<C
   }
 }
 
+template<typename FieldTypeA,typename FieldTypeB>
+struct CPSfieldTypesSameUpToAllocPolicy{
+  enum { value =
+    std::is_same<typename FieldTypeA::FieldSiteType,typename FieldTypeB::FieldSiteType>::value
+    &&
+    FieldTypeA::FieldSiteSize == FieldTypeA::FieldSiteSize
+    &&
+    std::is_same<typename FieldTypeA::FieldMappingPolicy,typename FieldTypeB::FieldMappingPolicy>::value
+  };
+};
+
+
 //Compare general CPSfield
-template<typename FieldType, typename my_enable_if<_equal<typename ComplexClassify<typename FieldType::FieldSiteType>::type, complex_double_or_float_mark>::value,int>::type = 0>
-inline void compareField(const FieldType &A, const FieldType &B, const std::string &descr = "Field", const double tol = 1e-9, bool print_all = false){
-  typedef typename FieldType::FieldSiteType::value_type value_type;
-  
+template<typename FieldTypeA, typename FieldTypeB, typename std::enable_if<
+						     std::is_same<typename ComplexClassify<typename FieldTypeA::FieldSiteType>::type, complex_double_or_float_mark>::value
+						     &&
+						     CPSfieldTypesSameUpToAllocPolicy<FieldTypeA,FieldTypeB>::value
+						     ,int>::type = 0>
+inline void compareField(const FieldTypeA &A, const FieldTypeB &B, const std::string &descr = "Field", const double tol = 1e-9, bool print_all = false){
+  typedef typename FieldTypeA::FieldSiteType::value_type value_type;
+
+  CPSautoView(A_v,A,HostRead);
+  CPSautoView(B_v,B,HostRead);
   double fail = 0.;
   for(int xf=0;xf<A.nfsites();xf++){
-    int f; int x[FieldType::FieldMappingPolicy::EuclideanDimension];
+    int f; int x[FieldTypeA::FieldMappingPolicy::EuclideanDimension];
     A.fsiteUnmap(xf, x,f);
 
-    for(int i=0;i<FieldType::FieldSiteSize;i++){
-      value_type const* av = (value_type const*)(A.fsite_ptr(xf)+i);
-      value_type const* bv = (value_type const*)(B.fsite_ptr(xf)+i);
+    for(int i=0;i<FieldTypeA::FieldSiteSize;i++){
+      value_type const* av = (value_type const*)(A_v.fsite_ptr(xf)+i);
+      value_type const* bv = (value_type const*)(B_v.fsite_ptr(xf)+i);
       for(int reim=0;reim<2;reim++){
 	value_type diff_rat = (av[reim] == 0.0 && bv[reim] == 0.0) ? 0.0 : fabs( 2.*(av[reim]-bv[reim])/(av[reim]+bv[reim]) );
 	if(diff_rat > tol || print_all){
@@ -63,9 +84,9 @@ inline void compareField(const FieldType &A, const FieldType &B, const std::stri
 	  else std::cout << "Pass: ";
 	  
 	  std::cout << "coord=(";
-	  for(int xx=0;xx<FieldType::FieldMappingPolicy::EuclideanDimension-1;xx++)
+	  for(int xx=0;xx<FieldTypeA::FieldMappingPolicy::EuclideanDimension-1;xx++)
 	    std::cout << x[xx] << ", ";
-	  std::cout << x[FieldType::FieldMappingPolicy::EuclideanDimension-1];
+	  std::cout << x[FieldTypeA::FieldMappingPolicy::EuclideanDimension-1];
 
 	  std::cout << ") f=" << f << " i=" << i << " reim=" << reim << " A " << av[reim] << " B " << bv[reim] << " fracdiff " << diff_rat << std::endl;
 	  if(diff_rat > tol) fail = 1.;
@@ -93,7 +114,8 @@ inline void exportGridcb(CPSfermion5D<cps::ComplexD> &into, typename GridPolicie
   tmp_g = Grid::Zero();
 
   setCheckerboard(tmp_g, from);
-  latg.ImportFermion((Vector*)into.ptr(), tmp_g);
+  CPSautoView(into_v,into,HostWrite);
+  latg.ImportFermion((Vector*)into_v.ptr(), tmp_g);
 }
 #endif
 
@@ -174,6 +196,144 @@ template<typename DerivedType>
 struct baseCPSfieldType{
   typedef CPSfield<typename DerivedType::FieldSiteType, DerivedType::FieldSiteSize, typename DerivedType::FieldMappingPolicy, typename DerivedType::FieldAllocPolicy> type;
 };
+
+inline std::vector<int> defaultConjDirs(){
+  std::vector<int> c(4,0);
+  for(int i=0;i<4;i++) c[i] = (GJP.Bc(i)==BND_CND_GPARITY ? 1 : 0);
+  return c;
+}
+
+//Cshift a field in the direction mu, for a field with complex-conjugate BCs in chosen directions
+//Cshift(+mu) : f'(x) = f(x-\hat mu)
+//Cshift(-mu) : f'(x) = f(x+\hat mu)
+template<typename T, int SiteSize, typename FlavorPol, typename Alloc>
+CPSfield<T,SiteSize,FourDpolicy<FlavorPol>,Alloc> CshiftCconjBc(const CPSfield<T,SiteSize,FourDpolicy<FlavorPol>,Alloc> &field, int mu, int pm, const std::vector<int> &conj_dirs= defaultConjDirs()){
+  assert(conj_dirs.size() == 4);
+  assert(abs(pm) == 1);
+  NullObject null_obj;
+  CPSfield<T,SiteSize,FourDpolicy<FlavorPol>,Alloc> out(null_obj);
+
+  cyclicPermute(out, field, mu, pm, 1);
+
+  int orthdirs[3];
+  size_t orthlen[3];
+  size_t orthsize = 1;
+  int jj=0;
+  for(int i=0;i<4;i++){
+    if(i!=mu){
+      orthdirs[jj] = i;      
+      orthlen[jj] = GJP.NodeSites(i);
+      orthsize *= GJP.NodeSites(i);
+      ++jj;
+    }
+  }
+  
+  if(pm == 1 && conj_dirs[mu] && GJP.NodeCoor(mu) == 0){ //pulled across lower boundary
+    CPSautoView(out_v,out,HostReadWrite);
+#pragma omp parallel for
+    for(size_t o=0;o<orthsize;o++){
+      int coord[4]; 
+      coord[mu] = 0;
+      size_t rem = o;
+      for(int i=0;i<3;i++){
+	coord[orthdirs[i]] = rem % orthlen[i]; rem /= orthlen[i];
+      }
+      for(int f=0;f<out_v.nflavors();f++){
+	T *p = out_v.site_ptr(coord,f);
+	for(int s=0;s<SiteSize;s++)
+	  p[s] = cps::cconj(p[s]);
+      }
+    }
+  }else if(pm == -1 && conj_dirs[mu] && GJP.NodeCoor(mu) == GJP.Nodes(mu)-1){ //pulled across upper boundary
+    CPSautoView(out_v,out,HostReadWrite);
+#pragma omp parallel for
+    for(size_t o=0;o<orthsize;o++){
+      int coord[4]; 
+      coord[mu] = GJP.NodeSites(mu)-1;
+      size_t rem = o;
+      for(int i=0;i<3;i++){
+	coord[orthdirs[i]] = rem % orthlen[i]; rem /= orthlen[i];
+      }
+      for(int f=0;f<out_v.nflavors();f++){
+	T *p = out_v.site_ptr(coord,f);
+	for(int s=0;s<SiteSize;s++)
+	  p[s] = cps::cconj(p[s]);
+      }
+    }
+  }
+  return out;
+}
+
+//Call the above but with intermediate conversion for non-basic layout (currently cannot deal directly with SIMD)
+template<typename T, int SiteSize, typename DimPol, typename Alloc, 
+	 typename std::enable_if<DimPol::EuclideanDimension==4 && 
+				 !std::is_same<FourDpolicy<typename DimPol::FieldFlavorPolicy>, DimPol>::value
+					       ,int>::type = 0 >
+CPSfield<T,SiteSize,DimPol,Alloc> CshiftCconjBc(const CPSfield<T,SiteSize,DimPol,Alloc> &field, int mu, int pm, const std::vector<int> &conj_dirs = defaultConjDirs()){
+  NullObject null_obj;
+  CPSfield<typename T::scalar_type,SiteSize,FourDpolicy<typename DimPol::FieldFlavorPolicy>,Alloc> tmp(null_obj);
+  tmp.importField(field);
+  tmp = CshiftCconjBc(tmp,mu,pm,conj_dirs);
+  CPSfield<T,SiteSize,DimPol,Alloc> out(field.getDimPolParams());
+  out.importField(tmp);
+  return out;
+}
+
+//Obtain the gauge fixing matrix from the CPS lattice class
+inline CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > getGaugeFixingMatrix(Lattice &lat){
+  NullObject null_obj;
+  CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > gfmat(null_obj);
+  {
+    CPSautoView(gfmat_v,gfmat,HostWrite);
+      
+#pragma omp parallel for
+    for(int s=0;s<GJP.VolNodeSites();s++){
+      for(int f=0;f<GJP.Gparity()+1;f++){
+	cps::ComplexD* to = gfmat_v.site_ptr(s,f);
+	cps::ComplexD const* from = (cps::ComplexD const*)lat.FixGaugeMatrix(s,f);
+	memcpy(to, from, 9*sizeof(cps::ComplexD));
+      }
+    }
+  }
+  return gfmat;
+}
+//Obtain the flavor-0 component of the gauge fixing matrix from the CPS lattice class
+inline CPSfield<cps::ComplexD,9,FourDpolicy<OneFlavorPolicy> > getGaugeFixingMatrixFlavor0(Lattice &lat){
+  NullObject null_obj;
+  CPSfield<cps::ComplexD,9,FourDpolicy<OneFlavorPolicy> > gfmat(null_obj);
+  {
+    CPSautoView(gfmat_v,gfmat,HostWrite);
+      
+#pragma omp parallel for
+    for(int s=0;s<GJP.VolNodeSites();s++){
+      cps::ComplexD* to = gfmat_v.site_ptr(s,0);
+      cps::ComplexD const* from = (cps::ComplexD const*)lat.FixGaugeMatrix(s,0);
+      memcpy(to, from, 9*sizeof(cps::ComplexD));
+    }
+  }
+  return gfmat;
+}
+//Apply the gauge fixing matrices to the lattice gauge links, obtaining a gauge fixed configuration
+inline void gaugeFixCPSlattice(Lattice &lat){
+  typedef CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > GaugeRotLinField;
+  GaugeRotLinField gfmat = getGaugeFixingMatrix(lat);
+
+  for(int mu=0;mu<4;mu++){
+    GaugeRotLinField gfmat_plus = CshiftCconjBc(gfmat, mu, -1); 
+
+    CPSautoView(gfmat_v, gfmat, HostRead);
+    CPSautoView(gfmat_plus_v, gfmat_plus, HostRead);
+ #pragma omp parallel for
+    for(size_t i=0;i<GJP.VolNodeSites();i++){
+      for(int f=0;f<GJP.Gparity()+1;f++){
+	Matrix g_plus_dag;  g_plus_dag.Dagger( *((Matrix*)gfmat_plus_v.site_ptr(i,f)) );
+	Matrix g = *((Matrix*)gfmat_v.site_ptr(i,f) );
+	Matrix *U = lat.GaugeField()+ mu + 4*(i + GJP.VolNodeSites()*f);
+	*U = g*(*U)*g_plus_dag;
+      }
+    }
+  }
+}
 
 CPS_END_NAMESPACE
 #endif

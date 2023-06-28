@@ -6,7 +6,7 @@ CPS_START_NAMESPACE
 template<typename A2Apolicies_std>
 void testMesonFieldComputeReference(const A2AArg &a2a_args, double tol){
 
-  std::cout << "Starting test of reference implementation" << std::endl;
+  std::cout << "Starting testMesonFieldComputeReference test of reference implementation " << std::endl;
   typedef flavorMatrixSpinColorContract<15,true,false> SCconPol;
   typedef GparityNoSourceInnerProduct<typename A2Apolicies_std::ComplexType, SCconPol> InnerProductType;
   InnerProductType inner(sigma3);
@@ -35,12 +35,13 @@ void testMesonFieldComputeReference(const A2AArg &a2a_args, double tol){
   MFtype mf_p;
   std::cout << "Computing MF using packed reference implementation" << std::endl;
   compute_simple(mf_p,Wf_p,inner,Vf_p,0);
-
+  CPSautoView(mf_p_v,mf_p,HostRead);
+  
   bool err = false;
   for(int i=0;i<nv;i++){
     for(int j=0;j<nv;j++){
       const ScalarComplexType &elem_u = mf_u(i,j);
-      const ScalarComplexType &elem_p = mf_p.elem(i,j);
+      const ScalarComplexType &elem_p = mf_p_v.elem(i,j);
       if( fabs(elem_u.real() - elem_p.real()) > tol || fabs(elem_u.imag() - elem_p.imag()) > tol){
 	std::cout << "Fail " << i << " " << j << " unpacked (" << elem_u.real() << "," << elem_u.imag() << ") packed (" << elem_p.real() << "," << elem_p.imag() << ") diff ("
 		  << elem_u.real()-elem_p.real() << "," << elem_u.imag()-elem_p.imag() << ")" << std::endl;
@@ -53,7 +54,7 @@ void testMesonFieldComputeReference(const A2AArg &a2a_args, double tol){
   }  
   assert(err == false);
 
-  std::cout << "Passed testMesonFieldComputeSingleReference tests" << std::endl;
+  std::cout << "Passed testMesonFieldComputeReference tests" << std::endl;
 }
 
 
@@ -85,6 +86,10 @@ void compute_test_g5s3(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, con
   int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
   if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
 
+    CPSautoView(l_v,l,HostRead);
+    CPSautoView(r_v,r,HostRead);
+    CPSautoView(into_v,into,HostWrite);
+    
 #pragma omp parallel for
     for(int i = 0; i < nmodes_l; i++){
       T mf_accum;
@@ -97,14 +102,14 @@ void compute_test_g5s3(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, con
 	mf_accum = 0.;
 
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
-	  SCFvectorPtr<T> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
-	  SCFvectorPtr<T> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,p_3d,t_lcl);
+	  SCFvectorPtr<T> lscf = l_v.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
+	  SCFvectorPtr<T> rscf = r_v.getFlavorDilutedVect(j,j_high_unmapped,p_3d,t_lcl);
 
 	  FlavorMatrixGeneral<T> lg5r; lg5r.zero();
 	  inner.spinColorContract(lg5r,lscf,rscf);
 	  doAccum(mf_accum, TransLeftTrace(lg5r, s3) ); //still agrees
 	}
-	into(i,j) = mf_accum; //downcast after accumulate      
+	into_v(i,j) = mf_accum; //downcast after accumulate      
       }
     }
   }
@@ -311,9 +316,12 @@ void testGridMesonFieldCompute(const A2AArg &a2a_args, const int nthreads, const
   if(!UniqueID()){ printf("Comparing\n"); fflush(stdout); }
   bool fail = false;
   for(int t=0;t<mf.size();t++){
+    CPSautoView(mf_grid_t_v,mf_grid[t],HostRead);
+    CPSautoView(mf_t_v,mf[t],HostRead);
+    
     for(int i=0;i<mf[t].size();i++){
-      const Ctype& gd = mf_grid[t].ptr()[i];
-      const Ctype& cp = mf[t].ptr()[i];
+      const Ctype& gd = mf_grid_t_v.ptr()[i];
+      const Ctype& cp = mf_t_v.ptr()[i];
       Ftype rdiff = fabs(gd.real()-cp.real());
       Ftype idiff = fabs(gd.imag()-cp.imag());
       if(rdiff > tol|| idiff > tol){

@@ -53,20 +53,23 @@ void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &
 
   QMP_mem_t *send_mem = QMP_allocate_memory(bufsz * sizeof(mf_Complex));
   mf_Complex *send_buf = (mf_Complex *)QMP_get_memory_pointer(send_mem);
-
+  
+  {
+    CPSautoView(from_v,from,HostRead);
 #pragma omp parallel for
-  for(int i=0;i<bsites;i++){
-    int rem = i;
-    int coor[Dimension];
-    for(int d=0;d<Dimension;d++){ coor[d] = rem % bsizes[d] + boff[d]; rem/=bsizes[d]; }
+    for(int i=0;i<bsites;i++){
+      int rem = i;
+      int coor[Dimension];
+      for(int d=0;d<Dimension;d++){ coor[d] = rem % bsizes[d] + boff[d]; rem/=bsizes[d]; }
 
-    mf_Complex const* site_ptr = from.site_ptr(coor);
-    mf_Complex* bp = send_buf + i*SiteSize;
-    memcpy(bp,site_ptr,SiteSize*sizeof(mf_Complex));
-    if(nf == 2){
-      site_ptr += flav_off;
-      bp += halfbufsz;
+      mf_Complex const* site_ptr = from_v.site_ptr(coor);
+      mf_Complex* bp = send_buf + i*SiteSize;
       memcpy(bp,site_ptr,SiteSize*sizeof(mf_Complex));
+      if(nf == 2){
+	site_ptr += flav_off;
+	bp += halfbufsz;
+	memcpy(bp,site_ptr,SiteSize*sizeof(mf_Complex));
+      }
     }
   }
   QMP_barrier();
@@ -85,23 +88,28 @@ void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &
       roff[i] = 0;
     }
 
+  {
+    CPSautoView(to_v,to,HostWrite);
+    CPSautoView(from_v,from,HostRead);
+    
 #pragma omp parallel for
-  for(int i=0;i<rsites;i++){
-    int rem = i;
-    int from_coor[Dimension];
-    for(int d=0;d<Dimension;d++){ from_coor[d] = rem % rsizes[d] + roff[d]; rem/=rsizes[d]; }
+    for(int i=0;i<rsites;i++){
+      int rem = i;
+      int from_coor[Dimension];
+      for(int d=0;d<Dimension;d++){ from_coor[d] = rem % rsizes[d] + roff[d]; rem/=rsizes[d]; }
     
-    int to_coor[Dimension]; memcpy(to_coor,from_coor,Dimension*sizeof(int));
-    to_coor[dir] = (pm == +1 ? from_coor[dir] + n : from_coor[dir] - n);
+      int to_coor[Dimension]; memcpy(to_coor,from_coor,Dimension*sizeof(int));
+      to_coor[dir] = (pm == +1 ? from_coor[dir] + n : from_coor[dir] - n);
     
-    mf_Complex const* from_ptr = from.site_ptr(from_coor);
-    mf_Complex * to_ptr = to.site_ptr(to_coor);
+      mf_Complex const* from_ptr = from_v.site_ptr(from_coor);
+      mf_Complex * to_ptr = to_v.site_ptr(to_coor);
 
-    memcpy(to_ptr,from_ptr,SiteSize*sizeof(mf_Complex));
-    if(nf == 2){
-      from_ptr += flav_off;
-      to_ptr += flav_off;
       memcpy(to_ptr,from_ptr,SiteSize*sizeof(mf_Complex));
+      if(nf == 2){
+	from_ptr += flav_off;
+	to_ptr += flav_off;
+	memcpy(to_ptr,from_ptr,SiteSize*sizeof(mf_Complex));
+      }
     }
   }
   
@@ -123,19 +131,23 @@ void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &
 
   //Copy received face into position. For + shift the origin we copy into is the left-face {0..n-1}, for a - shift its the right-face {L-n .. L-1}
   boff[dir] = (pm == 1 ? 0 : GJP.NodeSites(dir)-n);
+  {
+    CPSautoView(to_v,to,HostWrite);
+
 #pragma omp parallel for
-  for(int i=0;i<bsites;i++){
-    int rem = i;
-    int coor[Dimension];
-    for(int d=0;d<Dimension;d++){ coor[d] = rem % bsizes[d] + boff[d]; rem/=bsizes[d]; }
+    for(int i=0;i<bsites;i++){
+      int rem = i;
+      int coor[Dimension];
+      for(int d=0;d<Dimension;d++){ coor[d] = rem % bsizes[d] + boff[d]; rem/=bsizes[d]; }
     
-    mf_Complex * site_ptr = to.site_ptr(coor);
-    mf_Complex const* bp = recv_buf + i*SiteSize;
-    memcpy(site_ptr,bp,SiteSize*sizeof(mf_Complex));
-    if(nf == 2){
-      site_ptr += flav_off;
-      bp += halfbufsz;
+      mf_Complex * site_ptr = to_v.site_ptr(coor);
+      mf_Complex const* bp = recv_buf + i*SiteSize;
       memcpy(site_ptr,bp,SiteSize*sizeof(mf_Complex));
+      if(nf == 2){
+	site_ptr += flav_off;
+	bp += halfbufsz;
+	memcpy(site_ptr,bp,SiteSize*sizeof(mf_Complex));
+      }
     }
   }
 
@@ -210,39 +222,41 @@ void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &
   int osites = from.nsites();
   std::vector<int> to_oi_buf_map(nf * osites * nsimd); //map from outer and inner index of destination site to offset within buffer, used *after* comms.
   //map i + nsimd*(o + osites*f) as index
-  
+  {
+    CPSautoView(from_v,from,HostRead);
+
 #pragma omp parallel for
-  for(int c=0;c<bcsites;c++){
-    int rem = c;
-    int coor[Dimension];
-    for(int d=0;d<Dimension;d++){ coor[d] = rem % bcsizes[d]; rem/=bcsizes[d]; }
+    for(int c=0;c<bcsites;c++){
+      int rem = c;
+      int coor[Dimension];
+      for(int d=0;d<Dimension;d++){ coor[d] = rem % bcsizes[d]; rem/=bcsizes[d]; }
 
-    int coor_dest[Dimension];
-    for(int d=0;d<Dimension;d++){
-      coor_dest[d] = coor[d] + bcoff_postcomms[d];
-      coor[d] += bcoff[d];
-    }
+      int coor_dest[Dimension];
+      for(int d=0;d<Dimension;d++){
+	coor_dest[d] = coor[d] + bcoff_postcomms[d];
+	coor[d] += bcoff[d];
+      }
     
-    int i = from.SIMDmap(coor);
-    int o = from.siteMap(coor);
+      int i = from.SIMDmap(coor);
+      int o = from.siteMap(coor);
 
-    int i_dest = from.SIMDmap(coor_dest);
-    int o_dest = from.siteMap(coor_dest);
+      int i_dest = from.SIMDmap(coor_dest);
+      int o_dest = from.siteMap(coor_dest);
 
-    typename AlignedVector<scalarType>::type ounpacked(nsimd);
-    for(int f=0;f<nf;f++){
-      mf_Complex const *osite_ptr = from.site_ptr(o,f);
-      int send_buf_off = (c + bcsites*f)*SiteSize;
-      scalarType* bp = send_buf + send_buf_off;
-      to_oi_buf_map[ i_dest + nsimd*(o_dest+osites*f) ] = send_buf_off;
+      typename AlignedVector<scalarType>::type ounpacked(nsimd);
+      for(int f=0;f<nf;f++){
+	mf_Complex const *osite_ptr = from_v.site_ptr(o,f);
+	int send_buf_off = (c + bcsites*f)*SiteSize;
+	scalarType* bp = send_buf + send_buf_off;
+	to_oi_buf_map[ i_dest + nsimd*(o_dest+osites*f) ] = send_buf_off;
       
-      for(int s=0;s<SiteSize;s++){
-	vstore(*(osite_ptr++), ounpacked.data());
-	*(bp++) = ounpacked[i];
-      }      
+	for(int s=0;s<SiteSize;s++){
+	  vstore(*(osite_ptr++), ounpacked.data());
+	  *(bp++) = ounpacked[i];
+	}      
+      }
     }
   }
-
   //Send/receive
   QMP_msgmem_t send_msg = QMP_declare_msgmem(send_buf,bufsz * sizeof(scalarType));
   QMP_msgmem_t recv_msg = QMP_declare_msgmem(recv_buf,bufsz * sizeof(scalarType));
@@ -267,51 +281,55 @@ void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &
   //Problem is we don't want two threads writing to the same AVX register at the same time. Therefore we thread the loop over the destination SIMD vectors and work back
   std::vector< std::vector<int> > lane_offsets(nsimd,  std::vector<int>(Dimension) );
   for(int i=0;i<nsimd;i++) from.SIMDunmap(i, lane_offsets[i].data() );
-
-#pragma omp parallel for
-  for(int oto = 0;oto < osites; oto++){
-    int oto_base_coor[Dimension]; to.siteUnmap(oto,oto_base_coor);
-
-    //For each destination lane compute the source site index and lane
-    int from_lane[nsimd];
-    int from_osite_idx[nsimd]; //also use for recv_buf offsets for sites pulled over boundary
-    for(int lane = 0; lane < nsimd; lane++){
-      int offrom_coor[Dimension];
-      for(int d=0;d<Dimension;d++) offrom_coor[d] = oto_base_coor[d] + lane_offsets[lane][d];
-      offrom_coor[dir] += (pm == 1 ? -n : n);
-
-      if(offrom_coor[dir] < 0 || offrom_coor[dir] >= GJP.NodeSites(dir)){
-	from_lane[lane] = -1; //indicates data is in recv_buf	
-	from_osite_idx[lane] = to_oi_buf_map[ lane + nsimd*oto ]; //here is for flavor 0 - remember to offset for second flav
-      }else{
-	from_lane[lane] = from.SIMDmap(offrom_coor);
-	from_osite_idx[lane] = from.siteMap(offrom_coor);
-      }
-    }
-
-    //Now loop over flavor and element within the site as well as SIMD lanes of the destination vector and gather what we need to poke - then poke it
-    typename AlignedVector<scalarType>::type towrite(nsimd);
-    typename AlignedVector<scalarType>::type unpack(nsimd);
+  
+  {
+    CPSautoView(to_v,to,HostWrite);
+    CPSautoView(from_v,from,HostRead);
     
-    for(int f=0;f<nf;f++){
-      for(int s=0;s<SiteSize;s++){
-	for(int tolane=0;tolane<nsimd;tolane++){	  
-	  if(from_lane[tolane] != -1){
-	    mf_Complex const* from_osite_ptr = from.site_ptr(from_osite_idx[tolane], f) + s;
-	    vstore(*from_osite_ptr,unpack.data());
-	    towrite[tolane] = unpack[ from_lane[tolane] ];
-	  }else{
-	    //data is in buffer
-	    towrite[tolane] = recv_buf[ from_osite_idx[tolane] + s + f*bcsites*SiteSize ];
-	  }
-	    
+#pragma omp parallel for
+    for(int oto = 0;oto < osites; oto++){
+      int oto_base_coor[Dimension]; to.siteUnmap(oto,oto_base_coor);
+
+      //For each destination lane compute the source site index and lane
+      int from_lane[nsimd];
+      int from_osite_idx[nsimd]; //also use for recv_buf offsets for sites pulled over boundary
+      for(int lane = 0; lane < nsimd; lane++){
+	int offrom_coor[Dimension];
+	for(int d=0;d<Dimension;d++) offrom_coor[d] = oto_base_coor[d] + lane_offsets[lane][d];
+	offrom_coor[dir] += (pm == 1 ? -n : n);
+
+	if(offrom_coor[dir] < 0 || offrom_coor[dir] >= GJP.NodeSites(dir)){
+	  from_lane[lane] = -1; //indicates data is in recv_buf	
+	  from_osite_idx[lane] = to_oi_buf_map[ lane + nsimd*oto ]; //here is for flavor 0 - remember to offset for second flav
+	}else{
+	  from_lane[lane] = from.SIMDmap(offrom_coor);
+	  from_osite_idx[lane] = from.siteMap(offrom_coor);
 	}
-	mf_Complex* to_osite_ptr = to.site_ptr(oto,f) + s;
-	vset(*to_osite_ptr, towrite.data());	
+      }
+
+      //Now loop over flavor and element within the site as well as SIMD lanes of the destination vector and gather what we need to poke - then poke it
+      typename AlignedVector<scalarType>::type towrite(nsimd);
+      typename AlignedVector<scalarType>::type unpack(nsimd);
+    
+      for(int f=0;f<nf;f++){
+	for(int s=0;s<SiteSize;s++){
+	  for(int tolane=0;tolane<nsimd;tolane++){	  
+	    if(from_lane[tolane] != -1){
+	      mf_Complex const* from_osite_ptr = from_v.site_ptr(from_osite_idx[tolane], f) + s;
+	      vstore(*from_osite_ptr,unpack.data());
+	      towrite[tolane] = unpack[ from_lane[tolane] ];
+	    }else{
+	      //data is in buffer
+	      towrite[tolane] = recv_buf[ from_osite_idx[tolane] + s + f*bcsites*SiteSize ];
+	    }
+	    
+	  }
+	  mf_Complex* to_osite_ptr = to_v.site_ptr(oto,f) + s;
+	  vset(*to_osite_ptr, towrite.data());	
+	}
       }
     }
   }
-
   QMP_free_msghandle(send);
   QMP_free_msghandle(recv);
   QMP_free_msgmem(send_msg);
@@ -355,13 +373,16 @@ void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &
   const int nodes = GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes();
   if(nodes != 1) ERR.General("","cyclicPermuteImpl","Parallel implementation requires QMP\n");
 
+  CPSautoView(from_v,from,HostRead);
+  CPSautoView(to_v,to,HostWrite);
+  
 #pragma omp parallel for
   for(int i=0;i<from.nfsites();i++){
     int f; int x[Dimension];
     from.fsiteUnmap(i,x,f);
     x[dir] = (x[dir] + pm * n + 5*GJP.NodeSites(dir) ) % GJP.NodeSites(dir);
-    const mf_Complex* from_ptr = from.fsite_ptr(i);
-    mf_Complex* to_ptr = to.site_ptr(x,f);
+    const mf_Complex* from_ptr = from_v.fsite_ptr(i);
+    mf_Complex* to_ptr = to_v.site_ptr(x,f);
     memcpy(to_ptr,from_ptr,SiteSize*sizeof(mf_Complex));
   }
 }
@@ -404,13 +425,16 @@ void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &
   const int nthr = omp_get_max_threads();
   scalar_type* tmp_store_thr[nthr]; for(int i=0;i<nthr;i++) tmp_store_thr[i] = (scalar_type*)memalign_check(128,nsimd*sizeof(scalar_type));
   
+  CPSautoView(to_v,to,HostWrite);
+  CPSautoView(from_v,from,HostRead);
+
 #pragma omp parallel for
   for(int ofto=0;ofto<to.nfsites();ofto++){ //loop over outer site index
     const int me = omp_get_thread_num();
     int f; int oxto[Dimension];
     to.fsiteUnmap(ofto,oxto,f);
 
-    mf_Complex* to_base_ptr = to.fsite_ptr(ofto);
+    mf_Complex* to_base_ptr = to_v.fsite_ptr(ofto);
     
     scalar_type* tmp_store = tmp_store_thr[me];
 
@@ -425,7 +449,7 @@ void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &
       int xfrom[Dimension]; for(int d=0;d<Dimension;d++) xfrom[d] = oxto[d] + ixto_off[d]; //full coord corresponding to tolane + outer site
       xfrom[dir] = (xfrom[dir] - pm * n + 5*GJP.NodeSites(dir) ) % GJP.NodeSites(dir);
 
-      from_base_ptrs[tolane] = from.site_ptr(xfrom,f);
+      from_base_ptrs[tolane] = from_v.site_ptr(xfrom,f);
       from_lane_idx[tolane] = from.SIMDmap(xfrom);
     }
 

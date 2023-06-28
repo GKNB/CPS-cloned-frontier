@@ -3,27 +3,26 @@
 
 #include "mesonfield_mult_vMv_common.tcc"
 
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  template <typename> class rA2Afield,
+template<typename lA2AfieldView,  typename rA2AfieldView,
 	 typename ComplexClass
 	 >
 class _mult_lr_impl_v{ };
 
 
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  template <typename> class rA2Afield
+template<typename lA2AfieldView,  typename rA2AfieldView
 	 >
-class _mult_lr_impl_v<mf_Policies,lA2Afield,rA2Afield,complex_double_or_float_mark>{ 
+class _mult_lr_impl_v<lA2AfieldView,rA2AfieldView,complex_double_or_float_mark>{ 
 public:
+  typedef typename lA2AfieldView::Policies mf_Policies;
   typedef typename _mult_vMv_impl_v_getPolicy<mf_Policies::GPARITY>::type OutputPolicy;
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
   typedef typename OutputPolicy::template MatrixType<ScalarComplexType> OutputMatrixType;
   const static int nf = OutputPolicy::nf();
 
-  static void mult(OutputMatrixType &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+  static void mult(OutputMatrixType &out, const lA2AfieldView &l, const rA2AfieldView &r, 
 		   const int xop, const int top, const bool conj_l, const bool conj_r){
-    typedef typename lA2Afield<mf_Policies>::DilutionType iLeftDilutionType;
-    typedef typename rA2Afield<mf_Policies>::DilutionType iRightDilutionType;
+    typedef typename lA2AfieldView::DilutionType iLeftDilutionType;
+    typedef typename rA2AfieldView::DilutionType iRightDilutionType;
 
     out.zero();
 
@@ -122,7 +121,7 @@ public:
     gw::matrix_complex_free(ogsl);
   }
 
-  static void mult_slow(OutputMatrixType &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+  static void mult_slow(OutputMatrixType &out, const lA2AfieldView &l, const rA2AfieldView &r, 
 			const int xop, const int top, const bool conj_l, const bool conj_r){
     assert( l.paramsEqual(r) );
 
@@ -166,11 +165,10 @@ public:
 #ifdef USE_GRID
 
 
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  template <typename> class rA2Afield
-	 >
-class _mult_lr_impl_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_complex_mark>{ 
+template<typename lA2AfieldView, typename rA2AfieldView>
+class _mult_lr_impl_v<lA2AfieldView,rA2AfieldView,grid_vector_complex_mark>{ 
 public:
+  typedef typename lA2AfieldView::Policies mf_Policies;
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
   typedef typename mf_Policies::ComplexType SIMDcomplexType;
 
@@ -181,10 +179,10 @@ public:
   const static int nf = OutputPolicy::nf();
  
 
-  static void mult(OutputMatrixType &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+  static void mult(OutputMatrixType &out, const lA2AfieldView &l, const rA2AfieldView &r, 
 		   const int xop, const int top, const bool conj_l, const bool conj_r){
-    typedef typename lA2Afield<mf_Policies>::DilutionType iLeftDilutionType;
-    typedef typename rA2Afield<mf_Policies>::DilutionType iRightDilutionType;
+    typedef typename lA2AfieldView::DilutionType iLeftDilutionType;
+    typedef typename rA2AfieldView::DilutionType iRightDilutionType;
 
     out.zero();
     assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
@@ -263,7 +261,7 @@ public:
     }
   }
 
-  static void mult_slow(OutputMatrixType &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+  static void mult_slow(OutputMatrixType &out, const lA2AfieldView &l, const rA2AfieldView &r, 
 			const int xop, const int top, const bool conj_l, const bool conj_r){
     assert( l.paramsEqual(r) );
 
@@ -309,43 +307,30 @@ public:
 // l^i(xop,top) r^i(xop,top)
 //argument xop is the *local* 3d site index in canonical ordering, top is the *local* time coordinate
 // Node local and unthreaded
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  
-	 template <typename> class rA2Afield  
-	 >
-void mult(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+template<class lA2AfieldView, class rA2AfieldView, typename std::enable_if<std::is_same<typename lA2AfieldView::Policies,typename rA2AfieldView::Policies>::value,int>::type>
+void mult(CPSspinColorFlavorMatrix<typename lA2AfieldView::Policies::ComplexType> &out, const lA2AfieldView &l, const rA2AfieldView &r, 
 	  const int xop, const int top, const bool conj_l, const bool conj_r){
-  _mult_lr_impl_v<mf_Policies,lA2Afield,rA2Afield,typename ComplexClassify<typename mf_Policies::ComplexType>::type >::mult(out,l,r,xop,top,conj_l,conj_r);
+  _mult_lr_impl_v<lA2AfieldView,rA2AfieldView,typename ComplexClassify<typename lA2AfieldView::Policies::ComplexType>::type >::mult(out,l,r,xop,top,conj_l,conj_r);
 }
 
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  
-	 template <typename> class rA2Afield  
-	 >
-void mult(CPSspinColorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+template<class lA2AfieldView, class rA2AfieldView, typename std::enable_if<std::is_same<typename lA2AfieldView::Policies,typename rA2AfieldView::Policies>::value,int>::type>
+void mult(CPSspinColorMatrix<typename lA2AfieldView::Policies::ComplexType> &out, const lA2AfieldView &l, const rA2AfieldView &r, 
 	  const int xop, const int top, const bool conj_l, const bool conj_r){
-  _mult_lr_impl_v<mf_Policies,lA2Afield,rA2Afield,typename ComplexClassify<typename mf_Policies::ComplexType>::type >::mult(out,l,r,xop,top,conj_l,conj_r);
+  _mult_lr_impl_v<lA2AfieldView,rA2AfieldView,typename ComplexClassify<typename lA2AfieldView::Policies::ComplexType>::type >::mult(out,l,r,xop,top,conj_l,conj_r);
 }
 
 
 
-
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  
-	 template <typename> class rA2Afield  
-	 >
-void mult_slow(CPSspinColorFlavorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+template<class lA2AfieldView, class rA2AfieldView, typename std::enable_if<std::is_same<typename lA2AfieldView::Policies,typename rA2AfieldView::Policies>::value,int>::type = 0 >
+void mult_slow(CPSspinColorFlavorMatrix<typename lA2AfieldView::Policies::ComplexType> &out, const lA2AfieldView &l, const rA2AfieldView &r, 
 	       const int xop, const int top, const bool conj_l, const bool conj_r){
-  _mult_lr_impl_v<mf_Policies,lA2Afield,rA2Afield,typename ComplexClassify<typename mf_Policies::ComplexType>::type >::mult_slow(out,l,r,xop,top,conj_l,conj_r);
+  _mult_lr_impl_v<lA2AfieldView,rA2AfieldView,typename ComplexClassify<typename lA2AfieldView::Policies::ComplexType>::type >::mult_slow(out,l,r,xop,top,conj_l,conj_r);
 }
 
-template<typename mf_Policies, 
-	 template <typename> class lA2Afield,  
-	 template <typename> class rA2Afield  
-	 >
-void mult_slow(CPSspinColorMatrix<typename mf_Policies::ComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, 
+template<class lA2AfieldView, class rA2AfieldView, typename std::enable_if<std::is_same<typename lA2AfieldView::Policies,typename rA2AfieldView::Policies>::value,int>::type = 0 >
+void mult_slow(CPSspinColorMatrix<typename lA2AfieldView::Policies::ComplexType> &out, const lA2AfieldView &l, const rA2AfieldView &r, 
 	       const int xop, const int top, const bool conj_l, const bool conj_r){
-  _mult_lr_impl_v<mf_Policies,lA2Afield,rA2Afield,typename ComplexClassify<typename mf_Policies::ComplexType>::type >::mult_slow(out,l,r,xop,top,conj_l,conj_r);
+  _mult_lr_impl_v<lA2AfieldView,rA2AfieldView,typename ComplexClassify<typename lA2AfieldView::Policies::ComplexType>::type >::mult_slow(out,l,r,xop,top,conj_l,conj_r);
 }
 
 

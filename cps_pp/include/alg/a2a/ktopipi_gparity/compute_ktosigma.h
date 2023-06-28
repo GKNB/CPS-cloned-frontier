@@ -14,8 +14,8 @@ public:
   typedef typename getInnerVectorType<SCFmat,typename ComplexClassify<ComplexType>::type>::type SCFmatVector;
   typedef CPSmatrixField<SCFmat> SCFmatrixField;
   
-  typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> ResultsContainerType;
-  typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> MixDiagResultsContainerType;
+  typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, Aligned128AllocPolicy> ResultsContainerType;
+  typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, Aligned128AllocPolicy> MixDiagResultsContainerType;
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> SigmaMesonFieldType;
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> KaonMesonFieldType;
 
@@ -28,7 +28,9 @@ private:
   const A2AvectorV<mf_Policies> & vH;
   const A2AvectorW<mf_Policies> & wL;
   const A2AvectorW<mf_Policies> & wH;
-  
+  typedef typename A2AvectorV<mf_Policies>::View VView;
+  typedef typename A2AvectorW<mf_Policies>::View WView;
+
   const std::vector<KaonMesonFieldType> &mf_ls_WW;
 
   const std::vector<int> tsep_k_sigma;
@@ -64,8 +66,8 @@ private:
   //    = Tr(  Tr_c( P_OS P_SO )M2 Tr_c( P_OK PH^dag_OK G5 M1 ) )
   //    = Tr(  Tr_c( V_O [W^dag_S V_S] W^dag_O ) M2 Tr_c( V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) )
 
-  inline void compute_type12_part1(SCFmat &pt1, const int tK_glb, const int top_loc, const int xop_loc){
-    mult(pt1, vL, mf_ls_WW[tK_glb], vH, xop_loc, top_loc, false, true);
+  inline void compute_type12_part1(SCFmat &pt1, const int tK_glb, const int top_loc, const int xop_loc, VView &vL_v, VView &vH_v){
+    mult(pt1, vL_v, mf_ls_WW[tK_glb], vH_v, xop_loc, top_loc, false, true);
   }
 
   void setup_type12_pt1_split(std::vector<vMv_split_VWWV> &part1_split, const int top_glb, const std::vector<int> &tK_subset_map,
@@ -76,8 +78,8 @@ private:
     }
   }
 
-  inline void compute_type12_part2(SCFmat &pt2, const int tS_glb, const int top_loc, const int xop_loc, const std::vector<SigmaMesonFieldType> &mf_S){
-    mult(pt2, vL, mf_S[tS_glb], wL, xop_loc, top_loc, false, true);
+  inline void compute_type12_part2(SCFmat &pt2, const int tS_glb, const int top_loc, const int xop_loc, const std::vector<SigmaMesonFieldType> &mf_S, VView &vL_v, WView &wL_v){
+    mult(pt2, vL_v, mf_S[tS_glb], wL_v, xop_loc, top_loc, false, true);
   }
 
   void setup_type12_pt2_split(std::vector<vMv_split_VWVW> &part2_split, std::vector<SigmaMesonFieldType> &mf_S, 
@@ -121,7 +123,7 @@ public:
   void type12_field(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S);
 
   void type12(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){
-#ifdef GPU_VEC
+#if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
     type12_field(result, mf_S);
 #else
     type12_omp(result, mf_S);
@@ -195,8 +197,8 @@ private:
 
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> Type3MesonFieldProductType;
 
-  inline void compute_type3_part1(SCFmat &pt1, const int top_loc, const int xop_loc, const Type3MesonFieldProductType &mf_prod){
-    mult(pt1, vL, mf_prod, vH, xop_loc, top_loc, false, true);
+  inline void compute_type3_part1(SCFmat &pt1, const int top_loc, const int xop_loc, const Type3MesonFieldProductType &mf_prod, VView &vL_v, VView &vH_v){
+    mult(pt1, vL_v, mf_prod, vH_v, xop_loc, top_loc, false, true);
   }
 
   void setup_type3_pt1_split(std::vector<vMv_split_VWWV> &part1_split, const int top_glb,
@@ -207,9 +209,9 @@ private:
     }
   }
   
-  inline void compute_type3_part2(SCFmat &pt2_L, SCFmat &pt2_H, const int top_loc, const int xop_loc){
-    mult(pt2_L, vL, wL, xop_loc, top_loc, false, true);
-    mult(pt2_H, vH, wH, xop_loc, top_loc, false, true);
+  inline void compute_type3_part2(SCFmat &pt2_L, SCFmat &pt2_H, const int top_loc, const int xop_loc, VView &vL_v, VView &vH_v, WView &wL_v, WView &wH_v){
+    mult(pt2_L, vL_v, wL_v, xop_loc, top_loc, false, true);
+    mult(pt2_H, vH_v, wH_v, xop_loc, top_loc, false, true);
   }
 
   //Run inside threaded environment
@@ -243,7 +245,7 @@ public:
   void type3_field(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S);
 
   void type3(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){
-#ifdef GPU_VEC
+#if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
     type3_field(result, mix3, mf_S);
 #else
     type3_omp(result, mix3, mf_S);
@@ -299,8 +301,8 @@ private:
   //pt2_L = V_O W^dag_O
   //pt2_H = VH_O WH^dag_O
 
-  inline void compute_type4_part1(SCFmat &pt1, const int tK_glb, const int top_loc, const int xop_loc){
-    mult(pt1, vL, mf_ls_WW[tK_glb], vH, xop_loc, top_loc, false, true);
+  inline void compute_type4_part1(SCFmat &pt1, const int tK_glb, const int top_loc, const int xop_loc, VView &vL_v, VView &vH_v){
+    mult(pt1, vL_v, mf_ls_WW[tK_glb], vH_v, xop_loc, top_loc, false, true);
   }
 
   inline void setup_type4_pt1_split(std::vector<vMv_split_VWWV> &part1_split, const int top_glb, const std::vector<int> &tK_subset_map){
@@ -310,9 +312,9 @@ private:
     }
   }
 
-  inline void compute_type4_part2(SCFmat &pt2_L, SCFmat &pt2_H, const int top_loc, const int xop_loc){
-    mult(pt2_L, vL, wL, xop_loc, top_loc, false, true);
-    mult(pt2_H, vH, wH, xop_loc, top_loc, false, true);
+  inline void compute_type4_part2(SCFmat &pt2_L, SCFmat &pt2_H, const int top_loc, const int xop_loc, VView &vL_v, VView &vH_v, WView &wL_v, WView &wH_v){
+    mult(pt2_L, vL_v, wL_v, xop_loc, top_loc, false, true);
+    mult(pt2_H, vH_v, wH_v, xop_loc, top_loc, false, true);
   }
 
   void type4_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H);
@@ -332,7 +334,7 @@ public:
   void type4_field(ResultsContainerType &result, MixDiagResultsContainerType &mix4);
 
   void type4(ResultsContainerType &result, MixDiagResultsContainerType &mix4){
-#ifdef GPU_VEC
+#if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
     type4_field(result, mix4);
 #else
     type4_omp(result, mix4);
@@ -353,10 +355,7 @@ public:
       if(tsep_k_sigma[i] > tsep_k_sigma_lrg) 
 	tsep_k_sigma_lrg = tsep_k_sigma[i];
   }
-
  
-
-
 };
 
 #include "implementation/compute_ktosigma.tcc"

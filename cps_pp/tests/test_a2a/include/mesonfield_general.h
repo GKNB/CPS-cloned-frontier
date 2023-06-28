@@ -78,6 +78,8 @@ void testMesonFieldReadWrite(const A2AArg &a2a_args){
     assert( mfrb.equals(mfb,1e-18,true) );
     assert( mfrc.equals(mfc,1e-18,true) );
     if(!UniqueID()) printf("Passed mf multi IO test\n");
+    if(fp) delete fp;
+    if(ifp) delete ifp;
   }
   {
     std::vector< A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfv(3);
@@ -234,8 +236,8 @@ void testMesonFieldTraceProduct(const A2AArg &a2a_args, const double tol){
 
   //Test the GPU version with precomputed views
   {
-    CPSautoView(mf1_v, mf1);
-    CPSautoView(mf2_v, mf2);
+    CPSautoView(mf1_v, mf1, DeviceRead);
+    CPSautoView(mf2_v, mf2, DeviceRead);
     
     fast = 0;
     fast = trace_gpu(mf1,mf2, &mf1_v, &mf2_v);
@@ -302,8 +304,8 @@ void testMesonFieldTraceProductTblock(A2AArg a2a_args, const double tol){
 
   //Test the GPU version with precomputed views
   {
-    CPSautoView(mf1_v, mf1);
-    CPSautoView(mf2_v, mf2);
+    CPSautoView(mf1_v, mf1, DeviceRead);
+    CPSautoView(mf2_v, mf2, DeviceRead);
     
     fast = 0;
     fast = trace_gpu(mf1,mf2, &mf1_v, &mf2_v);
@@ -378,10 +380,11 @@ void checkunpacked(const MFtype &mf, ScalarComplexType const* into, double tol, 
   int cols_full = mf.getNcolsFull();
    
   bool fail = false;
+  CPSautoView(mf_v,mf,HostRead);
   for(int i=0;i<rows_full;i++){
     for(int j=0;j<cols_full;j++){
       Complex got = into[j+cols_full*i];
-      Complex expect = mf.elem(i,j);
+      Complex expect = mf_v.elem(i,j);
       
       double rdiff = fabs(got.real()-expect.real());
       double idiff = fabs(got.imag()-expect.imag());
@@ -443,7 +446,7 @@ void testMesonFieldUnpackPack(const A2AArg &a2a_args, const double tol){
   //Do a test once with the view precreated
   {
     device_memset(device_into,0,into_size);
-    CPSautoView(mf1_v,mf1);
+    CPSautoView(mf1_v,mf1,DeviceRead);
 
     mf1.unpack_device(device_into, &mf1_v);
     memset(into,0,into_size);  
@@ -546,7 +549,7 @@ void testMesonFieldUnpackPackTblock(A2AArg a2a_args, const double tol){
   //Do a test once with the view precreated
   {
     device_memset(device_into,0,into_size);
-    CPSautoView(mf1_v,mf1);
+    CPSautoView(mf1_v,mf1,DeviceRead);
 
     mf1.unpack_device(device_into, &mf1_v);
     memset(into,0,into_size);  
@@ -620,7 +623,7 @@ void testMesonFieldUnpackPackTblock(A2AArg a2a_args, const double tol){
 
 void testMesonFieldNodeDistributeUnique(const A2AArg &a2a_args){
   //Generate a policy with the disk storage method so that we can test even for 1 rank
-  A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_NODESCRATCH);
+  A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_NODESCRATCH, UVMallocPolicy);
 
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
@@ -681,7 +684,7 @@ void testMesonFieldNodeDistributeOneSided(const A2AArg &a2a_args){
 
   //Require more than 1 node
   if(nodes > 1){
-    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTEDONESIDED);
+    A2APOLICIES_TEMPLATE(A2ApoliciesTmp, 1, BaseGridPoliciesGparity, SET_A2AVECTOR_AUTOMATIC_ALLOC, SET_MFSTORAGE_DISTRIBUTEDONESIDED, UVMallocPolicy);
 
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     
@@ -703,9 +706,9 @@ void testMesonFieldNodeDistributeOneSided(const A2AArg &a2a_args){
 	mf1[t].nodeDistribute();
 	std::cout << "t=" << t << " master uid " << mf1[t].masterUID() << std::endl;	
 	if(UniqueID() == mf1[t].masterUID()){
-	  assert(mf1[t].data() != nullptr);
+	  assert(mf1[t].isInitialized());
 	}else{
-	  assert(mf1[t].data() == nullptr);
+	  assert(!mf1[t].isInitialized());
 	}
       }
     }
@@ -714,7 +717,7 @@ void testMesonFieldNodeDistributeOneSided(const A2AArg &a2a_args){
       std::cout << "Checking gather" << std::endl;
       for(int t=0;t<Lt;t++){
 	mf1[t].nodeGet();
-	assert(mf1[t].data() != nullptr);
+	assert(mf1[t].isInitialized());
 	assert(mf1[t].equals(mf1_cp[t],1e-12,true));	       
       }
     }    
@@ -729,6 +732,66 @@ void testMesonFieldNodeDistributeOneSided(const A2AArg &a2a_args){
     }
   }
 }
+
+template<typename A2Apolicies>
+void testMesonFieldViews(const A2AArg &params){
+  std::cout << "Starting testMesonFieldViews" << std::endl;
+  typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> MFtype;
+  MFtype mf;
+  mf.setup(params,params,0,0);
+
+  //Test device read
+  {
+    CPSautoView(mf_v, mf, HostWrite);
+    memset(mf_v.ptr(), 0x1A, sizeof(unsigned char));
+  }
+  {
+    unsigned char* p = (unsigned char*)device_alloc_check(128, sizeof(unsigned char));    
+    CPSautoView(mf_v, mf, DeviceRead);
+    using namespace Grid;
+    accelerator_for(i,1,1,
+		       {
+			 *p = * (  (unsigned char*)mf_v.ptr() );
+		       });
+    unsigned char hp;
+    copy_device_to_host(&hp,p,sizeof(unsigned char));
+    assert(hp == 0x1A);
+  }
+  //Test device write
+  {
+    CPSautoView(mf_v, mf, DeviceWrite);
+    using namespace Grid;
+    accelerator_for(i,1,1,
+		       {
+			 * (  (unsigned char*)mf_v.ptr() ) = 0x1F;
+		       });
+  }
+  {
+    CPSautoView(mf_v, mf, HostRead);
+    assert( *((unsigned char*)mf_v.ptr()) == 0x1F );
+  }
+  //Test device read/write
+  {
+    CPSautoView(mf_v, mf, HostWrite);
+    memset(mf_v.ptr(), 0x3, sizeof(unsigned char));
+  }
+  {
+    CPSautoView(mf_v, mf, DeviceReadWrite);
+    using namespace Grid;
+    accelerator_for(i,1,1,
+		       {
+			 unsigned char v = * (  (unsigned char*)mf_v.ptr() );
+			 v = v & 0x5;			 
+			 * (  (unsigned char*)mf_v.ptr() ) = v;
+		       });
+  }
+  {
+    CPSautoView(mf_v, mf, HostRead);
+    assert( *((unsigned char*)mf_v.ptr()) == 0x1 );
+  }
+  std::cout << "testMesonFieldViews passed" << std::endl;
+};
+
 
 
 CPS_END_NAMESPACE

@@ -468,7 +468,42 @@ public:
 
 #endif //GRID_CUDA || GRID_HIP
 
+class StandardAllocPolicy{
+protected:
+  inline static void _alloc(void** p, const size_t byte_size){
+    *p = smalloc("CPSfield", "CPSfield", "alloc" , byte_size);
+  }
+  inline static void _free(void* p){
+    sfree("CPSfield","CPSfield","free",p);
+  }
+public:
+  enum { UVMenabled = 0 }; //doesnt' support UVM
+};
 
+inline void device_UVM_advise_readonly(const void* ptr, size_t count);
+inline void device_UVM_advise_unset_readonly(const void* ptr, size_t count);
+
+class Aligned128AllocPolicy{
+  void* _ptr;
+  size_t _byte_size;
+
+protected:
+  inline void _alloc(void** p, const size_t byte_size){
+    *p = managed_alloc_check(128,byte_size); //note CUDA ignores alignment
+    _ptr = *p;
+    _byte_size = byte_size;
+  }
+  inline static void _free(void* p){
+    managed_free(p);
+  } 
+public: 
+  inline void deviceSetAdviseUVMreadOnly(const bool to) const{
+    if(to) device_UVM_advise_readonly(_ptr, _byte_size);
+    else device_UVM_advise_unset_readonly(_ptr, _byte_size);
+  }
+  
+  enum { UVMenabled = 1 }; //supports UVM
+};
 
 CPS_END_NAMESPACE
 

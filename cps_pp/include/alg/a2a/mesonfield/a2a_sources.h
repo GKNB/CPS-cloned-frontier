@@ -9,7 +9,7 @@ CPS_START_NAMESPACE
 //Spatial source structure in *momentum-space*. 
 //We will assume the source is flavor diagonal (i.e. the same value for both flavors) and so will use a SpatialPolicy<OneFlavorPolicy> for the mapping
 //*NOTE  If using SIMD vectorization the SIMD mapping for the 3d part must be the same as for the 4d a2a fields. To ensure this use setupFieldParams function*
-template<typename mf_Complex,typename MappingPolicy = SpatialPolicy<OneFlavorPolicy>, typename FieldAllocPolicy = StandardAllocPolicy, typename my_enable_if<MappingPolicy::EuclideanDimension == 3 && _equal<typename MappingPolicy::FieldFlavorPolicy, OneFlavorPolicy>::value, int>::type = 0>
+template<typename mf_Complex,typename MappingPolicy = SpatialPolicy<OneFlavorPolicy>, typename FieldAllocPolicy = CPSfieldDefaultAllocPolicy, typename my_enable_if<MappingPolicy::EuclideanDimension == 3 && _equal<typename MappingPolicy::FieldFlavorPolicy, OneFlavorPolicy>::value, int>::type = 0>
 class A2Asource{
 public:
   typedef CPSfield<mf_Complex,1,MappingPolicy,FieldAllocPolicy> FieldType;  
@@ -52,24 +52,16 @@ public:
       out(0,1) = out(1,0) = typename SIMT<mf_Complex>::value_type(0);    
     }
         
-    View(const A2Asource &r): src(r.src->view()){}
+    View(ViewMode mode, const A2Asource &r): src(r.src->view(mode)){}
+
+    void free(){ src.free(); }
   };
 
-  View view() const{ return View(*this); }
+  View view(ViewMode mode) const{ return View(mode,*this); }
   
-  //Get the value of the source at a particular 3d site.
-  //site is an 3d site index in the logical 3d volume (i.e. a SIMD site coordinate if vectorized)
-  const mf_Complex & siteComplex(const size_t site) const{ return *src->site_ptr(site); }
-
   //On the GPU this pulls out an individual SIMD lane for the kernel to act on
   //accelerator_inline const typename SIMT<mf_Complex>::value_type & siteComplex(const size_t site) const{ return SIMT<mf_Complex>::read(*src->site_ptr(site)); }
   size_t nsites() const{ return src->nsites(); }
-
-  //Default sources have unit matrix flavor structure
-  inline void siteFmat(FlavorMatrixGeneral<mf_Complex> &out, const size_t site) const{
-    out(0,0) = out(1,1) = this->siteComplex(site);
-    out(0,1) = out(1,0) = mf_Complex(0);
-  }
 
   template< typename extComplexType, template<typename> typename extDimPol, typename extAllocPol>
   void importSource(const A2Asource<extComplexType,extDimPol<OneFlavorPolicy>,extAllocPol> &from){
@@ -133,11 +125,13 @@ public:
     //Generate a global 4d source
     CPSglobalComplexSpatial<cps::ComplexD,OneFlavorPolicy> glb; //always of this type
     glb.zero();
-         
+    {
+      CPSautoView(gb, glb, HostWrite);
 #pragma omp_parallel for
-    for(size_t i=0;i<glb.nsites();i++){
-      int x[3]; glb.siteUnmap(i,x); 
-      *glb.site_ptr(i) = static_cast<Child const*>(this)->value(x,glb_size);
+      for(size_t i=0;i<glb.nsites();i++){
+	int x[3]; glb.siteUnmap(i,x); 
+	*gb.site_ptr(i) = static_cast<Child const*>(this)->value(x,glb_size);
+      }
     }
     //Perform the FFT and pull out this nodes subvolume
     glb.fft();
@@ -146,7 +140,7 @@ public:
 };
 
 
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2ApointSource: public A2AsourceBase<FieldPolicies, A2ApointSource<FieldPolicies> >{
 public:
   typedef A2AsourceBase<FieldPolicies, A2ApointSource<FieldPolicies> > BaseType;
@@ -210,7 +204,7 @@ public:
   
 //Exponential (hydrogen wavefunction) source
 //SrcParams is just a Float for the radius
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2AexpSource: public A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >{
 public:
   typedef FieldPolicies Policies;
@@ -231,7 +225,7 @@ public:
 };
 
 //General s-wave hydrogen wavefunction source 
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2AhydrogenSource: public A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >{
   int n, l, m;
 public:
@@ -328,7 +322,7 @@ public:
 
 //Box source. Unflavored so ignore second flav
 //SrcParams is std::vector<Float> for the extents x,y,z . *These must be even numbers* (checked)
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2AboxSource: public A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >{
   int box_size[3];
 
@@ -465,24 +459,11 @@ public:
       out(0,1) = -out(1,0); //-1 from sigma2
     }
 
-    View(const A2AflavorProjectedSource &s): sign(s.sign), val000(s.val000.view()), SourceType::View(s){}
+    View(ViewMode mode, const A2AflavorProjectedSource &s): sign(s.sign), val000(s.val000.view(mode)), SourceType::View(mode,s){}
   };
 
-  View view() const{ return View(*this); }
+  View view(ViewMode mode) const{ return View(mode,*this); }
   
-  
-  inline void siteFmat(FlavorMatrixGeneral<ComplexType> &out, const size_t site) const{
-    //Matrix is FFT of  (1 + [sign]*sigma_2) when |x-y| !=0 or 1 when |x-y| == 0
-    //It is always 1 on the diagonals
-    auto val_ln = this->siteComplex(site);
-    auto const &val000_ln = *val000;
-    
-    out(0,0) = out(1,1) = val_ln;
-    //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0
-    out(1,0) = multiplySignTimesI(sign,val_ln - val000_ln);
-    out(0,1) = -out(1,0); //-1 from sigma2
-  }
-
   //Can change momentum sign without redoing FFT
   void setMomentum(const int p[3]){
     sign = getProjSign(p);
@@ -491,7 +472,7 @@ public:
 
 
 //No projector is required for point source, hence we just have to add a setMomentum method that does nothing
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2AflavorProjectedPointSource : public A2ApointSource<FieldPolicies>{
 public:
   typedef A2ApointSource<FieldPolicies> BaseType;
@@ -511,7 +492,7 @@ public:
 };
 
 
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2AflavorProjectedExpSource : public A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >{
   void dummy(){}
 public:
@@ -533,7 +514,7 @@ public:
   
 };
 
-template<typename FieldPolicies = StandardSourcePolicies>
+template<typename FieldPolicies = StandardSourcePolicies<UVMallocPolicy> >
 class A2AflavorProjectedHydrogenSource : public A2AflavorProjectedSource<A2AhydrogenSource<FieldPolicies> >{
   void dummy(){}
 public:
@@ -562,8 +543,7 @@ define_test_has_enum(nSources); //a test for multisrc types (all should have enu
 namespace A2AmultiSource_ns{
   template<typename CurElem>
   struct getSourceViewList{
-    typedef typename CurElem::ValueType::View ViewType;
-    typedef ViewPointerWrapper<ViewType> ViewTypeWrapper; //ViewPointerWrapper allows us to wrap and thus dynamically create views that don't have default constructors
+    typedef ViewPointerWrapper<typename CurElem::ValueType> ViewTypeWrapper; //ViewPointerWrapper allows us to wrap and thus dynamically create views that don't have default constructors
     typedef Elem<ViewTypeWrapper, typename getSourceViewList<typename CurElem::NextType>::type > type;
   };
   template<>
@@ -575,14 +555,14 @@ namespace A2AmultiSource_ns{
 
   template<typename CurSourceViewElem, typename CurSourceElem>
   struct createViews{
-    static void doit(CurSourceViewElem &sve, const CurSourceElem &se){
-      sve.v.assign(se.v.view()); //copies view to GPU memory
-      createViews<typename CurSourceViewElem::NextType, typename CurSourceElem::NextType>::doit(sve.n, se.n);
+    static void doit(ViewMode mode, CurSourceViewElem &sve, const CurSourceElem &se){
+      sve.v.assign(mode,se.v);
+      createViews<typename CurSourceViewElem::NextType, typename CurSourceElem::NextType>::doit(mode, sve.n, se.n);
     }
   };
   template<>
   struct createViews<ListStruct<ListEnd>, ListStruct<ListEnd> >{
-    static void doit(ListStruct<ListEnd> &sve, const ListStruct<ListEnd> &se){
+    static void doit(ViewMode mode, ListStruct<ListEnd> &sve, const ListStruct<ListEnd> &se){
     }
   };
 
@@ -625,8 +605,8 @@ public:
     template<int i>
     accelerator_inline typename getTypeFromList<SourceViewListStruct,i>::type::ViewType & getSource() const{ return *getElemFromListStruct<SourceViewListStruct,i>::get(const_cast<SourceViewListStruct &>(sources)); }
 
-    View(const A2AmultiSource &p){
-      A2AmultiSource_ns::createViews<SourceViewListStruct, SourceListStruct>::doit(sources, p.sources);
+    View(ViewMode mode, const A2AmultiSource &p){
+      A2AmultiSource_ns::createViews<SourceViewListStruct, SourceListStruct>::doit(mode, sources, p.sources);
     }
 
     void free(){
@@ -634,7 +614,7 @@ public:
     }
   };
 
-  View view() const{ return View(*this); }
+  View view(ViewMode mode) const{ return View(mode,*this); }
   
 #ifdef GPU_VEC
   //Allocate source in managed memory 

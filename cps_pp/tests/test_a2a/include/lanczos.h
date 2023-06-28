@@ -30,8 +30,8 @@ void testLanczosIO(typename GridA2Apolicies::FgridGFclass &lattice){
 
     assert(lanc_iface->nEvecs() == lanc2_iface->nEvecs());
 
-    CPSfermion5Dcb4Dodd<cps::ComplexD> c_odd_d_1;
-    CPSfermion5Dcb4Dodd<cps::ComplexD> c_odd_d_2;
+    CPSfermion5Dcb4Dodd<typename GridA2Apolicies::ScalarComplexType> c_odd_d_1;
+    CPSfermion5Dcb4Dodd<typename GridA2Apolicies::ScalarComplexType> c_odd_d_2;
 
     GridFermionFieldF lanc_evec(FGridF), lanc2_evec(FGridF);
   

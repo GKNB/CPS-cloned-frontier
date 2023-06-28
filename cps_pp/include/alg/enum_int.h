@@ -823,6 +823,13 @@ enum A2A_ZMobiusGammaSource {
 typedef enum A2A_ZMobiusGammaSource A2A_ZMobiusGammaSource;
 extern struct vml_enum_map A2A_ZMobiusGammaSource_map[];
 
+enum A2AhighModeSourceType {
+	A2AhighModeSourceTypeOrig = 0,
+	A2AhighModeSourceTypeXconj = 1,
+};
+typedef enum A2AhighModeSourceType A2AhighModeSourceType;
+extern struct vml_enum_map A2AhighModeSourceType_map[];
+
 /* the xdr functions */
 
 #ifdef __cplusplus
@@ -894,6 +901,7 @@ extern  bool_t vml_BfmSolverType (VML *, char *instance, BfmSolverType*);
 extern  bool_t vml_A2Apreconditioning (VML *, char *instance, A2Apreconditioning*);
 extern  bool_t vml_A2ACGalgorithm (VML *, char *instance, A2ACGalgorithm*);
 extern  bool_t vml_A2A_ZMobiusGammaSource (VML *, char *instance, A2A_ZMobiusGammaSource*);
+extern  bool_t vml_A2AhighModeSourceType (VML *, char *instance, A2AhighModeSourceType*);
 
 #else /* K&R C */
 extern  bool_t vml_pooh (VML *, char *instance, pooh*);
@@ -960,6 +968,7 @@ extern  bool_t vml_BfmSolverType (VML *, char *instance, BfmSolverType*);
 extern  bool_t vml_A2Apreconditioning (VML *, char *instance, A2Apreconditioning*);
 extern  bool_t vml_A2ACGalgorithm (VML *, char *instance, A2ACGalgorithm*);
 extern  bool_t vml_A2A_ZMobiusGammaSource (VML *, char *instance, A2A_ZMobiusGammaSource*);
+extern  bool_t vml_A2AhighModeSourceType (VML *, char *instance, A2AhighModeSourceType*);
 
 #endif /* K&R C */
 

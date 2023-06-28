@@ -73,37 +73,20 @@ void A2AvectorWfftw<mf_Policies>::initialize(const FieldInputParamType &field_se
   checkSIMDparams<FieldInputParamType>::check(field_setup_params);
   wl.resize(nl); this->allocInitializeLowModeFields(wl,field_setup_params);
   wh.resize(12*nhits); this->allocInitializeHighModeFields(wh,field_setup_params);
-  for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
 }
 
 template< typename mf_Policies>
-A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args)
-#ifdef ZEROSC_MANAGED
-    , zerosc(12)
-#endif
-{ initialize(NullObject()); }
+A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args){ initialize(NullObject()); }
 
 template< typename mf_Policies>
-A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args)
-#ifdef ZEROSC_MANAGED
-    , zerosc(12)
-#endif
-{ initialize(field_setup_params); }
+A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args){ initialize(field_setup_params); }
 
 template< typename mf_Policies>
-A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2Aparams &_args): TimeFlavorPackedIndexDilution(_args)
-#ifdef ZEROSC_MANAGED
-    , zerosc(12)
-#endif
-    { initialize(NullObject()); }
+A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2Aparams &_args): TimeFlavorPackedIndexDilution(_args){ initialize(NullObject()); }
 
 
 template< typename mf_Policies>
-A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2Aparams &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args)
-#ifdef ZEROSC_MANAGED
-    , zerosc(12)
-#endif
-  { initialize(field_setup_params); }
+A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2Aparams &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args){ initialize(field_setup_params); }
 
 
 //Set this object to be the fast Fourier transform of the input field
@@ -118,89 +101,17 @@ void A2AvectorWfftw<mf_Policies>::inversefft(A2AvectorW<mf_Policies> &to, fieldO
   _W_invfft_impl<A2AvectorW<mf_Policies>, const A2AvectorWfftw<mf_Policies>, WFFTfieldPolicyBasic>::inversefft(to,*this,mode_postop);
 }
 
-//Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
-//For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
-template<typename ComplexFieldType, typename complex_class>
-struct _set_wh_random_impl{};
-
-template<typename ComplexFieldType>
-struct _set_wh_random_impl<ComplexFieldType, complex_double_or_float_mark>{
-  static void doit(CPSfieldArray<ComplexFieldType> &wh, const RandomType &type, const int nhits){
-    typedef typename ComplexFieldType::FieldSiteType FieldSiteType;
-    LRG.SetInterval(1, 0);
-    size_t sites = wh[0]->nsites(), flavors = wh[0]->nflavors();
-    
-    for(size_t i = 0; i < sites*flavors; ++i) {
-      int flav = i / sites;
-      size_t st = i % sites;
-      
-      LRG.AssignGenerator(st,flav);
-      for(int j = 0; j < nhits; ++j) {
-	FieldSiteType* p = wh[j]->site_ptr(st,flav);
-	RandomComplex<FieldSiteType>::rand(p,type,FOUR_D);
-      }
-    }
-  }
-  static void doit(CPSfieldArray<ComplexFieldType> &wh, const std::vector<ComplexFieldType> &to, const int nhits){
-    assert(to.size() == nhits);
-    for(int i=0;i<nhits;i++)
-      *wh[i] = to[i];
-  }
-};
-
-#ifdef USE_GRID
-//Randomization of wh fields must have handled with care to ensure order preservation
-template<typename ComplexFieldType>
-struct _set_wh_random_impl<ComplexFieldType, grid_vector_complex_mark>{
-  typedef typename Grid::GridTypeMapper<typename ComplexFieldType::FieldSiteType>::scalar_type ScalarComplexType;
-      
-  typedef CPSfield<ScalarComplexType, ComplexFieldType::FieldSiteSize,
-		   typename ComplexFieldType::FieldMappingPolicy::EquivalentScalarPolicy, typename ComplexFieldType::FieldAllocPolicy>
-  ScalarComplexFieldType;
-
-  static void doit(CPSfieldArray<ComplexFieldType> &wh, const RandomType &type, const int nhits){
-    NullObject null_obj;
-    
-    //Use scalar generation code and import
-    CPSfieldArray<ScalarComplexFieldType> wh_scalar(nhits); for(int i=0;i<nhits;i++) wh_scalar[i].emplace(null_obj);
-    _set_wh_random_impl<ScalarComplexFieldType, complex_double_or_float_mark>::doit(wh_scalar,type,nhits);
-    for(int i=0;i<nhits;i++) wh[i]->importField(*wh_scalar[i]);
-  }
-  static void doit(CPSfieldArray<ComplexFieldType> &wh, const std::vector<ScalarComplexFieldType> &to, const int nhits){
-    assert(to.size() == nhits);
-    for(int i=0;i<nhits;i++) wh[i]->importField(to[i]);
-  }
-};
-#endif
-
-
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::setWhRandom(){
-  if(!wh_rand_performed){
-    _set_wh_random_impl<typename mf_Policies::ComplexFieldType, typename ComplexClassify<typename mf_Policies::ComplexFieldType::FieldSiteType>::type>::doit(wh,args.rand_type,nhits);
-    wh_rand_performed = true;
-  }
+void A2AvectorW<mf_Policies>::setWh(const std::vector<ScalarComplexFieldType> &to){
+  assert(to.size() == nhits);
+  for(int i=0;i<nhits;i++) wh[i]->importField(to[i]);
+  wh_rand_performed = true;
 }
-
-
-
-
-template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::setWhRandom(const std::vector<ScalarComplexFieldType> &to){
-   _set_wh_random_impl<typename mf_Policies::ComplexFieldType, typename ComplexClassify<typename mf_Policies::ComplexFieldType::FieldSiteType>::type>::doit(wh,to,nhits);
-   wh_rand_performed = true;
-}
-
 
 
 //Get the diluted source with index id.
-//We use the same set of random numbers for each spin and dilution as we do not need to rely on stochastic cancellation to separate them
-//For legacy reasons we use different random numbers for the two G-parity flavors, although this is not strictly necessary
-
 //We allow for time dilution into Lt/src_width blocks of size src_width in the time direction
 //Alongside the spin/color/flavor index upon which to place the random numbers, the index dil_id also contains the time block index
-
-
 template< typename mf_Policies>
 template<typename TargetFermionFieldType>
 void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, const int dil_id) const{
@@ -239,7 +150,8 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
   const int lcl_src_twidth = tblock_lessthant_lcl - tblock_origt_lcl;
   
   const int src_size = src_layout[0]*src_layout[1]*src_layout[2]*lcl_src_twidth;  //size of source 3D*width slice in units of complex numbers  
-  
+  CPSautoView(into_v,into,HostWrite);
+  CPSautoView(wh_v,(*wh[hit]),HostRead);
 #pragma omp parallel for
   for(int i=0;i<src_size;i++){
     int x[4];
@@ -249,8 +161,8 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
     x[2] = rem % src_layout[2]; rem /= src_layout[2];
     x[3] = tblock_origt_lcl + rem;
 
-    TargetComplex *into_site = (TargetComplex*)(into.site_ptr(x,flavor) + spin_color);
-    mf_Complex const* from_site = (mf_Complex*)wh[hit]->site_ptr(x,flavor); //note same random numbers for each spin/color!
+    TargetComplex *into_site = (TargetComplex*)(into_v.site_ptr(x,flavor) + spin_color);
+    mf_Complex const* from_site = (mf_Complex*)wh_v.site_ptr(x,flavor); //note same random numbers for each spin/color!
     *into_site = *from_site;
   }
 }
@@ -262,11 +174,12 @@ void A2AvectorW<mf_Policies>::getSpinColorDilutedSource(FermionFieldType &into, 
   const char* fname = "getSpinColorDilutedSource(...)";
   
   into.zero();
-
+  CPSautoView(into_v,into,HostReadWrite);
+  CPSautoView(wh_v,(*wh[hit]),HostRead);
 #pragma omp parallel for
   for(int i=0;i<wh[hit]->nfsites();i++){ //same mapping, different site_size
-    FieldSiteType &into_site = *(into.fsite_ptr(i) + sc_id);
-    const FieldSiteType &from_site = *(wh[hit]->fsite_ptr(i));
+    FieldSiteType &into_site = *(into_v.fsite_ptr(i) + sc_id);
+    const FieldSiteType &from_site = *(wh_v.fsite_ptr(i));
     into_site = from_site;
   }
 }
@@ -320,8 +233,8 @@ struct _randomizeVWimpl<mf_Policies,grid_vector_complex_mark>{
   static inline void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
     typedef typename mf_Policies::FermionFieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarMappingPolicy;
   
-    typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, ScalarMappingPolicy, StandardAllocPolicy> ScalarFermionFieldType;
-    typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, ScalarMappingPolicy, StandardAllocPolicy> ScalarComplexFieldType;
+    typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, ScalarMappingPolicy, typename mf_Policies::AllocPolicy> ScalarFermionFieldType;
+    typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, ScalarMappingPolicy, typename mf_Policies::AllocPolicy> ScalarComplexFieldType;
   
     int nl = V.getNl();
     int nh = V.getNh(); //number of fully diluted high-mode indices

@@ -3,15 +3,16 @@
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::testRandom(const Float hi, const Float lo){
+  CPSautoView(t_v,(*this),HostWrite);
 #ifndef USE_C11_RNG    
   static UniformRandomGenerator urng(hi,lo);
   static bool init = false;
   if(!init){ urng.Reset(1234); init = true; }
-  for(int i=0;i<this->fsize;i++) this->ptr()[i] = ScalarComplexType(urng.Rand(hi,lo), urng.Rand(hi,lo) );
+  for(int i=0;i<this->fsize;i++) t_v.ptr()[i] = ScalarComplexType(urng.Rand(hi,lo), urng.Rand(hi,lo) );
 #else
   static CPS_RNG eng(1234);
   std::uniform_real_distribution<Float> urand(lo,hi);
-  for(int i=0;i<this->fsize;i++) this->ptr()[i] = ScalarComplexType(urand(eng), urand(eng) );
+  for(int i=0;i<this->fsize;i++) t_v.ptr()[i] = ScalarComplexType(urand(eng), urand(eng) );
 #endif
 }
 
@@ -22,21 +23,26 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::plus_equals(const A2AmesonF
      !lindexdilution.paramsEqual(with.lindexdilution) || !rindexdilution.paramsEqual(with.rindexdilution) ){
     ERR.General("A2AmesonField","plus_equals(..)","Second meson field must have the same underlying parameters\n");
   }
+  CPSautoView(t_v,(*this),HostReadWrite);
+  CPSautoView(with_v,with,HostRead);
+
   if(parallel){
 #pragma omp_parallel for
-    for(int i=0;i<fsize;i++) this->ptr()[i] += with.ptr()[i];
+    for(int i=0;i<fsize;i++) t_v.ptr()[i] += with_v.ptr()[i];
   }else{
-    for(int i=0;i<fsize;i++) this->ptr()[i] += with.ptr()[i];
+    for(int i=0;i<fsize;i++) t_v.ptr()[i] += with_v.ptr()[i];
   }
 }
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::times_equals(const ScalarComplexType f,const bool parallel){
+  CPSautoView(t_v,(*this),HostReadWrite);
+
   if(parallel){
 #pragma omp_parallel for
-    for(int i=0;i<fsize;i++) this->ptr()[i] *= f;			       
+    for(int i=0;i<fsize;i++) t_v.ptr()[i] *= f;			       
   }else{
-    for(int i=0;i<fsize;i++) this->ptr()[i] *= f;
+    for(int i=0;i<fsize;i++) t_v.ptr()[i] *= f;
   }
 }
 
@@ -60,11 +66,14 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::average(const A2AmesonField
      !lindexdilution.paramsEqual(with.lindexdilution) || !rindexdilution.paramsEqual(with.rindexdilution) ){
     ERR.General("A2AmesonField","average(..)","Second meson field must have the same underlying parameters\n");
   }
+  CPSautoView(t_v,(*this),HostReadWrite);
+  CPSautoView(with_v,with,HostRead);
+
   if(parallel){
 #pragma omp_parallel for
-    for(int i=0;i<fsize;i++) this->ptr()[i] = complexAvg(this->ptr()[i],with.ptr()[i]);//(mf[i] + with.mf[i])/2.0;
+    for(int i=0;i<fsize;i++) t_v.ptr()[i] = complexAvg(t_v.ptr()[i],with_v.ptr()[i]);//(mf[i] + with.mf[i])/2.0;
   }else{
-    for(int i=0;i<fsize;i++) this->ptr()[i] = complexAvg(this->ptr()[i],with.ptr()[i]);//(mf[i] + with.mf[i])/2.0;
+    for(int i=0;i<fsize;i++) t_v.ptr()[i] = complexAvg(t_v.ptr()[i],with_v.ptr()[i]);//(mf[i] + with.mf[i])/2.0;
   }
 }
 
@@ -72,11 +81,13 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::average(const A2AmesonField
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::rowReorder(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel) const{
   into.setup(lindexdilution, rindexdilution, tl, tr);
+  CPSautoView(t_v,(*this),HostRead);
+  CPSautoView(into_v,into,HostWrite)
 
 #define DOIT \
     int irow = idx_map[i]; \
     for(int j=0;j<nmodes_r;j++) \
-      into(i,j) = (*this)(irow,j);
+      into_v(i,j) = t_v(irow,j);
 
   if(parallel){
 #pragma omp parallel for
@@ -94,11 +105,13 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::rowReorder(A2AmesonField<mf
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::colReorder(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel) const{
   into.setup(lindexdilution, rindexdilution, tl, tr);
+  CPSautoView(t_v,(*this),HostRead);
+  CPSautoView(into_v,into,HostWrite)
 
 #define DOIT \
     for(int j=0;j<map_size;j++){ \
       int jcol = idx_map[j]; \
-      into(i,j) = (*this)(i,jcol); \
+      into_v(i,j) = t_v(i,jcol);			\
     }
 
   if(parallel){
@@ -113,48 +126,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::colReorder(A2AmesonField<mf
   }
 }
 
-
-
-//Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)
-//Output as a GSL matrix
-template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-typename gsl_wrapper<typename mf_Policies::ScalarComplexType::value_type>::matrix_complex * A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::GSLpackedColReorder(const int idx_map[], int map_size, bool rowidx_used[], typename gsl_wrapper<typename ScalarComplexType::value_type>::matrix_complex *reuse ) const{
-  typedef gsl_wrapper<typename ScalarComplexType::value_type> gw;
-  assert(sizeof(typename gw::complex) == sizeof(ScalarComplexType));
-  int rows = nmodes_l;
-  int cols = nmodes_r;
-
-  int nrows_used = 0;
-  for(int i_full=0;i_full<rows;i_full++) if(rowidx_used[i_full]) nrows_used++;
-
-  typename gw::matrix_complex *M_packed;
-  if(reuse!=NULL){
-    M_packed = reuse;
-    M_packed->size1 = nrows_used;
-    M_packed->size2 = M_packed->tda = map_size;
-  }else M_packed = gw::matrix_complex_alloc(nrows_used,map_size);
-
-  //Look for contiguous blocks in the idx_map we can take advantage of
-  std::vector<std::pair<int,int> > blocks;
-  find_contiguous_blocks(blocks,idx_map,map_size);
-
-  int i_packed = 0;
-
-  for(int i_full=0;i_full<rows;i_full++){
-    if(rowidx_used[i_full]){
-      ScalarComplexType const* mf_row_base = this->ptr() + nmodes_r*i_full; //meson field are row major so columns are contiguous
-      typename gw::complex* row_base = gw::matrix_complex_ptr(M_packed,i_packed,0); //GSL matrix are also row major
-      for(int b=0;b<blocks.size();b++){
-	ScalarComplexType const* block_ptr = mf_row_base + idx_map[blocks[b].first];
-	memcpy((void*)row_base,(void*)block_ptr,blocks[b].second*sizeof(ScalarComplexType));
-	row_base += blocks[b].second;
-      }
-      i_packed++;
-    }
-  }
-
-  return M_packed;
-}
 
 #ifdef USE_GRID
   //Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)
@@ -176,10 +147,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(typen
   find_contiguous_blocks(blocks,idx_map,map_size);
 
   int i_packed = 0;
-
+  CPSautoView(t_v,(*this),HostRead);
   for(int i_full=0;i_full<full_rows;i_full++){
     if(rowidx_used[i_full]){
-      ScalarComplexType const* mf_row_base = this->ptr() + nmodes_r*i_full;
+      ScalarComplexType const* mf_row_base = t_v.ptr() + nmodes_r*i_full;
       SIMDcomplexType* row_base = &into[map_size*i_packed];
 
       for(int b=0;b<blocks.size();b++){
@@ -207,10 +178,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::scalarPackedColReorder(type
   find_contiguous_blocks(blocks,idx_map,map_size);
 
   int i_packed = 0;
-
+  CPSautoView(t_v,(*this),HostRead);
   for(int i_full=0;i_full<full_rows;i_full++){
     if(rowidx_used[i_full]){
-      ScalarComplexType const* mf_row_base = this->ptr() + nmodes_r*i_full;
+      ScalarComplexType const* mf_row_base = t_v.ptr() + nmodes_r*i_full;
       ScalarComplexType* row_base = &into[map_size*i_packed];
 
       for(int b=0;b<blocks.size();b++){
@@ -232,10 +203,12 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::transpose(A2AmesonField<mf_Policies,A2AfieldR,A2AfieldL> &into) const{
   assert( (void*)this != (void*)&into );
   into.setup(rindexdilution, lindexdilution, tr, tl);
+  CPSautoView(t_v,(*this),HostRead);
+  CPSautoView(into_v,into,HostWrite);
 #pragma omp parallel for
   for(int i=0;i<nmodes_l;i++)
     for(int j=0;j<nmodes_r;j++)
-      into(j,i) = (*this)(i,j);
+      into_v(j,i) = t_v(i,j);
 }
 
 //Take the complex conjugate of the meson field
@@ -243,20 +216,24 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::conj(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into) const{
   assert( (void*)this != (void*)&into );
   into.setup(lindexdilution, rindexdilution, tl, tr);
+  CPSautoView(t_v,(*this),HostRead);
+  CPSautoView(into_v,into,HostWrite);
 #pragma omp parallel for
   for(int i=0;i<nmodes_l;i++)
     for(int j=0;j<nmodes_r;j++)
-      into(i,j) = std::conj((*this)(i,j));
+      into_v(i,j) = std::conj(t_v(i,j));
 }
 //Take the hermitian conjugate of the meson field
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::hconj(A2AmesonField<mf_Policies,A2AfieldR,A2AfieldL> &into) const{
   assert( (void*)this != (void*)&into );
   into.setup(rindexdilution, lindexdilution, tr, tl);
+  CPSautoView(t_v,(*this),HostRead);
+  CPSautoView(into_v,into,HostWrite);
 #pragma omp parallel for
   for(int i=0;i<nmodes_l;i++)
     for(int j=0;j<nmodes_r;j++)
-      into(j,i) = conj((*this)(i,j));
+      into_v(j,i) = conj(t_v(i,j));
 }
 
 
@@ -278,21 +255,14 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(bool require){
 
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView::ReadView(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize){
-  size_t bsize = fsize * sizeof(ScalarComplexType);
-#ifdef GPU_VEC
-  data = (ScalarComplexType *)device_alloc_check(bsize);
-  copy_host_to_device(data, mf.ptr(), bsize);
-#else //GPU_VEC
-  data = (ScalarComplexType *)mf.ptr();
-#endif //GPU_VEC
+A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View::View(ViewMode mode, const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf): nmodes_l(mf.nmodes_l), nmodes_r(mf.nmodes_r), fsize(mf.fsize),
+																     tl(mf.tl), tr(mf.tr), parent(&mf), alloc_view(mf.mf_Policies::MesonFieldDistributedStorageType::view(mode)){
+  data = (ScalarComplexType *)alloc_view();
 }
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView::free(){
-#ifdef GPU_VEC
-  device_free(data);
-#endif
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View::free(){
+  alloc_view.free();
 }
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
@@ -301,32 +271,32 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack(typename mf_Policies
   int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
   int rnl = getColParams().getNl(),  rnf = getColParams().getNflavors(), rnsc = getColParams().getNspinColor() , rnt = getColParams().getNtBlocks();
   int ncolsfull = getNcolsFull();
-
+  CPSautoView(t_v,(*this),HostRead);
 #pragma omp parallel for
   for(int i=0;i<getNrows();i++){
     int iinto = mesonFieldConvertDilution<LeftDilutionType>::unpack(i, getRowParams().tblock(getRowTimeslice()), lnl, lnf, lnsc, lnt);
     for(int j=0;j<getNcols();j++){
       int jinto = mesonFieldConvertDilution<RightDilutionType>::unpack(j, getColParams().tblock(getColTimeslice()), rnl, rnf, rnsc, rnt);
 
-      into[jinto + ncolsfull*iinto] = (*this)(i,j);
+      into[jinto + ncolsfull*iinto] = t_v(i,j);
     }
   }
   
 }
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack_device(typename mf_Policies::ScalarComplexType* into, A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView const* view) const{
-#if !defined(USE_GRID) || !defined(GPU_VEC)
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::unpack_device(typename mf_Policies::ScalarComplexType* into, A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View const* view) const{
+#if !defined(USE_GRID) || ( !defined(GPU_VEC) && !defined(FORCE_A2A_OFFLOAD) )
   unpack(into); //into must be a host pointer here
 #else
-  A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView *vp = const_cast<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView *>(view);
+  A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View *vp = const_cast<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View *>(view);
   bool delete_view = false;
   if(vp == nullptr){
-    vp = new A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView(this->view()); //copies to device
+    vp = new A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View(this->view(DeviceRead)); //copies to device
     delete_view = true;
   }
 
-  A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::ReadView const& v = *vp;
+  A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View const& v = *vp;
   
   device_memset(into, 0, getNrowsFull()*getNcolsFull()*sizeof(ScalarComplexType));
   int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
@@ -360,7 +330,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack(typename mf_Policies::
   int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
   int rnl = getColParams().getNl(),  rnf = getColParams().getNflavors(), rnsc = getColParams().getNspinColor() , rnt = getColParams().getNtBlocks();
   int nrowsfull = getNrowsFull(), ncolsfull = getNcolsFull();
-
+  CPSautoView(t_v,(*this),HostWrite);
 #pragma omp parallel for  
   for(int i=0;i<nrowsfull;i++){
     auto iinto = mesonFieldConvertDilution<LeftDilutionType>::pack(i, getRowParams().tblock(getRowTimeslice()), lnl, lnf, lnsc, lnt);
@@ -368,7 +338,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack(typename mf_Policies::
       for(int j=0;j<getNcols();j++){
 	auto jinto = mesonFieldConvertDilution<RightDilutionType>::pack(j, getColParams().tblock(getColTimeslice()), rnl, rnf, rnsc, rnt);
 	if(jinto.second){
-	  (*this)(iinto.first,jinto.first) = from[j + ncolsfull*i];
+	  t_v(iinto.first,jinto.first) = from[j + ncolsfull*i];
 	}
       }
     }
@@ -378,7 +348,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack(typename mf_Policies::
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack_device(typename mf_Policies::ScalarComplexType const* from){
-#if !defined(USE_GRID) || !defined(GPU_VEC)
+#if !defined(USE_GRID) || ( !defined(GPU_VEC) && !defined(FORCE_A2A_OFFLOAD) )
   pack(from);
 #else  
   int lnl = getRowParams().getNl(),  lnf = getRowParams().getNflavors(), lnsc = getRowParams().getNspinColor() , lnt = getRowParams().getNtBlocks();
@@ -401,7 +371,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack_device(typename mf_Pol
 	  stage[jinto.first + ncols*iinto.first] = from[j + ncolsfull * i];
       });
   }
-  copy_device_to_host(this->ptr(),stage,stage_size);
+  CPSautoView(t_v,(*this),HostWrite);
+  copy_device_to_host(t_v.ptr(),stage,stage_size);
   device_free(stage);
 #endif
 }

@@ -28,6 +28,18 @@ void XconjugateBoost(TwoFlavorField &into, const OneFlavorField &from){
   into.Checkerboard() = from.Checkerboard();
 }
 
+template<typename TwoFlavorField>
+bool XconjugateCheck(const TwoFlavorField &v, const double tol = 1e-10, bool verbose=true){
+  decltype( Grid::PeekIndex<GparityFlavourIndex>(v,0) ) tmp(v.Grid());
+  tmp = -(Xmatrix()*conjugate(Grid::PeekIndex<GparityFlavourIndex>(v,0))) - Grid::PeekIndex<GparityFlavourIndex>(v,1);
+  double n = norm2(tmp);
+  if(n > tol){
+    std::cout << "Failed Xconj check, got " << n << " (expect 0)" << std::endl;
+    return false;
+  }
+  return true;
+} 
+
 //This test ensures the X-conjugate action is working
 //TODO: find out why --dslash-unroll implementation is failing!
 template<typename A2Apolicies>

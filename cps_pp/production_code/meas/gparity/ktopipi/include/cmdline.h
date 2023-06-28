@@ -267,6 +267,24 @@ struct CommandLineArgs{
 	arg+=2;
 #endif
 
+      }else if( cmdstr == "-gpu_pool_max_mem" ){
+	std::stringstream ss; ss << argv[arg+1];
+	size_t v; ss >> v;
+	DeviceMemoryPoolManager::globalPool().setPoolMaxSize(v);
+	HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::DevicePool);	
+	arg+=2;
+      }else if( cmdstr == "-host_pool_max_mem" ){
+	std::stringstream ss; ss << argv[arg+1];
+	size_t v; ss >> v;
+	HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::HostPool);	
+	arg+=2;
+      }else if( cmdstr == "-mempool_verbose" ){
+	DeviceMemoryPoolManager::globalPool().setVerbose(true);
+	HolisticMemoryPoolManager::globalPool().setVerbose(true);
+	arg+=1;
+      }else if( cmdstr == "-mempool_scratchdir" ){
+	HolisticMemoryPoolManager::globalPool().setDiskRoot(argv[arg+1]);
+	arg+=2;	
       }else if( cmdstr == "-old_gparity_cfg"){
 	old_gparity_cfg = true;
 	arg++;

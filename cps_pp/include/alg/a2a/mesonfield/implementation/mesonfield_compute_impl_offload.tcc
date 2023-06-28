@@ -124,19 +124,16 @@ void blockReduce(typename ComplexType::scalar_type* into, ComplexType const* fro
 
 #endif //GRID_CUDA
 
-//acc :  (mfVectorType &mf, int m) ->   mesonfield time vector
+//acc(int m):  return a view to the meson field for multiplicity index m
 //m = {0..multiplicity-1}
-template<typename mfVectorType, typename accumType, typename Accessor>
-void mesonFieldComputeReduce(mfVectorType &mf_t, accumType const* accum,
+template<typename accumType, typename Accessor>
+void mesonFieldComputeReduce(accumType const* accum,
 			     const size_t i0, const size_t j0, //block index
 			     const size_t bi_true, const size_t bj_true, //true size of this block
 			     const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
-			     const int t, const size_t size_3d,
+			     const size_t size_3d,
 			     const int multiplicity, const Accessor &acc){
 #ifdef MF_REDUCE_ON_DEVICE
-    //CUDA only currently (HIP newly added)
-    //std::cout << "CUDA/HIP GPU reduce (multi src)" << std::endl;
-
     double talloc_free = 0;
     double tkernel = 0;
     double tpoke = 0;
@@ -159,17 +156,13 @@ void mesonFieldComputeReduce(mfVectorType &mf_t, accumType const* accum,
       size_t i = ii+i0;
       size_t j = jj+j0;
 
-      acc(mf_t,m)[t](i,j) += tmp[m + multiplicity *(jj + bj_true*ii)];
+      acc(m)(i,j) += tmp[m + multiplicity *(jj + bj_true*ii)];
     }
     tpoke += dclock() - time;
 
     time = dclock();
     managed_free(tmp);
     talloc_free += dclock() - time;
-
-     //print_time("CUDA/HIP GPU reduce","alloc_free",talloc_free);
-     //print_time("CUDA/HIP GPU reduce","kernel",tkernel);
-     //print_time("CUDA/HIP GPU reduce","poke",tpoke);
 #else
     //Reduce over size_3d
     //(Do this on host for now) //GENERALIZE ME
@@ -180,7 +173,7 @@ void mesonFieldComputeReduce(mfVectorType &mf_t, accumType const* accum,
 	accumType const* from_base = accum + multiplicity*size_3d*(jj + bj*ii);
 	for(int x=0;x<size_3d;x++)
 	  for(int m=0;m<multiplicity;m++)
-	    acc(mf_t,m)[t](i,j) += Reduce(from_base[m + multiplicity*x]);    
+	    acc(m)(i,j) += Reduce(from_base[m + multiplicity*x]);    
       }
 #endif
 }
@@ -192,7 +185,8 @@ void mesonFieldComputeReduce(mfVectorType &mf_t, accumType const* accum,
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
 struct SingleSrcVectorPoliciesSIMDoffload{
-  typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
+  typedef A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> MesonFieldType;
+  typedef std::vector<MesonFieldType, Allocator > mfVectorType;
   typedef Grid::vComplexD accumType;
   typedef Grid::vComplexD& accessType; //used by the source
   accelerator_inline static accessType getAccessor(accumType *p){ return *p; }
@@ -211,7 +205,10 @@ struct SingleSrcVectorPoliciesSIMDoffload{
     for(int t=0;t<Lt;t++) 
       if(do_setup) mf_t[t].setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
       else{
-	assert(mf_t[t].ptr() != NULL);
+	{
+	  CPSautoView(mf_t_v,mf_t[t],HostRead);
+	  assert(mf_t_v.ptr() != NULL);
+	}
 	mf_t[t].zero();
       }
   }
@@ -230,7 +227,8 @@ struct SingleSrcVectorPoliciesSIMDoffload{
 			    const size_t bi_true, const size_t bj_true, //true size of this block
 			    const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 			    const int t, const size_t size_3d){
-    mesonFieldComputeReduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, size_3d, 1, [](mfVectorType &mf, int m)->mfVectorType &{ return mf; });
+    CPSautoView(mf_t_v,mf_t[t],HostWrite);
+    mesonFieldComputeReduce(accum, i0, j0, bi_true, bj_true, bj, size_3d, 1, [&](int m)->typename MesonFieldType::View &{ return mf_t_v; });
   }
   
 };
@@ -238,7 +236,8 @@ struct SingleSrcVectorPoliciesSIMDoffload{
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
 struct MultiSrcVectorPoliciesSIMDoffload{
-  typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfTimeVector;
+  typedef A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> MesonFieldType;
+  typedef std::vector<MesonFieldType, Allocator > mfTimeVector;
   typedef std::vector<mfTimeVector* > mfVectorType;
   typedef Grid::vComplexD accumType;
   typedef Grid::vComplexD* accessType; //used by the source
@@ -263,7 +262,10 @@ struct MultiSrcVectorPoliciesSIMDoffload{
       for(int t=0;t<Lt;t++) 
 	if(do_setup) mf_st[s]->operator[](t).setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
 	else{
-	  assert(mf_st[s]->operator[](t).ptr() != NULL);
+	  {
+	    CPSautoView(mf_st_v, (*mf_st[t])[t], HostRead);
+	    assert(mf_st_v.ptr() != NULL);
+	  }
 	  mf_st[s]->operator[](t).zero();
 	}
     }
@@ -286,7 +288,9 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 		     const size_t bi_true, const size_t bj_true, //true size of this block
 		     const int bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 		     const int t, const size_t size_3d) const{
-    mesonFieldComputeReduce(mf_st, accum, i0, j0, bi_true, bj_true, bj, t, size_3d, mfPerTimeSlice, [](mfVectorType &mf, int m)->mfTimeVector &{ return *mf[m]; });
+    typedef typename MesonFieldType::View ViewType;
+    ViewAutoDestructWrapper<ViewType> views[mfPerTimeSlice]; for(int m=0;m<mfPerTimeSlice;m++) views[m].reset(new ViewType( (*mf_st[m])[t].view(HostWrite)));
+    mesonFieldComputeReduce(accum, i0, j0, bi_true, bj_true, bj, size_3d, mfPerTimeSlice, [&](int m)->ViewType &{ return *views[m]; });
   }
   
 };
@@ -493,7 +497,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 // #endif
 	    
 	    kernel_time -= dclock();
-	    CPSautoView(M_v,M); //auto M_v = M.view();
+	    CPSautoView(M_v,M,DeviceRead); //auto M_v = M.view();
 	    
 	    using namespace Grid;
 	    {
@@ -596,7 +600,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
   }
 
 
-  //Gather chunks of l,r fields
+  //Gather chunks of l,r fields on the host side into data containers that will be copied to the device
   void gatherLRchunks(hostDeviceMirroredContainer<typename mf_Policies::FermionFieldType::FieldSiteType> &iblock_data,
 		      hostDeviceMirroredContainer<typename mf_Policies::FermionFieldType::FieldSiteType> &jblock_data,
 		      hostDeviceMirroredContainer<std::pair<bool,bool> > &iblock_flav_is_zero,
@@ -612,46 +616,54 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     
     FieldSiteType *iblock_data_host = iblock_data.getHostWritePtr(),  *jblock_data_host = jblock_data.getHostWritePtr();
     std::pair<bool,bool> *iblock_flav_is_zero_host = iblock_flav_is_zero.getHostWritePtr(), *jblock_flav_is_zero_host = jblock_flav_is_zero.getHostWritePtr();
-    
-    thread_for(ii, bi_true, {
-	size_t i = i0 + ii;
-	modeIndexSet i_high_unmapped; if(i>=nl_l) mf_ref.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
-	vPtr in_base_ptr = l.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //here we take advantage of the fact that the 3d timeslices are contiguous
-	offsetT in_site_offset( l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) ); //for some modes one or the other flavor is zero due to delta function
-	if( (in_site_offset.first != 0 && in_site_offset.first != 12) ||
-	    (in_site_offset.second != 0 && in_site_offset.second != 12)) {
-	  ERR.General("mfComputeGeneralOffload", "compute_v2", "Expect l site offsets of 12 or 0!");
-	}
-	in_base_ptr.incrementPointers(in_site_offset, x0);
-	      
-	//use mapping  scf + 12*( x3d_blk + bx*(f + nf*i))
-	for(int f=0;f<nf;f++){	      
-	  FieldSiteType *to_base = iblock_data_host + (0 + 12*(0 + bx*(f + nf*ii)));
-		  if(!in_base_ptr.isZero(f)) memcpy(to_base, in_base_ptr.getPtr(f), 12*bx_true*sizeof(FieldSiteType));
-	}
-	
-	iblock_flav_is_zero_host[ii] = std::pair<bool,bool>(in_base_ptr.isZero(0), in_base_ptr.isZero(1));			
-      });
 
-    thread_for(jj, bj_true, {
-	size_t j = j0 + jj;
-	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_ref.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
-	vPtr in_base_ptr = r.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
-	offsetT in_site_offset( r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) );
-	if( (in_site_offset.first != 0 && in_site_offset.first != 12) ||
-	    (in_site_offset.second != 0 && in_site_offset.second != 12)) {
-	  ERR.General("mfComputeGeneralOffload", "compute_v2", "Expect r site offsets of 12 or 0!");
-	}
-	in_base_ptr.incrementPointers(in_site_offset, x0);
+    {
+      CPSautoView(l_v,l,HostRead);
+      
+      thread_for(ii, bi_true, {
+	  size_t i = i0 + ii;
+	  modeIndexSet i_high_unmapped; if(i>=nl_l) mf_ref.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
+	  vPtr in_base_ptr = l_v.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //here we take advantage of the fact that the 3d timeslices are contiguous
+	  offsetT in_site_offset( l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) ); //for some modes one or the other flavor is zero due to delta function
+	  if( (in_site_offset.first != 0 && in_site_offset.first != 12) ||
+	      (in_site_offset.second != 0 && in_site_offset.second != 12)) {
+	    ERR.General("mfComputeGeneralOffload", "compute_v2", "Expect l site offsets of 12 or 0!");
+	  }
+	  in_base_ptr.incrementPointers(in_site_offset, x0);
 	      
-	//use mapping  scf + 12*( x3d_blk + bx*(f + nf*j))
-	for(int f=0;f<nf;f++){	      
-	  FieldSiteType *to_base = jblock_data_host + (0 + 12*(0 + bx*(f + nf*jj)));
-	  if(!in_base_ptr.isZero(f)) memcpy(to_base, in_base_ptr.getPtr(f), 12*bx_true*sizeof(FieldSiteType));
-	}
+	  //use mapping  scf + 12*( x3d_blk + bx*(f + nf*i))
+	  for(int f=0;f<nf;f++){	      
+	    FieldSiteType *to_base = iblock_data_host + (0 + 12*(0 + bx*(f + nf*ii)));
+	    if(!in_base_ptr.isZero(f)) memcpy(to_base, in_base_ptr.getPtr(f), 12*bx_true*sizeof(FieldSiteType));
+	  }
 	
-	jblock_flav_is_zero_host[jj] = std::pair<bool,bool>(in_base_ptr.isZero(0), in_base_ptr.isZero(1));
-      });    
+	  iblock_flav_is_zero_host[ii] = std::pair<bool,bool>(in_base_ptr.isZero(0), in_base_ptr.isZero(1));			
+	});
+    }
+
+    {
+      CPSautoView(r_v,r,HostRead);
+
+      thread_for(jj, bj_true, {
+	  size_t j = j0 + jj;
+	  modeIndexSet j_high_unmapped; if(j>=nl_r) mf_ref.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
+	  vPtr in_base_ptr = r_v.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+	  offsetT in_site_offset( r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) );
+	  if( (in_site_offset.first != 0 && in_site_offset.first != 12) ||
+	      (in_site_offset.second != 0 && in_site_offset.second != 12)) {
+	    ERR.General("mfComputeGeneralOffload", "compute_v2", "Expect r site offsets of 12 or 0!");
+	  }
+	  in_base_ptr.incrementPointers(in_site_offset, x0);
+	      
+	  //use mapping  scf + 12*( x3d_blk + bx*(f + nf*j))
+	  for(int f=0;f<nf;f++){	      
+	    FieldSiteType *to_base = jblock_data_host + (0 + 12*(0 + bx*(f + nf*jj)));
+	    if(!in_base_ptr.isZero(f)) memcpy(to_base, in_base_ptr.getPtr(f), 12*bx_true*sizeof(FieldSiteType));
+	  }
+	
+	  jblock_flav_is_zero_host[jj] = std::pair<bool,bool>(in_base_ptr.isZero(0), in_base_ptr.isZero(1));
+	});
+    }
   }
 
   //Work out offsets and extents for future loop iterations
@@ -704,6 +716,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
   
   //This version does an explicit copy of chunks of the a2a fields to the device
   void compute_v2(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
+    double total_time = -dclock();	
     this->setupPolicy(mf_t,l,M,r);
     
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
@@ -922,7 +935,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	      size_t nwork = bi_true * bj_true * bx_true;	  
 	      
 	      kernel_time -= dclock();
-	      CPSautoView(M_v,M);
+	      CPSautoView(M_v,M,DeviceRead);
 	      
 	      accelerator_for(elem, nwork, Nsimd, 
 			      {
@@ -1045,13 +1058,339 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 #ifndef MF_REDUCE_ON_DEVICE
     free(accum_host);
 #endif
+    print_time("A2AmesonField","total",total_time + dclock());
   }
 
+
+
+  void compute_v3(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
+    double total_time = -dclock();
+    this->setupPolicy(mf_t,l,M,r);
     
+    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    if(!UniqueID()) printf("Starting A2AmesonField::compute (blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
+    if(!UniqueID()) printMem("mfComputeGeneralOffload node 0 memory status",0);
+
+    cps::sync();
+
+    if(!UniqueID()){ printf("Initializing meson fields\n"); fflush(stdout); }
+    double time = -dclock();
+    this->initializeMesonFields(mf_t,l,r,Lt,do_setup);
+    print_time("A2AmesonField","setup",time + dclock());
+   
+    time = -dclock();
+    //For W vectors we dilute out the flavor index in-place while performing this contraction
+    const typename mf_Policies::FermionFieldType &mode0 = l.getMode(0);
+    const size_t size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+    if(mode0.nodeSites(3) != GJP.TnodeSites()) ERR.General("A2AmesonField","compute","Not implemented for fields where node time dimension != GJP.TnodeSites()\n");
+
+    for(int t=1;t<Lt;t++){
+      assert(this->getReferenceMf(mf_t,t).getRowParams().paramsEqual(this->getReferenceMf(mf_t,0).getRowParams() ) );
+      assert(this->getReferenceMf(mf_t,t).getColParams().paramsEqual(this->getReferenceMf(mf_t,0).getColParams() ) );
+    }
+    const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & mf_ref = this->getReferenceMf(mf_t,0);
+    const size_t nl_l = mf_ref.getRowParams().getNl();
+    const size_t nl_r = mf_ref.getColParams().getNl();
+    const size_t nmodes_l = mf_ref.getNrows();
+    const size_t nmodes_r = mf_ref.getNcols();
+
+    size_t bi = BlockedMesonFieldArgs::bi, bj = BlockedMesonFieldArgs::bj, bx = BlockedMesonFieldArgs::bp;
+    if(bi > nmodes_l || bi == 0) bi = nmodes_l;
+    if(bj > nmodes_r || bj == 0) bj = nmodes_r;
+    if(bx > size_3d || bx == 0) bx = size_3d; //optional disable of x blocking
+
+#ifdef MF_OFFLOAD_INNER_BLOCKING
+    //Note these will be shrunk if necessary to be an exact divisor of the true block size, which can be smaller for the last block if the block size is not a divisor
+    size_t sbi = BlockedMesonFieldArgs::bii, sbj = BlockedMesonFieldArgs::bjj, sbx = BlockedMesonFieldArgs::bpp;
+    if(sbi == 0 || sbi > bi) sbi = bi;
+    if(sbj == 0 || sbj > bj) sbj = bj;
+    if(sbx == 0 || sbx > bx) sbx = bx;
+#endif
+
+    //Types for offset and pointer tables
+    typedef SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> vPtr;
+    typedef std::pair<int,int> offsetT;
+    
+    //Total number of work items is nmodes_l * nmodes_r * size_3d, and kernel is M
+    //A reduction is performed over the 3d site
+    //Access pattern should be blocked to ensure cache reuse of rows and columns
+
+    //In Grid's model, for CUDA, the number of gpu threads is a global variable. The number of work items per block is fixed to gpu_threads * nsimd in a 2d array
+    //and the number of blocks is scaled to the problem
+
+    //If each work item writes to a separate memory location we need  nmodes_l * nmodes_r * size_3d temporary storage, which is far too big. We thus need to divide the
+    //problem into smaller blocks of size   nl_block * nr_block * np_block,   where nl_block is tuned such that the temporaries fit in GPU memory
+    //We will use BlockedMesonFieldArgs::bi, BlockedMesonFieldArgs::bj and BlockedMesonFieldArgs::bp for this purpose
+
+    //Note, block sizes will depend on the multiplicity of the accumulation type
+    
+
+    //Allocate work item temp memory
+    const size_t multiplicity = this->accumMultiplicity();
+    const size_t naccum = bi * bj * bx * multiplicity;
+    accumType *accum = (accumType*)device_alloc_check(naccum*sizeof(accumType));
+#ifndef MF_REDUCE_ON_DEVICE
+    //Require host location to stage from
+    accumType *accum_host = (accumType*)malloc_check(naccum*sizeof(accumType));    
+#endif
+    
+    std::cout << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
+    
+
+#ifdef MF_OFFLOAD_INNER_BLOCKING
+    std::cout << "Using inner block sizes " << sbi << " " << sbj << " " << sbx << std::endl;
+#endif
+    size_t nioblocks = (nmodes_l + bi-1)/bi,  njoblocks = (nmodes_r + bj-1)/bj,  nxoblocks = (size_3d + bx-1)/bx;
+    std::cout << "Number of outer blocks " << nioblocks << " " << njoblocks << " " << nxoblocks << std::endl;
+
+    std::vector<int> il_map(nmodes_l), jr_map(nmodes_r);
+    thread_for(i, nmodes_l, 
+	       {
+		 if(i<nl_l) il_map[i] = i;
+		 else{		   
+		   modeIndexSet i_high_unmapped; mf_ref.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
+		   il_map[i] = nl_l + l.indexMap(i_high_unmapped);
+		 }
+	       });
+    thread_for(j, nmodes_r, 
+	       {
+		 if(j<nl_r) jr_map[j] = j;
+		 else{		   
+		   modeIndexSet j_high_unmapped; mf_ref.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
+		   jr_map[j] = nl_r + r.indexMap(j_high_unmapped);
+		 }
+	       });
+
+    
+    CPSautoView(M_v,M,DeviceRead);
+    
+    double reduce_time = 0;
+    double ptr_setup_time = 0;
+    double kernel_time = 0;
+    double copy_prefetch_time = 0;
+    
+#ifndef MEMTEST_MODE     
+    for(size_t i0 = 0; i0 < nmodes_l; i0+=bi){
+      std::cout << "i-block " << i0/bi << "/" << nioblocks << std::endl;
+      
+      size_t iup = std::min(i0+bi,nmodes_l);
+      size_t bi_true = iup - i0;
+#ifdef MF_OFFLOAD_INNER_BLOCKING
+      int sbi_use = nearestDivisor(bi_true, sbi);
+      int niblk = bi_true / sbi_use;
+#endif
+
+      //Open view to required l fields here, and only close after inner loop so it stays on the device
+      copy_prefetch_time -= dclock();
+      std::vector<bool> lmodes_used(l.getNmodes(),false);
+      for(int i=i0;i<iup;i++) lmodes_used[il_map[i]] = true;
+      auto l_v = l.view(DeviceRead, lmodes_used);
+      copy_prefetch_time += dclock();
+	
+      hostDeviceMirroredContainer<vPtr> base_ptrs_i(bi_true);
+      hostDeviceMirroredContainer<offsetT> site_offsets_i(bi_true);
+
+      for(size_t j0 = 0; j0< nmodes_r; j0+=bj) {
+	std::cout << "j-block " << j0/bj << "/" << njoblocks << std::endl;
+	size_t jup = std::min(j0+bj,nmodes_r);
+	size_t bj_true = jup - j0;
+#ifdef MF_OFFLOAD_INNER_BLOCKING
+	int sbj_use = nearestDivisor(bj_true, sbj);
+	int njblk = bj_true / sbj_use;
+#endif
+	  
+	//Get view for r
+	copy_prefetch_time -= dclock();
+	std::vector<bool> rmodes_used(r.getNmodes(),false);
+	for(int j=j0;j<jup;j++) rmodes_used[jr_map[j]] = true;
+	auto r_v = r.view(DeviceRead, rmodes_used);
+
+	//Prefetch next block(s)
+	{ 
+	  size_t j0_nxt = j0+bj;
+	  size_t i0_nxt = i0+bi;
+	  if(j0_nxt < nmodes_r){
+	    size_t jup_nxt = std::min(j0_nxt+bj,nmodes_r);
+	    std::vector<bool> rmodes_used_nxt(r.getNmodes(),false);
+	    for(int j=j0_nxt;j<jup_nxt;j++) rmodes_used_nxt[jr_map[j]] = true;
+	    r.enqueuePrefetch(DeviceRead,rmodes_used_nxt);	    
+	    A2AfieldR<mf_Policies>::startPrefetches();
+	  }else if(i0_nxt < nmodes_l){
+	    j0_nxt = 0; //loops back round
+	    size_t jup_nxt = std::min(j0_nxt+bj,nmodes_r);
+	    std::vector<bool> rmodes_used_nxt(r.getNmodes(),false);
+	    for(int j=j0_nxt;j<jup_nxt;j++) rmodes_used_nxt[jr_map[j]] = true;
+	    r.enqueuePrefetch(DeviceRead,rmodes_used_nxt);	    
+	    
+	    //prefetch next i block also!
+	    size_t iup_nxt = std::min(i0_nxt+bi,nmodes_l);
+	    std::vector<bool> lmodes_used_nxt(l.getNmodes(),false);
+	    for(int i=i0_nxt;i<iup_nxt;i++) lmodes_used_nxt[il_map[i]] = true;
+	    l.enqueuePrefetch(DeviceRead,lmodes_used_nxt);
+	    
+	    A2AfieldR<mf_Policies>::startPrefetches();
+	  }
+	}	
+	copy_prefetch_time += dclock();
+
+	hostDeviceMirroredContainer<vPtr> base_ptrs_j(bj_true);
+	hostDeviceMirroredContainer<offsetT> site_offsets_j(bj_true);
+	  
+	//Each node only works on its time block
+	for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){   
+	  const int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+	  std::cout << "local timeslice " << t_lcl << "/" << GJP.TnodeSites() << std::endl;
+	  
+	  //Generate device base pointer and offset tables
+	  ptr_setup_time -= dclock();
+	  {
+	    CPSautoView(base_ptrs_i_v,base_ptrs_i,HostWrite);
+	    CPSautoView(site_offsets_i_v,site_offsets_i,HostWrite);
+	  
+	    thread_for(ii, bi_true, 
+		       {
+			 size_t i = ii + i0;
+			 modeIndexSet i_high_unmapped; if(i>=nl_l) mf_ref.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
+			 base_ptrs_i_v[ii] = l_v.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //Use the view to ensure we get device pointers. Here we take advantage of the fact that the 3d timeslices are contiguous
+			 site_offsets_i_v[ii] = offsetT( l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) ); //for some modes one or the other flavor is zero due to delta function
+		       });
+	  }
+	  {
+	    CPSautoView(base_ptrs_j_v,base_ptrs_j,HostWrite);
+	    CPSautoView(site_offsets_j_v,site_offsets_j,HostWrite);
+	    	    
+	    thread_for(jj, bj_true, 
+		       {
+			 size_t j = jj + j0;
+			 modeIndexSet j_high_unmapped; if(j>=nl_r) mf_ref.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
+			 base_ptrs_j_v[jj] = r_v.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+			 site_offsets_j_v[jj] = offsetT( r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) );
+		       });
+	  }
+
+	  //Open views to tables
+	  CPSautoView(base_ptrs_i_v,base_ptrs_i,DeviceRead);
+	  CPSautoView(site_offsets_i_v,site_offsets_i,DeviceRead);
+	  CPSautoView(base_ptrs_j_v,base_ptrs_j,DeviceRead);
+	  CPSautoView(site_offsets_j_v,site_offsets_j,DeviceRead);
+	  ptr_setup_time += dclock();
+
+	  //Chunk over x-blocks
+	  for(int x0 = 0; x0<size_3d; x0+=bx){
+	    int xup = std::min(x0+bx, size_3d);
+	    int bx_true = xup - x0;
+#ifdef MF_OFFLOAD_INNER_BLOCKING
+	    int sbx_use = nearestDivisor(bx_true, sbx);
+	    int nxblk = bx_true / sbx_use;
+#endif
+
+#ifdef GRID_CUDA
+	    if(t_lcl == 0 && x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStart();
+#endif
+	    size_t nwork = bi_true * bj_true * bx_true;	  
+    
+	    kernel_time -= dclock();
+	    
+	    using namespace Grid;
+	    {
+	      accelerator_for(elem, nwork, Nsimd, 
+			      {
+#ifdef MF_OFFLOAD_INNER_BLOCKING
+				//item = xs + sbx_use*( js + sbj_use * ( is + sbi_use * ( xblk + nxblk * (jblk + njblk * iblk))))
+				int rem = elem;
+				int xs = rem % sbx_use; rem /= sbx_use;
+				int js = rem % sbj_use; rem /= sbj_use;
+				int is = rem % sbi_use; rem /= sbi_use;
+				int xblk = rem % nxblk; rem /= nxblk;
+				int jblk = rem % njblk; rem /= njblk;
+				int iblk = rem;
+
+				int ii = is + sbi_use*iblk;
+				int jj = js + sbj_use*jblk;
+				int xx = xs + sbx_use*xblk;
+				
+				int i = ii + i0;
+				int j = jj + j0;
+				int x = xx + x0;
+								
+#else
+				int rem = item;
+				int xx = rem % bx_true; rem /= bx_true;
+				int jj = rem % bj_true; rem /= bj_true;
+				int ii = rem;			    
+				
+				int i = ii+i0;
+				int j = jj+j0;
+				int x = xx+x0;
+#endif
+				
+				accumType *into = accum + multiplicity*(xx + bx*(jj + bj*ii));
+				typename SIMT<accumType>::value_type zero; Grid::zeroit(zero);
+				for(int m=0;m<multiplicity;m++)			      
+				  SIMT<accumType>::write(into[m], zero);
+				
+				vPtr lptr = base_ptrs_i_v[ii]; lptr.incrementPointers(site_offsets_i_v[ii], x);
+				vPtr rptr = base_ptrs_j_v[jj]; rptr.incrementPointers(site_offsets_j_v[jj], x);
+
+				typename mfVectorPolicies::accessType acc = mfVectorPolicies::getAccessor(into);
+				
+				M_v(acc,lptr,rptr,x,t);
+			      });
+	    };
+	    kernel_time += dclock();
+	    
+	    reduce_time -= dclock();
+#ifndef MF_REDUCE_ON_DEVICE
+	    copy_device_to_host(accum_host, accum, naccum*sizeof(accumType));
+	    this->reduce(mf_t, accum_host, i0, j0, bi_true, bj_true, bj, t, bx_true);
+#else
+	    this->reduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, bx_true);
+#endif	    
+	    reduce_time += dclock();
+
+#ifdef GRID_CUDA
+	    if(x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStop();
+#endif
+	  }//x0
+	}//t
+	A2AfieldR<mf_Policies>::waitPrefetches();
+	r_v.free();
+      }//j0
+      l_v.free();
+    }//i0
+      
+#endif //memtest mode
+
+    print_time("A2AmesonField","local compute",time + dclock());
+    print_time("A2AmesonField","kernel time in local compute",kernel_time);
+    print_time("A2AmesonField","ptr setup time in local compute",ptr_setup_time);
+    print_time("A2AmesonField","device copy/prefetch time in local compute",copy_prefetch_time);
+    print_time("A2AmesonField","reduce time in local compute",reduce_time);
+    
+    time = -dclock();
+    cps::sync();
+    print_time("A2AmesonField","sync",time + dclock());
+
+    //Accumulate
+    time = -dclock();
+#ifndef MEMTEST_MODE
+    this->nodeSum(mf_t,Lt);
+#endif
+    print_time("A2AmesonField","nodeSum",time + dclock());
+    
+    device_free(accum);
+
+#ifndef MF_REDUCE_ON_DEVICE
+    free(accum_host);
+#endif
+    print_time("A2AmesonField","total",total_time + dclock());
+  }
+ 
 
   inline void compute(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
     //compute_v1(mf_t,l,M,r,do_setup);
-    compute_v2(mf_t,l,M,r,do_setup);
+    //compute_v2(mf_t,l,M,r,do_setup);
+    compute_v3(mf_t,l,M,r,do_setup);
   }
 
   

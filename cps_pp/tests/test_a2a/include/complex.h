@@ -22,7 +22,7 @@ template<typename GridPolicies>
 void testBasicComplexArray(){
   std::cout << "Starting testBasicComplexArray" << std::endl;
   typedef typename GridPolicies::ComplexType ComplexType;
-  typedef typename GridPolicies::AllocPolicy AllocPolicy;
+  typedef Aligned128AllocPolicy AllocPolicy;
 
   int nodes = GJP.TotalNodes();
   

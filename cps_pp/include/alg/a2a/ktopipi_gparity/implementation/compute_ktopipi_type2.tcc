@@ -158,7 +158,6 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<vMv_sp
 
   {
   //Part 1
-#pragma omp parallel for
   for(int tkidx=0; tkidx < t_K_all.size(); tkidx++){
     if(!node_top_used_kaon[tkidx][top_loc]) continue;
     int t_K = t_K_all[tkidx];
@@ -168,7 +167,6 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<vMv_sp
 
   {
   //Part 2
-#pragma omp parallel for
   for(int t_pi1_lin = 1; t_pi1_lin <= Lt; t_pi1_lin += tstep){ //Daiqian's weird ordering
     int t_pi1 = modLt(t_pi1_lin,Lt);
     int t_pi1_idx = t_pi1 / tstep;

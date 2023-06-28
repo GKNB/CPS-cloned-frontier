@@ -134,7 +134,7 @@ struct _cconj<T,grid_vector_complex_mark>{
 };
 #endif
 
-template<typename T>
+template<typename T, typename std::enable_if<!std::is_same<typename ComplexClassify<T>::type,no_mark>::value,int>::type = 0 >
 accelerator_inline T cconj(const T& in){
   return _cconj<T,typename ComplexClassify<T>::type>::doit(in);
 }
@@ -183,9 +183,20 @@ inline std::complex<double> convertComplexD(const Grid::vComplexF &what){
 #endif
 
 
-
-
-
+template<typename T>
+accelerator_inline void CPSsetZero(T &what){
+  what = 0.;
+}
+#ifdef USE_GRID
+template<>
+accelerator_inline void CPSsetZero(Grid::vComplexD &what){
+  zeroit(what);
+}
+template<>
+accelerator_inline void CPSsetZero(Grid::vComplexF &what){
+  zeroit(what);
+}
+#endif
 
 CPS_END_NAMESPACE
 

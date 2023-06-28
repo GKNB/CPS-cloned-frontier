@@ -52,6 +52,8 @@ void initCPS(int argc, char **argv, const DoArg &do_arg, const int nthreads);
 //Do the gauge fixing if !skip_gauge_fix
 void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const FixGaugeArg &fix_gauge_arg);
 
+//Gauge fix using Grid's implementation (fallback to above for unsupported types or if not using Grid)
+void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const FixGaugeArgGrid &fix_gauge_arg);
 
 inline void freeGridSharedMem(){
 #if defined(USE_GRID_A2A) || defined(USE_GRID_LANCZOS)

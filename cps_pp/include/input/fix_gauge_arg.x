@@ -13,3 +13,13 @@ class FixGaugeArg {
                                  /* condition is satisfied.*/
 };
 
+/*This version contains the additional information necessary to use Grid's gauge fixing,*/
+/*and also does away with the generally-useless hyperplane parameters*/
+
+class FixGaugeArgGrid {
+  FixGaugeType fix_gauge_kind;   /* The kind of gauge fixing*/
+  Float stop_cond;               /* The stopping condition.*/
+  int max_iter_num;              /* Maximum number of iterations.*/
+  Float alpha;                   /* Tuning parameter related to the step size*/
+};
+

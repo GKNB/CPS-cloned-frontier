@@ -43,4 +43,38 @@ vml_FixGaugeArg (VML *vmls, char *name,FixGaugeArg *objp)
 	 vml_class_end(vmls,"FixGaugeArg",name);
 	return TRUE;
 }
+	 bool FixGaugeArgGrid::Encode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
+		 if ( !Vml(&vmls,instance) ) return false;
+		 vmls.Destroy(); return true;
+	 }
+
+	 bool FixGaugeArgGrid::Decode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_DECODE)) return false;
+		 if ( !Vml(&vmls,instance)) return false;
+		 vmls.Destroy(); return true;
+	 }
+	 bool FixGaugeArgGrid::Vml(VML *vmls,char *instance){
+		 if(!vml_FixGaugeArgGrid(vmls,instance,this)) return false;
+	 return true;
+	}
+
+
+bool_t
+vml_FixGaugeArgGrid (VML *vmls, char *name,FixGaugeArgGrid *objp)
+{
+	 vml_class_begin(vmls,"FixGaugeArgGrid",name);
+	 if (!vml_FixGaugeType (vmls, "fix_gauge_kind", &objp->fix_gauge_kind))
+		 return FALSE;
+	 if (!vml_Float (vmls, "stop_cond", &objp->stop_cond))
+		 return FALSE;
+	 if (!vml_int (vmls, "max_iter_num", &objp->max_iter_num))
+		 return FALSE;
+	 if (!vml_Float (vmls, "alpha", &objp->alpha))
+		 return FALSE;
+	 vml_class_end(vmls,"FixGaugeArgGrid",name);
+	return TRUE;
+}
 CPS_END_NAMESPACE

@@ -63,6 +63,8 @@ inline int getRSS(){ //Note: this value is in KB!
 }
 
 
+inline std::string memPoolManagerReport();
+
 //Print memory usage
 inline void printMem(const std::string &reason = "", int node = 0, FILE* stream = stdout){
   if(UniqueID()==node && reason != "") fprintf(stream, "printMem node %d called with reason: %s\n", node, reason.c_str());
@@ -169,6 +171,10 @@ inline void printMem(const std::string &reason = "", int node = 0, FILE* stream 
 
   if(UniqueID()==node){
     fprintf(stream, "printMem node %d: Resident set size %f MB\n", node, double(getRSS())/1024.);
+  }
+
+  if(UniqueID()==node){
+    fprintf(stream, "%s\n", memPoolManagerReport().c_str());
   }
   
   fflush(stream);
