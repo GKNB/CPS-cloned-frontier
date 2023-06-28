@@ -175,7 +175,9 @@ public:
   void zero(){ for(int i=0;i<nv;i++) v[i]->zero(); }
   
   void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumCRC32) const; //node id will be appended
+  void writeParallelWithGrid(const std::string &file_stub) const;
   void readParallel(const std::string &file_stub);
+  void readParallelWithGrid(const std::string &file_stub);
 
   //Read/write to binary files per node with separate metadata files. User provides path which is created internally
   void writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat = FP_AUTOMATIC) const;
@@ -381,6 +383,7 @@ private:
   
   void initialize(const FieldInputParamType &field_setup_params);
 public:
+
   typedef FullyPackedIndexDilution DilutionType;
 
   A2AvectorW(const A2AArg &_args);
@@ -530,7 +533,9 @@ public:
   }
 
   void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumCRC32) const; //node id will be appended
+  void writeParallelWithGrid(const std::string &file_stub) const;
   void readParallel(const std::string &file_stub);
+  void readParallelWithGrid(const std::string &file_stub);
 
   //Write V/W fields to a format with metadata and binary data separate. User provides a unique directory path. Directory is created if doesn't already exist
   void writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat = FP_AUTOMATIC) const;

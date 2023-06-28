@@ -71,6 +71,7 @@ struct BaseGridPolicies{
   
   typedef typename GridDirac::FermionField GridFermionField;
   typedef typename GridDiracF::FermionField GridFermionFieldF;
+  typedef typename Grid::Lattice<Grid::vTComplexD> GridComplexField;	//For Wh IO, singlet field
 #ifdef GRID_INNER_CG_HALFPREC_COMMS
   typedef GridDiracFH GridDiracFMixedCGInner; //which single-precision fermion action to use for inner CG of Grid high mode calculation
   typedef Grid::ZMobiusFermionFH GridDiracFZMobiusInner;
@@ -98,6 +99,7 @@ struct BaseGridPoliciesGparity{
 
   typedef typename GridDirac::FermionField GridFermionField;
   typedef typename GridDiracF::FermionField GridFermionFieldF;
+  typedef typename Grid::Lattice<Grid::vGparityFlavourVectorD> GridComplexField;	//For Wh IO, flavor vector field
 #ifdef GRID_INNER_CG_HALFPREC_COMMS
   typedef GridDiracFH GridDiracFMixedCGInner; //which single-precision fermion action to use for inner CG of Grid high mode calculation
   //typedef Grid::ZGparityMobiusFermionFH GridDiracFZMobiusInner;
@@ -121,6 +123,7 @@ struct BaseGridPoliciesGparity{
   typedef typename BGP::GridDiracFH GridDiracFH;		\
   typedef typename BGP::GridDiracZMobius GridDiracZMobius;	\
   typedef typename BGP::GridFermionField GridFermionField;	\
+  typedef typename BGP::GridComplexField GridComplexField;	\
   typedef typename BGP::GridFermionFieldF GridFermionFieldF; \
   typedef typename BGP::GridDiracFMixedCGInner GridDiracFMixedCGInner; \
   typedef typename BGP::GridDiracFZMobiusInner GridDiracFZMobiusInner; \

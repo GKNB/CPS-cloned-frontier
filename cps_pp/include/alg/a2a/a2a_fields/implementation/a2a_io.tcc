@@ -60,7 +60,49 @@ void A2AvectorV<mf_Policies>::writeParallel(const std::string &file_stub, FP_FOR
   file.close();
 }
 
-  
+
+template< typename mf_Policies>
+void A2AvectorV<mf_Policies>::writeParallelWithGrid(const std::string &file_stub) const
+{
+#ifndef HAVE_LIME
+  ERR.General("A2AvectorV","writeParallelWithGrid","Requires LIME");
+#else 
+  std::string info_file = file_stub + "_info.xml";
+  std::string data_file = file_stub + "_data.scidac";
+
+  if(!UniqueID())
+  {
+    Grid::XmlWriter WRx(info_file);
+    write(WRx, "data_length", v.size());
+
+    char* a2aparams_buf = (char*)malloc_check(10000 * sizeof(char));
+    {
+      VML vml;
+      vml.Create(a2aparams_buf,10000,VML_ENCODE);
+      A2AArg a2a_args = this->getArgs();
+      assert( a2a_args.Vml(&vml,"A2AARGS") );
+      vml.Destroy();
+    }
+    write(WRx, "a2a_args", std::string(a2aparams_buf));
+    free(a2aparams_buf);
+  }
+
+  Grid::GridCartesian *UGrid = FgridBase::getUGrid();
+  Grid::emptyUserRecord record;
+  Grid::ScidacWriter WR(UGrid->IsBoss());
+  WR.open(data_file);
+  for(int k=0;k<v.size();k++)
+  {
+    typename mf_Policies::GridFermionField grid_rep(UGrid);
+    v[k]->exportGridField(grid_rep);
+    WR.writeScidacFieldRecord(grid_rep,record);	  
+  }
+  WR.close();
+#endif
+}
+
+
+
 template< typename mf_Policies>
 void A2AvectorV<mf_Policies>::readParallel(const std::string &file_stub){
   std::ostringstream os; os << file_stub << "." << UniqueID();
@@ -111,6 +153,51 @@ void A2AvectorV<mf_Policies>::readParallel(const std::string &file_stub){
 }
 
 
+template<typename mf_Policies>
+void A2AvectorV<mf_Policies>::readParallelWithGrid(const std::string &file_stub)
+{
+#ifndef HAVE_LIME
+  ERR.General("A2AvectorV","readParallelWithGrid","Requires LIME");
+#else 
+  std::string info_file = file_stub + "_info.xml";
+  std::string data_file = file_stub + "_data.scidac";
+
+  Grid::XmlReader RDx(info_file);
+  int data_len = -1;
+  read(RDx,"data_length", data_len);
+
+  std::string a2aparams_str;
+  read(RDx, "a2a_args", a2aparams_str);
+
+  if(!UniqueID())
+  {
+    char* a2aparams_buf_this = (char*)malloc_check(10000 * sizeof(char));
+    {
+      VML vml;
+      vml.Create(a2aparams_buf_this,10000,VML_ENCODE);
+      A2AArg a2a_args = this->getArgs();
+      assert( a2a_args.Vml(&vml,"A2AARGS") );
+      vml.Destroy();
+    }
+    assert(a2aparams_str == std::string(a2aparams_buf_this) && "Error: args saved on disk and args used for initialize V&W are different!");
+    free(a2aparams_buf_this);
+  }
+
+  assert(v.size() == data_len && "Error: size suggested by a2a_arg is different from that in the saved file");
+
+  Grid::GridCartesian *UGrid = FgridBase::getUGrid();
+  Grid::emptyUserRecord record;
+  Grid::ScidacReader RD;
+  RD.open(data_file);
+  for(int k=0;k<data_len;k++)
+  {
+    typename mf_Policies::GridFermionField grid_rep(UGrid);
+    RD.readScidacFieldRecord(grid_rep,record);
+    v[k]->importGridField(grid_rep);
+  }
+  RD.close();
+#endif
+}
 
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::writeParallel(const std::string &file_stub, FP_FORMAT fileformat, CPSfield_checksumType cksumtype) const{
@@ -160,7 +247,54 @@ void A2AvectorW<mf_Policies>::writeParallel(const std::string &file_stub, FP_FOR
   file.close();
 }
 
-  
+ 
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::writeParallelWithGrid(const std::string &file_stub) const
+{
+#ifndef HAVE_LIME
+  ERR.General("A2AvectorW","writeParallelWithGrid","Requires LIME");
+#else 
+  std::string info_file = file_stub + "_info.xml";
+  std::string data_file = file_stub + "_data.scidac";
+
+  if(!UniqueID())
+  {
+    Grid::XmlWriter WRx(info_file);
+    write(WRx, "low_mode_data_length", wl.size());
+    write(WRx, "high_mode_data_length", wh.size());
+
+    char* a2aparams_buf = (char*)malloc_check(10000 * sizeof(char));
+    {
+      VML vml;
+      vml.Create(a2aparams_buf,10000,VML_ENCODE);
+      A2AArg a2a_args = this->getArgs();
+      assert( a2a_args.Vml(&vml,"A2AARGS") );
+      vml.Destroy();
+    }
+    write(WRx, "a2a_args", std::string(a2aparams_buf));
+    free(a2aparams_buf);
+  }
+
+  Grid::GridCartesian *UGrid = FgridBase::getUGrid();
+  Grid::emptyUserRecord record;
+  Grid::ScidacWriter WR(UGrid->IsBoss());
+  WR.open(data_file);
+  for(int k=0; k<wl.size();k++)
+  {
+    typename mf_Policies::GridFermionField grid_rep(UGrid);
+    wl[k]->exportGridField(grid_rep);
+    WR.writeScidacFieldRecord(grid_rep,record);	  
+  }
+  for(int k=0; k<wh.size(); k++)
+  {
+    typename mf_Policies::GridComplexField grid_rep(UGrid);
+    wh[k]->exportGridField(grid_rep);
+    WR.writeScidacFieldRecord(grid_rep,record);
+  }
+  WR.close();
+#endif
+}
+ 
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::readParallel(const std::string &file_stub){
   std::ostringstream os; os << file_stub << "." << UniqueID();
@@ -223,6 +357,63 @@ void A2AvectorW<mf_Policies>::readParallel(const std::string &file_stub){
   
   getline(file,str); assert(str == "END_WHFIELDS");  
 }
+
+
+template<typename mf_Policies>
+void A2AvectorW<mf_Policies>::readParallelWithGrid(const std::string &file_stub)
+{
+#ifndef HAVE_LIME
+  ERR.General("A2AvectorW","readParallelWithGrid","Requires LIME");
+#else 
+  std::string info_file = file_stub + "_info.xml";
+  std::string data_file = file_stub + "_data.scidac";
+
+  Grid::XmlReader RDx(info_file);
+  int low_mode_data_len = -1;
+  read(RDx,"low_mode_data_length", low_mode_data_len);
+  int high_mode_data_len = -1;
+  read(RDx,"high_mode_data_length", high_mode_data_len);
+
+  std::string a2aparams_str;
+  read(RDx, "a2a_args", a2aparams_str);
+
+  if(!UniqueID())
+  {
+    char* a2aparams_buf_this = (char*)malloc_check(10000 * sizeof(char));
+    {
+      VML vml;
+      vml.Create(a2aparams_buf_this,10000,VML_ENCODE);
+      A2AArg a2a_args = this->getArgs();
+      assert( a2a_args.Vml(&vml,"A2AARGS") );
+      vml.Destroy();
+    }
+    assert(a2aparams_str == std::string(a2aparams_buf_this) && "Error: args saved on disk and args used for initialize V&W are different!");
+    free(a2aparams_buf_this);
+  }
+
+  assert(wl.size() == low_mode_data_len && "Error: size suggested by a2a_arg for wl is different from that in the saved file");
+  assert(wh.size() == high_mode_data_len && "Error: size suggested by a2a_arg for wh is different from that in the saved file");
+
+  Grid::GridCartesian *UGrid = FgridBase::getUGrid();
+  Grid::emptyUserRecord record;
+  Grid::ScidacReader RD;
+  RD.open(data_file);
+  for(int k=0;k<low_mode_data_len;k++)
+  {
+    typename mf_Policies::GridFermionField grid_rep(UGrid);
+    RD.readScidacFieldRecord(grid_rep,record);
+    wl[k]->importGridField(grid_rep);
+  }
+  for(int k=0;k<high_mode_data_len;k++)
+  {
+    typename mf_Policies::GridComplexField grid_rep(UGrid);
+    RD.readScidacFieldRecord(grid_rep,record);
+    wh[k]->importGridField(grid_rep);
+  }
+  RD.close();
+#endif
+}
+
 
 
 //Write V/W fields to a format with metadata and binary data separate. User provides a unique directory path. Directory is created if doesn't already exist
