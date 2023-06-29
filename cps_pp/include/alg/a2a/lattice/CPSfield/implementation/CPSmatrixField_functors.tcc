@@ -391,7 +391,7 @@ struct _pr_scf_V{
 
 template<typename T>
 struct _setUnit{
-  accelerator_inline void operator()(T &m) const{
+  accelerator_inline void operator()(typename SIMT<T>::value_type &m) const{
     m.unit();
   } 
 };
