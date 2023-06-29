@@ -89,34 +89,42 @@ void benchmarkMmapMemoryStorage(int ntest, int nval){
 
 
   store.alloc(0,sz);
-  int* iptr = (int*)store.data();
- 
-  for(int i=0;i<nval;i++){
-    iptr[i] = base+i;
-  }    
+  {
+    CPSautoView(store_v,store,HostWrite); 
+    int* iptr = (int*)store_v();
+    
+    for(int i=0;i<nval;i++){
+      iptr[i] = base+i;
+    } 
+  }
   store.flush();
  
   //memset(store.data(), 0, sz);
 
   //Hot read
-  for(int i=0;i<nval;i++){
-    v += iptr[i];
-  }    
+  {
+    CPSautoView(store_v,store,HostRead);
+    int const* iptr = (int const*)store_v();
+    for(int i=0;i<nval;i++){
+      v += iptr[i];
+    }    
 
-  for(int t=0;t<20;t++){
-    double time = 0;
-    for(int i=0;i<ntest;i++){
-      time -= dclock();
-      for(int j=0;j<nval;j++){
-	v += iptr[j] ; //*base;
-      }    
-      time += dclock();
-    }
+    for(int t=0;t<20;t++){
+      double time = 0;
+      for(int i=0;i<ntest;i++){
+	time -= dclock();
+	for(int j=0;j<nval;j++){
+	  v += iptr[j] ; //*base;
+	}    
+	time += dclock();
+      }
     
-    std::cout << "Hot read: " << ntest*sz_GB/time << " GB/s, read time: " << time << "s" << std::endl;
+      std::cout << "Hot read: " << ntest*sz_GB/time << " GB/s, read time: " << time << "s" << std::endl;
 
-    std::cout << v << std::endl;
+      std::cout << v << std::endl;
+    }
   }
+
 
   //Cold read 
   for(int t=0;t<20;t++){
@@ -134,22 +142,8 @@ void benchmarkMmapMemoryStorage(int ntest, int nval){
       alloc_time -= dclock();
       store.alloc(0,sz);
       alloc_time += dclock();
-      iptr = (int*)store.data();
-
-      //Pages are initially not host resident so reading a newly allocated region is performed from disk
-#if 0
-      //Write without flush has pages resident on host so fast performance :  confirmed
-      write_time -= dclock();
-      for(int j=0;j<nval;j++){
-        iptr[j] = j;
-      }
-      write_time += dclock();
-
-      //Flushing to disk doesn't move the pages; they are still on the host : confirmed (although the read is slowed down somewhat)
-      flush_time -= dclock();
-      store.flush();
-      flush_time += dclock();
-#endif
+      CPSautoView(store_v,store,HostRead);
+      int const *iptr = (int const*)store_v();
 
       time -= dclock();
       for(int j=0;j<nval;j++){
@@ -167,10 +161,13 @@ void benchmarkMmapMemoryStorage(int ntest, int nval){
   //Cold read madvise distribute
   for(int t=0;t<20;t++){
     store.alloc(0,sz);
-    int* iptr = (int*)store.data();
+    {
+      CPSautoView(store_v,store,HostWrite);
+      int* iptr = (int*)store_v();
     
-    for(int i=0;i<nval;i++){
-      iptr[i] = base+i;
+      for(int i=0;i<nval;i++){
+	iptr[i] = base+i;
+      }
     }
     store.flush();
     store.distribute();
@@ -179,11 +176,15 @@ void benchmarkMmapMemoryStorage(int ntest, int nval){
     double distribute_time = 0;
   
     for(int i=0;i<ntest;i++){
-      time -= dclock();
-      for(int j=0;j<nval;j++){
-	v += iptr[j];   //*base;
+      {
+	CPSautoView(store_v,store,HostRead);
+	int const* iptr = (int const*)store_v();
+	time -= dclock();
+	for(int j=0;j<nval;j++){
+	  v += iptr[j];   //*base;
+	}
+	time += dclock();
       }
-      time += dclock();
 
       distribute_time -= dclock();
       store.distribute();
@@ -212,18 +213,21 @@ void benchmarkMmapMemoryStorage(int ntest, int nval){
       alloc_time -= dclock();
       store.alloc(0,sz);
       alloc_time += dclock();
-      iptr = (int*)store.data();
 
       //Pages are initially not host resident so reading a newly allocated region is performed from disk
       gather_time -= dclock();
       store.gather(true);
       gather_time += dclock();
 
-      time -= dclock();
-      for(int j=0;j<nval;j++){
-	v += iptr[j];   //*base;
+      {
+	CPSautoView(store_v,store,HostRead);
+	int const* iptr = (int const*)store_v();
+	time -= dclock();
+	for(int j=0;j<nval;j++){
+	  v += iptr[j];   //*base;
+	}
+	time += dclock();
       }
-      time += dclock();
     }
   
     std::cout << "Cold read with gather: " << ntest*sz_GB/time << " GB/s,  read time: " << time << ", free time: " << free_time << "s, alloc time: " << alloc_time << "s, gather time: " << gather_time << "s" << std::endl;
@@ -235,10 +239,12 @@ void benchmarkMmapMemoryStorage(int ntest, int nval){
   //Cold read madvise distribute and gather
   for(int t=0;t<20;t++){
     store.alloc(0,sz);
-    int* iptr = (int*)store.data();
-    
-    for(int i=0;i<nval;i++){
-      iptr[i] = base+i;
+    {
+      CPSautoView(store_v,store,HostWrite);
+      int* iptr = (int*)store_v();   
+      for(int i=0;i<nval;i++){
+	iptr[i] = base+i;
+      }
     }
     store.flush();
     store.distribute();
@@ -252,11 +258,15 @@ void benchmarkMmapMemoryStorage(int ntest, int nval){
       store.gather(true);
       gather_time += dclock();
 
-      time -= dclock();
-      for(int j=0;j<nval;j++){
-	v += iptr[j];   //*base;
+      {
+	CPSautoView(store_v,store,HostRead);
+	int const* iptr = (int const*)store_v();
+	time -= dclock();
+	for(int j=0;j<nval;j++){
+	  v += iptr[j];   //*base;
+	}
+	time += dclock();
       }
-      time += dclock();
 
       distribute_time -= dclock();
       store.distribute();
