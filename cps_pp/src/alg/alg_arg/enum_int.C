@@ -1210,6 +1210,7 @@ vml_A2AhighModeSourceType (VML *vmls, char *name,A2AhighModeSourceType *objp)
 struct vml_enum_map A2AhighModeSourceType_map[] = {
 	{"A2AhighModeSourceType","A2AhighModeSourceTypeOrig",A2AhighModeSourceTypeOrig},
 	{"A2AhighModeSourceType","A2AhighModeSourceTypeXconj",A2AhighModeSourceTypeXconj},
+	{"A2AhighModeSourceType","A2AhighModeSourceTypeFlavorUnit",A2AhighModeSourceTypeFlavorUnit},
 	{NULL,NULL,0}
 };
 CPS_END_NAMESPACE

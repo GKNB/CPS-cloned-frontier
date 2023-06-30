@@ -826,6 +826,7 @@ extern struct vml_enum_map A2A_ZMobiusGammaSource_map[];
 enum A2AhighModeSourceType {
 	A2AhighModeSourceTypeOrig = 0,
 	A2AhighModeSourceTypeXconj = 1,
+	A2AhighModeSourceTypeFlavorUnit = 2,
 };
 typedef enum A2AhighModeSourceType A2AhighModeSourceType;
 extern struct vml_enum_map A2AhighModeSourceType_map[];

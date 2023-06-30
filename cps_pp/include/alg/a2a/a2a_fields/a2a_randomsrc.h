@@ -288,4 +288,40 @@ public:
 };
 
 
+//This version uses the same random numbers for both diagonal flavor elements so the flavor structure is always the unit matrix
+template<typename A2Apolicies>
+class A2AhighModeSourceFlavorUnit: public A2AhighModeSource<A2Apolicies>{
+public:
+
+  //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
+  void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{
+    std::cout << "Setting high-mode sources (original)" << std::endl;
+    typedef typename A2AvectorW<A2Apolicies>::ScalarComplexFieldType ScalarComplexFieldType;
+    typedef typename ScalarComplexFieldType::FieldSiteType FieldSiteType;
+    NullObject null_obj;
+    int nhits = into.getNhits();
+    RandomType rand_type = into.getArgs().rand_type;
+    std::vector<ScalarComplexFieldType> tmp(nhits,null_obj);
+
+    LRG.SetInterval(1, 0);
+    size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
+    ViewArray<ScalarComplexFieldType> views(HostWrite,tmp);
+    for(size_t st = 0; st < sites; ++st) {
+      LRG.AssignGenerator(st,0);
+      for(int j = 0; j < nhits; ++j) {
+	FieldSiteType* p = views[j].site_ptr(st,0);
+	RandomComplex<FieldSiteType>::rand(p,rand_type,FOUR_D);
+	*views[j].site_ptr(st,1) = *p;
+      }
+    }
+    views.free();
+
+    into.setWh(tmp);
+  }    
+
+
+};
+
+
+
 CPS_END_NAMESPACE
