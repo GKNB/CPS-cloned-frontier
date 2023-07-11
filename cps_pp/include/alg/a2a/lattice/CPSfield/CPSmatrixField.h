@@ -123,11 +123,11 @@ template<typename VectorMatrixType>
 inline CPSmatrixField<VectorMatrixType> operator*(const CPSmatrixField<VectorMatrixType> &a, const CPSmatrixField<VectorMatrixType> &b);
 
 //complex * matrixField
-template<typename ScalarType, typename VectorMatrixType, typename std::enable_if< is_complex_double_or_float<ScalarType>::value, int>::type = 0  >
+template<typename ScalarType, typename VectorMatrixType, typename std::enable_if< is_complex_double_or_float<ScalarType>::value, int>::type dummy = 0  >
 inline CPSmatrixField<VectorMatrixType> operator*(const ScalarType &a, const CPSmatrixField<VectorMatrixType> &b);
 
 //complex field * matrix field
-template<typename VectorScalarType, typename VectorMatrixType, typename std::enable_if< is_grid_vector_complex<VectorScalarType>::value, int>::type = 0>
+template<typename VectorScalarType, typename VectorMatrixType, typename std::enable_if< is_grid_vector_complex<VectorScalarType>::value, int>::type dummy = 0>
 inline CPSmatrixField<VectorMatrixType> operator*(const CPSmatrixField<VectorScalarType> &a, const CPSmatrixField<VectorMatrixType> &b);
 
 template<typename VectorMatrixType>
@@ -299,7 +299,7 @@ namespace gaugeFixTest{
     auto AmAdag = A - Adag;
     CPSmatrixField<CPScolorMatrix<Grid::vComplexD> > one(g_orig.getDimPolParams()); setUnit(one);
 
-    return AmAdag - Grid::ComplexD(1./3) * Trace(AmAdag)*one;
+    return AmAdag - Grid::ComplexD(1./3) * (Trace(AmAdag)*one);
   }
 
   //Evaluate the convergence metric used in CPS:   norm2(B)/(2 Nc^2 V)

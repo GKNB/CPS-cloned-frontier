@@ -8,6 +8,11 @@
 
 CPS_START_NAMESPACE
 
+//Check if a type is a CPSsquareMatrix
+//usage: e.g.  static_assert( ifCPSsquareMatrix<T>::value == 1 );
+template<typename T>
+class isCPSsquareMatrix;
+
 #include "implementation/spin_color_matrices_meta.tcc"
 
 //A class representing a square matrix
