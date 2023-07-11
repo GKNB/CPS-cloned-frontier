@@ -1,8 +1,7 @@
 #ifndef _A2A_POLICIES_H
 #define _A2A_POLICIES_H
 
-#include "a2a_allocpolicies.h"
-#include<alg/a2a/lattice/CPSfield.h>
+#include "field_vectors.h"
 
 CPS_START_NAMESPACE
 
@@ -26,9 +25,23 @@ CPS_START_NAMESPACE
 #ifndef SET_MFSTORAGE_DEFAULT
 #define SET_MFSTORAGE_DEFAULT SET_MFSTORAGE_MEMPOOL
 //SET_MFSTORAGE_DISTRIBUTED
-
-
 #endif
+
+
+//Macro to choose the allocation strategy for A2A fields
+#define SET_A2AVECTOR_AUTOMATIC_ALLOC(PolicyType) \
+  typedef A2AvectorV_autoAllocPolicies<PolicyType> A2AvectorVpolicies; \
+  typedef A2AvectorW_autoAllocPolicies<PolicyType> A2AvectorWpolicies; \
+  typedef A2AvectorVfftw_autoAllocPolicies<PolicyType> A2AvectorVfftwPolicies; \
+  typedef A2AvectorWfftw_autoAllocPolicies<PolicyType> A2AvectorWfftwPolicies
+
+
+#define SET_A2AVECTOR_MANUAL_ALLOC(PolicyType) \
+  typedef A2AvectorV_manualAllocPolicies<PolicyType> A2AvectorVpolicies; \
+  typedef A2AvectorW_manualAllocPolicies<PolicyType> A2AvectorWpolicies; \
+  typedef A2AvectorVfftw_manualAllocPolicies<PolicyType> A2AvectorVfftwPolicies; \
+  typedef A2AvectorWfftw_manualAllocPolicies<PolicyType> A2AvectorWfftwPolicies
+
 
 //Type policies needed for sources
 

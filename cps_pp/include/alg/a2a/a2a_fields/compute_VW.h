@@ -1,3 +1,5 @@
+#include "compute_VW/randomize_VW.h"
+
 //Grid only supported
 #if defined(USE_GRID_A2A)
 # warning "Using Grid A2A"

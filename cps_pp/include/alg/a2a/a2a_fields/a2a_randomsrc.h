@@ -1,8 +1,6 @@
 #pragma once
 
-#include<alg/a2a/utils.h>
-#include "a2a_fft.h"
-#include "field_array.h"
+#include "field_vectors.h"
 
 CPS_START_NAMESPACE
 
