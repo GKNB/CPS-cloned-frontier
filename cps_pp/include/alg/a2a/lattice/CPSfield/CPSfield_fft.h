@@ -265,16 +265,16 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   const size_t howmany = munodes_work[munodecoor] * nf * SiteSize;
 
 #ifdef GRID_CUDA
-  fft_opt_mu_timings::method = "cufft";
+  fft_opt_mu_timings::get().method = "cufft";
   CPSfield_do_fft_cufft<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf, bufsz);
 #elif defined(GRID_HIP)
-  fft_opt_mu_timings::method = "rocfft";
+  fft_opt_mu_timings::get().method = "rocfft";
   CPSfield_do_fft_rocfft<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf, bufsz);
 #elif defined(GRID_SYCL)
-  fft_opt_mu_timings::method = "onemkl";
+  fft_opt_mu_timings::get().method = "onemkl";
   CPSfield_do_fft_onemkl<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf, bufsz);
 #else //GRID_CUDA
-  fft_opt_mu_timings::method = "fftw";
+  fft_opt_mu_timings::get().method = "fftw";
   CPSfield_do_fft_fftw<FloatType>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf);
 #endif //!GRID_CUDA
   assert(MPI_Waitall(munodes,send_req,status) == MPI_SUCCESS);
