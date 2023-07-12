@@ -118,8 +118,10 @@ public:
     }
 
     //i_high_unmapped is the index i unmapped to its high mode sub-indices (if it is a high mode of course!)
+    //Note: code not suitable for execution on device. However if the view is a device view, the pointers will be device pointers (apart from the zerosc, but that is not used - FIXME)    
     inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
-      const FieldView &field = getMode(i);
+      //const FieldView &field = getMode(i);
+      const FieldView &field = av.hostView(i); //get the host-side copy of the view. The underlying data might be on the device, but we are not dereferencing it here so that is OK
       const int x4d = field.threeToFour(p3d,t);
       FieldSiteType const *f0 = field.site_ptr(x4d,0);
       return SCFvectorPtr<FieldSiteType>(f0,f0+field.flav_offset());

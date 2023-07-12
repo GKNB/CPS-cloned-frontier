@@ -120,8 +120,9 @@ struct fft_opt_mu_timings{
     double fft;
     double comm_scatter;
     double scatter;
-
-    timers(): calls(0), setup(0), gather(0), comm_gather(0), fft(0), comm_scatter(0), scatter(0){}
+    std::string method;
+    
+    timers(): calls(0), setup(0), gather(0), comm_gather(0), fft(0), comm_scatter(0), scatter(0), method("unset"){}
 
     void reset(){
       setup = gather = comm_gather = fft = comm_scatter = scatter = 0;
@@ -137,7 +138,7 @@ struct fft_opt_mu_timings{
     }
     void print(){
       average();
-      printf("calls=%zu setup=%g gather=%g comm_gather=%g fft=%g comm_scatter=%g scatter=%g\n", calls, setup, gather, comm_gather, fft, comm_scatter, scatter);
+      printf("calls=%zu method=%s setup=%g gather=%g comm_gather=%g fft=%g comm_scatter=%g scatter=%g\n", calls, method.c_str(), setup, gather, comm_gather, fft, comm_scatter, scatter);
     }
   };
   static timers & get(){ static timers t; return t; }
@@ -264,12 +265,16 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   const size_t howmany = munodes_work[munodecoor] * nf * SiteSize;
 
 #ifdef GRID_CUDA
+  fft_opt_mu_timings::method = "cufft";
   CPSfield_do_fft_cufft<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf, bufsz);
 #elif defined(GRID_HIP)
+  fft_opt_mu_timings::method = "rocfft";
   CPSfield_do_fft_rocfft<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf, bufsz);
 #elif defined(GRID_SYCL)
+  fft_opt_mu_timings::method = "onemkl";
   CPSfield_do_fft_onemkl<FloatType,Dimension>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf, bufsz);
 #else //GRID_CUDA
+  fft_opt_mu_timings::method = "fftw";
   CPSfield_do_fft_fftw<FloatType>(mutotalsites, howmany, inverse_transform, (FFTComplex*)recv_buf);
 #endif //!GRID_CUDA
   assert(MPI_Waitall(munodes,send_req,status) == MPI_SUCCESS);

@@ -19,7 +19,6 @@ A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2AArg &_args, const FieldInpu
 template< typename mf_Policies>
 A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2Aparams &_args): TimeFlavorPackedIndexDilution(_args){ initialize(NullObject()); }
 
-
 template< typename mf_Policies>
 A2AvectorWfftw<mf_Policies>::A2AvectorWfftw(const A2Aparams &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args){ initialize(field_setup_params); }
 
@@ -59,6 +58,7 @@ struct _W_fft_impl{
   typedef typename InputType::FermionFieldType FermionFieldType;
 
   inline static void fft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_preop){
+    fft_opt_mu_timings::reset();
     if(!UniqueID()){ printf("Doing W FFT\n"); fflush(stdout); }
     typedef typename FermionFieldType::InputParamType FieldParamType;
     FieldParamType field_setup = from.getFieldInputParams();
@@ -125,6 +125,7 @@ struct _W_fft_impl{
     print_time("A2AvectorWfftw::fft","FFT",fft_time);
     print_time("A2AvectorWfftw::fft","actionOutputMode",action_output_mode_time);
     print_time("A2AvectorWfftw::fft","actionInputMode",action_input_mode_time);
+    fft_opt_mu_timings::print();
   }
 };
 
@@ -142,6 +143,7 @@ struct _W_invfft_impl{
 
   static inline void inversefft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_postop){
     if(!UniqueID()){ printf("Doing W inverse FFT\n"); fflush(stdout); }
+    fft_opt_mu_timings::reset();
     typedef typename FermionFieldType::InputParamType FieldParamType;
     FieldParamType field_setup = from.getFieldInputParams();
     FermionFieldType tmp(field_setup), tmp2(field_setup);
@@ -218,6 +220,7 @@ struct _W_invfft_impl{
     print_time("A2AvectorWfftw::fftinverse","Postop",postop_time);
     print_time("A2AvectorWfftw::fftinverse","actionOutputMode",action_output_mode_time);
     print_time("A2AvectorWfftw::fftinverse","actionInputMode",action_input_mode_time);
+    fft_opt_mu_timings::print();
   }
 };
 

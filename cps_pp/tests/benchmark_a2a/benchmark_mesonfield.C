@@ -133,9 +133,9 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
     if(UniqueID()==0) printf("Config written.\n");
   }
 
-  if(1) benchmarkMmapMemoryStorage(ntests, opt.nlowmodes);
+  //if(1) benchmarkMmapMemoryStorage(ntests, opt.nlowmodes);
   
-//   if(0) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
+  if(1) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
 
 // #ifdef USE_GRID
 //   if(0) benchmarkMFcontractKernel<GridA2ApoliciesType>(ntests,nthreads);
