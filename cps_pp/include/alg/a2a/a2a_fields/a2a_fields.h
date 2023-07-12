@@ -388,7 +388,7 @@ public:
   typedef ComplexFieldType HighModeFieldType;
 private:
   CPSfieldArray<FermionFieldType> wl; //The low mode part of the W field, comprised of nl fermion fields
-  CPSfieldArray<ComplexFieldType> wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
+  CPSfieldArray<ComplexFieldType> wh; //The high mode random part of the W field, comprised of nhits complex flavored scalar fields. Note: the spin/color dilution is performed later
 
   bool wh_rand_performed; //store if the wh random numbers have been set
   

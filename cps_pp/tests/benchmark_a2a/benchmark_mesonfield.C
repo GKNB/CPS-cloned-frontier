@@ -337,7 +337,20 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss << argv[i+1];
       size_t v; ss >> v;
       DeviceMemoryPoolManager::globalPool().setPoolMaxSize(v);
+      HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::DevicePool);	
       i+=2;
+    }else if( cmd == "-host_pool_max_mem" ){
+      std::stringstream ss; ss << argv[i+1];
+      size_t v; ss >> v;
+      HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::HostPool);	
+      i+=2;
+    }else if( cmd == "-mempool_verbose" ){
+      DeviceMemoryPoolManager::globalPool().setVerbose(true);
+      HolisticMemoryPoolManager::globalPool().setVerbose(true);
+      i+=1;
+    }else if( cmd == "-mempool_scratchdir" ){
+      HolisticMemoryPoolManager::globalPool().setDiskRoot(argv[i+1]);
+      i+=2;	
     }else{
       i++;
     }
