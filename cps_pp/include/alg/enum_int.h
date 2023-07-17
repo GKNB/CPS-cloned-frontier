@@ -827,6 +827,7 @@ enum A2AhighModeSourceType {
 	A2AhighModeSourceTypeOrig = 0,
 	A2AhighModeSourceTypeXconj = 1,
 	A2AhighModeSourceTypeFlavorUnit = 2,
+	A2AhighModeSourceTypeFlavorCConj = 3,
 };
 typedef enum A2AhighModeSourceType A2AhighModeSourceType;
 extern struct vml_enum_map A2AhighModeSourceType_map[];
