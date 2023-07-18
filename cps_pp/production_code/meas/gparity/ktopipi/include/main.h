@@ -34,12 +34,12 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   GridXconjLanczosDoubleConvSingle<A2Apolicies> eig, eig_s;
   //GridLanczosDoubleConvSingle<A2Apolicies> eig, eig_s;
-  if(cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, false);
-  if(cmdline.tune_lanczos_heavy) computeEvecs(eig_s, Heavy, params, false);
+  if(cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
+  if(cmdline.tune_lanczos_heavy) computeEvecs(eig_s, Heavy, params, cmdline.evec_opts_h);
   if(cmdline.tune_lanczos_light||cmdline.tune_lanczos_heavy) return; //tune and exit
 
   //-------------------- Light quark Lanczos ---------------------//
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.randomize_evecs);
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
 
   //-------------------- Light quark v and w --------------------//
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
@@ -52,7 +52,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   printMem("Memory after light evec free");
     
   //-------------------- Strange quark Lanczos ---------------------//
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig_s, Heavy, params, cmdline.randomize_evecs);
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig_s, Heavy, params, cmdline.evec_opts_h);
 
   //-------------------- Strange quark v and w --------------------//
   A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
@@ -92,7 +92,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     //-------------------- Light quark Lanczos ---------------------//
     {
       GridLanczosDoubleConvSingle<A2Apolicies> eig;
-      computeEvecs(eig, Light, params, cmdline.randomize_evecs);
+      computeEvecs(eig, Light, params, cmdline.evec_opts_l);
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;
       if(!UniqueID()){ printf("Writing light Lanczos to %s\n",os.str().c_str()); fflush(stdout); }
       double time = -dclock();
@@ -112,7 +112,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     
     //-------------------- Strange quark Lanczos ---------------------//
     GridLanczosDoubleConvSingle<A2Apolicies> eig_s;
-    computeEvecs(eig_s, Heavy, params, cmdline.randomize_evecs);
+    computeEvecs(eig_s, Heavy, params, cmdline.evec_opts_h);
 
     //-------------------- Strange quark v and w --------------------//
     A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
@@ -210,7 +210,7 @@ void doConfigurationLLprops(const int conf, Parameters &params, const CommandLin
   
   //-------------------- Light quark Lanczos ---------------------//
   GridLanczosDoubleConvSingle<A2Apolicies> eig;
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute || cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, cmdline.randomize_evecs);
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute || cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
   if(cmdline.tune_lanczos_light) return;
   
   //-------------------- Light quark v and w --------------------//
@@ -258,12 +258,12 @@ void doConfigurationLLpropsSplit(const int conf, Parameters &params, const Comma
   printMem("Memory after gauge and RNG read");
 
   GridLanczosDoubleConvSingle<A2Apolicies> eig;
-  if(cmdline.tune_lanczos_light){ computeEvecs(eig, Light, params, false); return; }
+  if(cmdline.tune_lanczos_light){ computeEvecs(eig, Light, params, cmdline.evec_opts_l); return; }
 
   if(cmdline.split_job_part == 0){
     //-------------------- Light quark Lanczos ---------------------//
     
-    if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.randomize_evecs);
+    if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
 
     //Write to disk
     {

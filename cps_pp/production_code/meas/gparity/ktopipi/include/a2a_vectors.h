@@ -6,7 +6,7 @@ enum LightHeavy { Light, Heavy };
 typedef EvecManager<typename A2Apolicies::GridFermionField,typename A2Apolicies::GridFermionFieldF> EvecManagerType;
 
 //Compute the eigenvectors and convert to single precision
-void computeEvecs(EvecManagerType &eig, const LancArg &lanc_arg, const JobParams &jp, const char* name, const bool randomize_evecs){
+void computeEvecs(EvecManagerType &eig, const LancArg &lanc_arg, const JobParams &jp, const char* name, const computeEvecsOpts &opts = computeEvecsOpts()){
   if(!UniqueID()) printf("Running %s quark Lanczos\n",name);
   double time = -dclock();
 
@@ -18,8 +18,17 @@ void computeEvecs(EvecManagerType &eig, const LancArg &lanc_arg, const JobParams
   testXconjAction<A2Apolicies>(*lanczos_lat);
   //TEST
 
-  if(randomize_evecs) eig.randomizeEvecs(lanc_arg, *lanczos_lat);
-  else eig.compute(lanc_arg, *lanczos_lat, precond);
+  if(opts.randomize_evecs) eig.randomizeEvecs(lanc_arg, *lanczos_lat);
+  else if(!opts.load_evecs){
+    eig.compute(lanc_arg, *lanczos_lat, precond);
+    if(opts.save_evecs){
+      std::cout << "Writing " << name << " eigenvectors" << std::endl;
+      eig.writeParallel(opts.save_evecs_stub);
+    }
+  }else{
+    std::cout << "Reading " << name << " eigenvectors" << std::endl;
+    eig.readParallel(opts.load_evecs_stub);
+  }
 
   delete lanczos_lat;
   time += dclock();
@@ -32,10 +41,10 @@ void computeEvecs(EvecManagerType &eig, const LancArg &lanc_arg, const JobParams
   printMem();
 }
 
-void computeEvecs(EvecManagerType &eig, const LightHeavy lh, const Parameters &params, const bool randomize_evecs){
+void computeEvecs(EvecManagerType &eig, const LightHeavy lh, const Parameters &params, const computeEvecsOpts &opts = computeEvecsOpts()){
   const char* name = (lh ==  Light ? "light" : "heavy");
   const LancArg &lanc_arg = (lh == Light ? params.lanc_arg : params.lanc_arg_s);
-  return computeEvecs(eig, lanc_arg, params.jp, name, randomize_evecs);
+  return computeEvecs(eig, lanc_arg, params.jp, name, opts);
 }
 
 void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const EvecManagerType &eig, double mass, const CGcontrols &cg_controls, 

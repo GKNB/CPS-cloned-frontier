@@ -1,12 +1,29 @@
 #ifndef _KTOPIPI_MAIN_A2A_CMDLINE_H_
 #define _KTOPIPI_MAIN_A2A_CMDLINE_H_
 
+struct computeEvecsOpts{
+  bool randomize_evecs; //skip Lanczos and just use random evecs for testing.
+
+  bool save_evecs;
+  std::string save_evecs_stub;
+
+  bool load_evecs;
+  std::string load_evecs_stub;
+
+  computeEvecsOpts(): randomize_evecs(false), save_evecs(false), load_evecs(false)
+  {}
+};
+
 //Command line argument store/parse
 struct CommandLineArgs{
   int nthreads;
   int nthread_contractions;
   bool randomize_vw; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
-  bool randomize_evecs; //skip Lanczos and just use random evecs for testing.
+
+  computeEvecsOpts evec_opts_l;
+  computeEvecsOpts evec_opts_h;
+
+  bool randomize_evecs; 
   bool randomize_mf; //use random meson fields
   bool force_evec_compute; //randomize_evecs causes Lanczos to be skipped unless this option is used
   bool tune_lanczos_light; //just run the light lanczos on first config then exit
@@ -56,7 +73,6 @@ struct CommandLineArgs{
 #endif
     nthread_contractions = -1;
     randomize_vw = false;
-    randomize_evecs = false;
     randomize_mf = false;
     force_evec_compute = false; //randomize_evecs causes Lanczos to be skipped unless this option is used
     tune_lanczos_light = false; //just run the light lanczos on first config then exit
@@ -132,9 +148,33 @@ struct CommandLineArgs{
 	if(!UniqueID()){ printf("Using random vectors for V and W, skipping Lanczos and inversion stages\n"); fflush(stdout); }
 	arg++;
       }else if( strncmp(cmd,"-randomize_evecs",15) == 0){
-	randomize_evecs = true;
+	evec_opts_l.randomize_evecs = evec_opts_h.randomize_evecs = true;
 	if(!UniqueID()){ printf("Using random eigenvectors\n"); fflush(stdout); }
 	arg++;      
+      }else if( cmdstr == "-load_light_evecs"){
+	assert(arg < argc-1);
+	evec_opts_l.load_evecs = true;
+	evec_opts_l.load_evecs_stub = argv[arg+1];
+	std::cout << "Loading light eigenvectors with stub " << evec_opts_l.load_evecs_stub << std::endl;
+	arg += 2;
+      }else if( cmdstr == "-save_light_evecs"){
+	assert(arg < argc-1);
+	evec_opts_l.save_evecs = true;
+	evec_opts_l.save_evecs_stub = argv[arg+1];
+	std::cout << "Saving light eigenvectors with stub " << evec_opts_l.save_evecs_stub << std::endl;
+	arg += 2;
+      }else if( cmdstr == "-load_heavy_evecs"){
+	assert(arg < argc-1);
+	evec_opts_h.load_evecs = true;
+	evec_opts_h.load_evecs_stub = argv[arg+1];
+	std::cout << "Loading heavy eigenvectors with stub " << evec_opts_h.load_evecs_stub << std::endl;
+	arg += 2;
+      }else if( cmdstr == "-save_heavy_evecs"){
+	assert(arg < argc-1);
+	evec_opts_h.save_evecs = true;
+	evec_opts_h.save_evecs_stub = argv[arg+1];
+	std::cout << "Saving heavy eigenvectors with stub " << evec_opts_h.save_evecs_stub << std::endl;
+	arg += 2;
       }else if( strncmp(cmd,"-randomize_mf",15) == 0){
 	randomize_mf = true;
 	if(!UniqueID()){ printf("Using random meson fields\n"); fflush(stdout); }

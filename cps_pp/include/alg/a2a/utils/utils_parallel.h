@@ -263,13 +263,6 @@ inline bool onNodeTimeslicesInRange(const int tstart, const int tsep){
   return false;
 }
 
-
-
-
-  
-
-
-
 CPS_END_NAMESPACE
 
 
