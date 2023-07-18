@@ -80,7 +80,7 @@ public:
 
   void highModeContribution4D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in, 
 			     const EvecInterface<GridFermionFieldD> &evecs, const int nl) const override{
-    std::cout << "Computing high mode contribution with for " << out.size() << " sources using shared low-mode approximation" << std::endl;
+    LOGA2A << "Computing high mode contribution with for " << out.size() << " sources using shared low-mode approximation" << std::endl;
     FermionOperatorTypeD &fermop = OpD.getOp();
     Grid::SchurRedBlackBase<GridFermionFieldD> &solver = OpD.getSolver();
     Grid::GridBase* FrbGrid = fermop.FermionRedBlackGrid();
@@ -98,15 +98,15 @@ public:
       solver.RedBlackSource(fermop, source_5d, source_5d_e[s], source_5d_o[s]);
     }
 
-    std::cout << "Computing low-mode contribution / guess" << std::endl;
+    LOGA2A << "Computing low-mode contribution / guess" << std::endl;
     std::vector<GridFermionFieldD> lowmode_contrib_5d_o(N,FrbGrid);    
     evecs.deflatedGuessD(lowmode_contrib_5d_o, source_5d_o, nl);
     
-    std::cout << "Performing deflated solve" << std::endl;
+    LOGA2A << "Performing deflated solve" << std::endl;
     std::vector<GridFermionFieldD> sol_5d_o = lowmode_contrib_5d_o; //use lowmode approx as guess to speed up inversion
     inv5D.invert5Dto5D(sol_5d_o, source_5d_o);
 
-    std::cout << "Reconstructing 4D high mode solutions" << std::endl;
+    LOGA2A << "Reconstructing 4D high mode solutions" << std::endl;
     GridFermionFieldD lowmode_contrib_5d(FGrid);
     GridFermionFieldD full_sol_5d(FGrid);
 

@@ -25,7 +25,7 @@ struct _V_fft_impl{
   typedef typename InputType::FermionFieldType FermionFieldType;
   
   static inline void fft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_preop){
-    if(!UniqueID()){ printf("Doing V FFT\n"); fflush(stdout); }
+    a2a_printf("Doing V FFT\n");
     fft_opt_mu_timings::get().reset();
     typedef typename FermionFieldType::InputParamType FieldParamType;
     FieldParamType field_setup = from.getFieldInputParams();
@@ -61,11 +61,11 @@ struct _V_fft_impl{
       FFTfieldPolicy::actionInputMode(from, mode); //free
       action_input_mode_time += dclock() - dtime;
     }
-    if(!UniqueID()){ printf("Finishing V FFT\n"); fflush(stdout); }
-    print_time("A2AvectorVfftw::fft","Preop",preop_time);
-    print_time("A2AvectorVfftw::fft","FFT",fft_time);
-    print_time("A2AvectorVfftw::fft","actionOutputMode",action_output_mode_time);
-    print_time("A2AvectorVfftw::fft","actionInputMode",action_input_mode_time);
+    a2a_printf("Finishing V FFT\n");
+    a2a_print_time("A2AvectorVfftw::fft","Preop",preop_time);
+    a2a_print_time("A2AvectorVfftw::fft","FFT",fft_time);
+    a2a_print_time("A2AvectorVfftw::fft","actionOutputMode",action_output_mode_time);
+    a2a_print_time("A2AvectorVfftw::fft","actionInputMode",action_input_mode_time);
     fft_opt_mu_timings::get().print();
   }
 };
@@ -84,7 +84,7 @@ struct _V_invfft_impl{
   typedef typename InputType::FermionFieldType FermionFieldType;
 
   static inline void inversefft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_postop){
-    if(!UniqueID()){ printf("Doing V inverse FFT\n"); fflush(stdout); }
+    a2a_printf("Doing V inverse FFT\n");
     fft_opt_mu_timings::get().reset();
     typedef typename FermionFieldType::InputParamType FieldParamType;
     FieldParamType field_setup = from.getFieldInputParams();
@@ -120,11 +120,11 @@ struct _V_invfft_impl{
       }
 
     }
-    if(!UniqueID()){ printf("Finishing V invert FFT\n"); fflush(stdout); }
-    print_time("A2AvectorVfftw::inversefft","FFT",fft_time);
-    print_time("A2AvectorVfftw::inversefft","Postop",postop_time);
-    print_time("A2AvectorVfftw::inversefft","actionOutputMode",action_output_mode_time);
-    print_time("A2AvectorVfftw::inversefft","actionInputMode",action_input_mode_time);
+    a2a_printf("Finishing V invert FFT\n");
+    a2a_print_time("A2AvectorVfftw::inversefft","FFT",fft_time);
+    a2a_print_time("A2AvectorVfftw::inversefft","Postop",postop_time);
+    a2a_print_time("A2AvectorVfftw::inversefft","actionOutputMode",action_output_mode_time);
+    a2a_print_time("A2AvectorVfftw::inversefft","actionInputMode",action_input_mode_time);
     fft_opt_mu_timings::get().print();
   }
 };
@@ -152,7 +152,7 @@ void A2AvectorVfftw<mf_Policies>::getTwistedFFT(const int p[3], A2AvectorVfftw<P
       shiftPeriodicField( this->getMode(i), base->getMode(i), shift);
   }
   time += dclock();
-  print_time("A2AvectorVfftw::getTwistedFFT","Twist",time);
+  a2a_print_time("A2AvectorVfftw::getTwistedFFT","Twist",time);
 }
 
 template< typename mf_Policies>
@@ -164,7 +164,7 @@ void A2AvectorVfftw<mf_Policies>::shiftFieldsInPlace(const std::vector<int> &shi
     for(int i=0;i<this->getNmodes();i++)
       shiftPeriodicField( this->getMode(i), this->getMode(i), shift);
   }
-  print_time("A2AvectorVfftw::shiftFieldsInPlace","Total",time + dclock());
+  a2a_print_time("A2AvectorVfftw::shiftFieldsInPlace","Total",time + dclock());
 }
 
 //A version of the above that directly shifts the base Wfftw rather than outputting into a separate storage
@@ -182,7 +182,7 @@ std::pair< A2AvectorVfftw<mf_Policies>*, std::vector<int> > A2AvectorVfftw<mf_Po
   for(int i=0;i<3;i++) shift[i] = -shift[i];
   
   time += dclock();
-  print_time("A2AvectorVfftw::inPlaceTwistedFFT","Twist",time);
+  a2a_print_time("A2AvectorVfftw::inPlaceTwistedFFT","Twist",time);
 
   return std::pair< A2AvectorVfftw<mf_Policies>*, std::vector<int> >(base,shift);
 }

@@ -448,7 +448,7 @@ struct _ferm3d_gfix_impl{
 template< typename mf_Complex, template<typename> typename DimensionPolicy, typename AllocPolicy>
 struct _ferm3d_gfix_impl<mf_Complex,DimensionPolicy<FixedFlavorPolicy<1> >,AllocPolicy>{
   static void gaugeFix(CPSfermion3D<mf_Complex,DimensionPolicy<FixedFlavorPolicy<1> >,AllocPolicy> &field, Lattice &lat, const typename GaugeFix3DInfo<FixedFlavorPolicy<1> >::InfoType &time_flav, const bool &parallel){
-    printf("_ferm3d_gfix_impl::gauge_fix with time=%d, flav=%d\n",time_flav.first,time_flav.second);
+    a2a_printf("_ferm3d_gfix_impl::gauge_fix with time=%d, flav=%d\n",time_flav.first,time_flav.second);
     typedef typename mf_Complex::value_type mf_Float;
 
     CPSautoView(f_v,field,HostReadWrite);

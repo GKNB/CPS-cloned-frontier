@@ -59,7 +59,7 @@ struct _W_fft_impl{
 
   inline static void fft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_preop){
     fft_opt_mu_timings::get().reset();
-    if(!UniqueID()){ printf("Doing W FFT\n"); fflush(stdout); }
+    a2a_printf("Doing W FFT\n");
     typedef typename FermionFieldType::InputParamType FieldParamType;
     FieldParamType field_setup = from.getFieldInputParams();
     FermionFieldType tmp(field_setup), tmp2(field_setup);
@@ -120,11 +120,11 @@ struct _W_fft_impl{
       FFTfieldPolicy::actionInputHighMode(from, hit); //free
       action_input_mode_time += dclock() - dtime;
     }
-    if(!UniqueID()){ printf("Finishing W FFT\n"); fflush(stdout); }
-    print_time("A2AvectorWfftw::fft","Preop",preop_time);
-    print_time("A2AvectorWfftw::fft","FFT",fft_time);
-    print_time("A2AvectorWfftw::fft","actionOutputMode",action_output_mode_time);
-    print_time("A2AvectorWfftw::fft","actionInputMode",action_input_mode_time);
+    a2a_printf("Finishing W FFT\n");
+    a2a_print_time("A2AvectorWfftw::fft","Preop",preop_time);
+    a2a_print_time("A2AvectorWfftw::fft","FFT",fft_time);
+    a2a_print_time("A2AvectorWfftw::fft","actionOutputMode",action_output_mode_time);
+    a2a_print_time("A2AvectorWfftw::fft","actionInputMode",action_input_mode_time);
     fft_opt_mu_timings::get().print();
   }
 };
@@ -142,7 +142,7 @@ struct _W_invfft_impl{
   typedef typename InputType::FermionFieldType FermionFieldType;
 
   static inline void inversefft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_postop){
-    if(!UniqueID()){ printf("Doing W inverse FFT\n"); fflush(stdout); }
+    a2a_printf("Doing W inverse FFT\n");
     fft_opt_mu_timings::get().reset();
     typedef typename FermionFieldType::InputParamType FieldParamType;
     FieldParamType field_setup = from.getFieldInputParams();
@@ -215,11 +215,11 @@ struct _W_invfft_impl{
       for(int ssc=0;ssc<12;ssc++) FFTfieldPolicy::actionInputHighMode(from, ssc + 12*hit); //free for all sc
       action_input_mode_time += dclock() - dtime;      
     }
-    if(!UniqueID()){ printf("Finishing W inverse FFT\n"); fflush(stdout); }
-    print_time("A2AvectorWfftw::fftinverse","FFT",fft_time);
-    print_time("A2AvectorWfftw::fftinverse","Postop",postop_time);
-    print_time("A2AvectorWfftw::fftinverse","actionOutputMode",action_output_mode_time);
-    print_time("A2AvectorWfftw::fftinverse","actionInputMode",action_input_mode_time);
+    a2a_printf("Finishing W inverse FFT\n");
+    a2a_print_time("A2AvectorWfftw::fftinverse","FFT",fft_time);
+    a2a_print_time("A2AvectorWfftw::fftinverse","Postop",postop_time);
+    a2a_print_time("A2AvectorWfftw::fftinverse","actionOutputMode",action_output_mode_time);
+    a2a_print_time("A2AvectorWfftw::fftinverse","actionInputMode",action_input_mode_time);
     fft_opt_mu_timings::get().print();
   }
 };
@@ -250,7 +250,7 @@ void A2AvectorWfftw<mf_Policies>::getTwistedFFT(const int p[3], A2AvectorWfftw<P
       shiftPeriodicField( this->getMode(i), base->getMode(i), shift);
   }
   time += dclock();
-  print_time("A2AvectorWfftw::getTwistedFFT","Twist",time);
+  a2a_print_time("A2AvectorWfftw::getTwistedFFT","Twist",time);
 }
 
 
@@ -263,7 +263,7 @@ void A2AvectorWfftw<mf_Policies>::shiftFieldsInPlace(const std::vector<int> &shi
     for(int i=0;i<this->getNmodes();i++)
       shiftPeriodicField( this->getMode(i), this->getMode(i), shift);
   }
-  print_time("A2AvectorWfftw::shiftFieldsInPlace","Total",time + dclock());
+  a2a_print_time("A2AvectorWfftw::shiftFieldsInPlace","Total",time + dclock());
 }
 
 //A version of the above that directly shifts the base Wfftw rather than outputting into a separate storage
@@ -281,7 +281,7 @@ std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> > A2AvectorWfftw<mf_Po
   for(int i=0;i<3;i++) shift[i] = -shift[i];
   
   time += dclock();
-  print_time("A2AvectorWfftw::inPlaceTwistedFFT","Twist",time);
+  a2a_print_time("A2AvectorWfftw::inPlaceTwistedFFT","Twist",time);
 
   return std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> >(base,shift);
 }

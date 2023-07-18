@@ -3,7 +3,7 @@
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &filename, FP_FORMAT fileformat) const{
-  if(!UniqueID()) printf("Writing meson field of size %f kB to file %s\n",double(byte_size())/1024,filename.c_str());
+  a2a_printf("Writing meson field of size %f kB to file %s\n",double(byte_size())/1024,filename.c_str());
   std::ofstream *file = !UniqueID() ? new std::ofstream(filename.c_str(),std::ofstream::out) : NULL;
 
   write(file,fileformat);
@@ -120,7 +120,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(std::ostream *file_pt
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &filename){
-  if(!UniqueID()) printf("Reading meson field from file %s\n",filename.c_str());
+  a2a_printf("Reading meson field from file %s\n",filename.c_str());
   std::ifstream *file = !UniqueID() ?  new std::ifstream(filename.c_str()) : NULL;
     
   read(file);
@@ -318,7 +318,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &filename, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs, FP_FORMAT fileformat){
   Float dtime = -dclock();
-  if(!UniqueID()) printf("Writing meson-field vector of size %d to file %s\n",mfs.size(),filename.c_str());
+  a2a_printf("Writing meson-field vector of size %d to file %s\n",mfs.size(),filename.c_str());
   std::ofstream *file = !UniqueID() ? new std::ofstream(filename.c_str(),std::ofstream::out) : NULL;
 
   write(file,mfs,fileformat);
@@ -328,7 +328,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &fi
     delete file;
   }
     
-  print_time("A2AmesonField","write Lt meson fields",dclock()+dtime);
+  a2a_print_time("A2AmesonField","write Lt meson fields",dclock()+dtime);
 }
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
@@ -355,7 +355,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(std::ostream *file_pt
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &filename, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs){
-  if(!UniqueID()) printf("Reading vector of meson fields from file %s\n",filename.c_str());
+  a2a_printf("Reading vector of meson fields from file %s\n",filename.c_str());
   std::ifstream *file = !UniqueID() ? new std::ifstream(filename.c_str()) : NULL;
 
   read(file,mfs);

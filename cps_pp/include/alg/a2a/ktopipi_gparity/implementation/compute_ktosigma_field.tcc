@@ -54,7 +54,7 @@ void ComputeKtoSigma<mf_Policies>::type12_contract(ResultsContainerType &result,
 
 template<typename mf_Policies>
 void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){  
-  if(!UniqueID()) printf("Starting type 1/2 K->sigma contractions (field version)\n");
+  LOGA2A << "Starting type 1/2 K->sigma contractions (field version)" << std::endl;
   double total_time = dclock();
        
   auto field_params = vL.getMode(0).getDimPolParams();  
@@ -88,7 +88,7 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
   std::vector<bool> gather_tslice_mask(Lt,false);
   for(std::set<int>::const_iterator it = tS_use.begin(); it != tS_use.end(); it++) gather_tslice_mask[*it] = true;
   nodeGetMany(1, &mf_S, &gather_tslice_mask);
-  print_time("ComputeKtoSigma","type12 mf gather",dclock()-time);     
+  a2a_print_time("ComputeKtoSigma","type12 mf gather",dclock()-time);     
 #endif
  
   //Start main loop
@@ -106,7 +106,7 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
     int t_range_start = modLt(tS_glb - tsep_k_sigma_lrg, Lt); //no point computing outside of range between kaon and sigma operator
     
     pt2_time -= dclock();
-    std::cout << Grid::GridLogMessage << "Part2 vMv " << t_range_start << "->" << tS_glb << std::endl;
+    LOGA2A << "Part2 vMv " << t_range_start << "->" << tS_glb << std::endl;
     mult(pt2_store[tS_idx], vL, mf_S[tS_glb], wL, false, true, t_range_start, tsep_k_sigma_lrg); //result is field in xop
     pt2_time += dclock();
   }
@@ -118,7 +118,7 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
     if(!onNodeTimeslicesInRange(tK_glb, tsep_k_sigma_lrg)){  continue; }//no point computing outside of range between kaon and sigma operator
       
     pt1_time -= dclock();
-    std::cout << Grid::GridLogMessage << "Part1 t_K=" << tK_glb << " vMv " << tK_glb << "->" << tK_glb + tsep_k_sigma_lrg << " (mod Lt)" << std::endl;
+    LOGA2A << "Part1 t_K=" << tK_glb << " vMv " << tK_glb << "->" << tK_glb + tsep_k_sigma_lrg << " (mod Lt)" << std::endl;
     mult(pt1, vL, mf_ls_WW[tK_glb], vH, false, true, tK_glb, tsep_k_sigma_lrg);
     pt1_time += dclock();
 
@@ -129,7 +129,7 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
       
       const SCFmatrixField &pt2 = pt2_store[tS_subset_inv_map[tS_glb]];
 
-      std::cout << Grid::GridLogMessage << "Contract t_K=" << tK_glb << " t_sigma=" << tS_glb << std::endl;
+      LOGA2A << "Contract t_K=" << tK_glb << " t_sigma=" << tS_glb << std::endl;
       contract_time -= dclock();
       type12_contract(result[i], tK_glb, pt1, pt2);
       contract_time += dclock();
@@ -145,11 +145,11 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
   printTimeStats("ComputeKtoSigma::type12 pt2 compute",pt2_time);     
   printTimeStats("ComputeKtoSigma::type12 contract",contract_time);     
   
-  print_time("ComputeKtoSigma","type12 sync",sync_time);     
+  a2a_print_time("ComputeKtoSigma","type12 sync",sync_time);     
   
   time = dclock();
   for(int i=0;i<ntsep_k_sigma;i++){ result[i].nodeSum(); }
-  print_time("ComputeKtoSigma","type12 accum",dclock()-time);     
+  a2a_print_time("ComputeKtoSigma","type12 accum",dclock()-time);     
   
   //For comparison with old code, zero out data not within the K->pi time region (later optimization may render this unnecessary)
   time = dclock();
@@ -166,15 +166,15 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
     }
   }
 
-  print_time("ComputeKtoSigma","type12 zero ext",dclock()-time);     
+  a2a_print_time("ComputeKtoSigma","type12 zero ext",dclock()-time);     
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   time = dclock();
   nodeDistributeMany(1,&mf_S);
-  print_time("ComputeKtoSigma","type12 mf distribute",dclock()-time);     
+  a2a_print_time("ComputeKtoSigma","type12 mf distribute",dclock()-time);     
 #endif
 
-  print_time("ComputeKtoSigma","type12 total",dclock()-total_time); 
+  a2a_print_time("ComputeKtoSigma","type12 total",dclock()-total_time); 
 }
 
 //Field version only applicable to SIMD data. For non SIMD data we should fall back to CPU version
@@ -197,7 +197,7 @@ struct _ktosigma_type12_field_wrap<mf_Policies, complex_double_or_float_mark>{
   typedef typename ComputeKtoSigma<mf_Policies>::SigmaMesonFieldType SigmaMesonFieldType;
 
   static void calc(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S, ComputeKtoSigma<mf_Policies> &compute){  
-    if(!UniqueID()) printf("K->sigma type1/2 field implementation falling back to OMP implementation due to non-SIMD data\n");
+    LOGA2A << "K->sigma type1/2 field implementation falling back to OMP implementation due to non-SIMD data" << std::endl;
     compute.type12_omp(result, mf_S);
   }
 };
@@ -288,7 +288,7 @@ void ComputeKtoSigma<mf_Policies>::type3_contract(ResultsContainerType &result, 
 
 template<typename mf_Policies>
 void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){   
-  if(!UniqueID()) printf("Starting type 3 K->sigma contractions (field implementation)\n");
+  LOGA2A << "Starting type 3 K->sigma contractions (field implementation)" << std::endl;
   double total_time = dclock();
   double time;
 
@@ -323,12 +323,12 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
   for(std::set<int>::const_iterator it = tS_use.begin(); it != tS_use.end(); it++) gather_tslice_mask[*it] = true;
   time = dclock();
   nodeGetMany(1, &mf_S, &gather_tslice_mask);
-  print_time("ComputeKtoSigma","type3 mf gather",dclock()-time);  
+  a2a_print_time("ComputeKtoSigma","type3 mf gather",dclock()-time);  
 #endif
   printMem("Memory after type3 mf gather");
   
   //Setup output
-  std::cout << Grid::GridLogMessage << "Resize output" << std::endl;
+  LOGA2A << "Resize output" << std::endl;
   result.resize(ntsep_k_sigma); 
   mix3.resize(ntsep_k_sigma);
   for(int i=0;i<ntsep_k_sigma;i++){
@@ -336,7 +336,7 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
     mix3[i].resize(1);
   }
 
-  std::cout << Grid::GridLogMessage << "mix3_Gamma" << std::endl;
+  LOGA2A << "mix3_Gamma" << std::endl;
   SCFmat mix3_Gamma[2];
   mix3_Gamma[0].unit().pr(F0).gr(-5);
   mix3_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
@@ -363,7 +363,7 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
       int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
       pt1_time -= dclock();
       mult(mf_prod, mf_S[tS_glb], mf_ls_WW[tK_glb], true);      //node local because the tK,tS pairings are specific to this node
-      std::cout << Grid::GridLogMessage << "vMv "<< tK_glb << "->" << tS_glb << std::endl; 
+      LOGA2A << "vMv "<< tK_glb << "->" << tS_glb << std::endl; 
       mult(pt1, vL, mf_prod, vH, false, true, tK_glb, tsep_k_sigma[i]); //only compute between kaon and sigma
       pt1_time += dclock();
       
@@ -385,17 +385,17 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
     }//i
   }//tK_glb
 
-  print_time("ComputeKtoSigma","type3 vMv setup",vmv_setup_time);     
-  print_time("ComputeKtoSigma","type3 pt1 compute",pt1_time);     
-  print_time("ComputeKtoSigma","type3 pt2 compute",pt2_time);     
-  print_time("ComputeKtoSigma","type3 contract",contract_time);  
+  a2a_print_time("ComputeKtoSigma","type3 vMv setup",vmv_setup_time);     
+  a2a_print_time("ComputeKtoSigma","type3 pt1 compute",pt1_time);     
+  a2a_print_time("ComputeKtoSigma","type3 pt2 compute",pt2_time);     
+  a2a_print_time("ComputeKtoSigma","type3 contract",contract_time);  
 
   time = dclock();
   for(int i=0;i<ntsep_k_sigma;i++){ 
     result[i].nodeSum(); 
     mix3[i].nodeSum();
   }
-  print_time("ComputeKtoSigma","type3 accum",dclock()-time);  
+  a2a_print_time("ComputeKtoSigma","type3 accum",dclock()-time);  
 
   //For comparison with old code, zero out data not within the K->pi time region (later optimization may render this unnecessary)
   int n_contract = 9;
@@ -420,10 +420,10 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   time = dclock();
   nodeDistributeMany(1,&mf_S);
-  print_time("ComputeKtoSigma","type3 mf distribute",dclock()-time);  
+  a2a_print_time("ComputeKtoSigma","type3 mf distribute",dclock()-time);  
 #endif
 
-  print_time("ComputeKtoSigma","type3 total",dclock()-total_time); 
+  a2a_print_time("ComputeKtoSigma","type3 total",dclock()-total_time); 
 }
 
 
@@ -451,7 +451,7 @@ struct _ktosigma_type3_field_wrap<mf_Policies, complex_double_or_float_mark>{
 
   static void calc(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3,
 		   std::vector<SigmaMesonFieldType> &mf_S, ComputeKtoSigma<mf_Policies> &compute){  
-    if(!UniqueID()) printf("K->sigma type3 field implementation falling back to OMP implementation due to non-SIMD data\n");
+    LOGA2A << "K->sigma type3 field implementation falling back to OMP implementation due to non-SIMD data" << std::endl;
     compute.type3_omp(result, mix3, mf_S);
   }
 };
@@ -548,7 +548,7 @@ void ComputeKtoSigma<mf_Policies>::type4_contract(ResultsContainerType &result, 
 
 template<typename mf_Policies>
 void ComputeKtoSigma<mf_Policies>::type4_field_SIMD(ResultsContainerType &result, MixDiagResultsContainerType &mix4){
-  if(!UniqueID()) printf("Starting type 4 K->sigma contractions (field implementation)\n");
+  LOGA2A << "Starting type 4 K->sigma contractions (field implementation)" << std::endl;
   double total_time = dclock();
        
   double time;
@@ -619,17 +619,17 @@ void ComputeKtoSigma<mf_Policies>::type4_field_SIMD(ResultsContainerType &result
     contract_time += dclock();
   }//tK_idx
 
-  print_time("ComputeKtoSigma","type4 vMv setup",vmv_setup_time);     
-  print_time("ComputeKtoSigma","type4 pt1 compute",pt1_time);     
-  print_time("ComputeKtoSigma","type4 pt2 compute",pt2_time);     
-  print_time("ComputeKtoSigma","type4 contract",contract_time);  
+  a2a_print_time("ComputeKtoSigma","type4 vMv setup",vmv_setup_time);     
+  a2a_print_time("ComputeKtoSigma","type4 pt1 compute",pt1_time);     
+  a2a_print_time("ComputeKtoSigma","type4 pt2 compute",pt2_time);     
+  a2a_print_time("ComputeKtoSigma","type4 contract",contract_time);  
 
   time = dclock();
   result.nodeSum();
   mix4.nodeSum();
 
-  print_time("ComputeKtoSigma","type4 accum",dclock()-time);  
-  print_time("ComputeKtoSigma","type4 total",dclock()-total_time);  
+  a2a_print_time("ComputeKtoSigma","type4 accum",dclock()-time);  
+  a2a_print_time("ComputeKtoSigma","type4 total",dclock()-total_time);  
 
   //For comparison with old code, zero out data not within the K->sigma time region for any of the specified K->sigma tseps (later optimization may render this unnecessary)
   int n_contract = 9;
@@ -670,7 +670,7 @@ struct _ktosigma_type4_field_wrap<mf_Policies, complex_double_or_float_mark>{
 
   static void calc(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
 		   ComputeKtoSigma<mf_Policies> &compute){  
-    if(!UniqueID()) printf("K->sigma type4 field implementation falling back to OMP implementation due to non-SIMD data\n");
+    LOGA2A << "K->sigma type4 field implementation falling back to OMP implementation due to non-SIMD data" << std::endl;
     compute.type4_omp(result, mix4);
   }
 };

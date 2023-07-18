@@ -50,7 +50,7 @@ struct ComputePiPiToSigmaContractions{
     getNodeWork(work,node_work,node_off,do_work);
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-    if(!UniqueID()){ printf("Gathering meson fields\n");  fflush(stdout); }
+    LOGA2A << "Gathering meson fields" << std::endl;
 
     //Only get the meson fields we actually need
     std::vector<bool> tslice_sigma_mask(Lt, false), tslice_pi1_mask(Lt, false), tslice_pi2_mask(Lt, false);
@@ -118,9 +118,9 @@ struct ComputePiPiToSigmaContractions{
     into.nodeSum();
     t_reduce += dclock();
 
-    print_time("ComputePiPiToSigmaContractions::computeConnected", "trace", t_trace);
-    print_time("ComputePiPiToSigmaContractions::computeConnected", "mult", t_mult);
-    print_time("ComputePiPiToSigmaContractions::computeConnected", "reduce", t_reduce);
+    a2a_print_time("ComputePiPiToSigmaContractions::computeConnected", "trace", t_trace);
+    a2a_print_time("ComputePiPiToSigmaContractions::computeConnected", "mult", t_mult);
+    a2a_print_time("ComputePiPiToSigmaContractions::computeConnected", "reduce", t_reduce);
         
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeDistributeMany(3,&mf_sigma,&mf_pi1,&mf_pi2);
@@ -232,7 +232,7 @@ struct ComputePiPiToSigmaContractions{
     }
     time += dclock();
     
-    print_time("ComputePiPiToSigmaContractions::computeDisconnectedDiagram", "total", time);
+    a2a_print_time("ComputePiPiToSigmaContractions::computeDisconnectedDiagram", "total", time);
   }
 };
 

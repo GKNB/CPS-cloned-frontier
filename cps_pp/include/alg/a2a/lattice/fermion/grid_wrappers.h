@@ -27,7 +27,7 @@ LatticeType* createFgridLattice(const JobParams &jp){
 
 template<typename GridDirac, typename GridFermionFieldD, typename FgridGFclass>
 void testEigenvectors(const EvecInterface<GridFermionFieldD> &evecs, const double mass, FgridGFclass &lattice, A2Apreconditioning precon_type = SchurOriginal){ 
-  if(!UniqueID()) printf("Testing eigenvectors with mass %f\n",mass); 
+  a2a_printf("Testing eigenvectors with mass %f\n",mass); 
   Grid::GridCartesian *UGrid = lattice.getUGrid();
   Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
   Grid::GridCartesian *FGrid = lattice.getFGrid();
@@ -61,7 +61,7 @@ void testEigenvectors(const EvecInterface<GridFermionFieldD> &evecs, const doubl
 
     double nrm = sqrt(axpy_norm(tmp1, -1., tmp2, tmp3)); //tmp1 = tmp3 - tmp2
     
-    if(!UniqueID()) printf("Idx %d Eval %g Resid %g #Evecs %d #Evals %d\n",i,eval,nrm,N,N);
+    a2a_printf("Idx %d Eval %g Resid %g #Evecs %d #Evals %d\n",i,eval,nrm,N,N);
   }
 }
 
@@ -97,9 +97,7 @@ void randomizeEvecs(std::vector<GridFermionField> &evecs, std::vector<double> &e
     evals[i] = LRG.Lrand(10,0.1); //same on all nodes
 #endif
 
-    if(!UniqueID()){
-      printf("random evec %d Grid norm %g CPS norm %g (odd %g) (even %g) and eval %g\n",i,nrm,nrmcps,nrmoddcps,nrmevencps,evals[i]);
-    }
+    a2a_printf("random evec %d Grid norm %g CPS norm %g (odd %g) (even %g) and eval %g\n",i,nrm,nrmcps,nrmoddcps,nrmevencps,evals[i]);    
   }
 }
 
@@ -151,7 +149,7 @@ public:
       std::vector<GridFermionFieldF>().swap(evec_f);
     }
     std::vector<GridFermionFieldD> evec;
-    if(!UniqueID()) printf("GridLanczosDoubleConvSingle: computing double precision eigenvectors\n");
+    LOGA2A << "GridLanczosDoubleConvSingle: computing double precision eigenvectors" << std::endl;
     gridLanczos<GridPolicies>(eval,evec,lanc_arg,lat, precon_type);
 
     int nev = evec.size();    
@@ -162,7 +160,7 @@ public:
     }
 
     //Convert to single precision
-    if(!UniqueID()) printf("GridLanczosDoubleConvSingle: converting evecs to single precision\n");
+    LOGA2A << "GridLanczosDoubleConvSingle: converting evecs to single precision" << std::endl;
     Grid::precisionChangeWorkspace wk(lat.getFrbGridF(), lat.getFrbGrid());
 
     for(int i=0;i<nev;i++){      
@@ -173,7 +171,7 @@ public:
     }
     //These are in reverse order!
     std::reverse(evec_f.begin(), evec_f.end());
-    if(!UniqueID()) printf("GridLanczosDoubleConvSingle: completed eigenvector calculation\n");
+    LOGA2A << "GridLanczosDoubleConvSingle: completed eigenvector calculation" << std::endl;
   }
   
   void randomizeEvecs(const LancArg &lanc_arg, Lattice &latb) override{
@@ -248,7 +246,7 @@ public:
       std::vector<GridXconjFermionFieldF>().swap(evec_f);
     }
     std::vector<GridXconjFermionFieldD> evec;
-    if(!UniqueID()) printf("GridXconjLanczosDoubleConvSingle: computing double precision eigenvectors\n");
+    LOGA2A << "GridXconjLanczosDoubleConvSingle: computing double precision eigenvectors" << std::endl;
     gridLanczosXconj<GridPolicies>(eval,evec,lanc_arg,lat, precon_type);
 
     int nev = evec.size();    
@@ -259,7 +257,7 @@ public:
     }
 
     //Convert to single precision
-    if(!UniqueID()) printf("GridLanczosDoubleConvSingle: converting evecs to single precision\n");
+    LOGA2A << "GridLanczosDoubleConvSingle: converting evecs to single precision" << std::endl;
     Grid::precisionChangeWorkspace wk(lat.getFrbGridF(), lat.getFrbGrid());
 
     for(int i=0;i<nev;i++){      
@@ -270,7 +268,7 @@ public:
     }
     //These are in reverse order!
     std::reverse(evec_f.begin(), evec_f.end());
-    if(!UniqueID()) printf("GridXconjLanczosDoubleConvSingle: completed eigenvector calculation\n");
+    LOGA2A << "GridXconjLanczosDoubleConvSingle: completed eigenvector calculation" << std::endl;
   }
   
   void randomizeEvecs(const LancArg &lanc_arg, Lattice &latb) override{

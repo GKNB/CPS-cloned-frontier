@@ -30,7 +30,7 @@ public:
     std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_ll_src = mf_ll_con.get(p_pi_src);
     std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_ll_snk = mf_ll_con.get(p_pi_snk);
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-    if(!UniqueID()){ printf("Gathering meson fields\n");  fflush(stdout); }
+    LOGA2A << "Gathering meson fields" << std::endl;
     nodeGetMany(2,&mf_ll_src,&mf_ll_snk);
     cps::sync();
 #endif
@@ -40,13 +40,13 @@ public:
     //where S is the vertex spin/color/flavor structure
 
     //= tr( [[\sum_{xsnk} exp(ip xsnk) w^dag(xsnk,tsnk) S v(xsnk,tsnk)]] [[\sum_{xsrc} exp(-ip xsrc) w^dag(xsrc,tsrc) S v(xsrc,tsrc) ]] ) 
-    if(!UniqueID()){ printf("Starting trace\n");  fflush(stdout); }
+    LOGA2A << "Starting trace" << std::endl;
     trace(into,mf_ll_snk,mf_ll_src);
     into *= ScalarComplexType(0.5,0);
     rearrangeTsrcTsep(into); //rearrange temporal ordering
     
     cps::sync();
-    if(!UniqueID()){ printf("Finished trace\n");  fflush(stdout); }
+    LOGA2A << "Finished trace" << std::endl;
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeDistributeMany(2,&mf_ll_src,&mf_ll_snk);

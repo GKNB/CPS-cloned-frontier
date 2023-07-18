@@ -44,7 +44,7 @@ inline std::vector<Grid::ComplexD> computeZmobiusGammaWithCache(double b_plus_c_
   if(it == cache.end()){    
     std::vector<Grid::ComplexD> gamma_inner;
     
-    std::cout << "MADWF Compute parameters with inner Ls = " << Ls_inner << std::endl;
+    LOGA2A << "MADWF Compute parameters with inner Ls = " << Ls_inner << std::endl;
     if(complex_coeffs){
       Grid::Approx::computeZmobiusGamma(gamma_inner, b_plus_c_inner, Ls_inner, b_plus_c_outer, Ls_outer, lambda_max);
     }else{
@@ -53,14 +53,14 @@ inline std::vector<Grid::ComplexD> computeZmobiusGammaWithCache(double b_plus_c_
       for(int s=0;s<Ls_inner;s++) gamma_inner[s] = zdata->gamma[s];
       Grid::Approx::zolotarev_free(zdata);
     }
-    std::cout << "gamma:\n";
-    for(int s=0;s<Ls_inner;s++) std::cout << s << " " << gamma_inner[s] << std::endl;
+    LOGA2A << "gamma:\n";
+    for(int s=0;s<Ls_inner;s++) LOGA2A << s << " " << gamma_inner[s] << std::endl;
     
     cache[pstruct] = gamma_inner;
     return gamma_inner;
   }else{
-    std::cout << "gamma (from cache):\n";
-    for(int s=0;s<Ls_inner;s++) std::cout << s << " " << it->second[s] << std::endl;
+    LOGA2A << "gamma (from cache):\n";
+    for(int s=0;s<Ls_inner;s++) LOGA2A << s << " " << it->second[s] << std::endl;
     return it->second;
   }
 }
@@ -103,10 +103,10 @@ struct CGincreaseTol : public Grid::MADWFinnerIterCallbackBase{
 	       Grid::RealD outer_resid): cg_inner(cg_inner), outer_resid(outer_resid){}
   
   void operator()(const Grid::RealD current_resid){
-    std::cout << "CGincreaseTol with current residual " << current_resid << " changing inner tolerance " << cg_inner.Tolerance << " -> ";
+    LOGA2A << "CGincreaseTol with current residual " << current_resid << " changing inner tolerance " << cg_inner.Tolerance << " -> ";
     while(cg_inner.Tolerance < current_resid) cg_inner.Tolerance *= 2;    
     //cg_inner.Tolerance = outer_resid/current_resid;
-    std::cout << cg_inner.Tolerance << std::endl;
+    LOGA2ANT << cg_inner.Tolerance << std::endl;
   }
 };
 

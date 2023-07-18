@@ -77,7 +77,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<st
   Type3timings::timer().type3_compute_mfproducts -= dclock();
   //Form the product of the three meson fields
   //con_*_*_k = [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] [[ wL^dag(x_K) wH(x_K) ]]
-  if(!UniqueID()){ printf("Computing con_*_*_k\n"); fflush(stdout); }
+  LOGA2A << "Computing con_*_*_k" << std::endl;
 
   resize_2d(con_pi1_pi2_k,tpi_sampled,ntsep_k_pi);
   resize_2d(con_pi2_pi1_k,tpi_sampled,ntsep_k_pi);
@@ -341,7 +341,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf
   Type3timings::timer().type3_compute_mfproducts -= dclock();
   //Form the product of the three meson fields
   //con_*_*_k = [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] [[ wL^dag(x_K) wH(x_K) ]]
-  if(!UniqueID()){ printf("Computing con_*_*_k with tpi1=%d\n",tpi1); fflush(stdout); }
+  a2a_printf("Computing con_*_*_k with tpi1=%d\n",tpi1);
 
   double gather_time = 0., distribute_time = 0., mult_time = 0., linalg_time = 0., total_time = -dclock(), time;
   
@@ -428,11 +428,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf
 
   total_time += dclock();
 
-  print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts gather",gather_time);
-  print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts distribute",distribute_time);
-  print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts mult",mult_time);
-  print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts linalg",linalg_time);
-  print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts total",total_time);
+  a2a_print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts gather",gather_time);
+  a2a_print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts distribute",distribute_time);
+  a2a_print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts mult",mult_time);
+  a2a_print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts linalg",linalg_time);
+  a2a_print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts total",total_time);
 
   Type3timings::timer().type3_compute_mfproducts += dclock();
 }
@@ -492,7 +492,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_omp_v2(ResultsContainerType resul
   size_t bytes_needed = tsep_k_pi.size() * 
     (ResultsContainerType::byte_size(n_contract, nthread) + MixDiagResultsContainerType::byte_size(nthread));
 
-  if(!UniqueID()){ printf("Output containers require %f MB\n",byte_to_MB(bytes_needed));  fflush(stdout); }
+  a2a_printf("Output containers require %f MB\n",byte_to_MB(bytes_needed));
 				
   for(int tkp=0;tkp<tsep_k_pi.size();tkp++){
     result[tkp].resize(n_contract,nthread); //it will be thread-reduced before this method ends
@@ -504,7 +504,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_omp_v2(ResultsContainerType resul
   //Loop over Q_i insertion location. Each node naturally has its own sublattice to work on. Thread over sites in usual way
 					  
   bytes_needed = 2*GJP.TnodeSites()*size_3d*sizeof(SCFmat);
-  if(!UniqueID()){ printf("part2 precompute requires %f MB\n",byte_to_MB(bytes_needed)); fflush(stdout); }
+  a2a_printf("part2 precompute requires %f MB\n",byte_to_MB(bytes_needed));
   std::vector<SCFmatVector> part2_L(GJP.TnodeSites(), SCFmatVector(size_3d)); //[top_loc][x3d]
   std::vector<SCFmatVector> part2_H(GJP.TnodeSites(), SCFmatVector(size_3d)); //[top_loc][x3d]
 

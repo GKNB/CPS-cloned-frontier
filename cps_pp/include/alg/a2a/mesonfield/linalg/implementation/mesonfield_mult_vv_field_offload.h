@@ -43,7 +43,7 @@ struct mult_vv_field_offload_timers{
     }
     void print(){
       average();
-      printf("calls=%zu init1=%g init2=%g vv=%g\n", calls, init1, init2, vv);
+      a2a_printf("calls=%zu init1=%g init2=%g vv=%g\n", calls, init1, init2, vv);
     }
 
   };
@@ -154,7 +154,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
     int gpu_threads = Grid::acceleratorThreads();
     int shmem_max_per_thread = shmem_max / nsimd / gpu_threads;
     int shmem_iblock_size = shmem_max_per_thread/3/2/sizeof(ScalarComplexType);  // two  3 * shmem_iblock_size complex matrices (fixed fl,sl fr,sr)
-    std::cout << "Shared memory " << shmem_max/1024 << " kB with block sizes nsimd*gpu_threads="<< nsimd << "*"<<gpu_threads <<"=" << nsimd*gpu_threads 
+    LOGA2A << "Shared memory " << shmem_max/1024 << " kB with block sizes nsimd*gpu_threads="<< nsimd << "*"<<gpu_threads <<"=" << nsimd*gpu_threads 
 	      << " allows " << shmem_max_per_thread << " B/thread which allows for iblock size " << shmem_iblock_size << " for sizeof(ScalarComplexType)=" << sizeof(ScalarComplexType) << std::endl;
     if(shmem_iblock_size == 0) assert(0);
 
@@ -366,7 +366,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 		 const lA2AfieldType &l,
 		 const rA2AfieldType &r,
 		 bool conj_l, bool conj_r){
-    if(!UniqueID()) std::cout << "Starting field vv multiplication" << std::endl;
+    LOGA2A << "Starting field vv multiplication" << std::endl;
 
     mult_vv_field_offload_timers::timers &time = mult_vv_field_offload_timers::get();
 
@@ -481,11 +481,9 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
     VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
     VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
     
-    if(!UniqueID()){
-      std::cout << "Outer block size " << blocksize << std::endl;
-      std::cout << "vaprime " << double(vprime_bytes)/1024./1024. << " MB" << std::endl;
-      std::cout << "vbprime " << double(vprime_bytes)/1024./1024. << " MB" << std::endl;
-    }
+    LOGA2A << "Outer block size " << blocksize << std::endl
+	   << "vaprime " << double(vprime_bytes)/1024./1024. << " MB" << std::endl
+	   << "vbprime " << double(vprime_bytes)/1024./1024. << " MB" << std::endl;
 
     
     //Do in blocks over i' to avoid taking too much space
@@ -500,8 +498,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
       size_t iprimelessthan = std::min(iprimestart + blocksize, niprime);
       size_t niprime_block = iprimelessthan - iprimestart;
 
-      std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
-      std::cout << "Create va'/vb'" << std::endl;
+      LOGA2A << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
+      LOGA2A << "Create va'/vb'" << std::endl;
      
       std::vector<bool> lmodes_used(l.getNmodes(),false), rmodes_used(r.getNmodes(),false);
       {
@@ -554,7 +552,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
       
       time.init2 += dclock();
 
-      std::cout << "Compute VV" << std::endl;
+      LOGA2A << "Compute VV" << std::endl;
       time.vv -= dclock();
          
 #if defined(GRID_CUDA) || defined(GRID_HIP)

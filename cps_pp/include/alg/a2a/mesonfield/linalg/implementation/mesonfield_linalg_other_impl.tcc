@@ -79,7 +79,7 @@ struct mesonfield_trace_prod_gpu_timings{
       reset();
     }    
     void report(){
-      std::cout << "Trace-prod " << count << " calls. Avg:  Init=" << init/count << "s Table=" << table/count << "s MF-copy=" << mf_copy/count << "s Prod-tmp-alloc-free="
+      LOGA2A << "Trace-prod " << count << " calls. Avg:  Init=" << init/count << "s Table=" << table/count << "s MF-copy=" << mf_copy/count << "s Prod-tmp-alloc-free="
 		<< prod_tmp_alloc_free/count << "s Prod=" << prod/count << " Reduction=" << reduction/count << "s" << std::endl;
     }
   };

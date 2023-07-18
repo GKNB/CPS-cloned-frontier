@@ -260,6 +260,47 @@ void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const FixGaugeArgGrid &
 #endif
 }
 
+void a2a_printf(const char* format, ...){
+  if(UniqueID()) return;
+  int n; //not counting null character
+  {
+    char buf[1024];
+    va_list argptr;
+    va_start(argptr, format);    
+    n = vsnprintf(buf, 1024, format, argptr);
+    va_end(argptr);
+    if(n < 1024) LOGA2A << buf;
+  }
+  
+  char buf[n+1];
+  va_list argptr;
+  va_start(argptr, format);    
+  int n2 = vsnprintf(buf, 1024, format, argptr);
+  va_end(argptr);
+  assert(n2 <= n);
+  LOGA2A << buf;
+}
+
+void a2a_printfnt(const char* format, ...){
+  if(UniqueID()) return;
+  int n; //not counting null character
+  {
+    char buf[1024];
+    va_list argptr;
+    va_start(argptr, format);    
+    n = vsnprintf(buf, 1024, format, argptr);
+    va_end(argptr);
+    if(n < 1024) LOGA2ANT << buf;
+  }
+  
+  char buf[n+1];
+  va_list argptr;
+  va_start(argptr, format);    
+  int n2 = vsnprintf(buf, 1024, format, argptr);
+  va_end(argptr);
+  assert(n2 <= n);
+  LOGA2ANT << buf;
+}
 
 
 CPS_END_NAMESPACE

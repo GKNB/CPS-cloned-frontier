@@ -167,6 +167,27 @@ struct getMPIdataType<float>{
 
 #endif //USE_MPI
 
+
+#ifdef USE_GRID
+#define LOGA2A std::cout << Grid::GridLogMessage
+#define LOGA2ANT std::cout
+#else
+#define LOGA2A if(!UniqueID()) std::cout
+#define LOGA2ANT std::cout
+#endif
+
+//printf only to head node through LOGA2A stream
+void a2a_printf(const char* format, ...);
+//printf only to head node through LOGA2ANT stream (no timing)
+void a2a_printfnt(const char* format, ...);
+
+
+//print_time only to head node through LOGA2A stream
+inline void a2a_print_time(const char *cname, const char *fname, Float time){
+  a2a_printf("%s::%s: %e seconds\n",cname,fname,time);
+}
+
+
 //Check each node can write to disk
 inline void checkWriteable(const std::string &dir,const int conf){
   std::string file;
@@ -176,18 +197,18 @@ inline void checkWriteable(const std::string &dir,const int conf){
   }
   std::ofstream of(file.c_str());
   double fail = 0;
-  if(!of.good()){ std::cout << "checkWriteable failed to open file for write: " << file << std::endl; std::cout.flush(); fail = 1; }
+  if(!of.good()){ LOGA2A << "checkWriteable failed to open file for write: " << file << std::endl; fail = 1; }
 
   of << "Test\n";
-  if(!of.good()){ std::cout << "checkWriteable failed to write to file: " << file << std::endl; std::cout.flush(); fail = 1; }
+  if(!of.good()){ LOGA2A << "checkWriteable failed to write to file: " << file << std::endl; fail = 1; }
 
   glb_sum_five(&fail);
 
   if(fail != 0.){
-    if(!UniqueID()){ printf("Disk write check failed\n");  fflush(stdout); }
+    LOGA2A << "Disk write check failed" << std::endl;
     exit(-1);
   }else{
-    if(!UniqueID()){ printf("Disk write check passed\n"); fflush(stdout); }
+    LOGA2A << "Disk write check passed" << std::endl;
   }
 }
 
@@ -243,20 +264,18 @@ inline void printTimeStats(const std::string &descr, double time){
   var /= nodes;
   var -= avg*avg;
   
-  if(!UniqueID()){
-    std::cout << descr << ": avg=" << avg << "s, std.dev=" << sqrt(var) << "s, max=" << max << "s (" << maxnode << "), min=" << min << "s (" << minnode << ")" << std::endl;
-  }
+  LOGA2A << descr << ": avg=" << avg << "s, std.dev=" << sqrt(var) << "s, max=" << max << "s (" << maxnode << "), min=" << min << "s (" << minnode << ")" << std::endl;
 }
 
 //Return true if this node has timeslices that lie between tstart and tstart + tsep  (mod Lt) . Range is inclusive
 inline bool onNodeTimeslicesInRange(const int tstart, const int tsep){
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   int toff = GJP.TnodeCoor()*GJP.TnodeSites();
-  std::cout << "Checking for on-node timeslices tstart=" << tstart << " tsep=" << tsep << std::endl;
+  LOGA2A << "Checking for on-node timeslices tstart=" << tstart << " tsep=" << tsep << std::endl;
   for(int tlin=tstart;tlin<=tstart+tsep;tlin++){
     int tprd = tlin % Lt;
     int tlcl = tprd - toff;
-    std::cout << "tlin=" << tlin << " tprd=" << tprd << " tlcl=" << tlcl << " on-node ? " << (tlcl >= 0 && tlcl < GJP.TnodeSites()) << std::endl;
+    LOGA2A << "tlin=" << tlin << " tprd=" << tprd << " tlcl=" << tlcl << " on-node ? " << (tlcl >= 0 && tlcl < GJP.TnodeSites()) << std::endl;
     
     if(tlcl >= 0 && tlcl < GJP.TnodeSites()) return true;
   }

@@ -15,7 +15,7 @@ struct CONCAT(_, TIMER){
   }
   
   void report(){
-#define ELEM(A) print_time(TOSTR(TIMER),TOSTR(A), A);
+#define ELEM(A) a2a_print_time(TOSTR(TIMER),TOSTR(A), A);
   TIMER_ELEMS
 #undef ELEM  
   }
@@ -50,14 +50,14 @@ struct TIMER{
 void timerStart(double &v,const std::string &descr){
   __asm__ volatile("" : : : "memory");  //prevent compiler reordering
   double s = secs_since_first_call();
-  std::cout << "Timer start \"" << descr << "\": " << s << std::endl;
+  LOGA2A << "Timer start \"" << descr << "\": " << s << std::endl;
   v -= s;
   __asm__ volatile("" : : : "memory");
 }
 void timerEnd(double &v,const std::string &descr){
   __asm__ volatile("" : : : "memory");  //prevent compiler reordering
   double s = secs_since_first_call();
-  std::cout << "Timer stop \"" << descr << "\": " << s << std::endl;
+  LOGA2A << "Timer stop \"" << descr << "\": " << s << std::endl;
   v += s;
   __asm__ volatile("" : : : "memory");
 }

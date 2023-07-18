@@ -34,7 +34,7 @@ bool XconjugateCheck(const TwoFlavorField &v, const double tol = 1e-10, bool ver
   tmp = -(Xmatrix()*conjugate(Grid::PeekIndex<GparityFlavourIndex>(v,0))) - Grid::PeekIndex<GparityFlavourIndex>(v,1);
   double n = norm2(tmp);
   if(n > tol){
-    std::cout << "Failed Xconj check, got " << n << " (expect 0)" << std::endl;
+    LOGA2A << "Failed Xconj check, got " << n << " (expect 0)" << std::endl;
     return false;
   }
   return true;
@@ -54,7 +54,7 @@ void testXconjAction(typename A2Apolicies::FgridGFclass &lattice){
   typedef typename A2Apolicies::GridDiracXconj GridDiracXconj;
   typedef typename A2Apolicies::GridDirac GridDiracGP;
 
-  std::cout << "Testing X-conj action" << std::endl;
+  LOGA2A << "Testing X-conj action" << std::endl;
   if(!lattice.getGridFullyInitted()) ERR.General("","gridLanczosXconj","Grid/Grids are not initialized!");
   
   Grid::GridCartesian *UGrid = lattice.getUGrid();
@@ -64,7 +64,7 @@ void testXconjAction(typename A2Apolicies::FgridGFclass &lattice){
 
   {
     //Independent test (other than Grids)
-    std::cout << "Doing independent test (other than Grids)" << std::endl;
+    LOGA2A << "Doing independent test (other than Grids)" << std::endl;
     double bpc=2.0;
     double bmc=1.0;
     double b=0.5*(bpc+bmc);
@@ -101,7 +101,7 @@ void testXconjAction(typename A2Apolicies::FgridGFclass &lattice){
     FermionField1f M2f_f0 = PeekIndex<GparityFlavourIndex>(M2f,0); 
   
     FermionField1f diff = M2f_f0 - M1f;
-    std::cout << "GP vs Xconj action test on Xconj src : GP " << norm2(M2f_f0) << " Xconj: " << norm2(M1f) << " diff ( expect 0): " << norm2(diff) << std::endl;
+    LOGA2A << "GP vs Xconj action test on Xconj src : GP " << norm2(M2f_f0) << " Xconj: " << norm2(M1f) << " diff ( expect 0): " << norm2(diff) << std::endl;
     assert(norm2(diff)/norm2(rnd_1f) < 1e-4);
 
     //Check 2f result is X-conjugate
@@ -109,11 +109,11 @@ void testXconjAction(typename A2Apolicies::FgridGFclass &lattice){
     tmp1f = -(Xmatrix()*conjugate(M2f_f0));
 
     diff = tmp1f - M2f_f1;
-    std::cout << "GP action on Xconj src produces X-conj vector (expect 0): " << norm2(diff) << std::endl;
+    LOGA2A << "GP action on Xconj src produces X-conj vector (expect 0): " << norm2(diff) << std::endl;
     assert(norm2(diff)/norm2(rnd_1f) < 1e-4);
   }
   {
-    std::cout << "Doing test using gauge fields and parameters from CPS" << std::endl;
+    LOGA2A << "Doing test using gauge fields and parameters from CPS" << std::endl;
 
     Grid::LatticeGaugeFieldD *Umu = lattice.getUmu();
 
@@ -146,7 +146,7 @@ void testXconjAction(typename A2Apolicies::FgridGFclass &lattice){
     FermionField1f M2f_f0 = PeekIndex<GparityFlavourIndex>(M2f,0); 
   
     FermionField1f diff = M2f_f0 - M1f;
-    std::cout << "GP vs Xconj action test on Xconj src : GP " << norm2(M2f_f0) << " Xconj: " << norm2(M1f) << " diff ( expect 0): " << norm2(diff) << std::endl;
+    LOGA2A << "GP vs Xconj action test on Xconj src : GP " << norm2(M2f_f0) << " Xconj: " << norm2(M1f) << " diff ( expect 0): " << norm2(diff) << std::endl;
     assert(norm2(diff)/norm2(rnd_1f) < 1e-4);
 
     //Check 2f result is X-conjugate
@@ -154,11 +154,11 @@ void testXconjAction(typename A2Apolicies::FgridGFclass &lattice){
     tmp1f = -(Xmatrix()*conjugate(M2f_f0));
 
     diff = tmp1f - M2f_f1;
-    std::cout << "GP action on Xconj src produces X-conj vector (expect 0): " << norm2(diff) << std::endl;
+    LOGA2A << "GP action on Xconj src produces X-conj vector (expect 0): " << norm2(diff) << std::endl;
     assert(norm2(diff)/norm2(rnd_1f) < 1e-4);
   }
 
-  std::cout << "Finished testing X-conj action" << std::endl;
+  LOGA2A << "Finished testing X-conj action" << std::endl;
 }
 
 CPS_END_NAMESPACE

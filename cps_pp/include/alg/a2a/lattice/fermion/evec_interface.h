@@ -45,7 +45,7 @@ void basicDeflatedGuess(GridFermionField *out, GridFermionField const *in, int N
     }
   }
   t_total += dclock();
-  std::cout << "Deflated " << Nfield << " fields with " << Nevecs << " evecs in " << t_total 
+  LOGA2A << "Deflated " << Nfield << " fields with " << Nevecs << " evecs in " << t_total 
 	    << "s:  evec_load:" << t_get << "s, inner_product:" << t_inner << "s, linalg:" << t_linalg << "s" << std::endl;
 
 }
@@ -350,7 +350,7 @@ void compressedDeflatedGuess(GridFermionField *out, GridFermionField const *in, 
   t_promote += dclock();    
 
   t_total += dclock();
-  std::cout << "Deflated " << Nfield << " fields with " << Nevecs << " compressed evecs in " << t_total 
+  LOGA2A << "Deflated " << Nfield << " fields with " << Nevecs << " compressed evecs in " << t_total 
 	    << "s:  get: " << t_get << "s, projection:" << t_project << "s, inner_product:" << t_inner << "s, linalg:" << t_linalg << "s, promote:" << t_promote << "s" << std::endl;
 }
 

@@ -136,7 +136,7 @@ namespace Grid{
       Grid_split(const_cast<GaugeFieldF&>(Umu_f),*Umu_sf);
       tsplit_Umu_f += usecond();
 
-      std::cout << GridLogMessage << "SplitConjugateGradientReliableUpdate constructor timings: split Umu_d " << tsplit_Umu_d/1e3 << " ms, split Umu_f " << tsplit_Umu_f/1e3 << " ms\n";
+      LOGA2A << "SplitConjugateGradientReliableUpdate constructor timings: split Umu_d " << tsplit_Umu_d/1e3 << " ms, split Umu_f " << tsplit_Umu_f/1e3 << " ms\n";
       linop_d.Setup(*Umu_sd, sgrids_d);
       linop_f.Setup(*Umu_sf, sgrids_f);
 
@@ -192,11 +192,11 @@ namespace Grid{
 	RealD srcnorm = sqrt(norm2(src[i]));
         RealD resnorm = sqrt(norm2(p));
         RealD true_residual = resnorm / srcnorm;
-	std::cout << GridLogMessage << "\tSolution " << i << " true residual " << true_residual<<std::endl;
-	std::cout << GridLogMessage << "\tTarget " << CG->Tolerance << std::endl;
+	LOGA2A << "\tSolution " << i << " true residual " << true_residual<<std::endl;
+	LOGA2A << "\tTarget " << CG->Tolerance << std::endl;
 	if (CG->ErrorOnNoConverge) assert(true_residual / CG->Tolerance < 10000.0);
       }
-      std::cout << GridLogMessage << "SplitConjugateGradientReliableUpdate operator timings: "
+      LOGA2A << "SplitConjugateGradientReliableUpdate operator timings: "
       << "split sources " << tsplit_src/1e3 << " ms, "
       << "split guesses " << tsplit_sol/1e3 << " ms, "
       << "CG " << tinvert/1e3 << " ms, "

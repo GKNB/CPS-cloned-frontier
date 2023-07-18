@@ -21,7 +21,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   if(lanc_arg.N_true_get == 0){
     std::vector<Grid::RealD>().swap(eval); 	std::vector<GridFermionField>().swap(evec);      
     //eval.clear(); evec.clear();
-    if(!UniqueID()) printf("gridLanczos skipping because N_true_get = 0\n");
+    LOGA2A << "gridLanczos skipping because N_true_get = 0" << std::endl;
     return;
   }
 
@@ -47,7 +47,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   double hi = lanc_arg.ch_alpha * lanc_arg.ch_alpha;
   int ord = lanc_arg.ch_ord + 1; //different conventions
 
-  if(!UniqueID()) printf("Chebyshev lo=%g hi=%g ord=%d\n",lo,hi,ord);
+  a2a_printf("Chebyshev lo=%g hi=%g ord=%d\n",lo,hi,ord);
   
   Grid::Chebyshev<GridFermionField> Cheb(lo,hi,ord);
   Grid::PlainHermOp<GridFermionField> HermOpF(*HermOp);
@@ -68,7 +68,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   GridFermionField src(FrbGrid);
   
 #ifndef MEMTEST_MODE
-  if(!UniqueID()) printf("Starting Grid RNG seeding for Lanczos\n");
+  a2a_printf("Starting Grid RNG seeding for Lanczos\n");
   double time = -dclock();
   
   {
@@ -94,11 +94,11 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   //   pickCheckerboard(Grid::Odd,src,src_all);
   // }
 
-  print_time("gridLanczos","Gaussian src",time+dclock());
+  a2a_print_time("gridLanczos","Gaussian src",time+dclock());
   time = -dclock();
 
   
-  if(!UniqueID()) printf("Starting Lanczos algorithm with %d threads (omp_get_max_threads %d)\n", Grid::GridThread::GetThreads(),omp_get_max_threads());
+  a2a_printf("Starting Lanczos algorithm with %d threads (omp_get_max_threads %d)\n", Grid::GridThread::GetThreads(),omp_get_max_threads());
   int Nconv;
   //IRL.normalise(src);
   IRL.calc(eval,evec,
@@ -107,7 +107,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
 	   , true
 	   );
   
-  print_time("gridLanczos","Algorithm",time+dclock());
+  a2a_print_time("gridLanczos","Algorithm",time+dclock());
 #endif
   delete HermOp;
 }
@@ -143,7 +143,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval,
   double mob_b = lattice.get_mob_b();
   double mob_c = mob_b - 1.;   //b-c = 1
   double M5 = GJP.DwfHeight();
-  if(!UniqueID()) printf("Creating Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5);
+  a2a_printf("Creating Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5);
 
   typename GridDirac::ImplParams params;
   lattice.SetParams(params);
@@ -181,7 +181,7 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
   double mob_b = lattice.get_mob_b();
   double mob_c = mob_b - 1.;   //b-c = 1
   double M5 = GJP.DwfHeight();
-  if(!UniqueID()) printf("Creating Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5);
+  a2a_printf("Creating Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5);
 
   typename GridDiracF::ImplParams params;
   lattice.SetParams(params);
@@ -222,7 +222,7 @@ void gridLanczosXconj(std::vector<Grid::RealD> &eval,
   params.twists = gp_params.twists;
   params.boundary_phase = 1.0;
 
-  if(!UniqueID()) printf("Creating X-conjugate Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g phase=(%f,%f) twists=(%d,%d,%d,%d)\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5,params.boundary_phase.real(),params.boundary_phase.imag(),params.twists[0],params.twists[1],params.twists[2],params.twists[3]);
+  a2a_printf("Creating X-conjugate Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g phase=(%f,%f) twists=(%d,%d,%d,%d)\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5,params.boundary_phase.real(),params.boundary_phase.imag(),params.twists[0],params.twists[1],params.twists[2],params.twists[3]);
 
   GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,lanc_arg.mass,M5,mob_b,mob_c, params);
   Grid::innerProductImplementationXconjugate<GridFermionField> inner;

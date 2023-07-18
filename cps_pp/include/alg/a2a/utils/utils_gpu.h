@@ -6,6 +6,7 @@
 #include<config.h>
 #include "template_wizardry.h"
 #include "utils_malloc.h"
+#include "utils_parallel.h"
 #include<util/time_cps.h>
 #include<omp.h>
 
@@ -650,14 +651,14 @@ public:
       }
       //#define PIN_IN_PLACE    #Much slower and does not overlap with kernel
 #ifndef PIN_IN_PLACE
-      if(vrb) std::cout << Grid::GridLogMessage << "Allocating " << lrg << " bytes of pinned memory" << std::endl;
+      if(vrb) LOGA2A << "Allocating " << lrg << " bytes of pinned memory" << std::endl;
       void *pmem = pinned_alloc_check(128,lrg);
 #endif
       
       int i=0;
       while(!q.empty()){
 	entry e = q.back();
-	if(vrb) std::cout << Grid::GridLogMessage << "Queue entry " << i << " of size " << e.bytes << std::endl;
+	if(vrb) LOGA2A << "Queue entry " << i << " of size " << e.bytes << std::endl;
 	q.pop_back();
 #ifndef PIN_IN_PLACE
 	memcpy(pmem,e.from,e.bytes);
@@ -691,7 +692,7 @@ public:
 	time += dclock();
 	double total_MB = double(total_bytes)/1024./1024.;
 	double rate = total_MB/time;
-	std::cout << Grid::GridLogMessage << "Transfers complete bytes " << total_MB << " MB in " << time << "s : rate " << rate << "MB/s" << std::endl;
+	LOGA2A << "Transfers complete bytes " << total_MB << " MB in " << time << "s : rate " << rate << "MB/s" << std::endl;
       }
 #undef PIN_IN_PLACE
     });
@@ -751,20 +752,20 @@ protected:
 
   //Move the entry to the end and return a new iterator
   void touchEntry(EntryIterator entry){
-    if(verbose) std::cout << "Touching entry " << entry->ptr << std::endl;
+    if(verbose) LOGA2A << "Touching entry " << entry->ptr << std::endl;
     in_use_pool.splice(in_use_pool.end(),in_use_pool,entry); //doesn't invalidate any iterators :)
   }
 
   EntryIterator evictEntry(EntryIterator entry, bool free_it){
-    if(verbose) std::cout << "Evicting entry " << entry->ptr << std::endl;
+    if(verbose) LOGA2A << "Evicting entry " << entry->ptr << std::endl;
 	
     if(entry->owned_by != nullptr){
-      if(verbose) std::cout << "Entry is owned by handle " << entry->owned_by << ", detaching" << std::endl;
+      if(verbose) LOGA2A << "Entry is owned by handle " << entry->owned_by << ", detaching" << std::endl;
       Handle &hown = *entry->owned_by;
       if(hown.lock_entry) ERR.General("DeviceMemoryPoolManager","evictEntry","Cannot evict a locked entry!");
       //Copy data back to host if not in sync
       if(!hown.host_in_sync){	
-	if(verbose) std::cout << "Host is not in sync with device, copying back before detach" << std::endl;
+	if(verbose) LOGA2A << "Host is not in sync with device, copying back before detach" << std::endl;
 	copy_device_to_host(hown.host_ptr,entry->ptr,hown.bytes);
 	hown.host_in_sync = true;
       }
@@ -773,7 +774,7 @@ protected:
     }
     if(free_it){ 
       device_free(entry->ptr); allocated -= entry->bytes; 
-      if(verbose) std::cout << "Freed memory " << entry->ptr << " of size " << entry->bytes << ". Allocated amount is now " << allocated << " vs max " << pool_max_size << std::endl;
+      if(verbose) LOGA2A << "Freed memory " << entry->ptr << " of size " << entry->bytes << ". Allocated amount is now " << allocated << " vs max " << pool_max_size << std::endl;
     }
     return in_use_pool.erase(entry); //remove from list
   }
@@ -787,18 +788,18 @@ protected:
       auto it = entry_list.begin();
       while(it != entry_list.end()){
 	device_free(it->ptr); allocated -= it->bytes;
-	if(verbose) std::cout << "Freed memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << allocated << " vs max " << pool_max_size << std::endl;
+	if(verbose) LOGA2A << "Freed memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << allocated << " vs max " << pool_max_size << std::endl;
 	it = entry_list.erase(it);
 
 	if(allocated <= until_allocated_lte){
 	  if(entry_list.size() == 0) free_pool.erase(sit); //if we break out after draining the list for a particular size, we need to remove that list from the map
-	  if(verbose) std::cout << "deallocateFreePool has freed enough memory" << std::endl;
+	  if(verbose) LOGA2A << "deallocateFreePool has freed enough memory" << std::endl;
 	  return;
 	}
       }
       sit = free_pool.erase(sit);
     }
-    if(verbose) std::cout << "deallocateFreePool has freed all of its memory" << std::endl;
+    if(verbose) LOGA2A << "deallocateFreePool has freed all of its memory" << std::endl;
   }
 
   //Allocate a new entry of the given size and move to the end of the LRU queue, returning a pointer
@@ -808,14 +809,14 @@ protected:
     e.ptr = device_alloc_check(128,bytes);
     allocated += bytes;
     e.owned_by = nullptr;
-    if(verbose) std::cout << "Allocated entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << allocated << " vs max " << pool_max_size << std::endl;
+    if(verbose) LOGA2A << "Allocated entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << allocated << " vs max " << pool_max_size << std::endl;
     return in_use_pool.insert(in_use_pool.end(),e);
   }    
 
   //Get an entry either new or from the pool
   //It will automatically be moved to the end of the in_use_pool list
   EntryIterator getEntry(size_t bytes){
-    if(verbose) std::cout << "Getting an entry of size " << bytes << std::endl;
+    if(verbose) LOGA2A << "Getting an entry of size " << bytes << std::endl;
     if(bytes > pool_max_size) ERR.General("DeviceMemoryPoolManager","getEntry","Requested size is larger than the maximum pool size!");
 
     //First check if we have an entry of the right size in the pool
@@ -823,33 +824,33 @@ protected:
     if(fit != free_pool.end()){
       assert(fit->second.size() > 0);
       Entry e = fit->second.back();
-      if(verbose) std::cout << "Found entry " << e.ptr << " in free pool" << std::endl;
+      if(verbose) LOGA2A << "Found entry " << e.ptr << " in free pool" << std::endl;
       if(fit->second.size() == 1) free_pool.erase(fit); //remove the entire, now-empty list
       else fit->second.pop_back();
       return in_use_pool.insert(in_use_pool.end(),e);
     }
     //Next, if we have enough room, allocate new memory
     if(allocated + bytes <= pool_max_size){
-      if(verbose) std::cout << "Allocating new memory for entry" << std::endl;
+      if(verbose) LOGA2A << "Allocating new memory for entry" << std::endl;
       return allocEntry(bytes);
     }
     //Next, we should free up unused blocks from the free pool
-    if(verbose) std::cout << "Clearing up space from the free pool to make room" << std::endl;
+    if(verbose) LOGA2A << "Clearing up space from the free pool to make room" << std::endl;
     deallocateFreePool(pool_max_size - bytes);
     if(allocated + bytes <= pool_max_size){
-      if(verbose) std::cout << "Allocating new memory for entry" << std::endl;
+      if(verbose) LOGA2A << "Allocating new memory for entry" << std::endl;
       return allocEntry(bytes);
     }
 
     //Evict old data until we have enough room
     //If we hit an entry with just the right size, reuse the pointer
-    if(verbose) std::cout << "Evicting data to make room" << std::endl;
+    if(verbose) LOGA2A << "Evicting data to make room" << std::endl;
     auto it = in_use_pool.begin();
     while(it != in_use_pool.end()){
-      if(verbose) std::cout << "Attempting to evict entry " << it->ptr << std::endl;
+      if(verbose) LOGA2A << "Attempting to evict entry " << it->ptr << std::endl;
 
       if(it->owned_by->lock_entry){ //don't evict an entry that is currently in use
-      	if(verbose) std::cout << "Entry is assigned to an open view or prefetch for handle " << it->owned_by << ", skipping" << std::endl;
+      	if(verbose) LOGA2A << "Entry is assigned to an open view or prefetch for handle " << it->owned_by << ", skipping" << std::endl;
       	++it;
       	continue;
       }
@@ -857,14 +858,14 @@ protected:
       bool erase = true;
       void* reuse;
       if(it->bytes == bytes){
-	if(verbose) std::cout << "Found entry " << it->ptr << " has the right size, yoink" << std::endl;
+	if(verbose) LOGA2A << "Found entry " << it->ptr << " has the right size, yoink" << std::endl;
 	reuse = it->ptr;
 	erase = false;
       }
       it = evictEntry(it, erase);
 
       if(!erase){
-	if(verbose) std::cout << "Reusing memory " << reuse << std::endl;
+	if(verbose) LOGA2A << "Reusing memory " << reuse << std::endl;
 	//reuse existing allocation
 	Entry e;
 	e.bytes = bytes;
@@ -872,7 +873,7 @@ protected:
 	e.owned_by = nullptr;
 	return in_use_pool.insert(in_use_pool.end(),e);
       }else if(allocated + bytes <= pool_max_size){ //allocate if we have enough room
-	if(verbose) std::cout << "Memory available " << allocated << " is now sufficient, allocating" << std::endl;
+	if(verbose) LOGA2A << "Memory available " << allocated << " is now sufficient, allocating" << std::endl;
 	return allocEntry(bytes);
       }
     }	
@@ -903,7 +904,7 @@ public:
   size_t getAllocated() const{ return allocated; }
 
   HandleIterator allocate(size_t bytes){
-    if(verbose) std::cout << "Request for allocation of size " << bytes << std::endl;
+    if(verbose) LOGA2A << "Request for allocation of size " << bytes << std::endl;
     Handle h;
     h.valid = true;
     h.entry = getEntry(bytes);
@@ -1010,7 +1011,7 @@ public:
   
   void free(HandleIterator h){
     if(h->valid){
-      if(verbose) std::cout << "Freeing ptr " << h->entry->ptr << " of size " << h->entry->bytes << " into free pool" << std::endl;
+      if(verbose) LOGA2A << "Freeing ptr " << h->entry->ptr << " of size " << h->entry->bytes << " into free pool" << std::endl;
       //Remove entry from in-use pool
       Entry e = *(h->entry);
       in_use_pool.erase(h->entry);
@@ -1020,7 +1021,7 @@ public:
     //Free host memory
     ::free(h->host_ptr);
     //Remove handle
-    if(verbose) std::cout << "Freed host ptr " << h->host_ptr << ", removing handle" << std::endl;
+    if(verbose) LOGA2A << "Freed host ptr " << h->host_ptr << ", removing handle" << std::endl;
     handles.erase(h);
   }
 
@@ -1102,11 +1103,11 @@ protected:
     if(pool == DevicePool){
       e.ptr = device_alloc_check(128,bytes);
       device_allocated += bytes;
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Allocated device entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Allocated device entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
     }else{ //HostPool
       e.ptr = memalign_check(128,bytes);
       host_allocated += bytes;
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Allocated host entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Allocated host entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;
     }
     auto &p = getLRUpool(pool);
     return p.insert(p.end(),e);
@@ -1143,7 +1144,7 @@ protected:
   //Relinquish the entry from the LRU and put in the free pool
   void moveEntryToFreePool(EntryIterator it, Pool pool){
     sanityCheck();
-    if(verbose) std::cout << "HolisticMemoryPoolManager: Relinquishing " << it->ptr << " of size " << it->bytes << " from " << poolName(pool) << std::endl;
+    if(verbose) LOGA2A << "HolisticMemoryPoolManager: Relinquishing " << it->ptr << " of size " << it->bytes << " from " << poolName(pool) << std::endl;
     it->owned_by = nullptr;
     auto &from = getLRUpool(pool);
     auto &to = getFreePool(pool)[it->bytes];
@@ -1155,17 +1156,17 @@ protected:
     sanityCheck();
     if(pool == DevicePool){
       device_free(it->ptr); device_allocated -= it->bytes;
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Freed device memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Freed device memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
     }else{ //DevicePool
       ::free(it->ptr); host_allocated -= it->bytes;
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Freed host memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;	
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Freed host memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;	
     }
   }
   
   void deallocateFreePool(Pool pool, size_t until_allocated_lte = 0){
     sanityCheck();
     size_t &allocated = (pool == DevicePool ? device_allocated : host_allocated);
-    if(verbose) std::cout << "HolisticMemoryPoolManager: Deallocating free " << poolName(pool) << " until " << until_allocated_lte << " remaining. Current " << allocated << std::endl;
+    if(verbose) LOGA2A << "HolisticMemoryPoolManager: Deallocating free " << poolName(pool) << " until " << until_allocated_lte << " remaining. Current " << allocated << std::endl;
     auto &free_pool = getFreePool(pool);
     
     //Start from the largest    
@@ -1180,20 +1181,20 @@ protected:
 
 	if(allocated <= until_allocated_lte){
 	  if(entry_list.size() == 0) free_pool.erase(sit); //if we break out after draining the list for a particular size, we need to remove that list from the map
-	  if(verbose) std::cout << "HolisticMemoryPoolManager: deallocateFreePool has freed enough memory" << std::endl;
+	  if(verbose) LOGA2A << "HolisticMemoryPoolManager: deallocateFreePool has freed enough memory" << std::endl;
 	  return;
 	}
       }
       sit = free_pool.erase(sit);
     }
-    if(verbose) std::cout << "HolisticMemoryPoolManager: deallocateFreePool has freed all of its memory" << std::endl;
+    if(verbose) LOGA2A << "HolisticMemoryPoolManager: deallocateFreePool has freed all of its memory" << std::endl;
   }
 
   //Get an entry either new or from the pool
   //It will automatically be moved to the end of the in_use_pool list
   EntryIterator getEntry(size_t bytes, Pool pool){
     sanityCheck();
-    if(verbose) std::cout << "HolisticMemoryPoolManager: Getting an entry of size " << bytes << " from " << poolName(pool) << std::endl;
+    if(verbose) LOGA2A << "HolisticMemoryPoolManager: Getting an entry of size " << bytes << " from " << poolName(pool) << std::endl;
     size_t pool_max_size = ( pool == DevicePool ? device_pool_max_size : host_pool_max_size );
     size_t &allocated = (pool == DevicePool ? device_allocated : host_allocated);
     
@@ -1214,7 +1215,7 @@ protected:
 	ERR.General("HolisticMemoryPoolManager","getEntry","%s",os.str().c_str());
       }      
       
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Found entry " << entry_list.back().ptr << " in free pool" << std::endl;      
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Found entry " << entry_list.back().ptr << " in free pool" << std::endl;      
       LRUpool.splice(LRUpool.end(), entry_list, std::prev(entry_list.end()));
 
       if(fit->second.size() == 0) free_pool.erase(fit); //remove the entire, now-empty list
@@ -1223,27 +1224,27 @@ protected:
 
     //Next, if we have enough room, allocate new memory
     if(allocated + bytes <= pool_max_size){
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Allocating new memory for entry" << std::endl;
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Allocating new memory for entry" << std::endl;
       return allocEntry(bytes, pool);
     }
 
     //Next, we should free up unused blocks from the free pool
-    if(verbose) std::cout << "HolisticMemoryPoolManager: Clearing up space from the free pool to make room" << std::endl;
+    if(verbose) LOGA2A << "HolisticMemoryPoolManager: Clearing up space from the free pool to make room" << std::endl;
     deallocateFreePool(pool, pool_max_size - bytes);
     if(allocated + bytes <= pool_max_size){
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Allocating new memory for entry" << std::endl;
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Allocating new memory for entry" << std::endl;
       return allocEntry(bytes, pool);
     }
 
     //Evict old data until we have enough room
     //If we hit an entry with just the right size, reuse the pointer
-    if(verbose) std::cout << "HolisticMemoryPoolManager: Evicting data to make room" << std::endl;
+    if(verbose) LOGA2A << "HolisticMemoryPoolManager: Evicting data to make room" << std::endl;
     auto it = LRUpool.begin();
     while(it != LRUpool.end()){
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Attempting to evict entry " << it->ptr << std::endl;
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Attempting to evict entry " << it->ptr << std::endl;
 
       if(it->owned_by->lock_entry){ //don't evict an entry that is currently in use
-      	if(verbose) std::cout << "HolisticMemoryPoolManager: Entry is assigned to an open view or prefetch for handle " << it->owned_by << ", skipping" << std::endl;
+      	if(verbose) LOGA2A << "HolisticMemoryPoolManager: Entry is assigned to an open view or prefetch for handle " << it->owned_by << ", skipping" << std::endl;
       	++it;
       	continue;
       }
@@ -1251,14 +1252,14 @@ protected:
       bool erase = true;
       void* reuse;
       if(it->bytes == bytes){
-	if(verbose) std::cout << "HolisticMemoryPoolManager: Found entry " << it->ptr << " has the right size, yoink" << std::endl;
+	if(verbose) LOGA2A << "HolisticMemoryPoolManager: Found entry " << it->ptr << " has the right size, yoink" << std::endl;
 	reuse = it->ptr;
 	erase = false;
       }
       it = evictEntry(it, erase, pool);
 
       if(!erase){
-	if(verbose) std::cout << "HolisticMemoryPoolManager: Reusing memory " << reuse << std::endl;
+	if(verbose) LOGA2A << "HolisticMemoryPoolManager: Reusing memory " << reuse << std::endl;
 	//reuse existing allocation
 	Entry e;
 	e.bytes = bytes;
@@ -1266,7 +1267,7 @@ protected:
 	e.owned_by = nullptr;
 	return LRUpool.insert(LRUpool.end(),e);
       }else if(allocated + bytes <= pool_max_size){ //allocate if we have enough room
-	if(verbose) std::cout << "HolisticMemoryPoolManager: Memory available " << allocated << " is now sufficient, allocating" << std::endl;
+	if(verbose) LOGA2A << "HolisticMemoryPoolManager: Memory available " << allocated << " is now sufficient, allocating" << std::endl;
 	return allocEntry(bytes,pool);
       }
     }
@@ -1292,7 +1293,7 @@ protected:
   void touchEntry(Handle &handle, Pool pool){
     sanityCheck();
     EntryIterator entry = pool == DevicePool ? handle.device_entry : handle.host_entry;
-    if(verbose) std::cout << "HolisticMemoryPoolManager: Touching entry " << entry->ptr << " in " << poolName(pool) << std::endl;
+    if(verbose) LOGA2A << "HolisticMemoryPoolManager: Touching entry " << entry->ptr << " in " << poolName(pool) << std::endl;
     auto &p = getLRUpool(pool);
     p.splice(p.end(),p,entry); //doesn't invalidate any iterators :)
   }
@@ -1303,7 +1304,7 @@ protected:
     if(!handle.host_in_sync){
       assert(handle.device_in_sync && handle.device_valid);
       if(!handle.host_valid) attachEntry(handle, HostPool);
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Synchronizing device " << handle.device_entry->ptr << " to host " << handle.host_entry->ptr << std::endl;
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing device " << handle.device_entry->ptr << " to host " << handle.host_entry->ptr << std::endl;
       copy_device_to_host(handle.host_entry->ptr, handle.device_entry->ptr, handle.bytes);
       handle.host_in_sync = true;
     }
@@ -1314,7 +1315,7 @@ protected:
     if(!handle.device_in_sync){
       assert(handle.host_in_sync && handle.host_valid);
       if(!handle.device_valid) attachEntry(handle, DevicePool);
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Synchronizing host " << handle.host_entry->ptr << " to device " << handle.device_entry->ptr << std::endl;
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing host " << handle.host_entry->ptr << " to device " << handle.device_entry->ptr << std::endl;
       copy_host_to_device(handle.device_entry->ptr, handle.host_entry->ptr, handle.bytes);
       handle.device_in_sync = true;
     }
@@ -1328,7 +1329,7 @@ protected:
       if(handle.disk_file == ""){
 	handle.disk_file = disk_root + "/mempool." + std::to_string(UniqueID()) + "." + std::to_string(idx++);
       }
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Synchronizing host " << handle.host_entry->ptr << " to disk " << handle.disk_file << std::endl;
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing host " << handle.host_entry->ptr << " to disk " << handle.disk_file << std::endl;
       std::fstream f(handle.disk_file.c_str(), std::ios::out | std::ios::binary);
       if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncHostToDisk","Failed to open file %s for write\n",handle.disk_file.c_str());
       f.write((char*)handle.host_entry->ptr, handle.bytes);
@@ -1344,7 +1345,7 @@ protected:
     if(!handle.host_in_sync){
       assert(handle.disk_in_sync && handle.disk_file != "");
       if(!handle.host_valid) attachEntry(handle, HostPool);      
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Synchronizing disk " << handle.disk_file << " to host " << handle.host_entry->ptr << std::endl;
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing disk " << handle.disk_file << " to host " << handle.host_entry->ptr << std::endl;
       std::fstream f(handle.disk_file.c_str(), std::ios::in | std::ios::binary);
       if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncDiskToHost","Failed to open file %s for write\n",handle.disk_file.c_str());
       f.read((char*)handle.host_entry->ptr, handle.bytes);
@@ -1399,17 +1400,17 @@ protected:
   //Evict an entry (with optional freeing of associated memory), and return an entry to the next item in the LRU
   EntryIterator evictEntry(EntryIterator entry, bool free_it, Pool pool){
     sanityCheck();
-    if(verbose) std::cout << "HolisticMemoryPoolManager: Evicting entry " << entry->ptr << " from " << poolName(pool) << std::endl;
+    if(verbose) LOGA2A << "HolisticMemoryPoolManager: Evicting entry " << entry->ptr << " from " << poolName(pool) << std::endl;
 	
     if(entry->owned_by != nullptr){
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Entry is owned by handle " << entry->owned_by << ", detaching" << std::endl;
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Entry is owned by handle " << entry->owned_by << ", detaching" << std::endl;
       Handle &handle = *entry->owned_by;
       if(handle.lock_entry) ERR.General("DeviceMemoryPoolManager","evictEntry","Cannot evict a locked entry!");
 
       if(pool == DevicePool){
 	//Copy data back to host if not in sync
 	if(handle.device_in_sync && !handle.host_in_sync){
-	  if(verbose) std::cout << "HolisticMemoryPoolManager: Host is not in sync with device, copying back before detach" << std::endl;
+	  if(verbose) LOGA2A << "HolisticMemoryPoolManager: Host is not in sync with device, copying back before detach" << std::endl;
 	  syncDeviceToHost(handle);
 	}
 	handle.device_entry->owned_by = nullptr;
@@ -1418,7 +1419,7 @@ protected:
       }else{
 	//Copy data to disk if not in sync
 	if(handle.host_in_sync && !handle.disk_in_sync){
-	  if(verbose) std::cout << "HolisticMemoryPoolManager: Disk is not in sync with device, copying back before detach" << std::endl;
+	  if(verbose) LOGA2A << "HolisticMemoryPoolManager: Disk is not in sync with device, copying back before detach" << std::endl;
 	  syncHostToDisk(handle);
 	}
 	handle.host_entry->owned_by = nullptr;
@@ -1439,7 +1440,7 @@ public:
   }
 
   ~HolisticMemoryPoolManager(){
-    std::cout << "~HolisticMemoryPoolManager handles.size()=" << handles.size() << " device_in_use_pool.size()=" << device_in_use_pool.size() << " host_in_use_pool.size()=" << host_in_use_pool.size() << std::endl;
+    LOGA2A << "~HolisticMemoryPoolManager handles.size()=" << handles.size() << " device_in_use_pool.size()=" << device_in_use_pool.size() << " host_in_use_pool.size()=" << host_in_use_pool.size() << std::endl;
     auto it = device_in_use_pool.begin();
     while(it != device_in_use_pool.end()){
       freeEntry(it, DevicePool);
@@ -1496,7 +1497,7 @@ public:
     if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","allocate","Cannot call in OMP parallel region");
 
     sanityCheck();
-    if(verbose) std::cout << "HolisticMemoryPoolManager: Request for allocation of size " << bytes << " in " << poolName(pool) << std::endl;
+    if(verbose) LOGA2A << "HolisticMemoryPoolManager: Request for allocation of size " << bytes << " in " << poolName(pool) << std::endl;
 
     HandleIterator it = handles.insert(handles.end(),Handle());
     Handle &h = *it;
@@ -1587,7 +1588,7 @@ public:
     if(h->device_valid) moveEntryToFreePool(h->device_entry, DevicePool);
     if(h->host_valid) moveEntryToFreePool(h->host_entry, HostPool);
     if(h->disk_file != ""){
-      if(verbose) std::cout << "HolisticMemoryPoolManager: Erasing cache file " << h->disk_file << std::endl;
+      if(verbose) LOGA2A << "HolisticMemoryPoolManager: Erasing cache file " << h->disk_file << std::endl;
       remove(h->disk_file.c_str());
     }
     handles.erase(h);

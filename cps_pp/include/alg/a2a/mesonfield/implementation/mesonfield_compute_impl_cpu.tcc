@@ -17,7 +17,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
   if(do_setup) setup(l,r,t,t); //both vectors have same timeslice
   else zero();
   
-  if(!UniqueID()) printf("Starting A2AmesonField::compute timeslice %d with %d threads\n",t, omp_get_max_threads());
+  a2a_printf("Starting A2AmesonField::compute timeslice %d with %d threads\n",t, omp_get_max_threads());
 
   double time = -dclock();
 
@@ -59,12 +59,12 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
     }
   }
   cps::sync();
-  print_time("A2AmesonField","local compute",time + dclock());
+  a2a_print_time("A2AmesonField","local compute",time + dclock());
   time = -dclock();
 
   //Sum over all nodes so all nodes have a copy
   nodeSum();
-  print_time("A2AmesonField","nodeSum",time + dclock());
+  a2a_print_time("A2AmesonField","nodeSum",time + dclock());
 }
 
 
@@ -76,7 +76,7 @@ void compute_simple(fMatrix<ComplexType> &into, const std::vector<FermionFieldTy
   int nv = l.size(); assert(r.size() == nv);
   into.resize(nv,nv);
   
-  if(!UniqueID()) printf("Starting simple unpacked meson field compute for timeslice %d with %d threads\n",t, omp_get_max_threads());
+  a2a_printf("Starting simple unpacked meson field compute for timeslice %d with %d threads\n",t, omp_get_max_threads());
 
   const FermionFieldType &mode0 = l[0];
   const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
@@ -131,7 +131,7 @@ void compute_simple(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const 
     CPSautoView(into_v,into,HostWrite);
     CPSautoView(M_v,M,HostRead);
   
-    if(!UniqueID()) printf("Starting simple meson field compute for timeslice %d with %d threads\n",t, omp_get_max_threads());
+    a2a_printf("Starting simple meson field compute for timeslice %d with %d threads\n",t, omp_get_max_threads());
 
     typedef typename mf_Policies::FermionFieldType::FieldSiteType ComplexType;
   
@@ -343,7 +343,7 @@ struct SingleSrcVectorPolicies{
   typedef InPlaceMatrixSingle<typename mf_Policies::ScalarComplexType> AccumMatrixType;
 
   static inline void setupPolicy(const mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r){ 
-    if(!UniqueID()){ printf("Using SingleSrcVectorPolicies\n"); fflush(stdout); }
+    LOGA2A << "Using SingleSrcVectorPolicies" << std::endl;
     assert(M.mfPerTimeSlice() == 1); 
   }
 
@@ -396,7 +396,7 @@ struct MultiSrcVectorPolicies{
    
   inline void setupPolicy(const mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r){ 
     mfPerTimeSlice = M.mfPerTimeSlice();
-    if(!UniqueID()){ printf("Using MultiSrcVectorPolicies with #MF per timeslice %d\n",mfPerTimeSlice); fflush(stdout); }
+    a2a_printf("Using MultiSrcVectorPolicies with #MF per timeslice %d\n",mfPerTimeSlice);
   }
   
   inline size_t mf_Accum_bytes(){ return mfPerTimeSlice*sizeof(typename mf_Policies::ScalarComplexType); }
@@ -414,7 +414,7 @@ struct MultiSrcVectorPolicies{
       typename A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::LeftDilutionType ll = l;
       typename A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::RightDilutionType rr = r;
       
-      printf("Initializing %d (Lt) * %d (mf/t) = %d meson fields of matrix size %d * %d (%g MB). Memory requirement is %g MB, memory status is:\n", Lt, mfPerTimeSlice, Lt*mfPerTimeSlice, ll.getNmodes(),rr.getNmodes(),byte_to_MB(mf_size), byte_to_MB(total_size));
+      a2a_printf("Initializing %d (Lt) * %d (mf/t) = %d meson fields of matrix size %d * %d (%g MB). Memory requirement is %g MB, memory status is:\n", Lt, mfPerTimeSlice, Lt*mfPerTimeSlice, ll.getNmodes(),rr.getNmodes(),byte_to_MB(mf_size), byte_to_MB(total_size));
       printMem("Meson field initialization",0);
     }
     cps::sync();
@@ -469,7 +469,7 @@ struct SingleSrcVectorPoliciesSIMD{
   typedef InPlaceMatrixSingle<Grid::vComplexD> AccumMatrixType;
 
   static inline void setupPolicy(const mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r){ 
-    if(!UniqueID()){ printf("Using SingleSrcVectorPoliciesSIMD\n"); fflush(stdout); }
+    a2a_printf("Using SingleSrcVectorPoliciesSIMD\n");
     assert(M.mfPerTimeSlice() == 1); 
   }
 
@@ -529,7 +529,7 @@ struct MultiSrcVectorPoliciesSIMD{
 
   inline void setupPolicy(const mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r){ 
     mfPerTimeSlice = M.mfPerTimeSlice();
-    if(!UniqueID()){ printf("Using MultiSrcVectorPoliciesSIMD with #MF per timeslice %d\n",mfPerTimeSlice); fflush(stdout); }
+    a2a_printf("Using MultiSrcVectorPoliciesSIMD with #MF per timeslice %d\n",mfPerTimeSlice);
   }
   
   void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
@@ -596,19 +596,19 @@ struct mfComputeGeneral: public mfVectorPolicies{
     CPSautoView(M_v,M,HostRead);
 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    if(!UniqueID()) printf("Starting A2AmesonField::compute (CPU,blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
+    a2a_printf("Starting A2AmesonField::compute (CPU,blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
 #ifdef KNL_OPTIMIZATIONS
-    if(!UniqueID()) printf("Using KNL optimizations\n");
+    LOGA2A << "Using KNL optimizations" << std::endl;
 #else
-    if(!UniqueID()) printf("NOT using KNL optimizations\n");
+    LOGA2A << "NOT using KNL optimizations" << std::endl;
 #endif
-    if(!UniqueID()) printMem("mfComputeGeneral node 0 memory status",0);
+    printMem("mfComputeGeneral node 0 memory status",0);
 
     cps::sync();
 
     double time = -dclock();
     this->initializeMesonFields(mf_t,l,r,Lt,do_setup);
-    print_time("A2AmesonField","setup",time + dclock());
+    a2a_print_time("A2AmesonField","setup",time + dclock());
 
     time = -dclock();
     //For W vectors we dilute out the flavor index in-place while performing this contraction
@@ -628,9 +628,9 @@ struct mfComputeGeneral: public mfVectorPolicies{
     const int nmodes_r = mf_ref.getNcols();
 
     const int bi = BlockedMesonFieldArgs::bi, bj = BlockedMesonFieldArgs::bj, bp = BlockedMesonFieldArgs::bp;
-    if(!UniqueID()) printf("Meson field compute using outer block sizes %d %d %d\n", bi, bj, bp);
+    a2a_printf("Meson field compute using outer block sizes %d %d %d\n", bi, bj, bp);
 #ifdef USE_INNER_BLOCKING
-    if(!UniqueID()) printf("Meson field compute using inner block sizes %d %d %d\n", BlockedMesonFieldArgs::bii, BlockedMesonFieldArgs::bjj, BlockedMesonFieldArgs::bpp);
+    a2a_printf("Meson field compute using inner block sizes %d %d %d\n", BlockedMesonFieldArgs::bii, BlockedMesonFieldArgs::bjj, BlockedMesonFieldArgs::bpp);
 #endif
 
     const int nthread = omp_get_max_threads();
@@ -739,7 +739,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
       //__SSC_MARK(0x2);
 #endif //memtest mode
       std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << nmodes_l << "*" <<  nmodes_r << " modes and inner p loop of size " <<  size_3d <<  " divided over " << omp_get_max_threads() << " threads";
-      print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
+      a2a_print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
     }
 
 #ifdef ACCUM_BUF_HEAP_MANY
@@ -749,18 +749,18 @@ struct mfComputeGeneral: public mfVectorPolicies{
     free(accum_buf);
 #endif
 
-    print_time("A2AmesonField","local compute",time + dclock());
+    a2a_print_time("A2AmesonField","local compute",time + dclock());
 
     time = -dclock();
     cps::sync();
-    print_time("A2AmesonField","sync",time + dclock());
+    a2a_print_time("A2AmesonField","sync",time + dclock());
 
     //Accumulate
     time = -dclock();
 #ifndef MEMTEST_MODE
     this->nodeSum(mf_t,Lt);
 #endif
-    print_time("A2AmesonField","nodeSum",time + dclock());
+    a2a_print_time("A2AmesonField","nodeSum",time + dclock());
   }
 };
 

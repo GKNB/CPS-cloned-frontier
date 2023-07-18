@@ -157,7 +157,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(ResultsContainerType r
     }
   }
   ss << "}\n";
-  printf("%s",ss.str().c_str());
+  a2a_printf("%s",ss.str().c_str());
 
   //Gather the meson fields we need
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
@@ -297,7 +297,7 @@ struct _type3_field_wrap<mf_Policies, complex_double_or_float_mark>{
 	    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 	    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 	    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-    if(!UniqueID()) printf("Type3 field implementation falling back to OMP implementation due to non-SIMD data\n");
+    LOGA2A << "Type3 field implementation falling back to OMP implementation due to non-SIMD data" << std::endl;
     ComputeKtoPiPiGparity<mf_Policies>::type3_omp_v2(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
   }
 };

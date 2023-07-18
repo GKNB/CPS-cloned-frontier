@@ -56,7 +56,7 @@ struct computeVW_impl{
       Nsplit *= UGridD->_processors[i]/split_grid_proc[i];
     }
 
-    std::cout << Nsplit << " split Grids" << std::endl;
+    LOGA2A << Nsplit << " split Grids" << std::endl;
    
     SUGridD.reset(new Grid::GridCartesian(UGridD->_fdimensions,
 					  UGridD->_simd_layout,
@@ -187,20 +187,20 @@ struct computeVW_impl{
       /////
 
       if(cg.CGalgorithm == AlgorithmCG){
-	std::cout << Grid::GridLogMessage << "Using double precision CG solver" << std::endl;
+	LOGA2A << "Using double precision CG solver" << std::endl;
 	inv5d.reset(new A2Ainverter5dCG<GridFermionFieldD>(SchurOpD.getLinOp(),cg.CG_tolerance,cg.CG_max_iters));
       }else if(cg.CGalgorithm == AlgorithmMixedPrecisionReliableUpdateCG){
-	std::cout << Grid::GridLogMessage << "Using mixed precision reliable update CG solver" << std::endl;
+	LOGA2A << "Using mixed precision reliable update CG solver" << std::endl;
 	assert(cg.reliable_update_transition_tol == 0);
 	inv5d.reset(new A2Ainverter5dReliableUpdateCG<GridFermionFieldD,GridFermionFieldF>(SchurOpD.getLinOp(),SchurOpF.getLinOp(),FrbGridF,
 											   cg.CG_tolerance,cg.CG_max_iters,cg.reliable_update_delta));
       }else if(cg.CGalgorithm == AlgorithmMixedPrecisionRestartedCG){
 	//note, we use the evecs to deflate again on each restart
-	std::cout << Grid::GridLogMessage << "Using mixed precision restarted CG solver" << std::endl;
+	LOGA2A << "Using mixed precision restarted CG solver" << std::endl;
 	inv5d.reset(new A2Ainverter5dMixedPrecCG<GridFermionFieldD,GridFermionFieldF>(SchurOpD.getLinOp(),SchurOpF.getLinOp(),evecs,FrbGridF,
 										      cg.CG_tolerance,cg.CG_max_iters,cg.mixedCG_init_inner_tolerance));
       }else if(cg.CGalgorithm == AlgorithmMixedPrecisionReliableUpdateSplitCG){
-	  std::cout << Grid::GridLogMessage << "Using mixed precision reliable update split CG solver" << std::endl;
+	LOGA2A << "Using mixed precision reliable update split CG solver" << std::endl;
 	assert(use_split_grid);
 
 	SSchurOpD.reset(new A2ASchurOriginalOperatorImpl<GridDiracD>(*SOpD));

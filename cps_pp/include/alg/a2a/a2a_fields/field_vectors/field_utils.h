@@ -89,7 +89,7 @@ FieldType const * getBaseAndShift(int shift[3], const int p[3], FieldType const 
       shift[d] = -p[d];
     }
   }
-  if(!UniqueID()) printf("getBaseAndShift for p=(%d,%d,%d) determined shift=(%d,%d,%d) from ptr %c\n",p[0],p[1],p[2],shift[0],shift[1],shift[2],out == base_p ? 'p' : 'm');
+  a2a_printf("getBaseAndShift for p=(%d,%d,%d) determined shift=(%d,%d,%d) from ptr %c\n",p[0],p[1],p[2],shift[0],shift[1],shift[2],out == base_p ? 'p' : 'm');
   assert(out != NULL);
   
   return out;

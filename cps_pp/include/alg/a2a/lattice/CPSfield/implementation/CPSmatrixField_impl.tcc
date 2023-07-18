@@ -393,8 +393,6 @@ VectorMatrixType localNodeSum(const CPSmatrixField<VectorMatrixType> &a){
     ScalarType const* from = (iter % 2 == 0 ? tmp : tmp2);
     into = (iter % 2 == 0 ? tmp2 : tmp);
     
-    //std::cout << "Iteration " << iter << " work=" << work << " nthread=" << Grid::acceleratorThreads() << std::endl;
-    
     accelerator_for(offset, work, nsimd,
     		    {
     		      typedef SIMT<ScalarType> ACC;

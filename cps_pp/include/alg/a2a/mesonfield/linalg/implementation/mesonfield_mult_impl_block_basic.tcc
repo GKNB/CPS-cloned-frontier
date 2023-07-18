@@ -15,12 +15,10 @@ public:
     assert( (void*)&out != (void*)&l || (void*)&out != (void*)&r );
 
     if(! l.getColParams().paramsEqual( r.getRowParams() ) ){
-      if(!UniqueID()){
-	printf("mult():  Illegal matrix product: underlying vector parameters must match\n"); fflush(stdout);
-	std::cout << "left-column: " << l.getColParams().print() << "\n";
-	std::cout << "right-row: " << r.getRowParams().print() << "\n";
-	std::cout.flush();
-      }
+      LOGA2A << "mult():  Illegal matrix product: underlying vector parameters must match" << std::endl
+	     << "left-column: " << l.getColParams().print() << "\n"
+	     << "right-row: " << r.getRowParams().print() << std::endl;
+      
       exit(-1);
     }
 
@@ -58,7 +56,7 @@ public:
     //bi = ni/16; bj = nj/16; bk = nk/16;
 
     int ni0 = ni/bi, nj0 = nj/bj, nk0 = nk/bk;
-    if(!UniqueID()) printf("mult sizes %d %d %d block sizes %d %d %d, num blocks %d %d %d\n",ni,nj,nk,bi,bj,bk,ni0,nj0,nk0);
+    a2a_printf("mult sizes %d %d %d block sizes %d %d %d, num blocks %d %d %d\n",ni,nj,nk,bi,bj,bk,ni0,nj0,nk0);
     assert(ni0 * bi == ni);
     assert(nj0 * bj == nj);
     assert(nk0 * bk == nk);
@@ -115,7 +113,7 @@ public:
       Float t2 = dclock();
 
       Float flops_per_sec = flops_total/(t2-t1);
-      if(!UniqueID()) printf("node mult flops/s %g  (time %f total flops %g)\n",flops_per_sec,t2-t1,flops_total);
+      a2a_printf("node mult flops/s %g  (time %f total flops %g)\n",flops_per_sec,t2-t1,flops_total);
 
     }
     if(!node_local) out.nodeSum();

@@ -275,13 +275,13 @@ public:
       const ThreeMomentum pi_mom_pidx = pion_mom.getMesonMomentum(pidx);
       MesonFieldVectorType &stored = mf_ll_con.copyAdd(pi_mom_pidx, mf_store[pidx]);
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-      if(!UniqueID()){ printf("Distributing mf_ll[%d]\n",pidx); fflush(stdout); }
+      a2a_printf("Distributing mf_ll[%d]\n",pidx);
       nodeDistributeMany(1,&stored);
 #endif      
     }
     
     time += dclock();
-    print_time("ComputePion::computeMesonFields","total",time);      
+    a2a_print_time("ComputePion::computeMesonFields","total",time);      
   }
 };
 
@@ -502,13 +502,13 @@ public:
     
     int nmom_block = opt.mom_block_size != -1 ? opt.mom_block_size : nmom;
 
-    if(!UniqueID()) printf("computeGparityLLmesonFields1s computing %d momenta with block sizes of %d\n",nmom,nmom_block);
+    a2a_printf("computeGparityLLmesonFields1s computing %d momenta with block sizes of %d\n",nmom,nmom_block);
 
     for(int b=0; b<nmom; b+= nmom_block){
       int nmom_rem = nmom - b;
       int nmom_block_actual = nmom_rem < nmom_block ? nmom_rem : nmom_block;
 
-      if(!UniqueID()) printf("Doing block %d->%d\n",b,b+nmom_rem);
+      a2a_printf("Doing block %d->%d\n",b,b+nmom_rem);
 
       StorageType mf_store(inner,src, opt.nshift_combine_max);
       std::vector< std::vector<int> > toavg(nmom_block_actual);
@@ -592,13 +592,13 @@ public:
     
     int nmom_block = opt.mom_block_size != -1 ? opt.mom_block_size : nmom;
 
-    if(!UniqueID()) printf("computeGparityLLmesonFields1sSumOnTheFly computing %d momenta with block sizes of %d\n",nmom,nmom_block);
+    a2a_printf("computeGparityLLmesonFields1sSumOnTheFly computing %d momenta with block sizes of %d\n",nmom,nmom_block);
 
     for(int b=0; b<nmom; b+= nmom_block){
       int nmom_rem = nmom - b;
       int nmom_block_actual = nmom_rem < nmom_block ? nmom_rem : nmom_block;
 
-      if(!UniqueID()) printf("computeGparityLLmesonFields1sSumOnTheFly Doing block %d->%d\n",b,b+nmom_rem);
+      a2a_printf("computeGparityLLmesonFields1sSumOnTheFly Doing block %d->%d\n",b,b+nmom_rem);
 
       StorageType mf_store(inner,src, opt.nshift_combine_max);
 
@@ -621,7 +621,7 @@ public:
 #endif
 										       );
       
-      if(!UniqueID()){ printf("computeGparityLLmesonFields1sSumOnTheFly moving results into container for block %d->%d\n",b,b+nmom_rem); fflush(stdout); }
+      a2a_printf("computeGparityLLmesonFields1sSumOnTheFly moving results into container for block %d->%d\n",b,b+nmom_rem);
 
       for(int pidx=b;pidx<b+nmom_block_actual;pidx++){  
 	ThreeMomentum p_wdag = pion_mom.getWdagMom(pidx,0);
@@ -633,7 +633,7 @@ public:
 
     if(opt.thr_internal != -1) omp_set_num_threads(init_thr);
 
-    if(!UniqueID()){ printf("computeGparityLLmesonFields1sSumOnTheFly complete\n"); fflush(stdout); }
+    a2a_printf("computeGparityLLmesonFields1sSumOnTheFly complete\n");
   }
 
 };

@@ -66,11 +66,8 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
 	     ){
 #ifndef USE_MPI
-  //if(!UniqueID()) printf("fft_opt reverting to fft because USE_MPI not enabled\n");
   fft(into,from,do_dirs,inverse_transform);
 #else
-  //if(!UniqueID()) printf("Using fft_opt\n");
-
   enum { Dimension = CPSfieldType::FieldMappingPolicy::EuclideanDimension };
   int ndirs_fft = 0; for(int i=0;i<Dimension;i++) if(do_dirs[i]) ++ndirs_fft;
   if(! ndirs_fft ) return;
@@ -138,7 +135,7 @@ struct fft_opt_mu_timings{
     }
     void print(){
       average();
-      printf("calls=%zu method=%s setup=%g gather=%g comm_gather=%g fft=%g comm_scatter=%g scatter=%g\n", calls, method.c_str(), setup, gather, comm_gather, fft, comm_scatter, scatter);
+      a2a_printf("calls=%zu method=%s setup=%g gather=%g comm_gather=%g fft=%g comm_scatter=%g scatter=%g\n", calls, method.c_str(), setup, gather, comm_gather, fft, comm_scatter, scatter);
     }
   };
   static timers & get(){ static timers t; return t; }
@@ -347,7 +344,6 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
 #error "Not using MPI"
   fft(into,from,do_dirs,inverse_transform);
 # else
-  //if(!UniqueID()) printf("fft_opt converting Grid SIMD field to scalar field\n");
   typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
   typedef typename CPSfieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarDimPol;
   typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol> ScalarFieldType;

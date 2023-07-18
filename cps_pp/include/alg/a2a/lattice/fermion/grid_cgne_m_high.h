@@ -22,9 +22,9 @@ inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, 
   typedef typename GridPolicies::GridDirac GridDirac;
   
   double f = norm2(source);
-  if (!UniqueID()) printf("Grid_CGNE_M_high: Source norm is %le\n",f);
+  a2a_printf("Grid_CGNE_M_high: Source norm is %le\n",f);
   f = norm2(solution);
-  if (!UniqueID()) printf("Grid_CGNE_M_high: Guess norm is %le\n",f);
+  a2a_printf("Grid_CGNE_M_high: Guess norm is %le\n",f);
 
   Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> linop(Ddwf);
 
@@ -63,7 +63,7 @@ inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, 
     ERR.General("","Grid_CGNE_M_High","Number of low eigen modes to do deflation is smaller than number of low modes to be substracted!\n");
 
   if(Nev > 0){
-    if (!UniqueID()) printf("Grid_CGNE_M_High: deflating with %d evecs\n",Nev);
+    a2a_printf("Grid_CGNE_M_High: deflating with %d evecs\n",Nev);
 
     for(int n = 0; n < Nev; n++){
       double eval = evecs.getEvec(tmp_cb1,n);
@@ -76,9 +76,9 @@ inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, 
   }
 
   f = norm2(src_o);
-  if (!UniqueID()) printf("Grid_CGNE_M_high: CGNE_prec_MdagM src norm %le\n",f);
+  a2a_printf("Grid_CGNE_M_high: CGNE_prec_MdagM src norm %le\n",f);
   f = norm2(sol_o);
-  if (!UniqueID()) printf("Grid_CGNE_M_high: CGNE_prec_MdagM guess norm %le\n",f);
+  a2a_printf("Grid_CGNE_M_high: CGNE_prec_MdagM guess norm %le\n",f);
 
   //MdagM inverse controlled by evec interface
 #ifndef MEMTEST_MODE
@@ -86,14 +86,14 @@ inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, 
 #endif
   
   f = norm2(sol_o);
-  if (!UniqueID()) printf("Grid_CGNE_M_high: CGNE_prec_MdagM sol norm %le\n",f);
+  a2a_printf("Grid_CGNE_M_high: CGNE_prec_MdagM sol norm %le\n",f);
 
 
   //Pull low-mode part out of solution
   axpy(sol_o, -1.0, lsol_defl, sol_o);
 
   f = norm2(sol_o);
-  if (!UniqueID()) printf("Grid_CGNE_M_high: sol norm after subtracting low-mode part %le\n",f);
+  a2a_printf("Grid_CGNE_M_high: sol norm after subtracting low-mode part %le\n",f);
 
   assert(sol_o.Checkerboard() == Grid::Odd);
   setCheckerboard(solution, sol_o);
@@ -109,13 +109,13 @@ inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, 
   Ddwf.MooeeInv(tmp_cb1,tmp_cb2);  //tmp_cb2 = Mee^-1(-Meo sol_o + src_e)   (tmp_cb1 free)
 
   f = norm2(tmp_cb2);
-  if (!UniqueID()) printf("Grid_CGNE_M_high: even checkerboard of sol %le\n",f);
+  a2a_printf("Grid_CGNE_M_high: even checkerboard of sol %le\n",f);
 
   assert(tmp_cb2.Checkerboard() == Grid::Even);
   setCheckerboard(solution, tmp_cb2);
 
   f = norm2(solution);
-  if (!UniqueID()) printf("Grid_CGNE_M_high: unprec sol norm is %le\n",f);
+  a2a_printf("Grid_CGNE_M_high: unprec sol norm is %le\n",f);
 }
 
 
@@ -160,9 +160,9 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
   
   for(int s=0;s<nsolve;s++){
     double f = norm2(sources[s]);
-    if (!UniqueID()) printf("Grid_CGNE_M_high_multi: Source %d norm is %le\n",s,f);
+    a2a_printf("Grid_CGNE_M_high_multi: Source %d norm is %le\n",s,f);
     f = norm2(solutions[s]);
-    if (!UniqueID()) printf("Grid_CGNE_M_high_multi: Guess %d norm is %le\n",s,f);
+    a2a_printf("Grid_CGNE_M_high_multi: Guess %d norm is %le\n",s,f);
     
     pickCheckerboard(Grid::Even,tmp_cb1,sources[s]);  //tmp_cb1 = source_e
     pickCheckerboard(Grid::Odd,tmp_cb2,sources[s]);   //tmp_cb2 = source_o
@@ -180,7 +180,7 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
     sol_o[s].Checkerboard() = Grid::Odd;
     
     if(Nev > 0){
-      if (!UniqueID()) printf("Grid_CGNE_M_High: deflating src %d with %d evecs\n",s,Nev);
+      a2a_printf("Grid_CGNE_M_High: deflating src %d with %d evecs\n",s,Nev);
 
       for(int n = 0; n < Nev; n++){
 	double eval = evecs.getEvec(tmp_cb1,n);
@@ -193,9 +193,9 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
     }else sol_o[s] = Grid::Zero();
 
     f = norm2(src_o[s]);
-    if (!UniqueID()) printf("Grid_CGNE_M_high: CGNE_prec_MdagM src %d norm %le\n",s,f);
+    a2a_printf("Grid_CGNE_M_high: CGNE_prec_MdagM src %d norm %le\n",s,f);
     f = norm2(sol_o[s]);
-    if (!UniqueID()) printf("Grid_CGNE_M_high: CGNE_prec_MdagM guess %d norm %le\n",s,f);
+    a2a_printf("Grid_CGNE_M_high: CGNE_prec_MdagM guess %d norm %le\n",s,f);
   }
 
   //Do the CG on multiple src/solution pairs 
@@ -206,13 +206,13 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
   //Remove the low-mode part from the odd-checkerboard solution and generate full deflated inverse
   for(int s=0;s<nsolve;s++){  
     double f = norm2(sol_o[s]);
-    if (!UniqueID()) printf("Grid_CGNE_M_high: CGNE_prec_MdagM sol %d norm %le\n",s,f);
+    a2a_printf("Grid_CGNE_M_high: CGNE_prec_MdagM sol %d norm %le\n",s,f);
 
     //Pull low-mode part out of solution
     axpy(sol_o[s], -1.0, lsol_defl[s], sol_o[s]);
     
     f = norm2(sol_o[s]);
-    if (!UniqueID()) printf("Grid_CGNE_M_high: sol %d norm after subtracting low-mode part %le\n",s,f);
+    a2a_printf("Grid_CGNE_M_high: sol %d norm after subtracting low-mode part %le\n",s,f);
 
     assert(sol_o[s].Checkerboard() == Grid::Odd);
     setCheckerboard(solutions[s], sol_o[s]);
@@ -228,13 +228,13 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
     Ddwf.MooeeInv(tmp_cb1,tmp_cb2);  //tmp_cb2 = Mee^-1(-Meo sol_o + src_e)   (tmp_cb1 free)
 
     f = norm2(tmp_cb2);
-    if (!UniqueID()) printf("Grid_CGNE_M_high: even checkerboard of sol %d is %le\n",s,f);
+    a2a_printf("Grid_CGNE_M_high: even checkerboard of sol %d is %le\n",s,f);
 
     assert(tmp_cb2.Checkerboard() == Grid::Even);
     setCheckerboard(solutions[s], tmp_cb2);
 
     f = norm2(solutions[s]);
-    if (!UniqueID()) printf("Grid_CGNE_M_high: unprec sol %d norm is %le\n",s,f);
+    a2a_printf("Grid_CGNE_M_high: unprec sol %d norm is %le\n",s,f);
   }
 }
 
