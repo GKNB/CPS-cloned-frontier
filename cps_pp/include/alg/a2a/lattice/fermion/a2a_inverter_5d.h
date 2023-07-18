@@ -122,7 +122,9 @@ public:
     assert(out.size() == in.size());
     Grid::MixedPrecisionConjugateGradient<GridFermionFieldD,GridFermionFieldF> &mCG_ = const_cast<Grid::MixedPrecisionConjugateGradient<GridFermionFieldD,GridFermionFieldF> &>(mCG); //grr
     for(int i=0;i<in.size();i++)
+    {
       mCG_(in[i], out[i]);
+    }
   }
 
   ~A2Ainverter5dMixedPrecCG(){

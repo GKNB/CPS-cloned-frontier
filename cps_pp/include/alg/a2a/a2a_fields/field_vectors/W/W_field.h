@@ -205,6 +205,9 @@ public:
   void writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat = FP_AUTOMATIC) const;
   void readParallelSeparateMetadata(const std::string &path);
 
+  void writeParallelWithGrid(const std::string &file_stub) const;
+  void readParallelWithGrid(const std::string &file_stub);
+
   inline void free_mem(){
     wl.free();    wh.free();
   }

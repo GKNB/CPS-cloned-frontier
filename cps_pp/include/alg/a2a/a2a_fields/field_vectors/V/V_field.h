@@ -165,6 +165,9 @@ public:
   //Read/write to binary files per node with separate metadata files. User provides path which is created internally
   void writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat = FP_AUTOMATIC) const;
   void readParallelSeparateMetadata(const std::string &path);
+
+  void writeParallelWithGrid(const std::string &file_stub) const;
+  void readParallelWithGrid(const std::string &file_stub);
   
   inline void free_mem(){ v.free(); }
 };
