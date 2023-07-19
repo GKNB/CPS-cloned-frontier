@@ -19,6 +19,15 @@ using namespace cps;
 #include "ktosigma.h"
 #include "do_contractions.h"
 
+void getLanczosImpl(std::unique_ptr<EvecManager<typename A2Apolicies::GridFermionField,typename A2Apolicies::GridFermionFieldF> > &eig,
+		    const computeEvecsOpts &opts){
+  if(opts.use_block_lanczos){
+    eig.reset(new GridXconjBlockLanczosDoubleConvSingle<A2Apolicies>(opts.block_lanczos_geom));
+  }else{
+    eig.reset(new GridXconjLanczosDoubleConvSingle<A2Apolicies>());
+  }
+}
+
 void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &cmdline,
 		     const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
 		     const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams){
@@ -32,35 +41,37 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   runInitialGridBenchmarks(cmdline,params);
 
-  GridXconjLanczosDoubleConvSingle<A2Apolicies> eig, eig_s;
-  //GridLanczosDoubleConvSingle<A2Apolicies> eig, eig_s;
-  if(cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
-  if(cmdline.tune_lanczos_heavy) computeEvecs(eig_s, Heavy, params, cmdline.evec_opts_h);
+  std::unique_ptr<EvecManager<typename A2Apolicies::GridFermionField,typename A2Apolicies::GridFermionFieldF> > eig, eig_s;
+  getLanczosImpl(eig, cmdline.evec_opts_l);
+  getLanczosImpl(eig_s, cmdline.evec_opts_h);
+
+  if(cmdline.tune_lanczos_light) computeEvecs(*eig, Light, params, cmdline.evec_opts_l);
+  if(cmdline.tune_lanczos_heavy) computeEvecs(*eig_s, Heavy, params, cmdline.evec_opts_h);
   if(cmdline.tune_lanczos_light||cmdline.tune_lanczos_heavy) return; //tune and exit
 
   //-------------------- Light quark Lanczos ---------------------//
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(*eig, Light, params, cmdline.evec_opts_l);
 
   //-------------------- Light quark v and w --------------------//
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
-  computeVW(V, W, Light, params, eig, cmdline.randomize_vw);
+  computeVW(V, W, Light, params, *eig, cmdline.randomize_vw);
 
   if(!UniqueID()){ printf("Freeing light evecs\n"); fflush(stdout); }
   printMem("Memory before light evec free");
-  eig.freeEvecs();
+  eig->freeEvecs();
   printMem("Memory after light evec free");
     
   //-------------------- Strange quark Lanczos ---------------------//
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig_s, Heavy, params, cmdline.evec_opts_h);
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(*eig_s, Heavy, params, cmdline.evec_opts_h);
 
   //-------------------- Strange quark v and w --------------------//
   A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
   A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
-  computeVW(V_s, W_s, Heavy, params, eig_s, cmdline.randomize_vw);
+  computeVW(V_s, W_s, Heavy, params, *eig_s, cmdline.randomize_vw);
 
   printMem("Memory before heavy evec free");
-  eig_s.freeEvecs();
+  eig_s->freeEvecs();
   printMem("Memory after heavy evec free");
 
   //The rest of the code passes the pointer to the lattice around rather than recreating on-the-fly

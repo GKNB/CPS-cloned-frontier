@@ -232,6 +232,174 @@ void gridLanczosXconj(std::vector<Grid::RealD> &eval,
 
 
 
+
+
+
+
+
+//Call Grid Block Lanczos with given Dirac operator
+template<typename GridFermionField, typename GridDirac>
+void gridBlockLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &evec, const LancArg &lanc_arg,		 
+		      GridDirac &Ddwf, GridDirac &Ddwf_split, int Nsplit,
+		      Grid::innerProductImplementation<GridFermionField> &inner_prod,
+		      A2Apreconditioning precon_type = SchurOriginal){
+  
+  if(lanc_arg.N_true_get == 0){
+    std::vector<Grid::RealD>().swap(eval); 	std::vector<GridFermionField>().swap(evec);      
+    LOGA2A << "gridBlockLanczos skipping because N_true_get = 0" << std::endl;
+    return;
+  }
+
+  assert(lanc_arg.precon);
+  Grid::SchurOperatorBase<GridFermionField>  *HermOp, *HermOp_s;
+  if(precon_type == SchurOriginal){
+    HermOp = new Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField>(Ddwf);
+    HermOp_s = new Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField>(Ddwf_split);
+  }
+  else if(precon_type == SchurDiagTwo){
+    HermOp = new Grid::SchurDiagTwoOperator<GridDirac, GridFermionField>(Ddwf);
+    HermOp_s = new Grid::SchurDiagTwoOperator<GridDirac, GridFermionField>(Ddwf_split);
+  }
+  else assert(0);
+  
+    // int Nstop;   // Number of evecs checked for convergence
+    // int Nk;      // Number of converged sought
+    // int Np;      // Np -- Number of spare vecs in kryloc space
+    // int Nm;      // Nm -- total number of vectors
+
+  const int Nu = Nsplit; //number of parallel Lanczos' = nsplit
+
+  const int Nstop = lanc_arg.N_true_get;
+  const int Nk = lanc_arg.N_get;
+  const int Np = lanc_arg.N_use - lanc_arg.N_get;
+
+  const int MaxIt= lanc_arg.maxits;  //NOTE: For block Lanczos, this is the max number of restarts; it should be small because the number of vectors scales like maxits!
+  if(MaxIt > 50) ERR.General("::","gridBlockLanczos","Maxiters much too large! This will use up a tonne of RAM. You should expect only a small number of restarts");
+
+  const int Nm = lanc_arg.N_use + Np * MaxIt;
+
+  Grid::RealD resid = lanc_arg.stop_rsd; //NOTE: For block Lanczos, this should be larger than the normal residual by a factor of the largest eval of the op (obtainable eg using power method)
+
+  double lo = lanc_arg.ch_beta * lanc_arg.ch_beta;
+  double hi = lanc_arg.ch_alpha * lanc_arg.ch_alpha;
+  int ord = lanc_arg.ch_ord + 1; //different conventions
+
+  //NOTE:  Block Lanczos also requires a "skip" quantity which is used when doing the convergence check; it skips this many evecs between checks so as to avoid checking every evec. For use here we will hijack "ch_mu" and interpret it as a fraction of evecs to check
+  int Nskip = int(lanc_arg.ch_mu * Nstop);
+  if(Nskip == 0) Nskip = 1;
+
+  LOGA2A << "Doing convergence check on every " << Nskip << "'th evec" << std::endl;
+
+  if(lanc_arg.lock) ERR.General("::","gridBlockLanczos","Grid Lanczos does not currently support locking\n");
+
+  a2a_printf("Chebyshev lo=%g hi=%g ord=%d\n",lo,hi,ord);
+
+  Grid::Chebyshev<GridFermionField> Cheb(lo,hi,ord);
+  Grid::ImplicitlyRestartedBlockLanczos<GridFermionField> IRL(*HermOp, *HermOp_s, Ddwf.FermionRedBlackGrid(), Ddwf_split.FermionRedBlackGrid(), Nsplit, 
+							      Cheb, Nstop, Nskip,
+							      Nu, Nk, Nm, resid, MaxIt, Grid::IRBLdiagonaliseWithEigen, inner_prod);
+
+  eval.resize(Nm);
+  evec.reserve(Nm);
+  evec.resize(Nm, Ddwf.FermionRedBlackGrid());
+ 
+  for(int i=0;i<Nm;i++){
+    evec[i].Checkerboard() = Grid::Odd;
+  }
+  std::vector<GridFermionField> src(Nu, Ddwf.FermionRedBlackGrid());
+  
+#ifndef MEMTEST_MODE
+  a2a_printf("Starting Grid RNG seeding for Lanczos\n");
+  double time = -dclock();
+
+  Grid::GridParallelRNG RNG(Ddwf.FermionRedBlackGrid());  
+  RNG.SeedFixedIntegers({1,2,3,4});
+
+  for(int i=0;i<Nu;i++){
+    gaussian(RNG, src[i]);
+    src[i].Checkerboard() = Grid::Odd;
+  }
+
+  a2a_print_time("gridLanczos","Gaussian src",time+dclock());
+  time = -dclock();
+ 
+  LOGA2A << "Starting block Lanczos algorithm" << std::endl;
+  
+  int Nconv; //ignore this, the evecs will be resized to Nstop  
+  IRL.calc(eval,evec,src,Nconv,Grid::LanczosType::rbl);
+ 
+  a2a_print_time("gridLanczos","Algorithm",time+dclock());
+#endif
+  delete HermOp;
+  delete HermOp_s;
+}
+
+template<typename GridPolicies>
+void gridBlockLanczosXconj(std::vector<Grid::RealD> &eval, 
+			   std::vector<typename GridPolicies::GridXconjFermionField> &evec, 
+			   const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lattice,
+			   const std::vector<int> &split_grid_geom, //rank size of split grids
+			   A2Apreconditioning precon_type = SchurOriginal){
+  typedef typename GridPolicies::GridXconjFermionField GridFermionField;
+  typedef typename GridPolicies::FgridFclass FgridFclass;
+  typedef typename GridPolicies::GridDiracXconj GridDirac;
+  typedef typename GridPolicies::GridDirac GridDiracGP;
+  typedef typename GridPolicies::GridFermionField GridFermionFieldGP;
+
+  if(!lattice.getGridFullyInitted()) ERR.General("","gridLanczosXconj","Grid/Grids are not initialized!");
+  
+  Grid::GridCartesian *UGrid = lattice.getUGrid();
+  Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
+  Grid::GridCartesian *FGrid = lattice.getFGrid();
+  Grid::GridRedBlackCartesian *FrbGrid = lattice.getFrbGrid();
+  Grid::LatticeGaugeFieldD *Umu = lattice.getUmu();
+
+  Grid::Coordinate latt(4);
+  int nsplit = 1;
+  for(int i=0;i<4;i++){
+    latt[i] = GJP.NodeSites(i)*GJP.Nodes(i);
+    assert(GJP.Nodes(i) % split_grid_geom[i] == 0);
+    nsplit *= GJP.Nodes(i)/split_grid_geom[i];
+  }
+
+  LOGA2A << "Setting up block Lanczos with " << nsplit << " subgrids" << std::endl;
+  int Ls = GJP.SnodeSites()*GJP.Snodes();
+
+  Grid::GridCartesian         * SUGrid = new Grid::GridCartesian(latt,
+								 Grid::GridDefaultSimd(4,GridFermionField::vector_type::Nsimd()),
+								 split_grid_geom,
+								 *UGrid);
+
+  Grid::GridCartesian         * SFGrid   = Grid::SpaceTimeGrid::makeFiveDimGrid(Ls,SUGrid);
+  Grid::GridRedBlackCartesian * SUrbGrid  = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid(SUGrid);
+  Grid::GridRedBlackCartesian * SFrbGrid = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,SUGrid);
+
+  Grid::LatticeGaugeFieldD Umu_s(SUGrid);
+  Grid::Grid_split(*Umu,Umu_s);
+
+
+  double mob_b = lattice.get_mob_b();
+  double mob_c = mob_b - 1.;   //b-c = 1
+  double M5 = GJP.DwfHeight();
+  typename GridDiracGP::ImplParams gp_params;
+  lattice.SetParams(gp_params);
+
+  typename GridDirac::ImplParams params;
+  params.twists = gp_params.twists;
+  params.boundary_phase = 1.0;
+
+  a2a_printf("Creating X-conjugate Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g phase=(%f,%f) twists=(%d,%d,%d,%d)\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5,params.boundary_phase.real(),params.boundary_phase.imag(),params.twists[0],params.twists[1],params.twists[2],params.twists[3]);
+
+  GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,lanc_arg.mass,M5,mob_b,mob_c, params);
+  GridDirac Ddwf_s(Umu_s,*SFGrid,*SFrbGrid,*SUGrid,*SUrbGrid,lanc_arg.mass,M5,mob_b,mob_c, params);
+
+  Grid::innerProductImplementationXconjugate<GridFermionField> inner;
+  gridBlockLanczos(eval,evec,lanc_arg,Ddwf,Ddwf_s,nsplit,inner,precon_type);
+}
+
+
+
+
 CPS_END_NAMESPACE
 
 #endif

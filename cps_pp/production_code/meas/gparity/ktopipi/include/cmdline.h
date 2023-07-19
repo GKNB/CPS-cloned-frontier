@@ -10,7 +10,10 @@ struct computeEvecsOpts{
   bool load_evecs;
   std::string load_evecs_stub;
 
-  computeEvecsOpts(): randomize_evecs(false), save_evecs(false), load_evecs(false)
+  bool use_block_lanczos;
+  std::vector<int> block_lanczos_geom;
+
+  computeEvecsOpts(): randomize_evecs(false), save_evecs(false), load_evecs(false), use_block_lanczos(false)
   {}
 };
 
@@ -328,6 +331,21 @@ struct CommandLineArgs{
       }else if( cmdstr == "-old_gparity_cfg"){
 	old_gparity_cfg = true;
 	arg++;
+      }else if( cmdstr == "-use_block_lanczos" ){
+	assert(arg < argc-4);
+	std::vector<int> geom(4);
+	LOGA2A << "Using block Lanczos with split Grid geometry:";
+	for(int i=0;i<4;i++){
+	  geom[i] = std::stoi(argv[arg+1+i]);
+	  LOGA2ANT << " " << geom[i];
+	}
+	LOGA2ANT << std::endl;
+	    
+	if(GJP.TotalNodes() == 1) ERR.General("","cmdline","Require >1 rank for block Lanczos");
+	evec_opts_l.use_block_lanczos = evec_opts_h.use_block_lanczos = true;
+	evec_opts_l.block_lanczos_geom = evec_opts_h.block_lanczos_geom = geom;
+
+	arg += 5;
       }else{
 	bool is_grid_arg = false;
 	for(int i=0;i<ngrid_arg;i++){
