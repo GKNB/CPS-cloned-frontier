@@ -18,12 +18,14 @@ void writeEvecsEvals(const std::vector<FermionField> &evecs, const std::vector<G
     write(WRx,"evals", evals);
   }
 
+  LOGA2A << "Writing " << evecs.size() << " evecs to " << evecs_file << std::endl;
   if(evecs.size()){
     Grid::GridBase* grid = evecs[0].Grid();
     emptyUserRecord record;
     ScidacWriter WR(grid->IsBoss());
     WR.open(evecs_file);
     for(int k=0;k<evecs.size();k++) {
+      LOGA2A << "Writing evec " << (k+1) << "/" << evecs.size() << std::endl;
       if(evecs[k].Checkerboard() != Odd) ERR.General("","writeEvecsEvals","Only implemented for odd-checkerboard evecs");
       WR.writeScidacFieldRecord(const_cast<FermionField&>(evecs[k]),record);
     }
@@ -42,6 +44,8 @@ void readEvecsEvals(std::vector<FermionField> &evecs, std::vector<Grid::RealD> &
   Hdf5Reader RDx(evals_file);
   read(RDx,"evals",evals);
 
+  LOGA2A << "Reading " << evecs.size() << " evecs from " << evecs_file << std::endl;
+  
   int N = evals.size();
   evecs.clear();
   evecs.resize(N,grid);
@@ -50,6 +54,7 @@ void readEvecsEvals(std::vector<FermionField> &evecs, std::vector<Grid::RealD> &
   ScidacReader RD ;
   RD.open(evecs_file);
   for(int k=0;k<N;k++) {
+    LOGA2A << "Reading evec " << (k+1) << "/" << evecs.size() << std::endl;	  
     evecs[k].Checkerboard()=Odd;
     RD.readScidacFieldRecord(evecs[k],record);
   }
