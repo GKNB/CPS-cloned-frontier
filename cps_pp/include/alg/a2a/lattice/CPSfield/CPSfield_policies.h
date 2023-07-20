@@ -335,7 +335,8 @@ protected:
 
   inline void _alloc(const size_t byte_size){
     assert(!set);
-    h = HolisticMemoryPoolManager::globalPool().allocate(byte_size);
+    //default host allocate for now in order to avoid CPS and Grid competing for device mem during the stage when CPS is employing Grid
+    h = HolisticMemoryPoolManager::globalPool().allocate(byte_size, HolisticMemoryPoolManager::HostPool); 
     set = true;
   }
   inline void _free(){

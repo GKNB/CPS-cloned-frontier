@@ -69,6 +69,8 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   typedef typename A2Apolicies::FgridGFclass LatticeType;
   Lattice* lat = (Lattice*)createFgridLattice<typename A2Apolicies::FgridGFclass>(params.jp);
   freeGridSharedMem();
+  GridMemoryManagerFree();
+
   doContractions(conf,params,cmdline,*lat,V,W,V_s,W_s,field3dparams);
   delete lat;
 }

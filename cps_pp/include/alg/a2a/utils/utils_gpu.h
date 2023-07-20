@@ -244,6 +244,69 @@ inline void device_profile_stop(){
 #endif
 }
 
+#ifdef USE_GRID
+//Accessor for Grid's memory manager
+class _GMMacc: public Grid::MemoryManager{
+public:
+  static void FreeAll(){
+#ifdef GRID_OMP
+    assert(omp_in_parallel()==0);
+#endif 
+    using namespace Grid;
+    LOGA2A << "Flushing Grid's memory manager. Initial status" << std::endl;
+    MemoryManager::PrintBytes();
+
+    //Free up the cache
+#ifdef ALLOCATION_CACHE
+    LOGA2A << "Freeing Grid's allocation cache" << std::endl;
+    for(int cache=0;cache<MemoryManager::NallocType;cache++){      
+      int N = MemoryManager::Ncache[cache];
+      uint64_t & CacheBytes = MemoryManager::CacheBytes[cache];
+      for(int i=0;i<N;i++){
+	MemoryManager::AllocationCacheEntry &e = MemoryManager::Entries[cache][i];
+	if(!e.valid) continue;
+
+	if(cache < 3){
+#ifdef GRID_UVM
+	  acceleratorFreeShared(e.address);
+#else
+	  acceleratorFreeCpu(e.address);
+#endif
+	}else if(cache < 6){
+	  acceleratorFreeDevice(e.address);
+	}else{
+	  acceleratorFreeShared(e.address);
+	}
+	CacheBytes -= e.bytes;
+	e.valid = 0;
+      }
+    }
+#endif //ALLOCATION_CACHE
+
+    //Evict all the device-side copies
+#ifndef GRID_UVM
+    LOGA2A << "Evicting all of Grid's device-side copies" << std::endl;
+    MemoryManager::EvictVictims(MemoryManager::DeviceMaxBytes);
+#endif
+    LOGA2A << "Grid's memory manager final status" << std::endl;
+    MemoryManager::PrintBytes();
+  }
+
+};
+
+
+#endif
+
+
+//Tell Grid's memory manager to free up all the cache and device resources it is using
+void GridMemoryManagerFree(){
+#ifdef USE_GRID
+  _GMMacc::FreeAll();
+#endif
+}
+
+
+
 
 enum ViewMode { HostRead, HostWrite, DeviceRead, DeviceWrite, HostReadWrite, DeviceReadWrite };
 
