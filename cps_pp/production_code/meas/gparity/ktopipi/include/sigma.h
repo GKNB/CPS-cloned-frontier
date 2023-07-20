@@ -5,10 +5,10 @@ template<typename SigmaMomentumPolicy>
 void computeSigmaMesonFields(typename ComputeSigma<A2Apolicies>::Vtype &V, typename ComputeSigma<A2Apolicies>::Wtype &W, const SigmaMomentumPolicy &sigma_mom,
 			     const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
   double time = -dclock();
-  if(!UniqueID()) printf("Computing sigma mesonfield computation\n");
+  LOGA2A << "Computing sigma mesonfield computation" << std::endl;
   ComputeSigma<A2Apolicies>::computeAndWrite(params.meas_arg.WorkDirectory,conf,sigma_mom,W,V, params.jp.pion_rad, lat, field3dparams);
   time += dclock();
-  print_time("main","Sigma meson fields ",time);
+  a2a_print_time("main","Sigma meson fields ",time);
 }
 
 template<typename SigmaMomentumPolicy>
@@ -38,12 +38,12 @@ void computeSigmaMesonFieldsExt(MesonFieldMomentumPairContainer<A2Apolicies> &mf
     randomizeSigmaMesonFields(mf_sigma, V, W, sigma_mom);
   }else{ 
     if(cmdline.ktosigma_load_sigma_mf){
-      if(!UniqueID()) printf("Reading sigma meson fields from disk\n");
+      LOGA2A << "Reading sigma meson fields from disk" << std::endl;
       double time = dclock();
       computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::read(mf_sigma, sigma_mom, cmdline.ktosigma_sigma_mf_dir, conf, params.jp.pion_rad);
-      print_time("main","Sigma meson field read", dclock()-time);
+      a2a_print_time("main","Sigma meson field read", dclock()-time);
     }else{
-      if(!UniqueID()) printf("Computing sigma meson fields\n");
+      LOGA2A << "Computing sigma meson fields" << std::endl;
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
       if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
 #endif
@@ -54,7 +54,7 @@ void computeSigmaMesonFieldsExt(MesonFieldMomentumPairContainer<A2Apolicies> &mf
       opt.thr_internal = 32;
 #endif
       computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::computeMesonFields(mf_sigma, sigma_mom, W, V, params.jp.pion_rad, lat, field3dparams, opt);
-      print_time("main","Sigma meson field compute", dclock()-time);
+      a2a_print_time("main","Sigma meson field compute", dclock()-time);
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
       if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
 #endif
@@ -62,10 +62,10 @@ void computeSigmaMesonFieldsExt(MesonFieldMomentumPairContainer<A2Apolicies> &mf
   }
 
   if(cmdline.ktosigma_save_sigma_mf){
-    if(!UniqueID()) printf("Writing sigma meson fields to disk\n");
+    LOGA2A << "Writing sigma meson fields to disk" << std::endl;
     double time = dclock();
     computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::write(mf_sigma, sigma_mom, params.meas_arg.WorkDirectory, conf, params.jp.pion_rad);
-    print_time("main","Sigma meson field write", dclock()-time);
+    a2a_print_time("main","Sigma meson field write", dclock()-time);
   }
 }
 
@@ -78,13 +78,13 @@ void computeSigma2pt(std::vector< fVector<typename A2Apolicies::ScalarComplexTyp
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
 
   //All momentum combinations have total momentum 0 at source and sink
-  if(!UniqueID()) printf("Computing sigma 2pt function\n");
+  LOGA2A << "Computing sigma 2pt function" << std::endl;
   double time = -dclock();
 
   sigma_bub.resize(nmom);
   for(int pidx=0;pidx<nmom;pidx++){
     //Compute the disconnected bubble
-    if(!UniqueID()) printf("Sigma disconnected bubble pidx=%d\n",pidx);
+    LOGA2A << "Sigma disconnected bubble pidx=" << pidx << std::endl;
     fVector<typename A2Apolicies::ScalarComplexType> &into = sigma_bub[pidx]; into.resize(Lt);
     ComputeSigmaContractions<A2Apolicies>::computeDisconnectedBubble(into, mf_sigma_con, sigma_mom, pidx);
 
@@ -99,7 +99,7 @@ void computeSigma2pt(std::vector< fVector<typename A2Apolicies::ScalarComplexTyp
 
   for(int psnkidx=0;psnkidx<nmom;psnkidx++){
     for(int psrcidx=0;psrcidx<nmom;psrcidx++){
-      if(!UniqueID()) printf("Sigma connected psrcidx=%d psnkidx=%d\n",psrcidx,psnkidx);
+      a2a_printf("Sigma connected psrcidx=%d psnkidx=%d\n",psrcidx,psnkidx);
       fMatrix<typename A2Apolicies::ScalarComplexType> into(Lt,Lt);
       ComputeSigmaContractions<A2Apolicies>::computeConnected(into, mf_sigma_con, sigma_mom, psrcidx, psnkidx);
 
@@ -122,7 +122,7 @@ void computeSigma2pt(std::vector< fVector<typename A2Apolicies::ScalarComplexTyp
   }
         
   time += dclock();
-  print_time("main","Sigma 2pt function",time);
+  a2a_print_time("main","Sigma 2pt function",time);
 
   printMem("Memory after Sigma 2pt function computation");
 }

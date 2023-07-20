@@ -204,6 +204,55 @@ void rpc_deepcopy<CGcontrols>::doit(CGcontrols &into, CGcontrols const &from){
 void CGcontrols::deep_copy(CGcontrols const &rhs){
 	rpc_deepcopy<CGcontrols>::doit(*this,rhs);
 }
+	 bool LanczosControls::Encode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
+		 if ( !Vml(&vmls,instance) ) return false;
+		 vmls.Destroy(); return true;
+	 }
+
+	 bool LanczosControls::Decode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_DECODE)) return false;
+		 if ( !Vml(&vmls,instance)) return false;
+		 vmls.Destroy(); return true;
+	 }
+	 bool LanczosControls::Vml(VML *vmls,char *instance){
+		 if(!vml_LanczosControls(vmls,instance,this)) return false;
+	 return true;
+	}
+
+
+bool_t
+vml_LanczosControls (VML *vmls, char *name,LanczosControls *objp)
+{
+	 vml_class_begin(vmls,"LanczosControls",name);
+	 if (!vml_A2AlanczosType (vmls, "lanczos_type", &objp->lanczos_type))
+		 return FALSE;
+	 if (!vml_array (vmls, "block_lanczos_split_grid_geometry", (char **)&objp->block_lanczos_split_grid_geometry.block_lanczos_split_grid_geometry_val, (u_int *) &objp->block_lanczos_split_grid_geometry.block_lanczos_split_grid_geometry_len, ~0,
+		sizeof (int), (vmlproc_t) vml_int))
+		 return FALSE;
+	 vml_class_end(vmls,"LanczosControls",name);
+	return TRUE;
+}
+void rpc_print<LanczosControls>::doit(LanczosControls const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<A2AlanczosType>::doit(what.lanczos_type,spaces+" lanczos_type = ");
+	rpc_print<int *>::doit(what.block_lanczos_split_grid_geometry.block_lanczos_split_grid_geometry_val,what.block_lanczos_split_grid_geometry.block_lanczos_split_grid_geometry_len,spaces+" block_lanczos_split_grid_geometry = ");
+	std::cout << spaces << "}\n";
+}
+void LanczosControls::print(const std::string &prefix){
+	rpc_print<LanczosControls>::doit(*this,prefix);
+}
+void rpc_deepcopy<LanczosControls>::doit(LanczosControls &into, LanczosControls const &from){
+	  rpc_deepcopy<A2AlanczosType>::doit(into.lanczos_type,from.lanczos_type);
+	  into.block_lanczos_split_grid_geometry.block_lanczos_split_grid_geometry_len = from.block_lanczos_split_grid_geometry.block_lanczos_split_grid_geometry_len;
+	  rpc_deepcopy<int *>::doit(into.block_lanczos_split_grid_geometry.block_lanczos_split_grid_geometry_val,from.block_lanczos_split_grid_geometry.block_lanczos_split_grid_geometry_val,from.block_lanczos_split_grid_geometry.block_lanczos_split_grid_geometry_len);
+}
+void LanczosControls::deep_copy(LanczosControls const &rhs){
+	rpc_deepcopy<LanczosControls>::doit(*this,rhs);
+}
 	 bool JobParams::Encode(char *filename,char *instance){
 		 VML vmls;
 		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
@@ -231,7 +280,7 @@ vml_JobParams (VML *vmls, char *name,JobParams *objp)
 		 return FALSE;
 	 if (!vml_double (vmls, "mobius_scale", &objp->mobius_scale))
 		 return FALSE;
-	 if (!vml_bool (vmls, "convert_evecs_to_single_precision", &objp->convert_evecs_to_single_precision))
+	 if (!vml_LanczosControls (vmls, "lanczos_controls", &objp->lanczos_controls))
 		 return FALSE;
 	 if (!vml_CGcontrols (vmls, "cg_controls", &objp->cg_controls))
 		 return FALSE;
@@ -258,7 +307,7 @@ void rpc_print<JobParams>::doit(JobParams const &what, const std::string &prefix
 	std::string spaces(prefix.size(),' ');
 	rpc_print<BfmSolverType>::doit(what.solver,spaces+" solver = ");
 	rpc_print<double>::doit(what.mobius_scale,spaces+" mobius_scale = ");
-	rpc_print<bool_t>::doit(what.convert_evecs_to_single_precision,spaces+" convert_evecs_to_single_precision = ");
+	rpc_print<LanczosControls>::doit(what.lanczos_controls,spaces+" lanczos_controls = ");
 	rpc_print<CGcontrols>::doit(what.cg_controls,spaces+" cg_controls = ");
 	rpc_print<double>::doit(what.pion_rad,spaces+" pion_rad = ");
 	rpc_print<double>::doit(what.kaon_rad,spaces+" kaon_rad = ");
@@ -275,7 +324,7 @@ void JobParams::print(const std::string &prefix){
 void rpc_deepcopy<JobParams>::doit(JobParams &into, JobParams const &from){
 	  rpc_deepcopy<BfmSolverType>::doit(into.solver,from.solver);
 	  rpc_deepcopy<double>::doit(into.mobius_scale,from.mobius_scale);
-	  rpc_deepcopy<bool_t>::doit(into.convert_evecs_to_single_precision,from.convert_evecs_to_single_precision);
+	  rpc_deepcopy<LanczosControls>::doit(into.lanczos_controls,from.lanczos_controls);
 	  rpc_deepcopy<CGcontrols>::doit(into.cg_controls,from.cg_controls);
 	  rpc_deepcopy<double>::doit(into.pion_rad,from.pion_rad);
 	  rpc_deepcopy<double>::doit(into.kaon_rad,from.kaon_rad);

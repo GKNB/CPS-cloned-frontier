@@ -399,6 +399,84 @@ void gridBlockLanczosXconj(std::vector<Grid::RealD> &eval,
 
 
 
+template<typename GridPolicies>
+void gridBlockLanczosXconjSingle(std::vector<Grid::RealD> &eval, 
+			   std::vector<typename GridPolicies::GridXconjFermionFieldF> &evec, 
+			   const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lattice,
+			   const std::vector<int> &split_grid_geom, //rank size of split grids
+			   A2Apreconditioning precon_type = SchurOriginal){
+  typedef typename GridPolicies::GridXconjFermionField GridFermionField;
+  typedef typename GridPolicies::FgridFclass FgridFclass;
+  typedef typename GridPolicies::GridDiracXconj GridDirac;
+  typedef typename GridPolicies::GridDirac GridDiracGP;
+  typedef typename GridPolicies::GridFermionField GridFermionFieldGP;
+
+  typedef typename GridPolicies::GridXconjFermionFieldF GridFermionFieldF;
+  typedef typename GridPolicies::GridDiracXconjF GridDiracF;
+  typedef typename GridPolicies::GridDiracF GridDiracGPF;
+  typedef typename GridPolicies::GridFermionFieldF GridFermionFieldGPF;
+
+  if(!lattice.getGridFullyInitted()) ERR.General("","gridBlockLanczosXconjSingle","Grid/Grids are not initialized!");
+  
+  Grid::GridCartesian *UGrid = lattice.getUGrid();
+  Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
+  Grid::GridCartesian *FGrid = lattice.getFGrid();
+  Grid::GridRedBlackCartesian *FrbGrid = lattice.getFrbGrid();
+  Grid::LatticeGaugeFieldD *Umu = lattice.getUmu();
+
+  Grid::GridCartesian *UGridF = lattice.getUGridF();
+  Grid::GridRedBlackCartesian *UrbGridF = lattice.getUrbGridF();
+  Grid::GridCartesian *FGridF = lattice.getFGridF();
+  Grid::GridRedBlackCartesian *FrbGridF = lattice.getFrbGridF();
+
+  Grid::LatticeGaugeFieldF Umu_f(UGridF);
+  precisionChange(Umu_f,*Umu);
+
+  Grid::Coordinate latt(4);
+  int nsplit = 1;
+  for(int i=0;i<4;i++){
+    latt[i] = GJP.NodeSites(i)*GJP.Nodes(i);
+    assert(GJP.Nodes(i) % split_grid_geom[i] == 0);
+    nsplit *= GJP.Nodes(i)/split_grid_geom[i];
+  }
+
+  LOGA2A << "Setting up block Lanczos with " << nsplit << " subgrids" << std::endl;
+  int Ls = GJP.SnodeSites()*GJP.Snodes();
+
+  Grid::GridCartesian         * SUGridF = new Grid::GridCartesian(latt,
+								 Grid::GridDefaultSimd(4,GridFermionFieldF::vector_type::Nsimd()),
+								 split_grid_geom,
+								 *UGridF);
+
+  Grid::GridCartesian         * SFGridF   = Grid::SpaceTimeGrid::makeFiveDimGrid(Ls,SUGridF);
+  Grid::GridRedBlackCartesian * SUrbGridF  = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid(SUGridF);
+  Grid::GridRedBlackCartesian * SFrbGridF = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,SUGridF);
+
+  Grid::LatticeGaugeFieldF Umu_sf(SUGridF);
+  Grid::Grid_split(Umu_f,Umu_sf);
+
+  double mob_b = lattice.get_mob_b();
+  double mob_c = mob_b - 1.;   //b-c = 1
+  double M5 = GJP.DwfHeight();
+  typename GridDiracGP::ImplParams gp_params;
+  lattice.SetParams(gp_params);
+
+  typename GridDirac::ImplParams params;
+  params.twists = gp_params.twists;
+  params.boundary_phase = 1.0;
+
+  a2a_printf("Creating single precision X-conjugate Grid Dirac operator with b=%g c=%g b+c=%g mass=%g M5=%g phase=(%f,%f) twists=(%d,%d,%d,%d)\n",mob_b,mob_c,mob_b+mob_c,lanc_arg.mass,M5,params.boundary_phase.real(),params.boundary_phase.imag(),params.twists[0],params.twists[1],params.twists[2],params.twists[3]);
+
+  GridDiracF Ddwf(Umu_f,*FGridF,*FrbGridF,*UGridF,*UrbGridF,lanc_arg.mass,M5,mob_b,mob_c, params);
+  GridDiracF Ddwf_s(Umu_sf,*SFGridF,*SFrbGridF,*SUGridF,*SUrbGridF,lanc_arg.mass,M5,mob_b,mob_c, params);
+
+  Grid::innerProductImplementationXconjugate<GridFermionFieldF> inner;
+  gridBlockLanczos(eval,evec,lanc_arg,Ddwf,Ddwf_s,nsplit,inner,precon_type);
+}
+
+
+
+
 
 CPS_END_NAMESPACE
 

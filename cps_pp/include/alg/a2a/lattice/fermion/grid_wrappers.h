@@ -415,6 +415,123 @@ public:
 
 
 
+
+//Create the evecs using a single-precision block solver
+template<typename GridPolicies>
+class GridXconjBlockLanczosSingle: public EvecManager<typename GridPolicies::GridFermionField,typename GridPolicies::GridFermionFieldF>{
+public:
+  typedef typename GridPolicies::GridFermionField GridFermionFieldD;
+  typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
+  typedef typename GridPolicies::GridXconjFermionField GridXconjFermionFieldD;
+  typedef typename GridPolicies::GridXconjFermionFieldF GridXconjFermionFieldF;
+
+private:
+  std::vector<Grid::RealD> eval; 
+  std::vector<GridXconjFermionFieldF> evec_f;
+  std::vector<int> split_grid_geom;
+public:
+
+  GridXconjBlockLanczosSingle(const std::vector<int> &split_grid_geom): split_grid_geom(split_grid_geom){
+    if(split_grid_geom.size() != 4) ERR.General("GridXconjBlockLanczosSingle","constructor","Split grid geometry has wrong dimension!");
+    for(int i=0;i<4;i++) if( GJP.Nodes(i) % split_grid_geom[i] != 0 ) ERR.General("GridXconjBlockLanczosSingle","constructor","Split grid geometry must exactly subdivide the lattice!");
+  }
+
+  std::unique_ptr<EvecInterfaceMixedPrec<GridFermionFieldD,GridFermionFieldF>> createInterface() const override{
+    return std::unique_ptr<EvecInterfaceMixedPrec<GridFermionFieldD,GridFermionFieldF>>(
+											new EvecInterfaceXconjSinglePrec<GridFermionFieldD,GridXconjFermionFieldD,
+											GridFermionFieldF,GridXconjFermionFieldF>(evec_f,eval, FgridBase::getFrbGrid(), FgridBase::getFrbGridF()) );
+  }
+  
+  void compute(const LancArg &lanc_arg, Lattice &latb, A2Apreconditioning precon_type = SchurOriginal) override{
+    assert(lanc_arg.precon);
+    typename GridPolicies::FgridGFclass &lat = dynamic_cast<typename GridPolicies::FgridGFclass &>(latb);
+    {
+      std::vector<GridXconjFermionFieldF>().swap(evec_f);
+    }
+    LOGA2A << "GridXconjBlockLanczosSingle: computing single precision eigenvectors" << std::endl;
+    gridBlockLanczosXconjSingle<GridPolicies>(eval,evec_f,lanc_arg,lat,split_grid_geom,precon_type);
+
+    int nev = evec_f.size();
+    //Test the evecs
+    if(nev > 0){
+      EvecInterfaceXconjSinglePrec<GridFermionFieldD,GridXconjFermionFieldD,
+				   GridFermionFieldF,GridXconjFermionFieldF> ei(evec_f,eval,lat.getFrbGrid(),lat.getFrbGridF()); //enable retrieval of double prec fields
+      testEigenvectors<typename GridPolicies::GridDirac>(ei,lanc_arg.mass,lat,precon_type); //tests with 2-flavor Dirac operator, double precision :)
+    }
+
+    LOGA2A << "GridXconjBlockLanczosSingle: completed eigenvector calculation" << std::endl;
+  }
+  
+  void randomizeEvecs(const LancArg &lanc_arg, Lattice &latb) override{
+    typename GridPolicies::FgridGFclass &lat = dynamic_cast<typename GridPolicies::FgridGFclass &>(latb);
+    evec_f.clear();
+    evec_f.resize(lanc_arg.N_true_get, lat.getFrbGridF());
+    eval.resize(lanc_arg.N_true_get);
+    cps::randomizeEvecs(evec_f,eval);
+  }
+    
+  void writeParallel(const std::string &file_stub) const override{
+    if(eval.size() == 0 && evec_f.size() == 0) return;
+    std::string info_file,eval_file,evec_file;
+    this->IOfilenames(info_file,eval_file,evec_file,file_stub);
+   
+    if(!UniqueID()){
+      Grid::XmlWriter WRx(info_file);
+      write(WRx,"precision", 1);
+    }
+    writeEvecsEvals(evec_f,eval,evec_file,eval_file);
+  }
+
+  void readParallel(const std::string &file_stub) override{
+    { //clear all memory associated with existing evecs
+      std::vector<GridXconjFermionFieldF>().swap(evec_f);
+    }
+    std::string info_file,eval_file,evec_file;
+    this->IOfilenames(info_file,eval_file,evec_file,file_stub);
+
+    Grid::XmlReader RDx(info_file);
+    int prec = -1;
+    read(RDx,"precision",prec);
+    
+    if(prec != 1) ERR.General("GridXconjBlockLanczosDoubleConvSingle","readParallel","Expect single precision eigenvectors");
+    readEvecsEvals(evec_f,eval,evec_file,eval_file,FgridBase::getFrbGridF());
+  }
+ 
+  void freeEvecs() override{
+    std::vector<GridXconjFermionFieldF>().swap(evec_f);
+  }
+
+};
+
+
+
+
+template<typename GridPolicies>
+std::unique_ptr<EvecManager<typename GridPolicies::GridFermionField,typename GridPolicies::GridFermionFieldF> >
+A2ALanczosFactory(const LanczosControls &args){
+  std::vector<int> block_lanc_geom(args.block_lanczos_split_grid_geometry.block_lanczos_split_grid_geometry_len);
+  for(int i=0;i<args.block_lanczos_split_grid_geometry.block_lanczos_split_grid_geometry_len;i++)
+    block_lanc_geom[i] = args.block_lanczos_split_grid_geometry.block_lanczos_split_grid_geometry_val[i];
+
+  std::unique_ptr<EvecManager<typename GridPolicies::GridFermionField,typename GridPolicies::GridFermionFieldF> > out;
+  switch(args.lanczos_type){
+  case A2AlanczosTypeDoubleConvSingle:
+    out.reset(new GridLanczosDoubleConvSingle<GridPolicies>()); break;
+  case A2AlanczosTypeXconjDoubleConvSingle: 
+    out.reset(new GridXconjLanczosDoubleConvSingle<GridPolicies>()); break;
+  case A2AlanczosTypeBlockXconjDoubleConvSingle:
+    out.reset(new GridXconjBlockLanczosDoubleConvSingle<GridPolicies>(block_lanc_geom)); break;
+  case A2AlanczosTypeBlockXconjSingle:
+    out.reset(new GridXconjBlockLanczosSingle<GridPolicies>(block_lanc_geom)); break;
+  default:
+    assert(0);
+  }
+  return out;
+}
+
+
+
+
 CPS_END_NAMESPACE
 
 

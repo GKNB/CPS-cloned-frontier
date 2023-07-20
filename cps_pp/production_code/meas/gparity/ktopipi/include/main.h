@@ -19,15 +19,6 @@ using namespace cps;
 #include "ktosigma.h"
 #include "do_contractions.h"
 
-void getLanczosImpl(std::unique_ptr<EvecManager<typename A2Apolicies::GridFermionField,typename A2Apolicies::GridFermionFieldF> > &eig,
-		    const computeEvecsOpts &opts){
-  if(opts.use_block_lanczos){
-    eig.reset(new GridXconjBlockLanczosDoubleConvSingle<A2Apolicies>(opts.block_lanczos_geom));
-  }else{
-    eig.reset(new GridXconjLanczosDoubleConvSingle<A2Apolicies>());
-  }
-}
-
 void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &cmdline,
 		     const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
 		     const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams){
@@ -41,9 +32,9 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   runInitialGridBenchmarks(cmdline,params);
 
-  std::unique_ptr<EvecManager<typename A2Apolicies::GridFermionField,typename A2Apolicies::GridFermionFieldF> > eig, eig_s;
-  getLanczosImpl(eig, cmdline.evec_opts_l);
-  getLanczosImpl(eig_s, cmdline.evec_opts_h);
+  typedef std::unique_ptr<EvecManager<typename A2Apolicies::GridFermionField,typename A2Apolicies::GridFermionFieldF> > LanczosPtrType;
+  LanczosPtrType eig = A2ALanczosFactory<A2Apolicies>(params.jp.lanczos_controls);
+  LanczosPtrType eig_s = A2ALanczosFactory<A2Apolicies>(params.jp.lanczos_controls);
 
   if(cmdline.tune_lanczos_light) computeEvecs(*eig, Light, params, cmdline.evec_opts_l);
   if(cmdline.tune_lanczos_heavy) computeEvecs(*eig_s, Heavy, params, cmdline.evec_opts_h);
@@ -57,7 +48,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
   computeVW(V, W, Light, params, *eig, cmdline.randomize_vw);
 
-  if(!UniqueID()){ printf("Freeing light evecs\n"); fflush(stdout); }
+  LOGA2A << "Freeing light evecs" << std::endl;
   printMem("Memory before light evec free");
   eig->freeEvecs();
   printMem("Memory after light evec free");

@@ -54,7 +54,7 @@ void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, M
 			  const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams, 
 			  const bool randomize_mf,
 			  const std::string &mf_write_postpend = ""){
-  if(!UniqueID()) printf("Computing light-light meson fields\n");
+  LOGA2A << "Computing light-light meson fields" << std::endl;
   double time = -dclock();
   if(randomize_mf){
     randomizeLLmesonFields(mf_ll_con, mf_ll_con_2s, V, W, pion_mom);
@@ -64,7 +64,7 @@ void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, M
   }
 
   time += dclock();
-  print_time("main","Light-light meson fields",time);
+  a2a_print_time("main","Light-light meson fields",time);
 
   printMem("Memory after light-light meson field computation");
 }
@@ -76,7 +76,7 @@ void computeLLmesonFields1s(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
 			    Lattice &lat, const Parameters &params, 
 			    const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams, 
 			    const bool randomize_mf){
-  if(!UniqueID()) printf("Computing light-light 1s pion meson fields\n");
+  LOGA2A << "Computing light-light 1s pion meson fields" << std::endl;
   double time = -dclock();
   if(randomize_mf){
     randomizeLLmesonFields(mf_ll_con, V, W, pion_mom);
@@ -98,7 +98,7 @@ void computeLLmesonFields1s(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
   }
 
   time += dclock();
-  print_time("main","Light-light 1s pion meson fields",time);
+  a2a_print_time("main","Light-light 1s pion meson fields",time);
 
   printMem("Memory after light-light 1s pion meson field computation");
 }
@@ -109,10 +109,10 @@ void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
   const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   
-  if(!UniqueID()) printf("Computing pion 2pt function\n");
+  LOGA2A << "Computing pion 2pt function" << std::endl;
   double time = -dclock();
   for(int p=0;p<nmom;p+=2){ //note odd indices 1,3,5 etc have equal and opposite momenta to 0,2,4... 
-    if(!UniqueID()) printf("Starting pidx %d\n",p);
+    LOGA2A << "Starting pidx " << p << std::endl;
     fMatrix<typename A2Apolicies::ScalarComplexType> pion(Lt,Lt);
     ComputePion<A2Apolicies>::compute(pion, mf_ll_con, pion_mom, p);
     //Note it seems Daiqian's pion momenta are opposite what they should be for 'conventional' Fourier transform phase conventions:
@@ -138,7 +138,7 @@ void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
 #endif
   }
   time += dclock();
-  print_time("main","Pion 2pt function",time);
+  a2a_print_time("main","Pion 2pt function",time);
 
   printMem("Memory after pion 2pt function computation");
 }

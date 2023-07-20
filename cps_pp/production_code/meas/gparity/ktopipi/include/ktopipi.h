@@ -90,13 +90,13 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
   int ngp = 0; for(int i=0;i<3;i++) if(GJP.Bc(i)==BND_CND_GPARITY) ngp++;
 
 
-  if(!UniqueID()) printf("Starting type 1 contractions, nmom = %d\n",type1_pion_mom.nMom());
+  LOGA2A << "Starting type 1 contractions, nmom = " << type1_pion_mom.nMom() << std::endl;
   double time = -dclock();
 
   for(int pidx=0; pidx < type1_pion_mom.nMom(); pidx++){     
     ThreeMomentum p_pi1 = type1_pion_mom.getMesonMomentum(pidx);
 
-    if(!UniqueID()) printf("Starting type 1 contractions with p_pi1=%s and source %s\n",p_pi1.str().c_str(),src_descr.c_str());
+    a2a_printf("Starting type 1 contractions with p_pi1=%s and source %s\n",p_pi1.str().c_str(),src_descr.c_str());
     printMem("Memory status before type1 K->pipi");
 
     std::vector<ResultsContainerType> type1;
@@ -121,13 +121,13 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
     }
     printMem("Memory status after type1 K->pipi");
   }
-  print_time("main","K->pipi type 1",time+dclock());
+  a2a_print_time("main","K->pipi type 1",time+dclock());
   printMem("Memory after type1 K->pipi");
 
   //Type 2 and 3 are optimized by performing the sum over pipi momentum orientations within the contraction
   time = -dclock();
   {
-    if(!UniqueID()) printf("Starting type 2 contractions with source %s\n", src_descr.c_str());
+    LOGA2A << "Starting type 2 contractions with source " << src_descr << std::endl;
     std::vector<ResultsContainerType> type2;
     ComputeKtoPiPiGparity<A2Apolicies>::type2(type2,
 					      k_pi_separation, params.jp.pipi_separation, params.jp.tstep_type12, type23_pion_mom,
@@ -144,12 +144,12 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
 #endif
     }
   }
-  print_time("main","K->pipi type 2",time+dclock());
+  a2a_print_time("main","K->pipi type 2",time+dclock());
   printMem("Memory after type2 K->pipi");
 
   time = -dclock();
   {
-    if(!UniqueID()) printf("Starting type 3 contractions with source %s\n", src_descr.c_str());
+    LOGA2A << "Starting type 3 contractions with source " << src_descr << std::endl;
     std::vector<ResultsContainerType> type3;
     std::vector<MixDiagResultsContainerType> mix3;
     ComputeKtoPiPiGparity<A2Apolicies>::type3(type3,mix3,
@@ -167,14 +167,14 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
 #endif
     }
   }
-  print_time("main","K->pipi type 3",time+dclock());
+  a2a_print_time("main","K->pipi type 3",time+dclock());
   printMem("Memory after type3 K->pipi");
     
 
   if(do_type4){
     //Type 4 has no momentum loop as the pion disconnected part is computed as part of the pipi 2pt function calculation
     time = -dclock();
-    if(!UniqueID()) printf("Starting type 4 contractions\n");
+    LOGA2A << "Starting type 4 contractions" << std::endl;
     ResultsContainerType type4;
     MixDiagResultsContainerType mix4;
       
@@ -193,7 +193,7 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
       write(os.str(),type4,mix4,true);
 #endif
     }
-    print_time("main","K->pipi type 4",time+dclock());
+    a2a_print_time("main","K->pipi type 4",time+dclock());
   }
 
   printMem("Memory at end of K->pipi contractions");
@@ -242,7 +242,7 @@ void computeKtoPipiWWmesonFields(LSWWmesonFields &mf_ls_ww_con,
 				 typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
 				 Lattice &lat, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
 				 const LSWWmomentumPolicy &lsWW_mom, const Parameters &params, bool randomize_mf){
-  if(!UniqueID()) printf("Computing WW light-heavy meson fields\n");
+  LOGA2A << "Computing WW light-heavy meson fields" << std::endl;
   double time = -dclock();
 
   if(randomize_mf){
@@ -256,7 +256,7 @@ void computeKtoPipiWWmesonFields(LSWWmesonFields &mf_ls_ww_con,
     ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww_con.mf_ls_ww,W,W_s,lsWW_mom,params.jp.kaon_rad,lat, field3dparams);
   }
 
-  print_time("main","WW meson fields",time+dclock());
+  a2a_print_time("main","WW meson fields",time+dclock());
   printMem("Memory after WW meson fields");
 }
 

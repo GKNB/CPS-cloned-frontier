@@ -5,10 +5,10 @@ void setupJob(int argc, char **argv, const Parameters &params, const CommandLine
   initCPS(argc, argv, params.do_arg, cmdline.nthreads);
   
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-  if(!UniqueID()) printf("Using node distribution of meson fields\n");
+  LOGA2A << "Using node distribution of meson fields" << std::endl;
 #endif
 #ifdef MEMTEST_MODE
-  if(!UniqueID()) printf("Running in MEMTEST MODE (so don't expect useful results)\n");
+  LOGA2A << "Running in MEMTEST MODE (so don't expect useful results)" << std::endl;
 #endif
   
 #ifdef A2A_LANCZOS_SINGLE
@@ -23,7 +23,7 @@ void setupJob(int argc, char **argv, const Parameters &params, const CommandLine
   }
 
   if(cmdline.old_gparity_cfg){
-    if(!UniqueID()) printf("Correcting for incorrect factor of 2 in G-parity config header plaquette\n");
+    LOGA2A << "Correcting for incorrect factor of 2 in G-parity config header plaquette" << std::endl;
     LatticeHeader::GparityMultPlaqByTwo() = true;
   }
   printMem("Initial memory post-initialize");
@@ -35,7 +35,7 @@ void bnl_knl_performance_check(const CommandLineArgs &args,const Parameters &par
   lat->SetGfieldOrd(); //so we don't interfere with the RNG state
   double node_perf = gridBenchmark<A2Apolicies>(*lat);  
   delete lat;
-  if(node_perf < args.bnl_knl_minperf && !UniqueID()){ printf("BAD PERFORMANCE\n"); fflush(stdout); exit(-1); }
+  if(node_perf < args.bnl_knl_minperf){ LOGA2A << "BAD PERFORMANCE" << std::endl; exit(-1); }
 }
 #endif
 

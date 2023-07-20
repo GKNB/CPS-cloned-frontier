@@ -113,6 +113,34 @@ template<> struct rpc_deepcopy<CGcontrols>{
 
 #include <util/vml/vml_templates.h>
 class VML;
+class LanczosControls {
+public:
+	 bool Encode(char *filename,char *instance);
+	 bool Decode(char *filename,char *instance);
+	 bool Vml(VML *vmls,char *instance);
+	A2AlanczosType lanczos_type;
+	struct {
+		u_int block_lanczos_split_grid_geometry_len;
+		int *block_lanczos_split_grid_geometry_val;
+	} block_lanczos_split_grid_geometry;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const LanczosControls &rhs);
+};
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<LanczosControls>{
+	static void doit(LanczosControls const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<LanczosControls>{
+	static void doit(LanczosControls &into, LanczosControls const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+class VML;
 class JobParams {
 public:
 	 bool Encode(char *filename,char *instance);
@@ -120,7 +148,7 @@ public:
 	 bool Vml(VML *vmls,char *instance);
 	BfmSolverType solver;
 	double mobius_scale;
-	bool_t convert_evecs_to_single_precision;
+	LanczosControls lanczos_controls;
 	CGcontrols cg_controls;
 	double pion_rad;
 	double kaon_rad;
@@ -157,12 +185,14 @@ extern "C" {
 extern  bool_t vml_ZMobiusParams (VML *, char *instance, ZMobiusParams*);
 extern  bool_t vml_MADWFparams (VML *, char *instance, MADWFparams*);
 extern  bool_t vml_CGcontrols (VML *, char *instance, CGcontrols*);
+extern  bool_t vml_LanczosControls (VML *, char *instance, LanczosControls*);
 extern  bool_t vml_JobParams (VML *, char *instance, JobParams*);
 
 #else /* K&R C */
 extern  bool_t vml_ZMobiusParams (VML *, char *instance, ZMobiusParams*);
 extern  bool_t vml_MADWFparams (VML *, char *instance, MADWFparams*);
 extern  bool_t vml_CGcontrols (VML *, char *instance, CGcontrols*);
+extern  bool_t vml_LanczosControls (VML *, char *instance, LanczosControls*);
 extern  bool_t vml_JobParams (VML *, char *instance, JobParams*);
 
 #endif /* K&R C */

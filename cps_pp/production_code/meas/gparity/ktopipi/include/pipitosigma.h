@@ -12,7 +12,7 @@ void computePiPiToSigma(const std::vector< fVector<typename A2Apolicies::ScalarC
   
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
 
-  if(!UniqueID()) printf("Computing Pipi->sigma\n");
+  LOGA2A << "Computing Pipi->sigma" << std::endl;
 
   std::vector<fVector<typename A2Apolicies::ScalarComplexType> > pipi_bub(nmom_pi);
   for(int pidx=0;pidx<nmom_pi;pidx++){
@@ -23,7 +23,7 @@ void computePiPiToSigma(const std::vector< fVector<typename A2Apolicies::ScalarC
   double time = -dclock();
   for(int ppi1_idx=0;ppi1_idx<nmom_pi;ppi1_idx++){
     for(int psigma_idx=0;psigma_idx<nmom_sigma;psigma_idx++){
-      if(!UniqueID()) printf("Pipi->sigma connected psigma_idx=%d ppi1_idx=%d\n",psigma_idx,ppi1_idx);
+      a2a_printf("Pipi->sigma connected psigma_idx=%d ppi1_idx=%d\n",psigma_idx,ppi1_idx);
       fMatrix<typename A2Apolicies::ScalarComplexType> into(Lt,Lt);
 
       ComputePiPiToSigmaContractions<A2Apolicies>::computeConnected(into,mf_sigma_con,sigma_mom,psigma_idx,
@@ -40,7 +40,7 @@ void computePiPiToSigma(const std::vector< fVector<typename A2Apolicies::ScalarC
       os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_pipitosigma_sigmawdagmom";
       os << sigma_mom.getWmom(psigma_idx).file_str() << "_pionmom" << (-pion_mom.getMesonMomentum(ppi1_idx)).file_str() << "_v2"; //Note this is Daiqian's phase convention (which is - the standard one)
       
-      if(!UniqueID()) printf("Pipi->sigma writing to file %s\n", os.str().c_str());
+      LOGA2A << "Pipi->sigma writing to file " << os.str() << std::endl;
 
       into.write(os.str());
 #ifdef WRITE_HEX_OUTPUT
@@ -50,7 +50,7 @@ void computePiPiToSigma(const std::vector< fVector<typename A2Apolicies::ScalarC
     }
   }
   time += dclock();
-  print_time("main","Pipi->sigma function",time);
+  a2a_print_time("main","Pipi->sigma function",time);
 
   printMem("Memory after Pipi->sigma function computation");
 }

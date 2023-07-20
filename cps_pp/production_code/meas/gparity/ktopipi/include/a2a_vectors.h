@@ -7,7 +7,7 @@ typedef EvecManager<typename A2Apolicies::GridFermionField,typename A2Apolicies:
 
 //Compute the eigenvectors and convert to single precision
 void computeEvecs(EvecManagerType &eig, const LancArg &lanc_arg, const JobParams &jp, const char* name, const computeEvecsOpts &opts = computeEvecsOpts()){
-  if(!UniqueID()) printf("Running %s quark Lanczos\n",name);
+  LOGA2A << "Running " << name << " quark Lanczos" << std::endl;
   double time = -dclock();
 
   auto lanczos_lat = createFgridLattice<typename A2Apolicies::FgridGFclass>(jp);
@@ -22,11 +22,11 @@ void computeEvecs(EvecManagerType &eig, const LancArg &lanc_arg, const JobParams
   else if(!opts.load_evecs){
     eig.compute(lanc_arg, *lanczos_lat, precond);
     if(opts.save_evecs){
-      std::cout << "Writing " << name << " eigenvectors" << std::endl;
+      LOGA2A << "Writing " << name << " eigenvectors" << std::endl;
       eig.writeParallel(opts.save_evecs_stub);
     }
   }else{
-    std::cout << "Reading " << name << " eigenvectors" << std::endl;
+    LOGA2A << "Reading " << name << " eigenvectors" << std::endl;
     eig.readParallel(opts.load_evecs_stub);
   }
 
@@ -35,9 +35,9 @@ void computeEvecs(EvecManagerType &eig, const LancArg &lanc_arg, const JobParams
 
   std::ostringstream os; os << name << " quark Lanczos";
       
-  print_time("main",os.str().c_str(),time);
+  a2a_print_time("main",os.str().c_str(),time);
 
-  if(!UniqueID()) printf("Memory after %s quark Lanczos:\n",name);
+  LOGA2A << "Memory after " << name << " quark Lanczos:" << std::endl;
   printMem();
 }
 
@@ -50,12 +50,17 @@ void computeEvecs(EvecManagerType &eig, const LightHeavy lh, const Parameters &p
 void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const EvecManagerType &eig, double mass, const CGcontrols &cg_controls, 
 	       typename A2Apolicies::FgridGFclass *lat, bool randomize_vw){
 #ifdef USE_DESTRUCTIVE_FFT
+  LOGA2A << "Allocating V and W vectors" << std::endl;
   V.allocModes(); W.allocModes();
 #endif
   if(!randomize_vw){
+    LOGA2A << "Creating interface and running VW calculation" << std::endl;
     auto ei = eig.createInterface();
     cps::computeVW(V,W,*lat,*ei,mass,cg_controls);
-  }else randomizeVW<A2Apolicies>(V,W);
+  }else{
+    LOGA2A << "Creating random VW vectors" << std::endl;
+    randomizeVW<A2Apolicies>(V,W);
+  }
 }
 
 void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const LightHeavy lh, const Parameters &params, const EvecManagerType &eig, const bool randomize_vw){
@@ -64,7 +69,7 @@ void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const Lig
   const LancArg &lanc_arg = (lh == Light ? params.lanc_arg : params.lanc_arg_s);
   const char* name = (lh ==  Light ? "light" : "heavy");
  
-  if(!UniqueID()) printf("Computing %s quark A2A vectors\n",name);
+  LOGA2A << "Computing " << name << " quark A2A vectors" << std::endl;
   double time = -dclock();
 
   computeVW(V,W,eig,lanc_arg.mass, params.jp.cg_controls,lat,randomize_vw);
@@ -74,7 +79,7 @@ void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const Lig
   delete lat;
   time += dclock();
   std::ostringstream os; os << name << " quark A2A vectors";
-  print_time("main",os.str().c_str(),time);
+  a2a_print_time("main",os.str().c_str(),time);
 }
 
 #endif

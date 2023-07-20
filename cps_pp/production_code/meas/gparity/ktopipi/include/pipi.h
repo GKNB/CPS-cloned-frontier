@@ -6,7 +6,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
   const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
 
-  if(!UniqueID()) printf("Computing pi-pi 2pt function\n");
+  LOGA2A << "Computing pi-pi 2pt function" << std::endl;
   double timeC(0), timeD(0), timeR(0), timeV(0);
   double* timeCDR[3] = {&timeC, &timeD, &timeR};
 
@@ -76,10 +76,10 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
     }
   }//end of psrcidx loop
 
-  print_time("main","Pi-pi figure C",timeC);
-  print_time("main","Pi-pi figure D",timeD);
-  print_time("main","Pi-pi figure R",timeR);
-  print_time("main","Pi-pi figure V",timeV);
+  a2a_print_time("main","Pi-pi figure C",timeC);
+  a2a_print_time("main","Pi-pi figure D",timeD);
+  a2a_print_time("main","Pi-pi figure R",timeR);
+  a2a_print_time("main","Pi-pi figure V",timeV);
 
   printMem("Memory after pi-pi 2pt function computation");
 }
@@ -97,7 +97,7 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
   const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
 
-  if(!UniqueID()) printf("Computing pi-pi 2pt function\n");
+  LOGA2A << "Computing pi-pi 2pt function" << std::endl;
   double timeC(0), timeD(0), timeR(0), timeV(0);
   double* timeCDR[3] = {&timeC, &timeD, &timeR};
 
@@ -184,13 +184,13 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
     }
   }
 
-  print_time("main","Pi-pi figure C",timeC);
+  a2a_print_time("main","Pi-pi figure C",timeC);
   ComputePiPiGparity<A2Apolicies>::timingsC().report();
-  print_time("main","Pi-pi figure D",timeD);
+  a2a_print_time("main","Pi-pi figure D",timeD);
   ComputePiPiGparity<A2Apolicies>::timingsD().report();
-  print_time("main","Pi-pi figure R",timeR);
+  a2a_print_time("main","Pi-pi figure R",timeR);
   ComputePiPiGparity<A2Apolicies>::timingsR().report();
-  print_time("main","Pi-pi figure V",timeV);
+  a2a_print_time("main","Pi-pi figure V",timeV);
   ComputePiPiGparity<A2Apolicies>::timingsV().report();
 
   printMem("Memory after pi-pi 2pt function computation");

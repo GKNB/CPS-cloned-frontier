@@ -33,7 +33,7 @@ int main (int argc,char **argv )
   if(chdir(params.meas_arg.WorkDirectory)!=0) ERR.General("",fname,"Unable to switch to work directory '%s'\n",params.meas_arg.WorkDirectory);
   double time;
 
-  if(!UniqueID()) printf("Memory prior to config loop:\n");
+  LOGA2A << "Memory prior to config loop:" << std::endl;
   printMem();
 
   //Setup parameters of fields
@@ -46,7 +46,7 @@ int main (int argc,char **argv )
   //-------------------- Main Loop Begin! -------------------- //
   for(int conf = TrajStart; conf < LessThanLimit; conf += params.meas_arg.TrajIncrement) {
     double conf_time = -dclock();
-    if(!UniqueID()) std::cout<<"Starting configuration "<<conf<< std::endl;
+    LOGA2A <<"Starting configuration "<<conf<< std::endl;
 
     if(cmdline.do_LL_props_only){
       if(cmdline.do_split_job)
@@ -61,7 +61,7 @@ int main (int argc,char **argv )
     }
     
     conf_time += dclock();
-    print_time("main","Configuration total",conf_time);
+    a2a_print_time("main","Configuration total",conf_time);
     
     //Write a file to work directory indicate that the config has been complete
     {
@@ -70,11 +70,11 @@ int main (int argc,char **argv )
       of << "Config " << conf << " complete in " << conf_time << "s\n";
     }
 
-    std::cout << "Completed configuration " << conf << std::endl;
+    LOGA2A << "Completed configuration " << conf << std::endl;
     
   }//end of config loop
 
-  if(!UniqueID()){ printf("Done\n"); fflush(stdout); }
+  LOGA2A << "Done" << std::endl;
   End();
 
   HeapProfilerStop();
