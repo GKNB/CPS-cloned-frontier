@@ -295,7 +295,7 @@ void gridBlockLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionFie
   a2a_printf("Chebyshev lo=%g hi=%g ord=%d\n",lo,hi,ord);
 
   Grid::Chebyshev<GridFermionField> Cheb(lo,hi,ord);
-  Grid::ImplicitlyRestartedBlockLanczos<GridFermionField> IRL(*HermOp, *HermOp_s, Ddwf.FermionRedBlackGrid(), Ddwf_split.FermionRedBlackGrid(), Nsplit, 
+  Grid::ImplicitlyRestartedBlockLanczos<GridFermionField> IRL(*HermOp, *HermOp_s, (Grid::GridRedBlackCartesian *)Ddwf.FermionRedBlackGrid(), (Grid::GridRedBlackCartesian *)Ddwf_split.FermionRedBlackGrid(), Nsplit, 
 							      Cheb, Nstop, Nskip,
 							      Nu, Nk, Nm, resid, MaxIt, Grid::IRBLdiagonaliseWithEigen, inner_prod);
 
