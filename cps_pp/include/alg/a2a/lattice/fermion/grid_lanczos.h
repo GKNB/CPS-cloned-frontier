@@ -261,7 +261,7 @@ void gridBlockLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionFie
     HermOp_s = new Grid::SchurDiagTwoOperator<GridDirac, GridFermionField>(Ddwf_split);
   }
   else assert(0);
-  
+ 
     // int Nstop;   // Number of evecs checked for convergence
     // int Nk;      // Number of converged sought
     // int Np;      // Np -- Number of spare vecs in kryloc space
@@ -321,8 +321,49 @@ void gridBlockLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionFie
   }
 
   a2a_print_time("gridLanczos","Gaussian src",time+dclock());
+
+#define TEST_SPLIT_GRID
+#ifdef TEST_SPLIT_GRID
+  {
+    Grid::GridParallelRNG RNG(Ddwf.FermionRedBlackGrid());
+    RNG.SeedFixedIntegers({1,2,3,4});
+    
+    std::vector<GridFermionField> tmp(Nsplit, Ddwf.FermionRedBlackGrid());
+    gaussian(RNG, tmp[0]);
+
+    GridFermionField expect(Ddwf.FermionRedBlackGrid());
+    HermOp->Mpc(tmp[0],expect);
+
+    for(int i=1;i<Nsplit;i++) tmp[i] = tmp[0];
+    GridFermionField tmp_split(Ddwf_split.FermionRedBlackGrid()),  got_split(Ddwf_split.FermionRedBlackGrid());
+    Grid::Grid_split(tmp,tmp_split);
+    HermOp_s->Mpc(tmp_split,got_split);
+
+    std::vector<GridFermionField> got(Nsplit, Ddwf.FermionRedBlackGrid());
+    Grid::Grid_unsplit(got,got_split);
+
+    GridFermionField diff(Ddwf.FermionRedBlackGrid());
+    for(int i=0;i<Nsplit;i++){
+      diff = got[i] - expect;
+      Grid::RealD n2diff = inner_prod.norm2(diff);
+      LOGA2A << "Split test Mpc " << i << " got " << inner_prod.norm2(got[i]) << " expect " << inner_prod.norm2(expect) << " diff " << n2diff << std::endl;
+    }
+
+    Cheb(*HermOp, tmp[0], expect);
+    Cheb(*HermOp_s, tmp_split, got_split);
+    Grid::Grid_unsplit(got,got_split);
+
+    for(int i=0;i<Nsplit;i++){
+      diff = got[i] - expect;
+      Grid::RealD n2diff = inner_prod.norm2(diff);
+      LOGA2A << "Split test Cheby " << i << " got " << inner_prod.norm2(got[i]) << " expect " << inner_prod.norm2(expect) << " diff " << n2diff << std::endl;
+    }
+
+  }
+#endif
+
   time = -dclock();
- 
+
   LOGA2A << "Starting block Lanczos algorithm" << std::endl;
   
   int Nconv; //ignore this, the evecs will be resized to Nstop  
