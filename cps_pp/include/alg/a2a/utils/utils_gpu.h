@@ -299,7 +299,7 @@ public:
 
 
 //Tell Grid's memory manager to free up all the cache and device resources it is using
-void GridMemoryManagerFree(){
+inline void GridMemoryManagerFree(){
 #ifdef USE_GRID
   _GMMacc::FreeAll();
 #endif
