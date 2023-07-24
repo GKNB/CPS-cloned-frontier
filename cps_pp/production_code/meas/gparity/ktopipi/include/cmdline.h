@@ -29,6 +29,7 @@ struct CommandLineArgs{
   bool tune_lanczos_light; //just run the light lanczos on first config then exit
   bool tune_lanczos_heavy; //just run the heavy lanczos on first config then exit
   bool skip_gauge_fix;
+  bool tune_gauge_fix;
   bool double_latt; //most ancient 8^4 quenched lattices stored both U and U*. Enable this to read those configs
   bool do_kaon2pt;
   bool do_pion2pt;
@@ -78,6 +79,7 @@ struct CommandLineArgs{
     tune_lanczos_light = false; //just run the light lanczos on first config then exit
     tune_lanczos_heavy = false; //just run the heavy lanczos on first config then exit
     skip_gauge_fix = false;
+    tune_gauge_fix = false;
     double_latt = false; //most ancient 8^4 quenched lattices stored both U and U*. Enable this to read those configs
     do_kaon2pt = true;
     do_pion2pt = true;
@@ -198,6 +200,10 @@ struct CommandLineArgs{
       }else if( strncmp(cmd,"-skip_gauge_fix",20) == 0){
 	skip_gauge_fix = true;
 	LOGA2A << "Skipping gauge fixing" << std::endl;
+	arg++;
+      }else if( cmdstr == "-tune_gauge_fix"){
+	tune_gauge_fix = true;
+	LOGA2A << "Tuning gauge fixing" << std::endl;
 	arg++;
       }else if( strncmp(cmd,"-mf_outerblocking",15) == 0){
 	int* b[3] = { &BlockedMesonFieldArgs::bi, &BlockedMesonFieldArgs::bj, &BlockedMesonFieldArgs::bp };

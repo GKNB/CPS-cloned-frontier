@@ -50,10 +50,6 @@ void runInitialGridBenchmarks(const CommandLineArgs &cmdline, const Parameters &
 #endif
 }
 
-void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const Parameters &params){
-  doGaugeFix(lat,skip_gauge_fix,params.fix_gauge_arg);
-}
-
 void readGaugeRNG(const Parameters &params, const CommandLineArgs &cmdline){
   readGaugeRNG(params.do_arg, params.meas_arg, cmdline.double_latt);
 }

@@ -22,7 +22,7 @@ void doContractionsBasic(const int conf, Parameters &params, const CommandLineAr
   typedef StandardLSWWmomentaPolicy LSWWmomentumPolicy;
 #endif
   //-------------------Fix gauge----------------------------
-  doGaugeFix(lat, cmdline.skip_gauge_fix, params);
+  doGaugeFix(lat, cmdline.skip_gauge_fix, params.fix_gauge_arg);
 
   //-------------------------Compute the kaon two-point function---------------------------------
 
@@ -60,7 +60,7 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
 				      A2AvectorV<A2Apolicies> &V_s, A2AvectorW<A2Apolicies> &W_s,
 				      const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
   //-------------------Fix gauge----------------------------
-  doGaugeFix(lat, cmdline.skip_gauge_fix, params);
+  doGaugeFix(lat, cmdline.skip_gauge_fix, params.fix_gauge_arg);
 
   //-------------------------Compute the kaon two-point function---------------------------------
   StationaryKaonMomentaPolicy kaon_mom_std;
@@ -155,7 +155,7 @@ void doContractionsStandardAndSymmetricPion(const int conf, Parameters &params, 
 				      A2AvectorV<A2Apolicies> &V_s, A2AvectorW<A2Apolicies> &W_s,
 				      const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
   //-------------------Fix gauge----------------------------
-  doGaugeFix(lat, cmdline.skip_gauge_fix, params);
+  doGaugeFix(lat, cmdline.skip_gauge_fix, params.fix_gauge_arg);
 
   //-------------------------Compute the kaon two-point function---------------------------------
   StationaryKaonMomentaPolicy kaon_mom_std;
@@ -258,9 +258,6 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
     { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_Vs"; V_s.writeParallel(os.str()); }
     { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_Ws"; W_s.writeParallel(os.str()); }
   }
-
-  //-------------------Fix gauge----------------------------
-  doGaugeFix(lat, cmdline.skip_gauge_fix, params);
 
   //-------------------------Compute the kaon two-point function---------------------------------
   StationaryKaonMomentaPolicy kaon_mom_std;

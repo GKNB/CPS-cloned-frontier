@@ -19,6 +19,8 @@ using namespace cps;
 #include "ktosigma.h"
 #include "do_contractions.h"
 
+typedef typename A2Apolicies::FgridGFclass LatticeType;
+
 void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &cmdline,
 		     const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
 		     const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams){
@@ -39,6 +41,12 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   if(cmdline.tune_lanczos_light) computeEvecs(*eig, Light, params, cmdline.evec_opts_l);
   if(cmdline.tune_lanczos_heavy) computeEvecs(*eig_s, Heavy, params, cmdline.evec_opts_h);
   if(cmdline.tune_lanczos_light||cmdline.tune_lanczos_heavy) return; //tune and exit
+  if(cmdline.tune_gauge_fix){
+    Lattice* lat = (Lattice*)createFgridLattice<LatticeType>(params.jp);
+    doGaugeFix(*lat, false, params.fix_gauge_arg);
+    delete lat;
+    return;
+  }
 
   //-------------------- Light quark Lanczos ---------------------//
   if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(*eig, Light, params, cmdline.evec_opts_l);
@@ -66,8 +74,12 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   printMem("Memory after heavy evec free");
 
   //The rest of the code passes the pointer to the lattice around rather than recreating on-the-fly
-  typedef typename A2Apolicies::FgridGFclass LatticeType;
-  Lattice* lat = (Lattice*)createFgridLattice<typename A2Apolicies::FgridGFclass>(params.jp);
+  Lattice* lat = (Lattice*)createFgridLattice<LatticeType>(params.jp);
+
+  //-------------------Fix gauge----------------------------
+  //This may be done with Grid so we will do it before we free up Grid's temporary memory
+  doGaugeFix(*lat, cmdline.skip_gauge_fix, params.fix_gauge_arg);
+
   freeGridSharedMem();
   GridMemoryManagerFree();
 
@@ -186,7 +198,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     }
 
     typedef typename A2Apolicies::FgridGFclass LatticeType;
-    Lattice* lat = (Lattice*)createFgridLattice<typename A2Apolicies::FgridGFclass>(params.jp);
+    Lattice* lat = (Lattice*)createFgridLattice<LatticeType>(params.jp);
     freeGridSharedMem();
     doContractions(conf,params,cmdline,*lat,V,W,V_s,W_s,field3dparams);
     delete lat;
