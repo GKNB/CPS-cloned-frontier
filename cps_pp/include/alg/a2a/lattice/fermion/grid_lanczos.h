@@ -348,6 +348,8 @@ void gridBlockLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionFie
 
     GridFermionField diff(Ddwf.FermionRedBlackGrid());
     for(int i=0;i<Nsplit;i++){
+      got[i].Checkerboard() = Odd;
+
       diff = got[i] - expect;
       Grid::RealD n2diff = inner_prod.norm2(diff);
       LOGA2A << "Split test Mpc " << i << " got " << inner_prod.norm2(got[i]) << " expect " << inner_prod.norm2(expect) << " diff " << n2diff << std::endl;
