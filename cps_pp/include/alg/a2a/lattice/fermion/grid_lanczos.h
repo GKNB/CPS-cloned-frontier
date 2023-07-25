@@ -312,12 +312,17 @@ void gridBlockLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionFie
   a2a_printf("Starting Grid RNG seeding for Lanczos\n");
   double time = -dclock();
 
-  Grid::GridParallelRNG RNG(Ddwf.FermionRedBlackGrid());  
+  Grid::GridParallelRNG RNG(Ddwf.FermionGrid());
+  //Grid::GridParallelRNG RNG(Ddwf.FermionRedBlackGrid());   //throws errors when seeding, likely not designed for preconditioned grids
   RNG.SeedFixedIntegers({1,2,3,4});
+ 
+  GridFermionField gauss(Ddwf.FermionGrid());
 
   for(int i=0;i<Nu;i++){
-    gaussian(RNG, src[i]);
-    src[i].Checkerboard() = Grid::Odd;
+    //gaussian(RNG, src[i]);
+    //src[i].Checkerboard() = Grid::Odd;
+    gaussian(RNG, gauss); 
+    pickCheckerboard(Odd, src[i], gauss);
   }
 
   a2a_print_time("gridLanczos","Gaussian src",time+dclock());
@@ -325,12 +330,11 @@ void gridBlockLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionFie
 #define TEST_SPLIT_GRID
 #ifdef TEST_SPLIT_GRID
   {
-    Grid::GridParallelRNG RNG(Ddwf.FermionRedBlackGrid());
-    RNG.SeedFixedIntegers({1,2,3,4});
-    
     std::vector<GridFermionField> tmp(Nsplit, Ddwf.FermionRedBlackGrid());
-    gaussian(RNG, tmp[0]);
-
+    //gaussian(RNG, tmp[0]);
+    gaussian(RNG, gauss); 
+    pickCheckerboard(Odd, tmp[0], gauss);
+    
     GridFermionField expect(Ddwf.FermionRedBlackGrid());
     HermOp->Mpc(tmp[0],expect);
 
