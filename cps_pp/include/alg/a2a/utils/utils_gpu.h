@@ -704,30 +704,45 @@ public:
     bool vrb = verbose;
     eng = new std::thread([&q,vrb]{
       double time = -dclock();
+      double pin_time=0, memcpy_time=0, devcpy_time=0;
       size_t total_bytes =0;
-      
+     
       //Find the largest entry for the pinned memory allocation
       size_t lrg=0;
       for(auto it=q.begin();it!=q.end();it++){
 	lrg = std::max(lrg,it->bytes);
 	total_bytes += it->bytes;
       }
+
+      std::cout << "asyncTransferManager: Commencing prefetch of " << total_bytes/1024./1024. << "MB over " << q.size() << " entries" << std::endl;
+      
       //#define PIN_IN_PLACE    #Much slower and does not overlap with kernel
 #ifndef PIN_IN_PLACE
-      if(vrb) LOGA2A << "Allocating " << lrg << " bytes of pinned memory" << std::endl;
+      if(vrb) std::cout << "asyncTransferManager: Allocating " << lrg << " bytes of pinned memory" << std::endl;
+      pin_time -= dclock();
       void *pmem = pinned_alloc_check(128,lrg);
+      pin_time += dclock();
 #endif
       
       int i=0;
       while(!q.empty()){
 	entry e = q.back();
-	if(vrb) LOGA2A << "Queue entry " << i << " of size " << e.bytes << std::endl;
+	if(vrb) std::cout << "asyncTransferManager: Queue entry " << i << " of size " << e.bytes << std::endl;
 	q.pop_back();
 #ifndef PIN_IN_PLACE
+	memcpy_time -= dclock();
 	memcpy(pmem,e.from,e.bytes);
+	memcpy_time += dclock();
+	if(vrb) std::cout << "asyncTransferManager: prefetch " << e.bytes << " " << e.from << ". memcpy " << time << "s,  rate " << e.bytes/1024./1024./time << "MB/s" << std::endl;
+																			       
+	devcpy_time -= dclock();
 	copy_host_to_device_async(e.to,pmem,e.bytes);
 #else
+	pin_time -= dclock();
 	device_pin_memory(e.from,e.bytes);
+	pin_time += dclock();
+
+	devcpy_time -= dclock();
 	copy_host_to_device_async(e.to,e.from,e.bytes);
 #endif
 	
@@ -739,24 +754,33 @@ public:
 	  acceleratorCopySynchronise(); //copyStream
 	}
 #endif
+	devcpy_time += dclock();
+	if(vrb) std::cout << "asyncTransferManager: prefetch " << e.bytes << " " << e.from << ". devicecpy " << time << "s,  rate " << e.bytes/1024./1024./time << "MB/s" << std::endl;
 
+	
 #ifdef PIN_IN_PLACE
+	pin_time -= dclock();
 	device_unpin_memory(e.from);
+	pin_time += dclock();
 #endif
 	
 	++i;
       }
       
 #ifndef PIN_IN_PLACE
+      pin_time -= dclock();
       pinned_free(pmem);
+      pin_time += dclock();
 #endif           
      
-      if(vrb){
-	time += dclock();
-	double total_MB = double(total_bytes)/1024./1024.;
-	double rate = total_MB/time;
-	LOGA2A << "Transfers complete bytes " << total_MB << " MB in " << time << "s : rate " << rate << "MB/s" << std::endl;
-      }
+      time += dclock();
+      double total_MB = double(total_bytes)/1024./1024.;
+      double memcpy_rate = total_MB/memcpy_time;
+      double devcpy_rate = total_MB/devcpy_time;
+      
+      double effrate = total_MB/time;
+      std::cout << "asyncTransferManager: Transfers complete size " << total_MB << "MB - total.time " << time << "s, memcpy.time " << memcpy_time << "s, devcpy.time " << devcpy_time << "s, pin.time " << pin_time << "s : eff.rate " << effrate << "MB/s" << ", memcpy.rate " << memcpy_rate << "MB/s, devcpy.rate " << devcpy_rate << std::endl;
+      
 #undef PIN_IN_PLACE
     });
   

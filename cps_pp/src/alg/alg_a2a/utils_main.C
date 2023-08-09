@@ -49,24 +49,24 @@ void ReadRngFile(const MeasArg &meas_arg, bool double_latt){
 //Read both gauge and RNG field contingent on DoArgs start_conf_kind and start_seed_kind, allowing easy use of random lattices for testing
 void readGaugeRNG(const DoArg &do_arg, const MeasArg &meas_arg, const bool double_latt){
   if(do_arg.start_conf_kind == START_CONF_FILE){
-    if(!UniqueID()) printf("Reading gauge field from file\n");
+    LOGA2A << "Reading gauge field from file" << std::endl;
     ReadGaugeField(meas_arg,double_latt);
   }else if(do_arg.start_conf_kind == START_CONF_ORD){
-    if(!UniqueID()) printf("Using ordered gauge field\n");
+    LOGA2A << "Using ordered gauge field" << std::endl;
     GwilsonFdwf lat;
     lat.SetGfieldOrd();
   }else if(do_arg.start_conf_kind == START_CONF_DISORD){
     //Generate new random config for every traj in outer loop
-    if(!UniqueID()) printf("Using disordered gauge field\n");
+    LOGA2A << "Using disordered gauge field" << std::endl;
     GwilsonFdwf lat;
     lat.SetGfieldDisOrd();
   }else ERR.General("","readGaugeRNG","Unsupported do_arg.start_conf_kind\n");
 
   if(do_arg.start_seed_kind == START_SEED_FILE){
-    if(!UniqueID()) printf("Reading RNG state from file\n");
+    LOGA2A << "Reading RNG state from file" << std::endl;
     ReadRngFile(meas_arg,double_latt); 
   }else{
-    if(!UniqueID()) printf("Using existing RNG state\n");
+    LOGA2A << "Using existing RNG state" << std::endl;
   }
 }
 
@@ -95,7 +95,7 @@ void TboundaryTwist(const double degrees){
 
 //Initialize OpenMP, GJP and QDP
 void initCPS(int argc, char **argv, const DoArg &do_arg, const int nthreads){
-  if(!UniqueID()) printf("Initializing CPS\n");
+  LOGA2A << "Initializing CPS" << std::endl;
   
   //Stop GJP from loading the gauge and RNG field on initialization; we handle these ourselves under a config loop
   DoArg do_arg_tmp(do_arg);
@@ -120,15 +120,15 @@ void initCPS(int argc, char **argv, const DoArg &do_arg, const int nthreads){
 #endif
 
 #ifndef _OPENMP
-  if(!UniqueID()) printf("WARNING: CPS was not compiled with openmp!\n");
+  LOGA2A << "WARNING: CPS was not compiled with openmp!" << std::endl;
 #endif
 
-  if(!UniqueID()) printf("omp_get_max_threads()=%d (pre GJP.SetNthreads())\n",omp_get_max_threads());
+  a2a_printf("omp_get_max_threads()=%d (pre GJP.SetNthreads())\n",omp_get_max_threads());
   GJP.SetNthreads(nthreads);
-  if(!UniqueID()) printf("omp_get_max_threads()=%d (post GJP.SetNthreads())\n",omp_get_max_threads());
+  a2a_printf("omp_get_max_threads()=%d (post GJP.SetNthreads())\n",omp_get_max_threads());
 #ifdef USE_GRID
   Grid::GridThread::SetThreads(nthreads);
-  if(!UniqueID()) printf("Set number of Grid threads to %d (check returns %d,   omp_get_max_threads()=%d)\n", nthreads, Grid::GridThread::GetThreads(), omp_get_max_threads()); 
+  a2a_printf("Set number of Grid threads to %d (check returns %d,   omp_get_max_threads()=%d)\n", nthreads, Grid::GridThread::GetThreads(), omp_get_max_threads()); 
 #endif
 }
 
@@ -138,10 +138,10 @@ void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const FixGaugeArg &fix_
   if( (lat.FixGaugeKind() != FIX_GAUGE_NONE) || (lat.FixGaugePtr() != NULL) )
     lat.FixGaugeFree(); //in case it has previously been allocated
   if(fix_gauge_arg.fix_gauge_kind == FIX_GAUGE_NONE || skip_gauge_fix){
-    if(!UniqueID()) printf("Skipping gauge fix -> Setting all GF matrices to unity\n");
+    LOGA2A << "Skipping gauge fix -> Setting all GF matrices to unity" << std::endl;
     gaugeFixUnity(lat,fix_gauge_arg);      
   }else{
-    if(!UniqueID()){ printf("Gauge fixing\n"); fflush(stdout); }
+    LOGA2A << "Gauge fixing" << std::endl;
     double time = -dclock();
 #ifndef MEMTEST_MODE
     AlgFixGauge fix_gauge(lat, &carg, const_cast<FixGaugeArg*>(&fix_gauge_arg) );
@@ -150,10 +150,10 @@ void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const FixGaugeArg &fix_
     gaugeFixUnity(lat,fix_gauge_arg);
 #endif      
     time += dclock();
-    print_time("main","Gauge fix",time);
+    a2a_print_time("main","Gauge fix",time);
   }
 
-  if(!UniqueID()) printf("Memory after gauge fix:\n");
+  LOGA2A << "Memory after gauge fix:" << std::endl;
   printMem();
 }
 
@@ -197,7 +197,7 @@ void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const FixGaugeArgGrid &
 
   //Copy gauge field to Grid
 #ifdef USE_GRID
-  if(!UniqueID()){ printf("Gauge fixing with Grid's Fourier-accelerated algorithm\n"); fflush(stdout); }
+  LOGA2A << "Gauge fixing with Grid's Fourier-accelerated algorithm" << std::endl;
   double time = -dclock();
   FgridBase &lat_fgrid = dynamic_cast<FgridBase &>(lat);
   
@@ -249,13 +249,13 @@ void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const FixGaugeArgGrid &
     }
   }
 
-  std::cout << "Testing gauge fixing result against CPS' convergence metric: " << 
+  LOGA2A << "Testing gauge fixing result against CPS' convergence metric: " << 
     gaugeFixTest::delta(lat, (fix_gauge_arg.fix_gauge_kind == FIX_GAUGE_COULOMB_T ? 3 : -1) ) << " expect " << fix_gauge_arg.stop_cond << std::endl;
 
   time += dclock();
-  print_time("main","Gauge fix (Grid Fourier accelerated)",time);
+  a2a_print_time("main","Gauge fix (Grid Fourier accelerated)",time);
 
-  if(!UniqueID()) printf("Memory after gauge fix:\n");
+  LOGA2A << "Memory after gauge fix:" << std::endl;
   printMem();
 #endif
 }
@@ -269,7 +269,10 @@ void a2a_printf(const char* format, ...){
     va_start(argptr, format);    
     n = vsnprintf(buf, 1024, format, argptr);
     va_end(argptr);
-    if(n < 1024) LOGA2A << buf;
+    if(n < 1024){
+      LOGA2A << buf;
+      return;
+    }
   }
   
   char buf[n+1];
@@ -290,7 +293,10 @@ void a2a_printfnt(const char* format, ...){
     va_start(argptr, format);    
     n = vsnprintf(buf, 1024, format, argptr);
     va_end(argptr);
-    if(n < 1024) LOGA2ANT << buf;
+    if(n < 1024){
+      LOGA2ANT << buf;
+      return;
+    }
   }
   
   char buf[n+1];

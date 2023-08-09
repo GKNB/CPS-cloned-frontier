@@ -271,7 +271,7 @@ void gridBlockLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionFie
 
   const int Nstop = lanc_arg.N_true_get;
   const int Nk = lanc_arg.N_get;
-  const int Np = lanc_arg.N_use - lanc_arg.N_get;
+  const int Np = lanc_arg.N_use - lanc_arg.N_get; //NOTE: for block Lanczos, this should be divisible by Nu=Nsplit
 
   const int MaxIt= lanc_arg.maxits;  //NOTE: For block Lanczos, this is the max number of restarts; it should be small because the number of vectors scales like maxits!
   if(MaxIt > 50) ERR.General("::","gridBlockLanczos","Maxiters much too large! This will use up a tonne of RAM. You should expect only a small number of restarts");

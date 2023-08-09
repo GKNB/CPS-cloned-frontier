@@ -1168,6 +1168,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     double ptr_setup_time = 0;
     double kernel_time = 0;
     double copy_prefetch_time = 0;
+    double prefetch_wait_time = 0;
     
 #ifndef MEMTEST_MODE     
     for(size_t i0 = 0; i0 < nmodes_l; i0+=bi){
@@ -1284,9 +1285,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    int nxblk = bx_true / sbx_use;
 #endif
 
-#ifdef GRID_CUDA
-	    if(t_lcl == 0 && x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStart();
-#endif
+	    if(t_lcl == 0 && x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) device_profile_start();
+
 	    size_t nwork = bi_true * bj_true * bx_true;	  
     
 	    kernel_time -= dclock();
@@ -1348,12 +1348,15 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 #endif	    
 	    reduce_time += dclock();
 
-#ifdef GRID_CUDA
-	    if(x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStop();
-#endif
+	    if(x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) device_profile_stop();
 	  }//x0
 	}//t
+
+	LOGA2A << "Waiting for prefetch completion prior to starting next j-block" << std::endl;
+	prefetch_wait_time -= dclock();
 	A2AfieldR<mf_Policies>::waitPrefetches();
+	prefetch_wait_time += dclock();
+	
 	r_v.free();
       }//j0
       l_v.free();
@@ -1364,7 +1367,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     a2a_print_time("A2AmesonField","local compute",time + dclock());
     a2a_print_time("A2AmesonField","kernel time in local compute",kernel_time);
     a2a_print_time("A2AmesonField","ptr setup time in local compute",ptr_setup_time);
-    a2a_print_time("A2AmesonField","device copy/prefetch time in local compute",copy_prefetch_time);
+    a2a_print_time("A2AmesonField","device copy/prefetch init time in local compute",copy_prefetch_time);
+    a2a_print_time("A2AmesonField","device copy/prefetch wait time in local compute",prefetch_wait_time);
     a2a_print_time("A2AmesonField","reduce time in local compute",reduce_time);
     
     time = -dclock();
