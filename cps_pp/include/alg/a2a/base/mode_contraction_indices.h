@@ -9,7 +9,7 @@ CPS_START_NAMESPACE
 //This class computes and stores the unpacked indices making the contraction transparent. It is a simple wrapper around ModeMapping
 
 //Predefine meson field
-template<typename mf_Float,template <typename> class A2AfieldL,template <typename> class A2AfieldR>
+template<typename mf_Policies,template <typename> class A2AfieldL,template <typename> class A2AfieldR>
 class A2AmesonField;
 
 

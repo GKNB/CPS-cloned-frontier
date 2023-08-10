@@ -32,8 +32,8 @@ public:
   typedef typename A2AfieldL<mf_Policies>::DilutionType LeftInputDilutionType;
   typedef typename A2AfieldR<mf_Policies>::DilutionType RightInputDilutionType;
 
-  typedef typename FlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
-  typedef typename FlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
+  typedef typename SpinColorFlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
+  typedef typename SpinColorFlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
   typedef typename mf_Policies::MesonFieldDistributedStorageType MesonFieldDistributedStorageType;
  private:
@@ -76,8 +76,8 @@ public:
     typedef typename A2AfieldL<mf_Policies>::DilutionType LeftInputDilutionType;
     typedef typename A2AfieldR<mf_Policies>::DilutionType RightInputDilutionType;
     
-    typedef typename FlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
-    typedef typename FlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
+    typedef typename SpinColorFlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
+    typedef typename SpinColorFlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
 
     //Size in complex

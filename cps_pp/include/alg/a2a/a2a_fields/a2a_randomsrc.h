@@ -21,6 +21,19 @@ public:
     //Export to Grid field
     v4dfield.exportGridField(src);
   }
+
+  //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
+  virtual void setHighModeSources(A2AvectorWunitary<A2Apolicies> &into) const{ ERR.General("A2AhighModeSource","setHighModeSources","Not implemented for A2AvectorWunitary"); }
+
+  //Get the 4D source vector that we will invert upon
+  virtual void get4DinverseSource(GridFermionFieldD &src, const int high_mode_idx, const A2AvectorWunitary<A2Apolicies> &W) const{
+    CPSfermion4D<typename A2Apolicies::ComplexTypeD,typename A2Apolicies::FermionFieldType::FieldMappingPolicy, 
+		 typename A2Apolicies::FermionFieldType::FieldAllocPolicy> v4dfield(W.getFieldInputParams());
+    W.getDilutedSource(v4dfield, high_mode_idx);
+
+    //Export to Grid field
+    v4dfield.exportGridField(src);
+  }
   
   //Perform any post-inverse operations required upon the solutions
   virtual void solutionPostOp(A2AvectorV<A2Apolicies> &into) const{}
@@ -63,6 +76,38 @@ public:
     into.setWh(tmp);
   }    
 
+  void setHighModeSources(A2AvectorWunitary<A2Apolicies> &into) const override{ 
+    LOGA2A << "Setting high-mode sources (original) for Wunitary" << std::endl;
+    typedef typename A2AvectorWunitary<A2Apolicies>::ScalarComplexFieldType ScalarComplexFieldType;
+    typedef typename ScalarComplexFieldType::FieldSiteType FieldSiteType;
+    NullObject null_obj;
+    int nhits = into.getNhits();
+    RandomType rand_type = into.getArgs().rand_type;
+    std::vector<ScalarComplexFieldType> tmp(into.getNhighModes(),null_obj);
+    for(int i=0;i<tmp.size();i++) tmp[i].zero();
+
+    LRG.SetInterval(1, 0);
+    size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
+    ViewArray<ScalarComplexFieldType> views(HostWrite,tmp);
+    for(size_t i = 0; i < sites*flavors; ++i) {
+      int flav = i / sites;
+      size_t st = i % sites;
+      
+      LRG.AssignGenerator(st,flav);
+
+      //Flavor structure
+      //| rnd_1  0   |
+      //|  0    rnd2 |
+
+      for(int j = 0; j < nhits; ++j) {
+	FieldSiteType* p = views[into.indexMap(j,flav)].site_ptr(st,flav);
+	RandomComplex<FieldSiteType>::rand(p,rand_type,FOUR_D);
+      }
+    }
+    views.free();
+
+    into.setWh(tmp);
+  }    
 
 };
 

@@ -57,8 +57,6 @@ void testMesonFieldComputeReference(const A2AArg &a2a_args, double tol){
   std::cout << "Passed testMesonFieldComputeReference tests" << std::endl;
 }
 
-
-
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void compute_test_g5s3(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int t){
   into.setup(l,r,t,t);
@@ -158,7 +156,69 @@ void testMesonFieldComputePackedReference(const A2AArg &a2a_args, double tol){
 
   std::cout << "Passed testMesonFieldComputePackedReference tests" << std::endl;
 }
+//This test will ensure the SIMD implementation gives the same result as the reference implementation
+template<typename A2Apolicies_std, typename A2Apolicies_grid>
+void testMesonFieldComputePackedReferenceSIMD(const A2AArg &a2a_args, double tol, const typename SIMDpolicyBase<4>::ParamType &simd_dims){
 
+  std::cout << "Starting testMesonFieldComputeReferenceSIMD test of reference implementation " << std::endl;
+  typedef flavorMatrixSpinColorContract<15,true,false> SCconPol;
+  typedef GparityNoSourceInnerProduct<typename A2Apolicies_std::ComplexType, SCconPol> InnerProductTypeU;
+  InnerProductTypeU inner_u(sigma3);
+
+  typedef GparityNoSourceInnerProduct<typename A2Apolicies_grid::ComplexType, SCconPol> InnerProductTypeS;
+  InnerProductTypeS inner_s(sigma3);
+
+  A2AvectorWfftw<A2Apolicies_std> Wf_p(a2a_args);
+  A2AvectorVfftw<A2Apolicies_std> Vf_p(a2a_args);
+  Wf_p.testRandom();
+  Vf_p.testRandom();
+
+  //Get SIMD versions
+  A2AvectorWfftw<A2Apolicies_grid> Wf_s(a2a_args,simd_dims);
+  A2AvectorVfftw<A2Apolicies_grid> Vf_s(a2a_args,simd_dims);
+  for(int i=0;i<Wf_s.getNmodes();i++) Wf_s.getMode(i).importField(Wf_p.getMode(i));
+  for(int i=0;i<Vf_s.getNmodes();i++) Vf_s.getMode(i).importField(Vf_p.getMode(i));
+  
+  //Build Wf and Vf as unpacked fields
+  typedef typename A2Apolicies_std::FermionFieldType FermionFieldType;
+  int nv = Wf_p.getNv();
+  std::vector<FermionFieldType> Wf_u(nv), Vf_u(nv);
+  for(int i=0;i<nv;i++){
+    Wf_p.unpackMode(Wf_u[i],i);
+    Vf_p.unpackMode(Vf_u[i],i);
+  }
+
+  typedef typename A2Apolicies_std::ScalarComplexType ScalarComplexType;
+
+  std::cout << "Computing MF using unpacked reference implementation" << std::endl;
+  fMatrix<ScalarComplexType> mf_u;
+  compute_simple(mf_u,Wf_u,inner_u,Vf_u,0);
+
+  typedef A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorVfftw> MFtype;    
+  MFtype mf_s;
+  std::cout << "Computing MF using packed reference implementation" << std::endl;
+  mf_s.compute(Wf_s,inner_s,Vf_s,0);
+  CPSautoView(mf_s_v,mf_s,HostRead);
+  
+  bool err = false;
+  for(int i=0;i<nv;i++){
+    for(int j=0;j<nv;j++){
+      const ScalarComplexType &elem_u = mf_u(i,j);
+      const ScalarComplexType &elem_p = mf_s_v.elem(i,j);
+      if( fabs(elem_u.real() - elem_p.real()) > tol || fabs(elem_u.imag() - elem_p.imag()) > tol){
+	std::cout << "Fail " << i << " " << j << " unpacked (" << elem_u.real() << "," << elem_u.imag() << ") packed (" << elem_p.real() << "," << elem_p.imag() << ") diff ("
+		  << elem_u.real()-elem_p.real() << "," << elem_u.imag()-elem_p.imag() << ")" << std::endl;
+	err = true;
+      }else{
+	//std::cout << "Success " << i << " " << j << " unpacked (" << elem_u.real() << "," << elem_u.imag() << ") packed (" << elem_p.real() << "," << elem_p.imag() << ") diff ("
+	//	  << elem_u.real()-elem_p.real() << "," << elem_u.imag()-elem_p.imag() << ")" << std::endl;
+      }	
+    }
+  }  
+  assert(err == false);
+
+  std::cout << "Passed testMesonFieldComputePackedReferenceSIMD tests" << std::endl;
+}
 
 
 
@@ -190,6 +250,13 @@ void testMesonFieldComputeSingleReference(const A2AArg &a2a_args, double tol){
 
   std::cout << "Passed testMesonFieldComputeSingleReference tests" << std::endl;
 }
+
+
+
+
+
+
+
 
 //This test will ensure the scalar version of the general (multi-timeslice) optimized MF compute gives the same result as the basic, single timeslice CPU implementation
 template<typename A2Apolicies_std>
