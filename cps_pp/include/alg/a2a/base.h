@@ -4,7 +4,6 @@
 #include "base/a2a_dilutions.h"
 #include "base/a2a_params.h"
 #include "base/mode_contraction_indices.h"
-#include "base/mode_mapping.h"
 #include "base/utils_main.h"
 
 #endif

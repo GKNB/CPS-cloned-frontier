@@ -185,7 +185,9 @@ public:
     typedef typename rA2AfieldView::DilutionType iRightDilutionType;
 
     out.zero();
-    assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
+    if(l.getNlowModes()>0) assert(l.getLowMode(0).SIMDlogicalNodes(3) == 1);
+    else if(l.getNhighModes()>0) assert(l.getHighMode(0).SIMDlogicalNodes(3) == 1);
+    else return;
 
     int top_glb = top+GJP.TnodeSites()*GJP.TnodeCoor();
 
@@ -194,7 +196,7 @@ public:
     ilp.time = l.tblock(top_glb);
     irp.time = r.tblock(top_glb);
 
-    int site4dop = l.getMode(0).threeToFour(xop, top);
+    int site4dop = l.getLowMode(0).threeToFour(xop, top);
 
     const StandardIndexDilution &std_idx = l;
     int nv = std_idx.getNmodes();
@@ -261,6 +263,58 @@ public:
     }
   }
 
+
+  //Version that uses the modeContractionIndices
+  static void mult_test(OutputMatrixType &out, const lA2AfieldView &l, const rA2AfieldView &r, 
+		   const int xop, const int top, const bool conj_l, const bool conj_r){
+    typedef typename lA2AfieldView::DilutionType iLeftDilutionType;
+    typedef typename rA2AfieldView::DilutionType iRightDilutionType;
+    out.zero();
+    if(l.getNlowModes()>0) assert(l.getLowMode(0).SIMDlogicalNodes(3) == 1);
+    else if(l.getNhighModes()>0) assert(l.getHighMode(0).SIMDlogicalNodes(3) == 1);
+    else return;
+
+    assert(l.getNtBlocks() == r.getNtBlocks());
+
+    int top_glb = top+GJP.TnodeSites()*GJP.TnodeCoor();
+
+    ModeContractionIndices<iLeftDilutionType,iRightDilutionType> mc(l);
+    
+    modeIndexSet ilp, irp;
+    ilp.time = irp.time = l.tblock(top_glb);
+
+    int site4dop = l.getLowMode(0).threeToFour(xop, top);
+
+    for(int sl=0;sl<4;sl++){
+      for(int sr=0;sr<4;sr++){
+	for(int cl=0;cl<3;cl++){
+	  ilp.spin_color = cl + 3*sl;
+	  for(int cr=0;cr<3;cr++){
+	    irp.spin_color = cr + 3*sr;
+	    for(int fl=0;fl<nf;fl++){
+	      ilp.flavor = fl;
+	      for(int fr=0;fr<nf;fr++){
+		irp.flavor = fr;
+
+		auto const &idx_incl = mc.getIndexVector(ilp,irp);
+
+#ifndef MEMTEST_MODE
+		for(int v=0;v<idx_incl.size();v++){
+		  auto lv = l.nativeElem(idx_incl[v].first, site4dop, ilp.spin_color, fl);
+		  if(conj_l) lv = Grid::conjugate(lv);
+		  auto rv = r.nativeElem(idx_incl[v].second, site4dop, irp.spin_color, fr);
+		  if(conj_r) rv = Grid::conjugate(rv);
+		  OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out) = OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out) +    lv*rv;
+		}
+#endif
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+
   static void mult_slow(OutputMatrixType &out, const lA2AfieldView &l, const rA2AfieldView &r, 
 			const int xop, const int top, const bool conj_l, const bool conj_r){
     assert( l.paramsEqual(r) );
@@ -288,7 +342,7 @@ public:
 		  SIMDcomplexType lval = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
 		  
 		  const SIMDcomplexType &rval_tmp = r.elem(i,xop,top,cr+3*sr,fr);
-		  ScalarComplexType rval = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
+		  SIMDcomplexType rval = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
 
 		  OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out) = OutputPolicy::acc(sl,sr,cl,cr,fl,fr,out) + lval * rval;
 		}

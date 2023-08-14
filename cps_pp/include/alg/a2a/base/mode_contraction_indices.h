@@ -1,7 +1,7 @@
 #ifndef _MODE_CONTRACTION_INDICES_H
 #define _MODE_CONTRACTION_INDICES_H
 
-#include "mode_mapping.h"
+//#include "mode_mapping.h"
 
 CPS_START_NAMESPACE
 
@@ -12,84 +12,98 @@ CPS_START_NAMESPACE
 template<typename mf_Policies,template <typename> class A2AfieldL,template <typename> class A2AfieldR>
 class A2AmesonField;
 
-
-//Get an index vector
-template<int LeftDilutionDepth, int RightDilutionDepth>
-struct _getIndexVector{
-  typedef typename IndexTensor<LeftDilutionDepth,RightDilutionDepth>::Type TensorType;
-  inline static const ModeMapType & doit(const modeIndexSet &left_coord, const modeIndexSet &right_coord, const TensorType &mode_map){
-    int val_left = IndexConvention<LeftDilutionDepth>::get(left_coord); 
-    return _getIndexVector<LeftDilutionDepth-1,RightDilutionDepth>::doit(left_coord, right_coord,mode_map[val_left] );
-  }
-};
-template<int RightDilutionDepth>
-struct _getIndexVector<0,RightDilutionDepth>{
-  typedef typename IndexTensor<0,RightDilutionDepth>::Type TensorType;
-  inline static const ModeMapType & doit(const modeIndexSet &left_coord, const modeIndexSet &right_coord, const TensorType &mode_map){
-    int val_right = IndexConvention<RightDilutionDepth>::get(right_coord); 
-    return _getIndexVector<0,RightDilutionDepth-1>::doit(left_coord, right_coord,mode_map[val_right] );
-  }
-};
-template<>
-struct _getIndexVector<0,0>{
-  typedef typename IndexTensor<0,0>::Type TensorType;
-  inline static const ModeMapType & doit(const modeIndexSet &left_coord, const modeIndexSet &right_coord, const TensorType &mode_map){
-    return mode_map;
-  }
-};
-
-
-//Get number of overlapping indices
-template<int LeftDilutionDepth, int RightDilutionDepth>
-struct _getNindices{
-  typedef typename IndexTensor<LeftDilutionDepth,RightDilutionDepth>::Type TensorType;
-  inline static int doit(const modeIndexSet &left_coord, const modeIndexSet &right_coord, const TensorType &mode_map){
-    int val_left = IndexConvention<LeftDilutionDepth>::get(left_coord); 
-    return _getNindices<LeftDilutionDepth-1,RightDilutionDepth>::doit(left_coord, right_coord,mode_map[val_left] );
-  }
-};
-template<int RightDilutionDepth>
-struct _getNindices<0,RightDilutionDepth>{
-  typedef typename IndexTensor<0,RightDilutionDepth>::Type TensorType;
-  inline static int doit(const modeIndexSet &left_coord, const modeIndexSet &right_coord, const TensorType &mode_map){
-    int val_right = IndexConvention<RightDilutionDepth>::get(right_coord); 
-    return _getNindices<0,RightDilutionDepth-1>::doit(left_coord, right_coord,mode_map[val_right] );
-  }
-};
-template<>
-struct _getNindices<0,0>{
-  typedef typename IndexTensor<0,0>::Type TensorType;
-  inline static int doit(const modeIndexSet &left_coord, const modeIndexSet &right_coord, const TensorType &mode_map){
-    return mode_map.size();
-  }
-};
-
+typedef std::vector<std::pair<int,int>> ModeMapType; 
 
 template<typename LeftDilutionType, typename RightDilutionType>
 class ModeContractionIndices{
-  typedef typename ModeMapping<LeftDilutionType,RightDilutionType>::TensorType TensorType;
-
-  enum { DepthLeftDilution = LeftDilutionType::UndilutedIndices };
-  enum { DepthRightDilution = RightDilutionType::UndilutedIndices };
-
-  TensorType mode_map;
+  size_t lidx_sizes[3];
+  size_t ridx_sizes[3];
+  std::vector<ModeMapType> mode_map_tensor;
+  
  public:
   ModeContractionIndices() = default;
 
   ModeContractionIndices(const A2Aparams &a2a_params){
     compute(a2a_params);
   }
-
-  void compute(const A2Aparams &a2a_params){
-    ModeMapping<LeftDilutionType,RightDilutionType>::compute(mode_map,a2a_params);
+  
+  inline size_t lmap(const size_t t, const size_t f, const size_t sc) const{
+    return t + lidx_sizes[0]*( f + lidx_sizes[1]*sc );
+  }
+  inline size_t rmap(const size_t t, const size_t f, const size_t sc) const{
+    return t + ridx_sizes[0]*( f + ridx_sizes[1]*sc );
+  }
+  inline size_t lrmap(const size_t tl, const size_t fl, const size_t scl, const size_t tr, const size_t fr, const size_t scr) const{
+    return tl + lidx_sizes[0]*( fl + lidx_sizes[1]*(scl + lidx_sizes[2]*( tr + ridx_sizes[0]*( fr + ridx_sizes[1]*scr) ) ) );
   }
 
-  //Get the tensor that contains the set of matching mode indices (i,j) for each choice of field index (sc, f, t) as appropriate (cf ModeMapping)
-  inline const TensorType & getIndexTensor() const{ return mode_map; }
+  void compute(const A2Aparams &a2a_params){
+    lidx_sizes[0] = LeftDilutionType::isPacked(0) ? a2a_params.getNtBlocks() : 1;
+    lidx_sizes[1] = LeftDilutionType::isPacked(1) ? a2a_params.getNflavors() : 1;
+    lidx_sizes[2] = LeftDilutionType::isPacked(2) ? 12 : 1;
+
+    ridx_sizes[0] = RightDilutionType::isPacked(0) ? a2a_params.getNtBlocks() : 1;
+    ridx_sizes[1] = RightDilutionType::isPacked(1) ? a2a_params.getNflavors() : 1;
+    ridx_sizes[2] = RightDilutionType::isPacked(2) ? 12 : 1;
+    
+    LeftDilutionType ldil(a2a_params);
+    RightDilutionType rdil(a2a_params);
+
+    size_t lvsize = lidx_sizes[0]*lidx_sizes[1]*lidx_sizes[2];
+    size_t rvsize = ridx_sizes[0]*ridx_sizes[1]*ridx_sizes[2];
+    size_t tsize = lvsize*rvsize;
+    
+    size_t nv = a2a_params.getNv();
+
+    typedef std::pair< std::vector<int>, std::vector<bool> > Velem;
+    std::vector<Velem> lv(lvsize), rv(rvsize);
+    modeIndexSet ml, mr;
+    for(ml.time =0; ml.time < lidx_sizes[0]; ml.time++){
+    for(ml.flavor =0; ml.flavor < lidx_sizes[1]; ml.flavor++){
+    for(ml.spin_color =0; ml.spin_color < lidx_sizes[2]; ml.spin_color++){
+      Velem &lelem = lv[lmap(ml.time,ml.flavor,ml.spin_color)];
+      ldil.getIndexMapping(lelem.first,lelem.second,ml);
+    }}}
+    for(mr.time =0; mr.time < ridx_sizes[0]; mr.time++){
+    for(mr.flavor =0; mr.flavor < ridx_sizes[1]; mr.flavor++){
+    for(mr.spin_color =0; mr.spin_color < ridx_sizes[2]; mr.spin_color++){
+      Velem &relem = rv[rmap(mr.time,mr.flavor,mr.spin_color)];
+      rdil.getIndexMapping(relem.first,relem.second,mr);
+    }}}
+
+    mode_map_tensor.resize(tsize);
+    for(ml.time =0; ml.time < lidx_sizes[0]; ml.time++){
+    for(ml.flavor =0; ml.flavor < lidx_sizes[1]; ml.flavor++){
+    for(ml.spin_color =0; ml.spin_color < lidx_sizes[2]; ml.spin_color++){
+      const Velem &lelem = lv[lmap(ml.time,ml.flavor,ml.spin_color)];
+
+      for(mr.time =0; mr.time < ridx_sizes[0]; mr.time++){
+      for(mr.flavor =0; mr.flavor < ridx_sizes[1]; mr.flavor++){
+      for(mr.spin_color =0; mr.spin_color < ridx_sizes[2]; mr.spin_color++){
+        const Velem &relem = rv[rmap(mr.time,mr.flavor,mr.spin_color)];
+  
+	ModeMapType &lrelem = mode_map_tensor[lrmap(ml.time,ml.flavor,ml.spin_color,mr.time,mr.flavor,mr.spin_color)];
+	for(int i=0;i<nv;i++)
+	  if(lelem.second[i] && relem.second[i]) lrelem.push_back(std::pair<int,int>(lelem.first[i],relem.first[i])); //record l,r indices of elements that match up
+    
+    }}}}}}
+  };
+
+  //Return the tensor. Use lrmap to get the mapping for particular elements
+  inline const std::vector<ModeMapType> & getModeMapTensor() const{ return mode_map_tensor; }
+
+  inline size_t tensorSize() const{ return mode_map_tensor.size(); }
 
   //Get the vector of matching indices (i,j)
   inline const ModeMapType & getIndexVector(const modeIndexSet &left_coord, const modeIndexSet &right_coord) const{
-    return _getIndexVector<DepthLeftDilution,DepthRightDilution>::doit(left_coord, right_coord, mode_map);
+    size_t tl = left_coord.time % lidx_sizes[0]; //gives 0 if not packed
+    size_t fl = left_coord.flavor % lidx_sizes[1];
+    size_t scl = left_coord.spin_color % lidx_sizes[2];
+    size_t tr = right_coord.time % ridx_sizes[0];
+    size_t fr = right_coord.flavor % ridx_sizes[1];
+    size_t scr = right_coord.spin_color % ridx_sizes[2];
+
+    return mode_map_tensor[ lrmap(tl,fl,scl,tr,fr,scr) ];
   }
   
   inline int getLeftIndex(const int i, const modeIndexSet &left_coord, const modeIndexSet &right_coord) const{
@@ -106,7 +120,7 @@ class ModeContractionIndices{
   }
 
   inline int getNindices(const modeIndexSet &left_coord, const modeIndexSet &right_coord) const{
-    return _getNindices<DepthLeftDilution,DepthRightDilution>::doit(left_coord, right_coord, mode_map);
+    return getIndexVector(left_coord,right_coord).size();
   }
 
 };

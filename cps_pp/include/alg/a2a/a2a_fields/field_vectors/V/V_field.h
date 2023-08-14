@@ -101,6 +101,9 @@ public:
     //Get a mode from the high-mode part
     accelerator_inline FieldView & getVh(const int ih) const{ return av[nl+ih]; }
 
+    accelerator_inline FieldView & getLowMode(const int il) const{ return av[il]; }
+    accelerator_inline FieldView & getHighMode(const int ih) const{ return av[nl+ih]; }
+
     //Get a particular site/spin/color element of a given *native* (packed) mode. For V this does the same as the above
     //Note: site is the local 4d site offset
     accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{

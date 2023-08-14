@@ -79,8 +79,6 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 		     bool conj_l, bool conj_r){
     into.zero();
 
-    ModeContractionIndices<leftDilutionType,rightDilutionType> ind(l);
-    
     A2Aparams params(l);
     StandardIndexDilution dil(params);
     
@@ -337,6 +335,71 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 		      }//iprimeb_subblock
 		    });
   }
+
+
+
+  static void run_VV_kernel_base_simple(VectorComplexType* vaprime,
+					VectorComplexType* vbprime,
+					typename ManagedVector<uint8_t>::View &alpha,
+					PropagatorField &into,
+					size_t niprime, size_t niprime_block,
+					size_t iprimestart, size_t iprimelessthan,
+					size_t vol4d, int t_off, int nf, int src_width, size_t nsimd
+					){
+    using namespace Grid;
+    CPSautoView(into_v,into,DeviceReadWrite);    
+    accelerator_for(x4d, 
+		    vol4d, 
+		    nsimd, 
+		    {
+		      typedef SIMT<VectorComplexType> ACC; //this will use scalar data as on device
+		      typedef typename ACC::value_type SIMTcomplexType; //=ScalarComplexType on GPU
+
+		      size_t xop; int top;
+		      into.fourToThree(xop, top, x4d);
+		      int t_glob = top + t_off;
+		      int t_glob_block = t_glob / src_width;
+
+		      VectorMatrixType &vsite_mat = *into_v.fsite_ptr(x4d);
+
+			for(int fl=0;fl<nf;fl++){
+			  for(int sl=0;sl<4;sl++){
+			    for(int cl=0;cl<3;cl++){
+			      int scl = cl + 3*sl;			      
+			      
+			      for(int fr=0;fr<nf;fr++){
+				for(int sr=0;sr<4;sr++){
+				  for(int cr=0;cr<3;cr++){
+				    int scr = cr + 3*sr;
+
+				    VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
+				    SIMTcomplexType sum = ACC::read(out);
+
+				    uint8_t const* alptr = alpha.data() + iprimestart + niprime * ( scr + 12*(fr + nf*( scl + 12*( fl + nf*t_glob_block) ) ) );
+				    
+				    for(int iprimeb=0; iprimeb < niprime_block; iprimeb++){  
+				      VectorComplexType const* lptr = vaprime + iprimeb + niprime_block*(scl + 12*(fl + nf*x4d) );
+				      VectorComplexType const* rptr = vbprime + iprimeb + niprime_block*(scr + 12*(fr + nf*x4d) );
+				    
+				      if(*alptr++ == 1){
+					sum = sum + (*lptr) * (*rptr);
+				      }
+				    }
+				    
+				    ACC::write(out, sum);
+				  }
+				}
+			      }
+			    }
+			  }
+			}
+		    });
+
+  }
+
+
+
+
 #endif
 
   static void prefetch_start(size_t iprimeblock, size_t niprime_blocks, size_t blocksize, size_t niprime, const lA2AfieldType &l, const rA2AfieldType &r, const hostDeviceMirroredContainer< std::pair<int,int> > &il_ir_pairs){
@@ -417,6 +480,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 		const ModeMapType &i_ind_pairs = i_ind.getIndexVector(ilp,irp);
 		for(int i=0;i<i_ind_pairs.size();i++)
 		  il_ir_used[ i_ind_pairs[i].first ][ i_ind_pairs[i].second ] = true;
+		
 	      }
 	    }
 	  }
@@ -559,6 +623,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
       run_VV_kernel_GPU(vaprime, vbprime, alpha_v, into, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd);
 #else
       run_VV_kernel_base(vaprime, vbprime, alpha_v, into, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd);
+      //run_VV_kernel_base_simple(vaprime, vbprime, alpha_v, into, niprime, niprime_block, iprimestart, iprimelessthan, vol4d, t_off, nf, src_width, nsimd);
 #endif
 
       prefetch_wait();

@@ -101,6 +101,9 @@ public:
     
     accelerator_inline FermionFieldView & getWl(const int i) const{ return awl[i]; }
     accelerator_inline ComplexFieldView & getWh(const int hit) const{ return awh[hit]; }
+
+    accelerator_inline FermionFieldView & getLowMode(const int i) const{ return awl[i]; }
+    accelerator_inline ComplexFieldView & getHighMode(const int hit) const{ return awh[hit]; }
   
     //The spincolor, flavor and timeslice dilutions are packed so we must treat them differently
     //Mode is a full 'StandardIndex', (unpacked mode index)

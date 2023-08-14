@@ -2,51 +2,84 @@
 
 CPS_START_NAMESPACE
 
-void testModeMappingTranspose(const A2AArg &a2a_arg){
-  if(!UniqueID()) printf("Starting testModeMappingTranspose\n");
-  //FullyPackedIndexDilution dilA(a2a_arg);
-  //TimeFlavorPackedIndexDilution dilB(a2a_arg);
-  typedef ModeMapping<FullyPackedIndexDilution, TimeFlavorPackedIndexDilution> mapAB;
-  typedef ModeMapping<TimeFlavorPackedIndexDilution, FullyPackedIndexDilution> mapBA;
+void testModeContractionIndices(const A2AArg &a2a_arg){
+  LOGA2A << "Starting testModeContractionIndices" << std::endl;
+  A2Aparams a2a_params(a2a_arg);
+  modeIndexSet il, ir;
+  int nl = a2a_params.getNl();
+  int nf = a2a_params.getNflavors();
+  int nt = a2a_params.getNtBlocks();
+  int nhit = a2a_params.getNhits();
+  int nsc = a2a_params.getNspinColor();
+  int nv =a2a_params.getNv();
 
-  typename mapAB::TensorType mapAB_v;
-  mapAB::compute(mapAB_v, a2a_arg);
+  //Check fully diluted mapping indicates contraction on every index
+  {
+    ModeContractionIndices<StandardIndexDilution,StandardIndexDilution> m(a2a_params);
+    assert(m.tensorSize() == 1);
+    
+    //Expect the same index contractions for all time,spin_color,flavor coordinates
+    for(il.hit =0; il.hit < nhit; il.hit++){
+      for(il.time =0; il.time < nt; il.time++){
+	for(il.flavor =0; il.flavor < nf; il.flavor++){
+	  for(il.spin_color =0; il.spin_color < nsc; il.spin_color++){
 
-  typename mapBA::TensorType mapBA_v;
-  mapBA::compute(mapBA_v, a2a_arg);
+	    for(ir.hit =0; ir.hit < nhit; ir.hit++){
+	      for(ir.time =0; ir.time < nt; ir.time++){
+		for(ir.flavor =0; ir.flavor < nf; ir.flavor++){
+		  for(ir.spin_color =0; ir.spin_color < nsc; ir.spin_color++){
+		
+		    auto const & v = m.getIndexVector(il,ir);
+		    assert(v.size() == nv);
+		    for(int i=0;i<nv;i++)
+		      assert( v[i].first == i && v[i].second == i );
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+  //Check time packed contractions. The implied delta in time is   delta_{t,t_l}delta_{t,t_r}
+  {
+    ModeContractionIndices<TimePackedIndexDilution,TimePackedIndexDilution> m(a2a_params);
+    assert(m.tensorSize() == a2a_params.getNtBlocks()*a2a_params.getNtBlocks());
+    TimePackedIndexDilution tdil(a2a_params);
 
-  //FullyPackedIndexDilution  packed sc, f, t
-  //TimeFlavorPackedIndexDilution   packed f,t
+    //These indices represent the required evaluations to compute the matrix product
+    // \sum_{j} A_{il,j} B_{j,ir}
+    //The implied delta functions here assert that only  il_t == j_t  and  j_t == ir_t  are non-zero
 
-  int nf = GJP.Gparity() ? 2:1;
-  int nt = GJP.Tnodes()*GJP.TnodeSites();
+    //Expect the same index contractions for all time,spin_color,flavor coordinates
+    for(il.hit =0; il.hit < nhit; il.hit++){
+      for(il.time =0; il.time < nt; il.time++){
+	for(il.flavor =0; il.flavor < nf; il.flavor++){
+	  for(il.spin_color =0; il.spin_color < nsc; il.spin_color++){
 
-  int sizes_expect_AB[] = {12, nf, nt, nf, nt};
-  int sizes_expect_BA[] = {nf, nt, 12, nf, nt};
+	    for(ir.hit =0; ir.hit < nhit; ir.hit++){
+	      for(ir.time =0; ir.time < nt; ir.time++){
+		for(ir.flavor =0; ir.flavor < nf; ir.flavor++){
+		  for(ir.spin_color =0; ir.spin_color < nsc; ir.spin_color++){
+		    auto const & v = m.getIndexVector(il,ir);
+		    // std::cout << il << " " << ir << " size " << v.size() << std::endl;
+		    // for(int i=0;i<v.size();i++){
+		    //   modeIndexSet jl, jr;
+		    //   tdil.indexUnmap(v[i].first,jl);
+		    //   tdil.indexUnmap(v[i].second,jr);
+		    //   std::cout << i << " " << jl << " " << jr << std::endl;
+		    // }
 
-  EXPECT_EQ(mapAB_v.size(), sizes_expect_AB[0]);
-  EXPECT_EQ(mapAB_v[0].size(), sizes_expect_AB[1]);
-  EXPECT_EQ(mapAB_v[0][0].size(), sizes_expect_AB[2]);
-  EXPECT_EQ(mapAB_v[0][0][0].size(), sizes_expect_AB[3]);
-  EXPECT_EQ(mapAB_v[0][0][0][0].size(), sizes_expect_AB[4]);
-
-  EXPECT_EQ(mapBA_v.size(), sizes_expect_BA[0]);
-  EXPECT_EQ(mapBA_v[0].size(), sizes_expect_BA[1]);
-  EXPECT_EQ(mapBA_v[0][0].size(), sizes_expect_BA[2]);
-  EXPECT_EQ(mapBA_v[0][0][0].size(), sizes_expect_BA[3]);
-  EXPECT_EQ(mapBA_v[0][0][0][0].size(), sizes_expect_BA[4]);
-
-  for(int sc1=0;sc1<12;sc1++){
-    for(int f1=0;f1<nf;f1++){
-      for(int t1=0;t1<nt;t1++){
-	for(int f2=0;f2<nf;f2++){
-	  for(int t2=0;t2<nt;t2++){	    
-	    EXPECT_EQ(mapAB_v[sc1][f1][t1][f2][t2].size(), mapBA_v[f2][t2][sc1][f1][t1].size());
-	    for(int i=0;i<mapAB_v[sc1][f1][t1][f2][t2].size();i++){
-	      const std::pair<int,int> &lv = mapAB_v[sc1][f1][t1][f2][t2][i];
-	      const std::pair<int,int> &rv = mapBA_v[f2][t2][sc1][f1][t1][i];
-	      std::pair<int,int> rvt = {rv.second, rv.first}; //of course it will transpose the indices
-	      EXPECT_EQ(lv, rvt);
+		    if(il.time == ir.time){
+		      //They are both unpacked in spin_color, flavor so we expect 12*nf*nhit high mode columns / rows will still need to be contracted
+		      assert(v.size() == nl + nsc*nf*nhit);
+		    }else{
+		      assert(v.size() == nl);
+		    }
+		  }
+		}
+	      }
 	    }
 	  }
 	}
@@ -54,9 +87,47 @@ void testModeMappingTranspose(const A2AArg &a2a_arg){
     }
   }
 
- 
-  if(!UniqueID()) printf("Finished testModeMappingTranspose\n");
-}
 
+  //Check time/spin/color packed contractions
+  {
+    ModeContractionIndices<TimeSpinColorPackedIndexDilution,TimeSpinColorPackedIndexDilution> m(a2a_params);
+    assert(m.tensorSize() == nt*nt*nsc*nsc);
+    TimePackedIndexDilution tdil(a2a_params);
+
+    //These indices represent the required evaluations to compute the matrix product
+    // \sum_{j} A_{il,j} B_{j,ir}
+    //The implied delta functions here assert that only  il_t == j_t  &&  j_t == ir_t && il_sc == j_sc && ir_sc == j_sc   are non-zero
+
+    //Expect the same index contractions for all time,spin_color,flavor coordinates
+    for(il.hit =0; il.hit < nhit; il.hit++){
+      for(il.time =0; il.time < nt; il.time++){
+	for(il.flavor =0; il.flavor < nf; il.flavor++){
+	  for(il.spin_color =0; il.spin_color < nsc; il.spin_color++){
+
+	    for(ir.hit =0; ir.hit < nhit; ir.hit++){
+	      for(ir.time =0; ir.time < nt; ir.time++){
+		for(ir.flavor =0; ir.flavor < nf; ir.flavor++){
+		  for(ir.spin_color =0; ir.spin_color < nsc; ir.spin_color++){
+		    auto const & v = m.getIndexVector(il,ir);
+
+		    if(il.time == ir.time && il.spin_color == ir.spin_color){
+		      assert(v.size() == nl + nf*nhit);
+		    }else{
+		      assert(v.size() == nl);
+		    }
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+
+
+  LOGA2A << "testModeContractionIndices passed" << std::endl;
+}
 
 CPS_END_NAMESPACE

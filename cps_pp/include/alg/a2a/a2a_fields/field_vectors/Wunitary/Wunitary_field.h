@@ -40,7 +40,7 @@ private:
   
   void initialize(const FieldInputParamType &field_setup_params);
 public:
-  typedef FullyPackedIndexDilution DilutionType;
+  typedef TimeSpinColorPackedIndexDilution DilutionType;
 
   A2AvectorWunitary(const A2AArg &_args);
   A2AvectorWunitary(const A2AArg &_args, const FieldInputParamType &field_setup_params);
@@ -68,10 +68,10 @@ public:
   inline bool modeIsAssigned(const int i) const{ return i<nl ? wl[i].assigned() : wh[i-nl].assigned(); }
   
   inline const FermionFieldType & getWl(const int i) const{ return *wl[i]; }
-  inline const ComplexFieldType & getWh(const int hit) const{ return *wh[hit]; }
+  inline const ComplexFieldType & getWh(const int i) const{ return *wh[i]; }
 
   inline FermionFieldType & getWl(const int i){ return *wl[i]; }
-  inline ComplexFieldType & getWh(const int hit){ return *wh[hit]; }
+  inline ComplexFieldType & getWh(const int i){ return *wh[i]; }
 
   inline const FermionFieldType & getLowMode(const int il) const{ return *wl[il]; }
   inline const ComplexFieldType & getHighMode(const int ih) const{ return *wh[ih]; }
@@ -101,6 +101,8 @@ public:
     
     accelerator_inline FermionFieldView & getWl(const int i) const{ return awl[i]; }
     accelerator_inline ComplexFieldView & getWh(const int i) const{ return awh[i]; }
+    accelerator_inline FermionFieldView & getLowMode(const int i) const{ return awl[i]; }
+    accelerator_inline ComplexFieldView & getHighMode(const int i) const{ return awh[i]; }
   
     //The spincolor, flavor and timeslice dilutions are packed so we must treat them differently
     //Mode is a full 'StandardIndex', (unpacked mode index)
@@ -121,9 +123,6 @@ public:
 	int site = getWh(idx).threeToFour(x3d,t);
 
 	//As a matrix, the mode gives the column index
-	//Flavor structure
-	// | A   B  |
-	// | -B* A* |
 	return *(getWh(idx).site_ptr(site,flavor));
       }
     }

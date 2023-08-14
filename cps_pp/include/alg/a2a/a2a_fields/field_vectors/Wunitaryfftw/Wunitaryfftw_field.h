@@ -139,6 +139,9 @@ public:
     //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices: for i>=nl the modeIndexSet is used to obtain the appropriate mode 
     accelerator_inline FermionFieldView & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color, i_high_unmapped.flavor): getWl(i); }
 
+    accelerator_inline FermionFieldView & getLowMode(const int i) const{ return awl[i]; }
+    accelerator_inline FermionFieldView & getHighMode(const int i) const{ return awh[i]; }
+
     //The timeslice dilution is still packed so we must treat it differently
     //Mode is a full 'StandardIndex', (unpacked mode index)
     inline const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{

@@ -223,24 +223,6 @@ void testWunitaryBasic(const A2AArg &a2a_arg, const typename SIMDpolicyBase<4>::
     }
   }
 
-  //Test vector*vector operation with WW and VW forms
-  A2AvectorV<A2Apolicies> V(a2a_arg,simd_dims);
-  V.testRandom();
-
-  typedef typename getPropagatorFieldType<A2Apolicies>::type PropagatorField;
-  PropagatorField pfield_w(simd_dims), pfield_wu(simd_dims);
-
-  mult(pfield_w, W, W, false, true);
-  mult(pfield_wu, Wu, Wu, false, true);
-  auto pfield_w_up = linearUnpack(pfield_w);
-  auto pfield_wu_up = linearUnpack(pfield_wu);
-  assert(pfield_w_up.equals(pfield_wu_up,1e-8,true));
-  
-  mult(pfield_w, V, W, false, true);
-  mult(pfield_wu, V, Wu, false, true);
-  pfield_w_up = linearUnpack(pfield_w);
-  pfield_wu_up = linearUnpack(pfield_wu);
-  assert(pfield_w_up.equals(pfield_wu_up,1e-8,true));
 
   //Test mesonfield generation
   //Because the flavor is unpacked during the generation process, they should give the same results
@@ -272,32 +254,105 @@ void testWunitaryBasic(const A2AArg &a2a_arg, const typename SIMDpolicyBase<4>::
     assert(mf.equals(mfu_conv,1e-8,true));
   }
 
+  //Test vector*vector operation with WW and VW forms
+  A2AvectorV<A2Apolicies> V(a2a_arg,simd_dims);
+  V.testRandom();
 
+  typedef typename getPropagatorFieldType<A2Apolicies>::type PropagatorField;
+  PropagatorField pfield_w(simd_dims), pfield_wu(simd_dims);
 
+  mult(pfield_w, W, W, false, true);
+  mult(pfield_wu, Wu, Wu, false, true);
 
- 
-  /* //Test vector*matrix*vector with W M W and W M V forms */
+  CPSspinColorFlavorMatrix<typename A2Apolicies::ComplexType> WuWu_0, WW_0;
+  {
+    CPSautoView(Wu_v,Wu,HostRead);
+    mult_slow(WuWu_0,Wu_v,Wu_v,0,0,false,true);
+
+    CPSautoView(W_v,W,HostRead);
+    mult_slow(WW_0,W_v,W_v,0,0,false,true);
+  }
+
+  std::cout << "MULT SLOW" << std::endl;
+  for(int s1=0;s1<4;s1++)
+    for(int s2=0;s2<4;s2++)
+      for(int c1=0;c1<3;c1++)
+	for(int c2=0;c2<3;c2++)
+	  for(int f1=0;f1<2;f1++)
+	    for(int f2=0;f2<2;f2++){
+	      auto diff = WW_0(s1,s2)(c1,c2)(f1,f2) - WuWu_0(s1,s2)(c1,c2)(f1,f2);
+		std::cout << s1 << " " << s2 << " " << c1 << " " << c2 << " " << f1 << " " << f2 << " " <<  WuWu_0(s1,s2)(c1,c2)(f1,f2) << " <----> " << WW_0(s1,s2)(c1,c2)(f1,f2) << " diff " << diff << std::endl;
+	    }
   
-  /* A2Aparams a2a_params(a2a_arg); */
-  /* A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf; */
-  /* mf.setup(a2a_params,a2a_params,0,0); */
-  /* mf.testRandom(); */
+  WuWu_0.zero(); WW_0.zero();
+  {
+    CPSautoView(Wu_v,Wu,HostRead);
+    mult(WuWu_0,Wu_v,Wu_v,0,0,false,true);
 
-  /* pfield_w.zero(); pfield_wsc.zero(); */
+    CPSautoView(W_v,W,HostRead);
+    mult(WW_0,W_v,W_v,0,0,false,true);
+  }
 
-  /* mult(pfield_w, W, mf, W, false, true); */
-  /* mult(pfield_wsc, Wsc, mf, Wsc, false, true); */
-  /* pfield_w_up = linearUnpack(pfield_w); */
-  /* pfield_wsc_up = linearUnpack(pfield_wsc); */
-  /* assert(pfield_w_up.equals(pfield_wsc_up,1e-8,true)); */
+  std::cout << "MULT OPT" << std::endl;
+  for(int s1=0;s1<4;s1++)
+    for(int s2=0;s2<4;s2++)
+      for(int c1=0;c1<3;c1++)
+	for(int c2=0;c2<3;c2++)
+	  for(int f1=0;f1<2;f1++)
+	    for(int f2=0;f2<2;f2++){
+	      auto diff = WW_0(s1,s2)(c1,c2)(f1,f2) - WuWu_0(s1,s2)(c1,c2)(f1,f2);	      
+	      std::cout << s1 << " " << s2 << " " << c1 << " " << c2 << " " << f1 << " " << f2 << " " <<  WuWu_0(s1,s2)(c1,c2)(f1,f2) << " <----> " << WW_0(s1,s2)(c1,c2)(f1,f2) << " diff " << diff << std::endl;
+	    }
+
+
   
-  /* mult(pfield_w, W, mf, V, false, true); */
-  /* mult(pfield_wsc, Wsc, mf, V, false, true); */
-  /* pfield_w_up = linearUnpack(pfield_w); */
-  /* pfield_wsc_up = linearUnpack(pfield_wsc); */
-  /* assert(pfield_w_up.equals(pfield_wsc_up,1e-8,true)); */
- 
+  std::cout << "FIELD OPT SITE" << std::endl;
+  {
+    CPSautoView(pfield_w_v,pfield_w,HostRead);
+    CPSautoView(pfield_wu_v,pfield_wu,HostRead);
 
+    size_t s=0;
+    auto WW_0 = *pfield_w_v.site_ptr(s);
+    auto WuWu_0 = *pfield_wu_v.site_ptr(s);
+
+    for(int s1=0;s1<4;s1++)
+    for(int s2=0;s2<4;s2++)
+      for(int c1=0;c1<3;c1++)
+	for(int c2=0;c2<3;c2++)
+	  for(int f1=0;f1<2;f1++)
+	    for(int f2=0;f2<2;f2++){
+	      auto diff = WW_0(s1,s2)(c1,c2)(f1,f2) - WuWu_0(s1,s2)(c1,c2)(f1,f2);	      
+	      std::cout << s1 << " " << s2 << " " << c1 << " " << c2 << " " << f1 << " " << f2 << " " <<  WuWu_0(s1,s2)(c1,c2)(f1,f2) << " <----> " << WW_0(s1,s2)(c1,c2)(f1,f2) << " diff " << diff << std::endl;
+	    }
+  }
+
+
+  auto pfield_w_up = linearUnpack(pfield_w);
+  auto pfield_wu_up = linearUnpack(pfield_wu);
+  assert(pfield_w_up.equals(pfield_wu_up,1e-8,true));
+  
+  mult(pfield_w, V, W, false, true);
+  mult(pfield_wu, V, Wu, false, true);
+  pfield_w_up = linearUnpack(pfield_w);
+  pfield_wu_up = linearUnpack(pfield_wu);
+  assert(pfield_w_up.equals(pfield_wu_up,1e-8,true));
+
+
+  //Test vector*matrix*vector with W M W and W M V forms
+  pfield_w.zero(); pfield_wu.zero();
+
+  mult(pfield_w, W, mf, W, false, true);
+  mult(pfield_wu, Wu, mfu, Wu, false, true);
+  pfield_w_up = linearUnpack(pfield_w);
+  pfield_wu_up = linearUnpack(pfield_wu);
+  assert(pfield_w_up.equals(pfield_wu_up,1e-8,true));
+  
+  mult(pfield_w, W, mf, V, false, true);
+  mult(pfield_wu, Wu, mfu, V, false, true);
+  pfield_w_up = linearUnpack(pfield_w);
+  pfield_wu_up = linearUnpack(pfield_wu);
+  assert(pfield_w_up.equals(pfield_wu_up,1e-8,true));
+ 
   std::cout << "testWunitaryBasic passed" << std::endl;
 }
 
