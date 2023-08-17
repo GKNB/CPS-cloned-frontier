@@ -20,7 +20,8 @@ void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
 
   int Nblocks = (nh + block_size - 1)/block_size;
   LOGA2A << "Computing V,W high mode contribution in " << Nblocks << " blocks of " << block_size << std::endl;
-
+  printMem("Prior to V,W high mode calculation");
+  
 #ifndef MEMTEST_MODE
   for(size_t b=0;b<Nblocks;b++){
     size_t istart = b*block_size;
@@ -49,5 +50,6 @@ void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
 
   Wsrc_impl.solutionPostOp(V);
 #endif
+  LOGA2A << "Finished V,W high modes" << std::endl;    
 }
 

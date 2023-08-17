@@ -92,6 +92,7 @@ struct computeVW_impl{
     SOpD.reset(new GridDiracD(*SUmuD,*SFGridD,*SFrbGridD,*SUGridD,*SUrbGridD,mass,M5,mob_b,mob_c, params));
     SOpF.reset(new GridDiracF(*SUmuF,*SFGridF,*SFrbGridF,*SUGridF,*SUrbGridF,mass,M5,mob_b,mob_c, params));
     LOGA2A << "Finished setting up split grids" << std::endl;
+    printMem("After setting up split grids");
   }
 
   computeVW_impl(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, const EvecInterfaceMixedPrec<typename Policies::GridFermionField, typename Policies::GridFermionFieldF> &evecs,

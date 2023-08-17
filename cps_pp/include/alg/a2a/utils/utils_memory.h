@@ -24,6 +24,9 @@
 #endif
 
 #include<execinfo.h>
+#include <atomic>
+#include <regex>
+#include <thread>
 
 #ifdef PRINTMEM_HEAPDUMP_GPERFTOOLS
 //Allows dumping of heap state. Requires linking against libtcmalloc  -ltcmalloc
@@ -36,7 +39,7 @@ inline double byte_to_MB(const size_t b){
   return double(b)/1024./1024.;
 }
 
-inline int procParseLine(char* line){
+inline long int procParseLine(char* line){
     // This assumes that a digit will be found and the line ends in " Kb".
     int i = strlen(line);
     const char* p = line;
@@ -47,9 +50,9 @@ inline int procParseLine(char* line){
 }
 
 //Get the "resident set size"
-inline int getRSS(){ //Note: this value is in KB!
+inline long int getRSS(){ //Note: this value is in KB!
     FILE* file = fopen("/proc/self/status", "r");
-    int result = -1;
+    long int result = -1;
     char line[128];
 
     while (fgets(line, 128, file) != NULL){
@@ -61,6 +64,29 @@ inline int getRSS(){ //Note: this value is in KB!
     fclose(file);
     return result;
 }
+
+//Get the "resident set size" breakdown: anonymous (RAM), file, shared
+//RssAnon:	   13524 kB
+//RssFile:	   10200 kB
+//RssShmem:	      20 kB
+inline void getRSSbreakdown(long int &anon, long int &file, long int &shmem){ //Note: this value is in KB!  
+    FILE* f = fopen("/proc/self/status", "r");
+    anon = file = shmem = -1;
+    char line[128];
+
+    while (fgets(line, 128, f) != NULL){
+        if (strncmp(line, "RssAnon:", 6) == 0){
+	  anon = procParseLine(line);
+        }else if (strncmp(line, "RssFile:", 6) == 0){
+	  file = procParseLine(line);
+	}else if (strncmp(line, "RssShmem:", 6) == 0){
+	  shmem = procParseLine(line);
+	  break;
+	}	  
+    }
+    fclose(f);
+}
+
 
 
 inline std::string memPoolManagerReport();
@@ -176,7 +202,10 @@ inline void printMem(const std::string &reason = "", int node = 0, FILE* stream 
   if(UniqueID()==node){
     fprintf(stream, "%s\n", memPoolManagerReport().c_str());
   }
-  
+
+#ifdef USE_GRID
+  Grid::MemoryManager::PrintBytes(); //only output for node 0 unfortunately
+#endif  
   fflush(stream);
 }
 
@@ -208,6 +237,77 @@ inline void HeapProfilerStop(){}
 inline void HeapProfilerDump(const char *reason){}
 #endif
 
+
+class MemoryMonitor{
+  std::thread *t;
+  std::atomic<bool> stop;
+public:
+  MemoryMonitor(): t(nullptr){}
+
+  void Start(){
+    if(t) return;
+
+    using namespace Grid;
+    Logger::GlobalStopWatch.Stop();
+    GridTime toff = Grid::Logger::GlobalStopWatch.Elapsed();
+    Logger::GlobalStopWatch.Start();
+    GridTimePoint start = GridClock::now();
+    std::cout << GridLogMessage << "Starting MemoryMonitor at " << toff << std::endl;
+
+    stop = false;
+    std::atomic<bool>* stp = &stop;
+
+    t = new std::thread([toff,start,stp]{
+	std::ofstream out("mem." + std::to_string(UniqueID()));
+
+	long anon_last=0, file_last=0, shmem_last=0, usedmem_last=0;
+
+	while(!stp->load()){
+	  GridTime t = toff + std::chrono::duration_cast<GridUsecs>(GridClock::now() - start);
+	  GridUsecs tu = std::chrono::duration_cast<GridUsecs>(t);
+
+	  long anon, file, shmem;
+	  getRSSbreakdown(anon, file, shmem);
+	  
+	  //VmRSS:   38960 kB	  
+	  // std::string VmRSS;
+	  // {
+	  //   std::ifstream f("/proc/self/status");
+	  //   for(int i=0;i<18;i++) std::getline(f,VmRSS);
+	  // }
+	  // std::smatch m;
+	  // assert(std::regex_search(VmRSS, m, std::regex(R"((\d+)\skB)")));
+	  // VmRSS = m[1];
+	  // long VmRSS_i = std::stol(VmRSS);
+
+	  struct sysinfo sys_info;
+	  sysinfo(&sys_info);
+	  long total_mem = ((uint64_t)sys_info.totalram * sys_info.mem_unit)/1024;
+	  long free_mem = ((uint64_t)sys_info.freeram * sys_info.mem_unit)/1024;
+	  long usedmem = total_mem - free_mem;
+
+	  out << tu << " anon:" << anon << " danon:" << anon-anon_last << " file:" << file << " dfile:" << file-file_last << " shmem:" << shmem << " dshmem:" << shmem-shmem_last << " used:" << usedmem << " dused:" << usedmem - usedmem_last << " total:" << total_mem << std::endl << std::flush;
+
+	  anon_last = anon;
+	  file_last = file;
+	  shmem_last = shmem;
+	  usedmem_last = usedmem;
+	  
+	  std::this_thread::sleep_for(GridMillisecs(1000));
+	}
+	out.close();
+      }
+      );
+  }
+  
+
+  void Stop(){
+    if(!t) return;
+    stop = true;
+    t->join();
+  }
+
+};
 
 CPS_END_NAMESPACE
 

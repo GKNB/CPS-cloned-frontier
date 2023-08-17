@@ -50,8 +50,10 @@ void computeEvecs(EvecManagerType &eig, const LightHeavy lh, const Parameters &p
 void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const EvecManagerType &eig, double mass, const CGcontrols &cg_controls, 
 	       typename A2Apolicies::FgridGFclass *lat, bool randomize_vw){
 #ifdef USE_DESTRUCTIVE_FFT
-  LOGA2A << "Allocating V and W vectors" << std::endl;
+  LOGA2A << "Allocating V (" << V.Mbyte_size(V.getArgs(),V.getFieldInputParams()) << " MB), and W (" << W.Mbyte_size(W.getArgs(),W.getFieldInputParams()) << " MB) vectors " << std::endl;  
   V.allocModes(); W.allocModes();
+  LOGA2A << "Initializing V,W" << std::endl;
+  V.zero(); W.zero(); //force the memory to be assigned right now (TESTING)
 #endif
   if(!randomize_vw){
     LOGA2A << "Creating interface and running VW calculation" << std::endl;
