@@ -35,7 +35,7 @@ void parsePiPiMomFile(std::vector<CorrelatorMomenta> &correlators, const std::st
 
   hostEndian::EndianType endian = hostEndian::get();
 
-  if(!UniqueID()){ std::cout << "parsePiPiMomFile: Checking file " << file << std::endl; fflush(stdout); }
+  LOGA2A << "parsePiPiMomFile: Checking file " << file << std::endl;
 
   while(!f.eof()){
     int size;
@@ -44,7 +44,7 @@ void parsePiPiMomFile(std::vector<CorrelatorMomenta> &correlators, const std::st
     uint32_t cksum_in;
     f >> cksum_in;
 
-    if(!UniqueID()){ std::cout << "Got a size " << size << " and cksum " << cksum_in << std::endl; }
+    LOGA2A << "Got a size " << size << " and cksum " << cksum_in << std::endl;
 
     uint32_t cksum = crc32(0L,Z_NULL,0);
     
@@ -157,7 +157,7 @@ void optimizePiPiMomentumOrdering(std::vector<CorrelatorMomenta> &correlators){
   for(int i=0;i<nperm;i++){
     std::vector<CorrelatorMomenta> sorted = sort(correlators, perms[i]);
     int reuse = computeReuse(sorted);
-    if(!UniqueID()){ std::cout << "optimizePiPiMomentumOrdering permutation " << perms[i][0] << "," << perms[i][1] << "," << perms[i][2] << "," << perms[i][3] << " reuse, " << reuse << ", best " << max_reuse << std::endl; }
+    LOGA2A << "optimizePiPiMomentumOrdering permutation " << perms[i][0] << "," << perms[i][1] << "," << perms[i][2] << "," << perms[i][3] << " reuse, " << reuse << ", best " << max_reuse << std::endl;
     if(reuse > max_reuse){
       max_reuse = reuse;
       best = std::move(sorted);

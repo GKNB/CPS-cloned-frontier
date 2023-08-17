@@ -75,12 +75,12 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
   free(gather_buf);
 #endif
 
-  print_time("computeKtoSigmaContractions","Sigma meson field pre-average", dclock()-time);
+  a2a_print_time("computeKtoSigmaContractions","Sigma meson field pre-average", dclock()-time);
 	
 
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
   if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
-  if(!UniqueID()) printf("Trimming block allocator\n");
+  LOGA2A << printf("Trimming block allocator" << std::endl;
   DistributedMemoryStorage::block_allocator().trim();
   if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
 #endif
@@ -94,7 +94,7 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
   //Type1/2
   {    
     double time = -dclock();
-    if(!UniqueID()) printf("Starting K->sigma type 1/2 contractions with source %s\n",src_descr.c_str());
+    LOGA2A << "Starting K->sigma type 1/2 contractions with source " << src_descr << std::endl;
     printMem("Memory at start of K->sigma type 1/2 contraction");     
     
     std::vector<ResultsContainerType> result;
@@ -107,13 +107,13 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
       os << ".hexfloat"; result[i].write(os.str(),true);
 #endif
     }
-    print_time("main","K->sigma type 1/2",time+dclock());
+    a2a_print_time("main","K->sigma type 1/2",time+dclock());
   }
 
   //Type3
   {
     double time = -dclock();
-    if(!UniqueID()) printf("Starting K->sigma type 3 contractions with source %s\n",src_descr.c_str());
+    LOGA2A << "Starting K->sigma type 3 contractions with source " << src_descr << std::endl;
     printMem("Memory at start of K->sigma type 3 contraction");     
     std::vector<ResultsContainerType> result;
     std::vector<MixDiagResultsContainerType> mix;
@@ -126,13 +126,13 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
       os << ".hexfloat"; write(os.str(), result[i], mix[i], true);
 #endif
     }
-    print_time("main","K->sigma type 3",time+dclock());
+    a2a_print_time("main","K->sigma type 3",time+dclock());
   }  
 
   //Type4
   if(do_type4){
     double time = -dclock();
-    if(!UniqueID()) printf("Starting K->sigma type 4 contractions\n");
+    LOGA2A << "Starting K->sigma type 4 contractions" << std::endl;
     printMem("Memory at start of K->sigma type 4 contraction");     
     ResultsContainerType result;
     MixDiagResultsContainerType mix;
@@ -143,7 +143,7 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
 #ifdef WRITE_HEX_OUTPUT
     os << ".hexfloat"; write(os.str(), result, mix, true);
 #endif
-    print_time("main","K->sigma type 4",time+dclock());
+    a2a_print_time("main","K->sigma type 4",time+dclock());
   }
 
   printMem("Memory at end of K->sigma contractions");

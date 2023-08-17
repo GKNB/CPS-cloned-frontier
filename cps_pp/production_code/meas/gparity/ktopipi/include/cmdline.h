@@ -1,17 +1,35 @@
 #ifndef _KTOPIPI_MAIN_A2A_CMDLINE_H_
 #define _KTOPIPI_MAIN_A2A_CMDLINE_H_
 
+struct computeEvecsOpts{
+  bool randomize_evecs; //skip Lanczos and just use random evecs for testing.
+
+  bool save_evecs;
+  std::string save_evecs_stub;
+
+  bool load_evecs;
+  std::string load_evecs_stub;
+
+  computeEvecsOpts(): randomize_evecs(false), save_evecs(false), load_evecs(false)
+  {}
+};
+
 //Command line argument store/parse
 struct CommandLineArgs{
   int nthreads;
   int nthread_contractions;
   bool randomize_vw; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
-  bool randomize_evecs; //skip Lanczos and just use random evecs for testing.
+
+  computeEvecsOpts evec_opts_l;
+  computeEvecsOpts evec_opts_h;
+
+  bool randomize_evecs; 
   bool randomize_mf; //use random meson fields
   bool force_evec_compute; //randomize_evecs causes Lanczos to be skipped unless this option is used
   bool tune_lanczos_light; //just run the light lanczos on first config then exit
   bool tune_lanczos_heavy; //just run the heavy lanczos on first config then exit
   bool skip_gauge_fix;
+  bool tune_gauge_fix;
   bool double_latt; //most ancient 8^4 quenched lattices stored both U and U*. Enable this to read those configs
   bool do_kaon2pt;
   bool do_pion2pt;
@@ -56,12 +74,12 @@ struct CommandLineArgs{
 #endif
     nthread_contractions = -1;
     randomize_vw = false;
-    randomize_evecs = false;
     randomize_mf = false;
     force_evec_compute = false; //randomize_evecs causes Lanczos to be skipped unless this option is used
     tune_lanczos_light = false; //just run the light lanczos on first config then exit
     tune_lanczos_heavy = false; //just run the heavy lanczos on first config then exit
     skip_gauge_fix = false;
+    tune_gauge_fix = false;
     double_latt = false; //most ancient 8^4 quenched lattices stored both U and U*. Enable this to read those configs
     do_kaon2pt = true;
     do_pion2pt = true;
@@ -94,9 +112,9 @@ struct CommandLineArgs{
   }
 
   void parse(int argc, char **argv, int begin){
-    if(!UniqueID()){ printf("Arguments:\n"); fflush(stdout); }
+    LOGA2A << "Arguments:" << std::endl;
     for(int i=0;i<argc;i++){
-      if(!UniqueID()){ printf("%d \"%s\"\n",i,argv[i]); fflush(stdout); }
+      a2a_printfnt("%d \"%s\"\n",i,argv[i]);
     }
     
     const int ngrid_arg = 16;
@@ -118,46 +136,74 @@ struct CommandLineArgs{
       char* cmd = argv[arg];
       std::string cmdstr(cmd);
       if( cmdstr == "-nthread" ){
-	if(arg == argc-1){ if(!UniqueID()){ printf("-nthread must be followed by a number!\n"); fflush(stdout); } exit(-1); }
+	if(arg == argc-1){ LOGA2A << "-nthread must be followed by a number!" << std::endl; exit(-1); }
 	nthreads = strToAny<int>(argv[arg+1]);
-	if(!UniqueID()){ printf("Setting number of threads to %d\n",nthreads); }
+	LOGA2A << "Setting number of threads to " << nthreads << std::endl;
 	arg+=2;
       }else if( cmdstr == "-nthread_contractions" ){ //optional - use if you want more/less threads in the contraction part
-	if(arg == argc-1){ if(!UniqueID()){ printf("-nthread_contractions must be followed by a number!\n"); fflush(stdout); } exit(-1); }
+	if(arg == argc-1){ LOGA2A << "-nthread_contractions must be followed by a number!" << std::endl; exit(-1); }
 	nthread_contractions = strToAny<int>(argv[arg+1]);
-	if(!UniqueID()){ printf("Setting number of threads in contractions to %d\n",nthread_contractions); }
+	LOGA2A << "Setting number of threads in contractions to " << nthread_contractions << std::endl;
 	arg+=2;
       }else if( strncmp(cmd,"-randomize_vw",15) == 0){
 	randomize_vw = true;
-	if(!UniqueID()){ printf("Using random vectors for V and W, skipping Lanczos and inversion stages\n"); fflush(stdout); }
+	LOGA2A << "Using random vectors for V and W, skipping Lanczos and inversion stages" << std::endl;
 	arg++;
       }else if( strncmp(cmd,"-randomize_evecs",15) == 0){
-	randomize_evecs = true;
-	if(!UniqueID()){ printf("Using random eigenvectors\n"); fflush(stdout); }
+	evec_opts_l.randomize_evecs = evec_opts_h.randomize_evecs = true;
+	LOGA2A << "Using random eigenvectors" << std::endl;
 	arg++;      
+      }else if( cmdstr == "-load_light_evecs"){
+	assert(arg < argc-1);
+	evec_opts_l.load_evecs = true;
+	evec_opts_l.load_evecs_stub = argv[arg+1];
+	LOGA2A << "Loading light eigenvectors with stub " << evec_opts_l.load_evecs_stub << std::endl;
+	arg += 2;
+      }else if( cmdstr == "-save_light_evecs"){
+	assert(arg < argc-1);
+	evec_opts_l.save_evecs = true;
+	evec_opts_l.save_evecs_stub = argv[arg+1];
+	LOGA2A << "Saving light eigenvectors with stub " << evec_opts_l.save_evecs_stub << std::endl;
+	arg += 2;
+      }else if( cmdstr == "-load_heavy_evecs"){
+	assert(arg < argc-1);
+	evec_opts_h.load_evecs = true;
+	evec_opts_h.load_evecs_stub = argv[arg+1];
+	LOGA2A << "Loading heavy eigenvectors with stub " << evec_opts_h.load_evecs_stub << std::endl;
+	arg += 2;
+      }else if( cmdstr == "-save_heavy_evecs"){
+	assert(arg < argc-1);
+	evec_opts_h.save_evecs = true;
+	evec_opts_h.save_evecs_stub = argv[arg+1];
+	LOGA2A << "Saving heavy eigenvectors with stub " << evec_opts_h.save_evecs_stub << std::endl;
+	arg += 2;
       }else if( strncmp(cmd,"-randomize_mf",15) == 0){
 	randomize_mf = true;
-	if(!UniqueID()){ printf("Using random meson fields\n"); fflush(stdout); }
+	LOGA2A << "Using random meson fields" << std::endl;
 	arg++; 
       }else if( strncmp(cmd,"-force_evec_compute",15) == 0){
 	force_evec_compute = true;
-	if(!UniqueID()){ printf("Forcing evec compute despite randomize_vw\n"); fflush(stdout); }
+	LOGA2A << "Forcing evec compute despite randomize_vw" << std::endl;
 	arg++;      
       }else if( strncmp(cmd,"-tune_lanczos_light",15) == 0){
 	tune_lanczos_light = true;
-	if(!UniqueID()){ printf("Just tuning light lanczos on first config\n"); fflush(stdout); }
+	LOGA2A << "Just tuning light lanczos on first config" << std::endl;
 	arg++;
       }else if( strncmp(cmd,"-tune_lanczos_heavy",15) == 0){
 	tune_lanczos_heavy = true;
-	if(!UniqueID()){ printf("Just tuning heavy lanczos on first config\n"); fflush(stdout); }
+	LOGA2A << "Just tuning heavy lanczos on first config" << std::endl;
 	arg++;
       }else if( strncmp(cmd,"-double_latt",15) == 0){
 	double_latt = true;
-	if(!UniqueID()){ printf("Loading doubled lattices\n"); fflush(stdout); }
+	LOGA2A << "Loading doubled lattices" << std::endl;
 	arg++;
       }else if( strncmp(cmd,"-skip_gauge_fix",20) == 0){
 	skip_gauge_fix = true;
-	if(!UniqueID()){ printf("Skipping gauge fixing\n"); fflush(stdout); }
+	LOGA2A << "Skipping gauge fixing" << std::endl;
+	arg++;
+      }else if( cmdstr == "-tune_gauge_fix"){
+	tune_gauge_fix = true;
+	LOGA2A << "Tuning gauge fixing" << std::endl;
 	arg++;
       }else if( strncmp(cmd,"-mf_outerblocking",15) == 0){
 	int* b[3] = { &BlockedMesonFieldArgs::bi, &BlockedMesonFieldArgs::bj, &BlockedMesonFieldArgs::bp };
@@ -178,12 +224,12 @@ struct CommandLineArgs{
 	do_split_job = true;
 	split_job_part = strToAny<int>(argv[arg+1]);
 	checkpoint_dir = argv[arg+2];
-	if(!UniqueID()) printf("Doing split job part %d with checkpoint directory %s\n",split_job_part,checkpoint_dir.c_str());
+	a2a_printf("Doing split job part %d with checkpoint directory %s\n",split_job_part,checkpoint_dir.c_str());
 	arg+=3;
       }else if( strncmp(cmd,"-do_LL_props_only",30) == 0){
 	do_LL_props_only = true;
 	checkpoint_dir = argv[arg+1];
-	if(!UniqueID()) printf("Doing LL props only with checkpoint directory %s\n",checkpoint_dir.c_str());
+	LOGA2A << "Doing LL props only with checkpoint directory "<< checkpoint_dir << std::endl;
 	arg+=2;
       }else if( strncmp(cmd,"-skip_kaon2pt",30) == 0){
 	do_kaon2pt = false;
@@ -229,10 +275,7 @@ struct CommandLineArgs{
       }else if( strncmp(cmd,"-mmap_threshold_and_max",40) == 0){ //Using these options can reduce memory fragmentation but may impact performance
 	size_t threshold = strToAny<size_t>(argv[arg+1]);
 	size_t mmap_max = strToAny<size_t>(argv[arg+2]);
-	if(!UniqueID()){
-	  std::ostringstream os; os << "Set mmap_threshold to " << threshold << " and mmap_max to " << mmap_max << std::endl;  
-	  printf(os.str().c_str());
-	}
+	LOGA2A << "Set mmap_threshold to " << threshold << " and mmap_max to " << mmap_max << std::endl;  
 	assert(mallopt(M_MMAP_THRESHOLD, threshold)==1);
 	assert(mallopt(M_MMAP_MAX, mmap_max)==1);
 	arg+=3;
@@ -244,26 +287,26 @@ struct CommandLineArgs{
 #ifdef BNL_KNL_PERFORMANCE_CHECK
       }else if( strncmp(cmd,"-bnl_knl_minperf",30) == 0){
 	bnl_knl_minperf = strToAny<double>(argv[arg+1]);
-	if(!UniqueID()) printf("Set BNL KNL min performance to %f Mflops/node\n",bnl_knl_minperf);
+	LOGA2A << "Set BNL KNL min performance to " << bnl_knl_minperf << " Mflops/node" << std::endl;
 	arg+=2;
 #endif
 
 #ifdef USE_GRID
       }else if( strncmp(cmd,"-run_initial_grid_benchmarks",50) == 0){
 	run_initial_grid_benchmarks = true;
-	if(!UniqueID()) printf("Running initial Grid benchmarks\n");
+	LOGA2A << "Running initial Grid benchmarks" << std::endl;
 	arg++;
 #endif
 
       }else if( cmdstr == "-mesonfield_scratch_stub" ){
 	BurstBufferMemoryStorage::filestub() = argv[arg+1];
-	if(!UniqueID()) printf("Set mesonfield scratch stub to %s\n",BurstBufferMemoryStorage::filestub().c_str());
+	LOGA2A << "Set mesonfield scratch stub to " << BurstBufferMemoryStorage::filestub() << std::endl;
 	arg+=2;
 
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
       }else if( cmdstr == "-max_memblocks" ){
 	ReuseBlockAllocatorOptions::maxBlocks() = strToAny<int>(argv[arg+1]);
-	if(!UniqueID()) printf("Set max memory blocks in block allocator to %d\n", ReuseBlockAllocatorOptions::maxBlocks());
+	LOGA2A << "Set max memory blocks in block allocator to " << ReuseBlockAllocatorOptions::maxBlocks() << std::endl;
 	arg+=2;
 #endif
 
@@ -292,14 +335,14 @@ struct CommandLineArgs{
 	bool is_grid_arg = false;
 	for(int i=0;i<ngrid_arg;i++){
 	  if( std::string(cmd) == grid_args[i] ){
-	    if(!UniqueID()){ printf("main.C: Ignoring Grid argument %s\n",cmd); fflush(stdout); }
+	    LOGA2A << "main.C: Ignoring Grid argument " << cmd << std::endl;
 	    arg += grid_args_skip[i];
 	    is_grid_arg = true;
 	    break;
 	  }
 	}
 	if(!is_grid_arg){
-	  if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
+	  LOGA2A << "Unrecognised argument: " << cmd << std::endl;
 	  exit(-1);
 	}
       }

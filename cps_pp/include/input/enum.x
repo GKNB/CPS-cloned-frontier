@@ -917,6 +917,15 @@ enum A2A_ZMobiusGammaSource{
 
 enum A2AhighModeSourceType{
      A2AhighModeSourceTypeOrig,
-     A2AhighModeSourceTypeXconj
+     A2AhighModeSourceTypeXconj,
+     A2AhighModeSourceTypeFlavorUnit,
+     A2AhighModeSourceTypeFlavorCConj
+};
+
+enum A2AlanczosType{
+     A2AlanczosTypeDoubleConvSingle,
+     A2AlanczosTypeXconjDoubleConvSingle,
+     A2AlanczosTypeBlockXconjDoubleConvSingle,
+     A2AlanczosTypeBlockXconjSingle
 };
      

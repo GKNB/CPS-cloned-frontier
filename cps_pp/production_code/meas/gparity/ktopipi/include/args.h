@@ -8,7 +8,11 @@ struct Parameters{
   DoArg do_arg;
   JobParams jp;
   MeasArg meas_arg;
+#ifdef A2A_USE_GRID_GFIX
+  FixGaugeArgGrid fix_gauge_arg;
+#else
   FixGaugeArg fix_gauge_arg;
+#endif
   A2AArg a2a_arg;
   A2AArg a2a_arg_s;
   LancArg lanc_arg;

@@ -4,6 +4,7 @@
 #include<alg/a2a_arg.h>
 #include<string>
 #include<sstream>
+#include<alg/a2a/utils/utils_parallel.h>
 
 CPS_START_NAMESPACE
 
@@ -40,7 +41,7 @@ public:
 	    ndilute == r.ndilute  &&  nh == r.nh  &&  nv == r.nv && Lt == r.Lt);
 	  if(!res)
 	  {
-		  std::cout << "nl = " << nl << "\t r.nl = " << r.nl
+		  LOGA2A << "nl = " << nl << "\t r.nl = " << r.nl
                       << "\nnhits = " << nhits << "\t r.nhits = " <<  r.nhits
                       << "\nnflavors = " <<  nflavors << "\t r.nflavors = " <<  r.nflavors
                       << "\nntblocks = " <<  ntblocks << "\t r.ntblocks = " <<  r.ntblocks

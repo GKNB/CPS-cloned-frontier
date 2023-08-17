@@ -196,7 +196,7 @@ struct SingleSrcVectorPoliciesSIMDoffload{
   enum { Nsimd = accumType::Nsimd() }; //should be 1 for scalar types
 
   static inline void setupPolicy(const mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r){ 
-    if(!UniqueID()){ printf("Using SingleSrcVectorPoliciesSIMDoffload\n"); fflush(stdout); }
+    LOGA2A << "Using SingleSrcVectorPoliciesSIMDoffload" << std::endl;
     assert(M.mfPerTimeSlice() == 1); 
   }
 
@@ -251,7 +251,7 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 
   inline void setupPolicy(const mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r){
     mfPerTimeSlice = M.mfPerTimeSlice();
-    if(!UniqueID()){ printf("Using MultiSrcVectorPoliciesSIMDoffload with $MF per timeslice %d\n", mfPerTimeSlice); fflush(stdout); }
+    a2a_printf("Using MultiSrcVectorPoliciesSIMDoffload with $MF per timeslice %d\n", mfPerTimeSlice);
   }
 
   void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
@@ -324,15 +324,15 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     this->setupPolicy(mf_t,l,M,r);
     
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    if(!UniqueID()) printf("Starting A2AmesonField::compute (blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
+    a2a_printf("Starting A2AmesonField::compute (blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
     if(!UniqueID()) printMem("mfComputeGeneralOffload node 0 memory status",0);
 
     cps::sync();
 
-    if(!UniqueID()){ printf("Initializing meson fields\n"); fflush(stdout); }
+    LOGA2A << "Initializing meson fields" << std::endl;
     double time = -dclock();
     this->initializeMesonFields(mf_t,l,r,Lt,do_setup);
-    print_time("A2AmesonField","setup",time + dclock());
+    a2a_print_time("A2AmesonField","setup",time + dclock());
    
     time = -dclock();
     //For W vectors we dilute out the flavor index in-place while performing this contraction
@@ -403,16 +403,16 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     accumType *accum_host = (accumType*)malloc_check(naccum*sizeof(accumType));    
 #endif
     
-    std::cout << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
+    LOGA2A << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
     
 
 #ifdef MF_OFFLOAD_INNER_BLOCKING
-    std::cout << "Using inner block sizes " << sbi << " " << sbj << " " << sbx << std::endl;
+    LOGA2A << "Using inner block sizes " << sbi << " " << sbj << " " << sbx << std::endl;
 #endif
     size_t nioblocks = (nmodes_l + bi-1)/bi,  njoblocks = (nmodes_r + bj-1)/bj,  nxoblocks = (size_3d + bx-1)/bx;
     size_t kernel_execs = nioblocks * njoblocks * nxoblocks;
     
-    std::cout << "Number of outer blocks " << nioblocks << " " << njoblocks << " " << nxoblocks << " for " << kernel_execs << " kernel executions per timeslice" << std::endl;
+    LOGA2A << "Number of outer blocks " << nioblocks << " " << njoblocks << " " << nxoblocks << " for " << kernel_execs << " kernel executions per timeslice" << std::endl;
 
     
     double reduce_time = 0;
@@ -548,7 +548,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    kernel_time += dclock();
 
 	    ++kernel_exec_it;
-	    if(kernel_exec_it % 50 == 0 && !UniqueID()){ printf("Kernel iteration %zu / %zu\n", kernel_exec_it, kernel_execs ); fflush(stdout); }	    
+	    if(kernel_exec_it % 50 == 0){ a2a_printf("Kernel iteration %zu / %zu\n", kernel_exec_it, kernel_execs ); }	    
 	    
 	    reduce_time -= dclock();
 #ifndef MF_REDUCE_ON_DEVICE
@@ -571,21 +571,21 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
       //print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
     }
 
-    print_time("A2AmesonField","local compute",time + dclock());
-    print_time("A2AmesonField","kernel time in local compute",kernel_time);
-    print_time("A2AmesonField","ptr setup time in local compute",ptr_setup_time);
-    print_time("A2AmesonField","reduce time in local compute",reduce_time);
+    a2a_print_time("A2AmesonField","local compute",time + dclock());
+    a2a_print_time("A2AmesonField","kernel time in local compute",kernel_time);
+    a2a_print_time("A2AmesonField","ptr setup time in local compute",ptr_setup_time);
+    a2a_print_time("A2AmesonField","reduce time in local compute",reduce_time);
     
     time = -dclock();
     cps::sync();
-    print_time("A2AmesonField","sync",time + dclock());
+    a2a_print_time("A2AmesonField","sync",time + dclock());
 
     //Accumulate
     time = -dclock();
 #ifndef MEMTEST_MODE
     this->nodeSum(mf_t,Lt);
 #endif
-    print_time("A2AmesonField","nodeSum",time + dclock());
+    a2a_print_time("A2AmesonField","nodeSum",time + dclock());
     
     Free(base_ptrs_i);
     Free(base_ptrs_j);
@@ -720,15 +720,15 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     this->setupPolicy(mf_t,l,M,r);
     
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    if(!UniqueID()) printf("Starting A2AmesonField::compute (blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
+    a2a_printf("Starting A2AmesonField::compute (blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
     if(!UniqueID()) printMem("mfComputeGeneralOffload node 0 memory status",0);
 
     cps::sync();
 
-    if(!UniqueID()){ printf("Initializing meson fields\n"); fflush(stdout); }
+    LOGA2A << "Initializing meson fields" << std::endl;
     double time = -dclock();
     this->initializeMesonFields(mf_t,l,r,Lt,do_setup);
-    print_time("A2AmesonField","setup",time + dclock());
+    a2a_print_time("A2AmesonField","setup",time + dclock());
    
     time = -dclock();
     //For W vectors we dilute out the flavor index in-place while performing this contraction
@@ -790,14 +790,14 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     accumType *accum_host = (accumType*)malloc_check(naccum*sizeof(accumType));    
 #endif
     
-    std::cout << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement for block MF accumulation is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
+    LOGA2A << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement for block MF accumulation is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
 
     //Allocate temporary memory for chunks of a2a fields
     int nf = GJP.Gparity()+1;
     size_t iblock_data_size = bi * nf * bx * 12; //use mapping  scf + 12*( x3d_blk + bx*(f + nf*i))
     size_t jblock_data_size = bj * nf * bx * 12;
     size_t ijblock_data_flav_offset = 12 * bx;
-    std::cout << "Require " << byte_to_MB(iblock_data_size*sizeof(FieldSiteType)) << "MB and " << byte_to_MB(jblock_data_size*sizeof(FieldSiteType)) << "MB for i and j chunk data, respectively" << std::endl;
+    LOGA2A << "Require " << byte_to_MB(iblock_data_size*sizeof(FieldSiteType)) << "MB and " << byte_to_MB(jblock_data_size*sizeof(FieldSiteType)) << "MB for i and j chunk data, respectively" << std::endl;
 
     typedef hostDeviceMirroredContainer<FieldSiteType> MirroredField;
     typedef hostDeviceMirroredContainer<std::pair<bool,bool> > MirroredBoolPair;
@@ -818,12 +818,12 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     MirroredBoolPair* jblock_flav_is_zero_ptrs[3] = {&jblock_flav_is_zero,&jblock_flav_is_zero2,&jblock_flav_is_zero3};
       
 #ifdef MF_OFFLOAD_INNER_BLOCKING
-    std::cout << "Using inner block sizes " << sbi << " " << sbj << " " << sbx << std::endl;
+    LOGA2A << "Using inner block sizes " << sbi << " " << sbj << " " << sbx << std::endl;
 #endif
     size_t nioblocks = (nmodes_l + bi-1)/bi,  njoblocks = (nmodes_r + bj-1)/bj,  nxoblocks = (size_3d + bx-1)/bx;
     size_t kernel_execs = nioblocks * njoblocks * nxoblocks;
     
-    std::cout << "Number of outer blocks " << nioblocks << " " << njoblocks << " " << nxoblocks << " for " << kernel_execs << " kernel executions per timeslice" << std::endl;
+    LOGA2A << "Number of outer blocks " << nioblocks << " " << njoblocks << " " << nxoblocks << " for " << kernel_execs << " kernel executions per timeslice" << std::endl;
     
     double reduce_time = 0;
     double kernel_time = 0;
@@ -1013,7 +1013,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    kernel_time += dclock();
 
 	    ++kernel_exec_it;
-	    if(kernel_exec_it % 50 == 0 && !UniqueID()){ printf("Kernel iteration %zu / %zu\n", kernel_exec_it, kernel_execs ); fflush(stdout); }	    
+	    if(kernel_exec_it % 50 == 0){ a2a_printf("Kernel iteration %zu / %zu\n", kernel_exec_it, kernel_execs ); }	    
 	    
 	    reduce_time -= dclock();
 #ifndef MF_REDUCE_ON_DEVICE
@@ -1037,28 +1037,28 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
       //print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
     }
 
-    print_time("A2AmesonField","local compute",time + dclock());
-    print_time("A2AmesonField","kernel time in local compute",kernel_time);
-    print_time("A2AmesonField","chunk gather time in local compute",gather_chunk_time);
-    print_time("A2AmesonField","chunk device copy time in local compute",device_copy_chunk_time);    
-    print_time("A2AmesonField","reduce time in local compute",reduce_time);
+    a2a_print_time("A2AmesonField","local compute",time + dclock());
+    a2a_print_time("A2AmesonField","kernel time in local compute",kernel_time);
+    a2a_print_time("A2AmesonField","chunk gather time in local compute",gather_chunk_time);
+    a2a_print_time("A2AmesonField","chunk device copy time in local compute",device_copy_chunk_time);    
+    a2a_print_time("A2AmesonField","reduce time in local compute",reduce_time);
     
     time = -dclock();
     cps::sync();
-    print_time("A2AmesonField","sync",time + dclock());
+    a2a_print_time("A2AmesonField","sync",time + dclock());
 
     //Accumulate
     time = -dclock();
 #ifndef MEMTEST_MODE
     this->nodeSum(mf_t,Lt);
 #endif
-    print_time("A2AmesonField","nodeSum",time + dclock());
+    a2a_print_time("A2AmesonField","nodeSum",time + dclock());
     
     device_free(accum);
 #ifndef MF_REDUCE_ON_DEVICE
     free(accum_host);
 #endif
-    print_time("A2AmesonField","total",total_time + dclock());
+    a2a_print_time("A2AmesonField","total",total_time + dclock());
   }
 
 
@@ -1068,15 +1068,15 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     this->setupPolicy(mf_t,l,M,r);
     
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    if(!UniqueID()) printf("Starting A2AmesonField::compute (blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
+    a2a_printf("Starting A2AmesonField::compute (blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
     if(!UniqueID()) printMem("mfComputeGeneralOffload node 0 memory status",0);
 
     cps::sync();
 
-    if(!UniqueID()){ printf("Initializing meson fields\n"); fflush(stdout); }
+    LOGA2A << "Initializing meson fields" << std::endl;
     double time = -dclock();
     this->initializeMesonFields(mf_t,l,r,Lt,do_setup);
-    print_time("A2AmesonField","setup",time + dclock());
+    a2a_print_time("A2AmesonField","setup",time + dclock());
    
     time = -dclock();
     //For W vectors we dilute out the flavor index in-place while performing this contraction
@@ -1134,14 +1134,14 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     accumType *accum_host = (accumType*)malloc_check(naccum*sizeof(accumType));    
 #endif
     
-    std::cout << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
+    LOGA2A << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
     
 
 #ifdef MF_OFFLOAD_INNER_BLOCKING
-    std::cout << "Using inner block sizes " << sbi << " " << sbj << " " << sbx << std::endl;
+    LOGA2A << "Using inner block sizes " << sbi << " " << sbj << " " << sbx << std::endl;
 #endif
     size_t nioblocks = (nmodes_l + bi-1)/bi,  njoblocks = (nmodes_r + bj-1)/bj,  nxoblocks = (size_3d + bx-1)/bx;
-    std::cout << "Number of outer blocks " << nioblocks << " " << njoblocks << " " << nxoblocks << std::endl;
+    LOGA2A << "Number of outer blocks " << nioblocks << " " << njoblocks << " " << nxoblocks << std::endl;
 
     std::vector<int> il_map(nmodes_l), jr_map(nmodes_r);
     thread_for(i, nmodes_l, 
@@ -1168,10 +1168,11 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     double ptr_setup_time = 0;
     double kernel_time = 0;
     double copy_prefetch_time = 0;
+    double prefetch_wait_time = 0;
     
 #ifndef MEMTEST_MODE     
     for(size_t i0 = 0; i0 < nmodes_l; i0+=bi){
-      std::cout << "i-block " << i0/bi << "/" << nioblocks << std::endl;
+      LOGA2A << "i-block " << i0/bi << "/" << nioblocks << std::endl;
       
       size_t iup = std::min(i0+bi,nmodes_l);
       size_t bi_true = iup - i0;
@@ -1191,7 +1192,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
       hostDeviceMirroredContainer<offsetT> site_offsets_i(bi_true);
 
       for(size_t j0 = 0; j0< nmodes_r; j0+=bj) {
-	std::cout << "j-block " << j0/bj << "/" << njoblocks << std::endl;
+	LOGA2A << "j-block " << j0/bj << "/" << njoblocks << std::endl;
 	size_t jup = std::min(j0+bj,nmodes_r);
 	size_t bj_true = jup - j0;
 #ifdef MF_OFFLOAD_INNER_BLOCKING
@@ -1239,7 +1240,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	//Each node only works on its time block
 	for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){   
 	  const int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
-	  std::cout << "local timeslice " << t_lcl << "/" << GJP.TnodeSites() << std::endl;
+	  LOGA2A << "local timeslice " << t_lcl << "/" << GJP.TnodeSites() << std::endl;
 	  
 	  //Generate device base pointer and offset tables
 	  ptr_setup_time -= dclock();
@@ -1284,9 +1285,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    int nxblk = bx_true / sbx_use;
 #endif
 
-#ifdef GRID_CUDA
-	    if(t_lcl == 0 && x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStart();
-#endif
+	    if(t_lcl == 0 && x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) device_profile_start();
+
 	    size_t nwork = bi_true * bj_true * bx_true;	  
     
 	    kernel_time -= dclock();
@@ -1348,12 +1348,15 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 #endif	    
 	    reduce_time += dclock();
 
-#ifdef GRID_CUDA
-	    if(x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStop();
-#endif
+	    if(x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) device_profile_stop();
 	  }//x0
 	}//t
+
+	LOGA2A << "Waiting for prefetch completion prior to starting next j-block" << std::endl;
+	prefetch_wait_time -= dclock();
 	A2AfieldR<mf_Policies>::waitPrefetches();
+	prefetch_wait_time += dclock();
+	
 	r_v.free();
       }//j0
       l_v.free();
@@ -1361,29 +1364,30 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
       
 #endif //memtest mode
 
-    print_time("A2AmesonField","local compute",time + dclock());
-    print_time("A2AmesonField","kernel time in local compute",kernel_time);
-    print_time("A2AmesonField","ptr setup time in local compute",ptr_setup_time);
-    print_time("A2AmesonField","device copy/prefetch time in local compute",copy_prefetch_time);
-    print_time("A2AmesonField","reduce time in local compute",reduce_time);
+    a2a_print_time("A2AmesonField","local compute",time + dclock());
+    a2a_print_time("A2AmesonField","kernel time in local compute",kernel_time);
+    a2a_print_time("A2AmesonField","ptr setup time in local compute",ptr_setup_time);
+    a2a_print_time("A2AmesonField","device copy/prefetch init time in local compute",copy_prefetch_time);
+    a2a_print_time("A2AmesonField","device copy/prefetch wait time in local compute",prefetch_wait_time);
+    a2a_print_time("A2AmesonField","reduce time in local compute",reduce_time);
     
     time = -dclock();
     cps::sync();
-    print_time("A2AmesonField","sync",time + dclock());
+    a2a_print_time("A2AmesonField","sync",time + dclock());
 
     //Accumulate
     time = -dclock();
 #ifndef MEMTEST_MODE
     this->nodeSum(mf_t,Lt);
 #endif
-    print_time("A2AmesonField","nodeSum",time + dclock());
+    a2a_print_time("A2AmesonField","nodeSum",time + dclock());
     
     device_free(accum);
 
 #ifndef MF_REDUCE_ON_DEVICE
     free(accum_host);
 #endif
-    print_time("A2AmesonField","total",total_time + dclock());
+    a2a_print_time("A2AmesonField","total",total_time + dclock());
   }
  
 

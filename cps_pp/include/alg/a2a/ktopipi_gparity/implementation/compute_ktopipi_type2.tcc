@@ -64,7 +64,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(std::vector<mf
 
   mf_WV tmp;
     
-  if(!UniqueID()){ printf("Computing con_*_*\n"); fflush(stdout); }
+  LOGA2A << "Computing con_*_*" << std::endl;
 
 #ifndef DISABLE_TYPE2_PRODUCTSTORE
   //Some of these mults are quite likely duplicates, so use the product store to maximize reuse
@@ -377,7 +377,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(mf_WV &con_pi1
 
   mf_WV tmp;
     
-  if(!UniqueID()){ printf("Computing con_*_* for tpi1=%d\n",tpi1); fflush(stdout); }
+  a2a_printf("Computing con_*_* for tpi1=%d\n",tpi1);
  
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   void *gather_buf_1, *gather_buf_2;

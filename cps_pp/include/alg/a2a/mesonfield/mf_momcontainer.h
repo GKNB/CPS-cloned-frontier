@@ -74,7 +74,7 @@ public:
   bool contains(const ThreeMomentum &p) const{ return mf.count(p) != 0; }
 
   void average(MesonFieldMomentumContainer<mf_Policies> &r){
-    if(!UniqueID()) printf("MesonFieldMomentumContainer::average called\n");
+    LOGA2A << "MesonFieldMomentumContainer::average called" << std::endl;
     double time = -dclock();
     for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++){
       assert(r.contains(it->first));
@@ -97,7 +97,7 @@ public:
       if(redist_l) nodeDistributeMany(1,&lmf);
       if(redist_r) nodeDistributeMany(1,&rmf);
     }
-    print_time("MesonFieldMomentumContainer","average",time + dclock());
+    a2a_print_time("MesonFieldMomentumContainer","average",time + dclock());
   }
   
   inline void free_mem(){
@@ -148,7 +148,7 @@ public:
       }
     }
     cps::sync();
-    print_time("MesonFieldMomentumContainer","dumpToDiskAndFree",time+dclock());
+    a2a_print_time("MesonFieldMomentumContainer","dumpToDiskAndFree",time+dclock());
   }
   void restoreFromDisk(const std::string &file_stub, bool distribute, bool do_delete = true){
     double time = -dclock();
@@ -167,7 +167,7 @@ public:
       }
     }
     cps::sync();
-    print_time("MesonFieldMomentumContainer","restoreFromDisk",time+dclock());
+    a2a_print_time("MesonFieldMomentumContainer","restoreFromDisk",time+dclock());
   }
 
 

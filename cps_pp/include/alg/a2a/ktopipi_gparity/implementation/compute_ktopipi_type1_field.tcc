@@ -159,16 +159,16 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
     }
   }
   ss << "}\n";
-  printf("%s",ss.str().c_str());
+  a2a_printf("%s",ss.str().c_str());
 
   //Get the meson fields
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-  if(!UniqueID()) printf("Memory prior to fetching meson fields type1 K->pipi:\n");    
+  LOGA2A << "Memory prior to fetching meson fields type1 K->pipi:" << std::endl;
   printMem();
   nodeGetMany(2,
 	      &mf_pi1,&pi1_tslice_mask,
 	      &mf_pi2,&pi2_tslice_mask);
-  if(!UniqueID()) printf("Memory after fetching meson fields type1 K->pipi:\n");
+  LOGA2A << "Memory after fetching meson fields type1 K->pipi:" << std::endl;
   printMem();
 #endif
 
@@ -229,17 +229,17 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
 
     //For development, timings during outer tpi1 loop
     timerEnd(ttimer.total, "Loop iteration end");
-    std::cout << "Type 1 end of tpi1=" << t_pi1 << "(iter " << (titer+1) << "/" << map_used_tpi1_lin_to_tsep_k_pi.size() << ") report:" << std::endl;
+    LOGA2A << "Type 1 end of tpi1=" << t_pi1 << "(iter " << (titer+1) << "/" << map_used_tpi1_lin_to_tsep_k_pi.size() << ") report:" << std::endl;
     ttimer.report();
 
     ttimer.total = 0; Type1FieldTimings::timer() += ttimer;    
   }//tpi loop
 
-  if(!UniqueID()) printf("Memory before finishing up type1 K->pipi:\n");
+  LOGA2A << "Memory before finishing up type1 K->pipi:" << std::endl;
   printMem();
 
 
-  if(!UniqueID()){ printf("Type 1 finishing up results\n"); fflush(stdout); }
+  LOGA2A << "Type 1 finishing up results" << std::endl;
   timerStart(Type1FieldTimings::timer().finish_up, "Finish up");
   for(int tkpi_idx =0; tkpi_idx< ntsep_k_pi; tkpi_idx++){
     result[tkpi_idx].nodeSum();
@@ -260,13 +260,13 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_field_SIMD(ResultsContainerType r
   }
   timerEnd(Type1FieldTimings::timer().finish_up, "Finish up");
 
-  if(!UniqueID()) printf("Memory after finishing up type1 K->pipi:\n");
+  LOGA2A << "Memory after finishing up type1 K->pipi:" << std::endl;
   printMem();
 
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   nodeDistributeMany(2,&mf_pi1,&mf_pi2);
-  if(!UniqueID()) printf("Memory after redistributing meson fields type1 K->pipi:\n");
+  LOGA2A << "Memory after redistributing meson fields type1 K->pipi:" << std::endl;
   printMem();
 #endif
   timerEnd(Type1FieldTimings::timer().total,"End");
@@ -301,7 +301,7 @@ struct _type1_field_wrap<mf_Policies, complex_double_or_float_mark>{
 		   const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		   const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-    if(!UniqueID()) printf("Type1 field implementation falling back to OMP implementation due to non-SIMD data\n");
+    LOGA2A << "Type1 field implementation falling back to OMP implementation due to non-SIMD data" << std::endl;
     ComputeKtoPiPiGparity<mf_Policies>::type1_omp(result, tsep_k_pi, tsep_pion, tstep, 1, p_pi_1, mf_kaon, mf_pions, vL, vH, wL, wH);
   }
 };

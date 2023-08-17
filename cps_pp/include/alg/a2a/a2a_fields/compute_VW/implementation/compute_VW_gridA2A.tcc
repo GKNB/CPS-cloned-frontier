@@ -46,6 +46,7 @@ struct computeVW_impl{
   ~computeVW_impl(){}
 
   void setupSplitGrid(const double mass, const double mob_b, const double mob_c, const double M5, const int Ls, const typename GridDiracD::ImplParams &params, const CGcontrols &cg){
+    LOGA2A << "Setting up split grids for VW calculation" << std::endl;
     use_split_grid = true;
 
     Nsplit = 1;
@@ -56,7 +57,8 @@ struct computeVW_impl{
       Nsplit *= UGridD->_processors[i]/split_grid_proc[i];
     }
 
-    std::cout << Nsplit << " split Grids" << std::endl;
+    LOGA2A << Nsplit << " split Grids" << std::endl;
+    LOGA2A << "Setting up double precision split grids" << std::endl;
    
     SUGridD.reset(new Grid::GridCartesian(UGridD->_fdimensions,
 					  UGridD->_simd_layout,
@@ -67,22 +69,29 @@ struct computeVW_impl{
     SUrbGridD.reset(Grid::SpaceTimeGrid::makeFourDimRedBlackGrid(SUGridD.get()));
     SFrbGridD.reset(Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,SUGridD.get()));
 
+     LOGA2A << "Setting up single precision split grids" << std::endl;
+    
     SUGridF.reset(new Grid::GridCartesian(UGridF->_fdimensions,
 					  UGridF->_simd_layout,
 					  split_grid_proc,
 					  *UGridF)); 
- 
+   
     SFGridF.reset(Grid::SpaceTimeGrid::makeFiveDimGrid(Ls,SUGridF.get()));
     SUrbGridF.reset(Grid::SpaceTimeGrid::makeFourDimRedBlackGrid(SUGridF.get()));
     SFrbGridF.reset(Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,SUGridF.get()));
 
+    LOGA2A << "Splitting double-precision gauge field" << std::endl;
     SUmuD.reset(new Grid::LatticeGaugeFieldD(SUGridD.get()));
     Grid::Grid_split(*UmuD,*SUmuD);
+    
+    LOGA2A << "Performing split gauge field precision change" << std::endl;    
     SUmuF.reset(new Grid::LatticeGaugeFieldF(SUGridF.get()));
     Grid::precisionChange(*SUmuF,*SUmuD);
 
+    LOGA2A << "Creating split Dirac operators" << std::endl;    
     SOpD.reset(new GridDiracD(*SUmuD,*SFGridD,*SFrbGridD,*SUGridD,*SUrbGridD,mass,M5,mob_b,mob_c, params));
     SOpF.reset(new GridDiracF(*SUmuF,*SFGridF,*SFrbGridF,*SUGridF,*SUrbGridF,mass,M5,mob_b,mob_c, params));
+    LOGA2A << "Finished setting up split grids" << std::endl;
   }
 
   computeVW_impl(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, const EvecInterfaceMixedPrec<typename Policies::GridFermionField, typename Policies::GridFermionFieldF> &evecs,
@@ -100,6 +109,10 @@ struct computeVW_impl{
       Wsrc_impl.reset(new A2AhighModeSourceOriginal<Policies>()); break;
     case A2AhighModeSourceTypeXconj:
       Wsrc_impl.reset(new A2AhighModeSourceXconj<Policies>()); break;
+    case A2AhighModeSourceTypeFlavorUnit:
+      Wsrc_impl.reset(new A2AhighModeSourceFlavorUnit<Policies>()); break;
+    case A2AhighModeSourceTypeFlavorCConj:
+      Wsrc_impl.reset(new A2AhighModeSourceFlavorCConj<Policies>()); break;
     default:
       assert(0);
     }
@@ -183,20 +196,20 @@ struct computeVW_impl{
       /////
 
       if(cg.CGalgorithm == AlgorithmCG){
-	std::cout << Grid::GridLogMessage << "Using double precision CG solver" << std::endl;
+	LOGA2A << "Using double precision CG solver" << std::endl;
 	inv5d.reset(new A2Ainverter5dCG<GridFermionFieldD>(SchurOpD.getLinOp(),cg.CG_tolerance,cg.CG_max_iters));
       }else if(cg.CGalgorithm == AlgorithmMixedPrecisionReliableUpdateCG){
-	std::cout << Grid::GridLogMessage << "Using mixed precision reliable update CG solver" << std::endl;
+	LOGA2A << "Using mixed precision reliable update CG solver" << std::endl;
 	assert(cg.reliable_update_transition_tol == 0);
 	inv5d.reset(new A2Ainverter5dReliableUpdateCG<GridFermionFieldD,GridFermionFieldF>(SchurOpD.getLinOp(),SchurOpF.getLinOp(),FrbGridF,
 											   cg.CG_tolerance,cg.CG_max_iters,cg.reliable_update_delta));
       }else if(cg.CGalgorithm == AlgorithmMixedPrecisionRestartedCG){
 	//note, we use the evecs to deflate again on each restart
-	std::cout << Grid::GridLogMessage << "Using mixed precision restarted CG solver" << std::endl;
+	LOGA2A << "Using mixed precision restarted CG solver" << std::endl;
 	inv5d.reset(new A2Ainverter5dMixedPrecCG<GridFermionFieldD,GridFermionFieldF>(SchurOpD.getLinOp(),SchurOpF.getLinOp(),evecs,FrbGridF,
 										      cg.CG_tolerance,cg.CG_max_iters,cg.mixedCG_init_inner_tolerance));
       }else if(cg.CGalgorithm == AlgorithmMixedPrecisionReliableUpdateSplitCG){
-	  std::cout << Grid::GridLogMessage << "Using mixed precision reliable update split CG solver" << std::endl;
+	LOGA2A << "Using mixed precision reliable update split CG solver" << std::endl;
 	assert(use_split_grid);
 
 	SSchurOpD.reset(new A2ASchurOriginalOperatorImpl<GridDiracD>(*SOpD));

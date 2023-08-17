@@ -212,7 +212,7 @@ public:
 				      Wtype &W, Wtype &W_s, const MomentumPolicy &lsWWmom, const int kaon_rad, Lattice &lat,
 				      const SourceParamType &src_params = NullObject()){
     typedef typename mf_Policies::SourcePolicies SourcePolicies;
-    if(!UniqueID()) printf("Computing ls WW meson fields for K->pipi\n");
+    a2a_printf("Computing ls WW meson fields for K->pipi\n");
     double time = -dclock();
 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
@@ -345,10 +345,10 @@ public:
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
 #if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
-    if(!UniqueID()) printf("Using type1 field implementation\n");
+    a2a_printf("Using type1 field implementation\n");
     type1_field(result, tsep_k_pi, tsep_pion, tstep, p_pi_1, mf_kaon, mf_pions, vL, vH, wL, wH); //falls back to CPU implementation for non-SIMD data
 #else
-    if(!UniqueID()) printf("Using type1 OMP implementation\n");
+    a2a_printf("Using type1 OMP implementation\n");
     type1_omp(result, tsep_k_pi, tsep_pion, tstep, xyzStep, p_pi_1, mf_kaon, mf_pions, vL, vH, wL, wH);
 #endif
   }
@@ -457,10 +457,10 @@ public:
 			   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 			   const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
 #if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
-    if(!UniqueID()) printf("Using type2 field implementation\n");
+    a2a_printf("Using type2 field implementation\n");
     type2_field(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
 #else
-    if(!UniqueID()) printf("Using type2 OMP implementation\n");
+    a2a_printf("Using type2 OMP implementation\n");
     //type2_v2(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
     type2_omp_v2(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
 #endif
@@ -595,10 +595,10 @@ public:
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
 #if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
-    if(!UniqueID()) printf("Using type3 field implementation\n");
+    a2a_printf("Using type3 field implementation\n");
     type3_field(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
 #else
-    if(!UniqueID()) printf("Using type3 OMP implementation\n");
+    a2a_printf("Using type3 OMP implementation\n");
     //type3_v1(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vH, wH, wL, wH);
     type3_omp_v2(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
 #endif
@@ -701,10 +701,10 @@ public:
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
 #if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
-    if(!UniqueID()) printf("Using type4 field implementation\n");
+    a2a_printf("Using type4 field implementation\n");
     type4_field(result, mix4, tstep, mf_kaon, vL, vH, wL, wH);
 #else
-    if(!UniqueID()) printf("Using type4 OMP implementation\n");
+    a2a_printf("Using type4 OMP implementation\n");
     type4_omp(result, mix4, tstep, mf_kaon, vL, vH, wL, wH);
 #endif
   }

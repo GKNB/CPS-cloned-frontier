@@ -111,14 +111,12 @@ public:
   }
 
   void print(const std::string &name = "") const{
-    if(!UniqueID()){
-      std::cout << "Momentum policy " << name << std::endl;
-      for(int p=0;p<nMom();p++){
-	std::cout << "Total momentum " << getTotalMomentum(p) << " : ";
-	for(int a=0;a<nAltMom(p);a++)
-	  std::cout << '[' << momA[p][a] << "+" << momB[p][a] << ']';
-	std::cout << std::endl;
-      }
+    LOGA2A << "Momentum policy " << name << std::endl;
+    for(int p=0;p<nMom();p++){
+      LOGA2A << "Total momentum " << getTotalMomentum(p) << " : ";
+      for(int a=0;a<nAltMom(p);a++)
+	LOGA2ANT << '[' << momA[p][a] << "+" << momB[p][a] << ']';
+      LOGA2ANT << std::endl;
     }
   }
 

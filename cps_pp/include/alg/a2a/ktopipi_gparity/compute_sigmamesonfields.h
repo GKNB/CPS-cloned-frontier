@@ -184,7 +184,7 @@ private:
 	exp_mf_store.addCompute(0,0, p_w,p_v);	
 	hyd_mf_store.addCompute(0,0, p_w,p_v);	
       }
-      if(!UniqueID()) printf("Computing sigma meson fields with 1s source for %d <= pidx < %d\n", p_lo,p_hi);
+      a2a_printf("Computing sigma meson fields with 1s source for %d <= pidx < %d\n", p_lo,p_hi);
     
       ComputeMesonFields<mf_Policies,ExpStorageType>::compute(exp_mf_store,Wspecies,Vspecies,lattice
 #  ifdef NODE_DISTRIBUTE_MESONFIELDS
@@ -198,8 +198,8 @@ private:
 	
 	store_1s(p_wdag, p_v, exp_mf_store[pidx-p_lo]);
       }
-  
-      if(!UniqueID()) printf("Computing sigma meson fields with 2s source for %d <= pidx < %d\n", p_lo,p_hi);
+      
+      a2a_printf("Computing sigma meson fields with 2s source for %d <= pidx < %d\n", p_lo,p_hi);
     
       ComputeMesonFields<mf_Policies,HydStorageType>::compute(hyd_mf_store,Wspecies,Vspecies,lattice
 #  ifdef NODE_DISTRIBUTE_MESONFIELDS
@@ -286,7 +286,7 @@ private:
       ThreeMomentum p_v = sigma_mom.getVmom(pidx,false);
       mf_store.addCompute(0,0, p_w,p_v);	
     }
-    if(!UniqueID()) printf("Computing sigma meson fields with 1s/2s sources\n");
+    LOGA2A << "Computing sigma meson fields with 1s/2s sources" << std::endl;
 
     ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
 #  ifdef NODE_DISTRIBUTE_MESONFIELDS
@@ -295,7 +295,7 @@ private:
 							 );
       
     std::string src_names[2] = {"1s","2s"};
-    if(!UniqueID()) printf("Writing sigma meson fields to disk\n");
+    LOGA2A << "Writing sigma meson fields to disk" << std::endl;
     for(int pidx=0;pidx<sigma_mom.nMom();pidx++){
       ThreeMomentum p_wdag = -sigma_mom.getWmom(pidx,false);
       ThreeMomentum p_v = sigma_mom.getVmom(pidx,false);
@@ -476,13 +476,13 @@ public:
 
     int nmom_block = opt.mom_block_size != -1 ? opt.mom_block_size : nmom;
 
-    if(!UniqueID()) printf("Computing %d momenta with block sizes of %d\n",nmom,nmom_block);
+    a2a_printf("Computing %d momenta with block sizes of %d\n",nmom,nmom_block);
 
     for(int b=0; b<nmom; b+= nmom_block){
       int nmom_rem = nmom - b;
       int nmom_block_actual = nmom_rem < nmom_block ? nmom_rem : nmom_block;
 
-      if(!UniqueID()) printf("Doing block %d->%d\n",b,b+nmom_rem);
+      a2a_printf("Doing block %d->%d\n",b,b+nmom_rem);
 
     
       for(int pidx=b;pidx<b+nmom_block_actual;pidx++){      

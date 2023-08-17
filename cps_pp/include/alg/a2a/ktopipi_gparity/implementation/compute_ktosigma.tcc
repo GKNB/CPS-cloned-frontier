@@ -40,7 +40,7 @@ void ComputeKtoSigma<mf_Policies>::type12_contract(ResultsContainerType &result,
 
 template<typename mf_Policies>
 void ComputeKtoSigma<mf_Policies>::type12_omp(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){  
-  if(!UniqueID()) printf("Starting type 1/2 K->sigma contractions\n");
+  LOGA2A << "Starting type 1/2 K->sigma contractions" << std::endl;
   double total_time = dclock();
        
   double time;
@@ -72,7 +72,7 @@ void ComputeKtoSigma<mf_Policies>::type12_omp(std::vector<ResultsContainerType> 
   std::vector<bool> gather_tslice_mask(Lt,false);
   for(std::set<int>::const_iterator it = tS_use.begin(); it != tS_use.end(); it++) gather_tslice_mask[*it] = true;
   nodeGetMany(1, &mf_S, &gather_tslice_mask);
-  print_time("ComputeKtoSigma","type12 mf gather",dclock()-time);     
+  a2a_print_time("ComputeKtoSigma","type12 mf gather",dclock()-time);     
 #endif
  
   //Start main loop
@@ -150,22 +150,22 @@ void ComputeKtoSigma<mf_Policies>::type12_omp(std::vector<ResultsContainerType> 
     }//xop
   }//top
 
-  print_time("ComputeKtoSigma","type12 vMv setup",vmv_setup_time);     
-  print_time("ComputeKtoSigma","type12 pt1 compute",pt1_time);     
-  print_time("ComputeKtoSigma","type12 pt2 compute",pt2_time);     
-  print_time("ComputeKtoSigma","type12 contract",contract_time);     
+  a2a_print_time("ComputeKtoSigma","type12 vMv setup",vmv_setup_time);     
+  a2a_print_time("ComputeKtoSigma","type12 pt1 compute",pt1_time);     
+  a2a_print_time("ComputeKtoSigma","type12 pt2 compute",pt2_time);     
+  a2a_print_time("ComputeKtoSigma","type12 contract",contract_time);     
 
   time = dclock();
   for(int i=0;i<ntsep_k_sigma;i++){ result[i].threadSum(); result[i].nodeSum(); }
-  print_time("ComputeKtoSigma","type12 accum",dclock()-time);     
+  a2a_print_time("ComputeKtoSigma","type12 accum",dclock()-time);     
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   time = dclock();
   nodeDistributeMany(1,&mf_S);
-  print_time("ComputeKtoSigma","type12 mf distribute",dclock()-time);     
+  a2a_print_time("ComputeKtoSigma","type12 mf distribute",dclock()-time);     
 #endif
 
-  print_time("ComputeKtoSigma","type12 total",dclock()-total_time); 
+  a2a_print_time("ComputeKtoSigma","type12 total",dclock()-total_time); 
 }
 
 
@@ -228,7 +228,7 @@ void ComputeKtoSigma<mf_Policies>::type3_contract(ResultsContainerType &result, 
 
 template<typename mf_Policies>
 void ComputeKtoSigma<mf_Policies>::type3_omp(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){   
-  if(!UniqueID()) printf("Starting type 3 K->sigma contractions\n");
+  LOGA2A << "Starting type 3 K->sigma contractions" << std::endl;
   double total_time = dclock();
   double time;
     
@@ -261,7 +261,7 @@ void ComputeKtoSigma<mf_Policies>::type3_omp(std::vector<ResultsContainerType> &
   for(std::set<int>::const_iterator it = tS_use.begin(); it != tS_use.end(); it++) gather_tslice_mask[*it] = true;
   time = dclock();
   nodeGetMany(1, &mf_S, &gather_tslice_mask);
-  print_time("ComputeKtoSigma","type3 mf gather",dclock()-time);  
+  a2a_print_time("ComputeKtoSigma","type3 mf gather",dclock()-time);  
 #endif
 
   //Setup output
@@ -283,7 +283,7 @@ void ComputeKtoSigma<mf_Policies>::type3_omp(std::vector<ResultsContainerType> &
     int tK=tK_tS_idx_map[i].first, tS = tK_tS_idx_map[i].second;
     mult(mf_prod[i], mf_S[tS], mf_ls_WW[tK],true); //node local because the tK,tS pairings are specific to this node
   }
-  print_time("ComputeKtoSigma","type3 mf product",dclock()-time); 
+  a2a_print_time("ComputeKtoSigma","type3 mf product",dclock()-time); 
 
   double vmv_setup_time = 0;
   double pt1_time = 0;
@@ -360,25 +360,25 @@ void ComputeKtoSigma<mf_Policies>::type3_omp(std::vector<ResultsContainerType> &
     }//xop3d
   }//top
 
-  print_time("ComputeKtoSigma","type3 vMv setup",vmv_setup_time);     
-  print_time("ComputeKtoSigma","type3 pt1 compute",pt1_time);     
-  print_time("ComputeKtoSigma","type3 pt2 compute",pt2_time);     
-  print_time("ComputeKtoSigma","type3 contract",contract_time);  
+  a2a_print_time("ComputeKtoSigma","type3 vMv setup",vmv_setup_time);     
+  a2a_print_time("ComputeKtoSigma","type3 pt1 compute",pt1_time);     
+  a2a_print_time("ComputeKtoSigma","type3 pt2 compute",pt2_time);     
+  a2a_print_time("ComputeKtoSigma","type3 contract",contract_time);  
 
   time = dclock();
   for(int i=0;i<ntsep_k_sigma;i++){ 
     result[i].threadSum(); result[i].nodeSum(); 
     mix3[i].threadSum(); mix3[i].nodeSum();
   }
-  print_time("ComputeKtoSigma","type3 accum",dclock()-time);  
+  a2a_print_time("ComputeKtoSigma","type3 accum",dclock()-time);  
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   time = dclock();
   nodeDistributeMany(1,&mf_S);
-  print_time("ComputeKtoSigma","type3 mf distribute",dclock()-time);  
+  a2a_print_time("ComputeKtoSigma","type3 mf distribute",dclock()-time);  
 #endif
 
-  print_time("ComputeKtoSigma","type3 total",dclock()-total_time); 
+  a2a_print_time("ComputeKtoSigma","type3 total",dclock()-total_time); 
 }
 
 
@@ -452,7 +452,7 @@ void ComputeKtoSigma<mf_Policies>::type4_contract(ResultsContainerType &result, 
 
 template<typename mf_Policies>
 void ComputeKtoSigma<mf_Policies>::type4_omp(ResultsContainerType &result, MixDiagResultsContainerType &mix4){
-  if(!UniqueID()) printf("Starting type 4 K->sigma contractions\n");
+  LOGA2A << "Starting type 4 K->sigma contractions" << std::endl;
   double total_time = dclock();
        
   double time;
@@ -541,15 +541,15 @@ void ComputeKtoSigma<mf_Policies>::type4_omp(ResultsContainerType &result, MixDi
     }//xop3d
   }//top
 
-  print_time("ComputeKtoSigma","type4 vMv setup",vmv_setup_time);     
-  print_time("ComputeKtoSigma","type4 pt1 compute",pt1_time);     
-  print_time("ComputeKtoSigma","type4 pt2 compute",pt2_time);     
-  print_time("ComputeKtoSigma","type4 contract",contract_time);  
+  a2a_print_time("ComputeKtoSigma","type4 vMv setup",vmv_setup_time);     
+  a2a_print_time("ComputeKtoSigma","type4 pt1 compute",pt1_time);     
+  a2a_print_time("ComputeKtoSigma","type4 pt2 compute",pt2_time);     
+  a2a_print_time("ComputeKtoSigma","type4 contract",contract_time);  
 
   time = dclock();
   result.threadSum(); result.nodeSum();
   mix4.threadSum(); mix4.nodeSum();
-  print_time("ComputeKtoSigma","type4 accum",dclock()-time);  
+  a2a_print_time("ComputeKtoSigma","type4 accum",dclock()-time);  
 
-  print_time("ComputeKtoSigma","type4 total",dclock()-total_time);  
+  a2a_print_time("ComputeKtoSigma","type4 total",dclock()-total_time);  
 }

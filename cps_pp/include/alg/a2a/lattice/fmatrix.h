@@ -439,10 +439,10 @@ public:
     free(p);
     free_time += dclock();
 
-    print_time("basicComplexArraySplitAlloc","nodeSum alloc",alloc_time);
-    print_time("basicComplexArraySplitAlloc","nodeSum copy",copy_time);     
-    print_time("basicComplexArraySplitAlloc","nodeSum reduce",reduce_time);     
-    print_time("basicComplexArraySplitAlloc","nodeSum free",free_time);     
+    a2a_print_time("basicComplexArraySplitAlloc","nodeSum alloc",alloc_time);
+    a2a_print_time("basicComplexArraySplitAlloc","nodeSum copy",copy_time);     
+    a2a_print_time("basicComplexArraySplitAlloc","nodeSum reduce",reduce_time);     
+    a2a_print_time("basicComplexArraySplitAlloc","nodeSum free",free_time);     
 #else
     for(int t=0;t<con.size();t++){
       globalSum(this->con[t],thread_size);

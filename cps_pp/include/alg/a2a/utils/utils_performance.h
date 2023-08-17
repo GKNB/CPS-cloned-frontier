@@ -39,8 +39,8 @@ double gridBenchmark(Lattice &lat){
   GridDirac Ddwf(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
 
   //Run benchmark
-  std::cout << "gridBenchmark: Running Grid Dhop benchmark\n";
-  std::cout << "Dirac operator type is : " << printType<GridDirac>() << std::endl;
+  LOGA2A << "gridBenchmark: Running Grid Dhop benchmark\n";
+  LOGA2A << "Dirac operator type is : " << printType<GridDirac>() << std::endl;
   
   std::vector<int> seeds4({1,2,3,4});
   std::vector<int> seeds5({5,6,7,8});
@@ -188,11 +188,11 @@ std::pair<double,double> gridBenchmarkSinglePrec(Lattice &lat){
   Grid::RealD perf_FH;
   
   {
-    std::cout << "Dirac operator type is : " << printType<GridDiracF>() << std::endl;
+    LOGA2A << "Dirac operator type is : " << printType<GridDiracF>() << std::endl;
     FGrid_f->Barrier();
     //Ddwf_F.ZeroCounters(); no longer supporte
     Ddwf_F.Dhop(src,result,0);
-    std::cout<<Grid::GridLogMessage<<"Called warmup"<<std::endl;
+    LOGA2A<<Grid::GridLogMessage<<"Called warmup"<<std::endl;
     double t0=Grid::usecond();
     for(int i=0;i<ncall;i++){
       Ddwf_F.Dhop(src,result,0);
@@ -200,19 +200,19 @@ std::pair<double,double> gridBenchmarkSinglePrec(Lattice &lat){
     double t1=Grid::usecond();
     FGrid_f->Barrier();
 
-    std::cout<<Grid::GridLogMessage << "Called Dw "<<ncall<<" times in "<<t1-t0<<" us"<<std::endl;
-    std::cout<<Grid::GridLogMessage << "mflop/s =   "<< flops/(t1-t0)<<std::endl;
-    std::cout<<Grid::GridLogMessage << "mflop/s per rank =  "<< flops/(t1-t0)/NP<<std::endl;
-    std::cout<<Grid::GridLogMessage << "mflop/s per node =  "<< flops/(t1-t0)/NN<<std::endl;
+    LOGA2A<<Grid::GridLogMessage << "Called Dw "<<ncall<<" times in "<<t1-t0<<" us"<<std::endl;
+    LOGA2A<<Grid::GridLogMessage << "mflop/s =   "<< flops/(t1-t0)<<std::endl;
+    LOGA2A<<Grid::GridLogMessage << "mflop/s per rank =  "<< flops/(t1-t0)/NP<<std::endl;
+    LOGA2A<<Grid::GridLogMessage << "mflop/s per node =  "<< flops/(t1-t0)/NN<<std::endl;
     //Ddwf_F.Report(); no longer supported
     perf_F = flops/(t1-t0)/NN; 
   }
   {
-    std::cout << "Dirac operator type is : " << printType<GridDiracFH>() << std::endl;
+    LOGA2A << "Dirac operator type is : " << printType<GridDiracFH>() << std::endl;
     FGrid_f->Barrier();
     //Ddwf_FH.ZeroCounters();  no longer supported
     Ddwf_FH.Dhop(src,result,0);
-    std::cout<<Grid::GridLogMessage<<"Called warmup"<<std::endl;
+    LOGA2A<<Grid::GridLogMessage<<"Called warmup"<<std::endl;
     double t0=Grid::usecond();
     for(int i=0;i<ncall;i++){
       Ddwf_FH.Dhop(src,result,0);
@@ -220,10 +220,10 @@ std::pair<double,double> gridBenchmarkSinglePrec(Lattice &lat){
     double t1=Grid::usecond();
     FGrid_f->Barrier();
 
-    std::cout<<Grid::GridLogMessage << "Called Dw "<<ncall<<" times in "<<t1-t0<<" us"<<std::endl;
-    std::cout<<Grid::GridLogMessage << "mflop/s =   "<< flops/(t1-t0)<<std::endl;
-    std::cout<<Grid::GridLogMessage << "mflop/s per rank =  "<< flops/(t1-t0)/NP<<std::endl;
-    std::cout<<Grid::GridLogMessage << "mflop/s per node =  "<< flops/(t1-t0)/NN<<std::endl;
+    LOGA2A<<Grid::GridLogMessage << "Called Dw "<<ncall<<" times in "<<t1-t0<<" us"<<std::endl;
+    LOGA2A<<Grid::GridLogMessage << "mflop/s =   "<< flops/(t1-t0)<<std::endl;
+    LOGA2A<<Grid::GridLogMessage << "mflop/s per rank =  "<< flops/(t1-t0)/NP<<std::endl;
+    LOGA2A<<Grid::GridLogMessage << "mflop/s per node =  "<< flops/(t1-t0)/NN<<std::endl;
     //Ddwf_FH.Report();  no longer supported
     perf_FH = flops/(t1-t0)/NN; 
   }

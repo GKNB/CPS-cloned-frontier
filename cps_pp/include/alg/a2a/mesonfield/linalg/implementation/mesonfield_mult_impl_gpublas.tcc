@@ -20,7 +20,7 @@ public:
       reset();
     }
     void print() const{
-      printf("Timers: calls=%d init=%g alloc=%g reord=%g compute=%g write=%g gsum=%g\n", calls, t_init/calls, t_alloc/calls, t_reord/calls, t_compute/calls, t_write/calls, t_globalsum/calls);
+      a2a_printf("Timers: calls=%d init=%g alloc=%g reord=%g compute=%g write=%g gsum=%g\n", calls, t_init/calls, t_alloc/calls, t_reord/calls, t_compute/calls, t_write/calls, t_globalsum/calls);
     }
   };
 
@@ -58,12 +58,9 @@ public:
     assert( (void*)&out != (void*)&l || (void*)&out != (void*)&r );
 
     if(! l.getColParams().paramsEqual( r.getRowParams() ) ){
-      if(!UniqueID()){
-	printf("mult():  Illegal matrix product: underlying vector parameters must match\n"); fflush(stdout);
-	std::cout << "left-column: " << l.getColParams().print() << "\n";
-	std::cout << "right-row: " << r.getRowParams().print() << "\n";
-	std::cout.flush();
-      }
+      LOGA2A << "mult():  Illegal matrix product: underlying vector parameters must match\n"
+	     << "left-column: " << l.getColParams().print() << "\n"
+	     << "right-row: " << r.getRowParams().print() << std::endl;
       exit(-1);
     }
 
@@ -232,12 +229,9 @@ public:
     assert( (void*)&out != (void*)&l || (void*)&out != (void*)&r );
 
     if(! l.getColParams().paramsEqual( r.getRowParams() ) ){
-      if(!UniqueID()){
-	printf("mult():  Illegal matrix product: underlying vector parameters must match\n"); fflush(stdout);
-	std::cout << "left-column: " << l.getColParams().print() << "\n";
-	std::cout << "right-row: " << r.getRowParams().print() << "\n";
-	std::cout.flush();
-      }
+      LOGA2A << "mult():  Illegal matrix product: underlying vector parameters must match\n"
+	     << "left-column: " << l.getColParams().print() << "\n"
+	     << "right-row: " << r.getRowParams().print() << std::endl;
       exit(-1);
     }
 
@@ -278,7 +272,6 @@ public:
     device_free(ru);
     device_free(ou);    
     getTimers().t_alloc += dclock();
-    std::cout << "Tianle: Be careful, I am now using mult_gpublas_v2 to test performance!!!" << std::endl;
   }
     
 

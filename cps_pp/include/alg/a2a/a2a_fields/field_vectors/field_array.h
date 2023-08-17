@@ -108,6 +108,9 @@ public:
     }
 
     accelerator_inline FieldView & operator[](const size_t i) const{ return v[i]; }
+
+    //Return the host-side copy of the view (host-only)
+    inline FieldView & hostView(const size_t i) const{ return host_v[i]; }
   };
 
   View view(ViewMode mode) const{ return View(mode, *this); }

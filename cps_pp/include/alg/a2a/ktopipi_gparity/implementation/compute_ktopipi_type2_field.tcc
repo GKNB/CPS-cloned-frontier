@@ -136,7 +136,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
     }
   }
   ss << "}\n";
-  printf("%s",ss.str().c_str());
+  a2a_printf("%s",ss.str().c_str());
 
   //Gather the meson fields we need
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
@@ -212,7 +212,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   for(int i=0;i<nmom;i++)
     nodeDistributeMany(2,mf_pi1[i],mf_pi2[i]);
-  if(!UniqueID()) printf("Memory after redistributing meson fields type2 K->pipi:\n");
+  LOGA2A << "Memory after redistributing meson fields type2 K->pipi:" << std::endl;
   printMem();  
 #endif
 
@@ -268,7 +268,7 @@ struct _type2_field_wrap<mf_Policies, complex_double_or_float_mark>{
 		   const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		   const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-    if(!UniqueID()) printf("Type2 field implementation falling back to OMP implementation due to non-SIMD data\n");
+    LOGA2A << "Type2 field implementation falling back to OMP implementation due to non-SIMD data" << std::endl;
     ComputeKtoPiPiGparity<mf_Policies>::type2_omp_v2(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
   }
 };

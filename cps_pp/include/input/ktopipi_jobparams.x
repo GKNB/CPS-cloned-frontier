@@ -41,11 +41,20 @@ class CGcontrols{
   rpccommand GENERATE_DEEPCOPY_METHOD;
 };
 
+class LanczosControls{
+  A2AlanczosType lanczos_type; //what Lanczos implementation to use
+  int block_lanczos_split_grid_geometry<>; //if using a block Lanczos split-Grid technique, how do you want to divide up the lattice?
+
+  rpccommand GENERATE_PRINT_METHOD;
+  rpccommand GENERATE_DEEPCOPY_METHOD;
+};
+
 class JobParams{
   BfmSolverType solver; //BFM solver type
   double mobius_scale; //if solver == BFM_HmCayleyTanh
 
-  bool convert_evecs_to_single_precision; //if not using a single-precision Lanczos, convert the double precision evecs to single prec to save memory
+  LanczosControls lanczos_controls;
+  
   CGcontrols cg_controls;
   
   double pion_rad; //radius of pion Hydrogen wavefunction source

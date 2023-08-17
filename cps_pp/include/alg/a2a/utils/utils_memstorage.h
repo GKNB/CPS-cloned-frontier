@@ -275,16 +275,14 @@ public:
       reset();
     }
     void print(){
-      if(!UniqueID()){
-	double avg_check_time = check_time / double(check_calls);
-	double avg_alloc_time = alloc_time / double(alloc_calls);
-	double avg_gather_time = gather_time / double(gather_calls);
-	double avg_free_time = free_time / double(free_calls);
-	double avg_bandwidth = double(bytes)/gather_time/(1024*1024); //MB/s
-	std::ostringstream os; 
-	os << "DistributedMemoryStorage::GatherPerf avg check time " << avg_check_time << "s, avg alloc time " << avg_alloc_time << "s, avg gather time " << avg_gather_time << "s, gather bandwidth " << avg_bandwidth << "MB/s, avg free time " << avg_free_time << "s\n";
-	printf(os.str().c_str()); fflush(stdout);
-      }
+      double avg_check_time = check_time / double(check_calls);
+      double avg_alloc_time = alloc_time / double(alloc_calls);
+      double avg_gather_time = gather_time / double(gather_calls);
+      double avg_free_time = free_time / double(free_calls);
+      double avg_bandwidth = double(bytes)/gather_time/(1024*1024); //MB/s
+      std::ostringstream os; 
+      os << "DistributedMemoryStorage::GatherPerf avg check time " << avg_check_time << "s, avg alloc time " << avg_alloc_time << "s, avg gather time " << avg_gather_time << "s, gather bandwidth " << avg_bandwidth << "MB/s, avg free time " << avg_free_time << "s\n";
+      a2a_printf(os.str().c_str());      
     }
   };
   static GatherPerf & perf(){ static GatherPerf p; return p; }
@@ -442,7 +440,7 @@ public:
   }
 
   static void rebalance(std::vector<DistributedMemoryStorage*> &blocks){
-    if(!UniqueID()){ printf("DistributedMemoryStorage: Performing rebalance of %d blocks\n",blocks.size()); fflush(stdout); }
+    a2a_printf("DistributedMemoryStorage: Performing rebalance of %d blocks\n",blocks.size());
     int nodes = 1;
     for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
     
@@ -469,12 +467,9 @@ public:
     for(int n=0;n<nodes;n++)
       count[n] = n < nrem ? nblock_bal_base + 1 : nblock_bal_base;
 
-    if(!UniqueID()){
-      printf("node:old:new\n");
-      for(int n=0;n<nodes;n++) printf("%d:%d:%d ",n,init_count[n],count[n]);
-      printf("\n");
-      fflush(stdout);
-    }
+    a2a_printf("node:old:new\n");
+    for(int n=0;n<nodes;n++) a2a_printfnt("%d:%d:%d ",n,init_count[n],count[n]);
+    a2a_printfnt("\n");
 
     //All the nodes that are relinquishing blocks first put their pointers in a pool, then all that are assuming blocks take from the pool
     std::list<DistributedMemoryStorage*> pool;
@@ -819,7 +814,7 @@ public:
   }
 
   static void rebalance(std::vector<DistributedMemoryStorageOneSided*> &blocks){
-    if(!UniqueID()){ printf("DistributedMemoryStorageOneSided: Performing rebalance of %d blocks\n",blocks.size()); fflush(stdout); }
+    a2a_printf("DistributedMemoryStorageOneSided: Performing rebalance of %d blocks\n",blocks.size());
     int nodes = 1;
     for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
     
@@ -846,12 +841,9 @@ public:
     for(int n=0;n<nodes;n++)
       count[n] = n < nrem ? nblock_bal_base + 1 : nblock_bal_base;
 
-    if(!UniqueID()){
-      printf("node:old:new\n");
-      for(int n=0;n<nodes;n++) printf("%d:%d:%d ",n,init_count[n],count[n]);
-      printf("\n");
-      fflush(stdout);
-    }
+    a2a_printf("node:old:new\n");
+    for(int n=0;n<nodes;n++) a2a_printfnt("%d:%d:%d ",n,init_count[n],count[n]);
+    a2a_printf("\n");
 
     //All the nodes that are relinquishing blocks first put their pointers in a pool, then all that are assuming blocks take from the pool
     std::list<DistributedMemoryStorageOneSided*> pool;

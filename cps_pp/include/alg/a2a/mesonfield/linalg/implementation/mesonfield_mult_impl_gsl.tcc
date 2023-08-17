@@ -36,12 +36,9 @@ public:
     assert( (void*)&out != (void*)&l || (void*)&out != (void*)&r );
 
     if(! l.getColParams().paramsEqual( r.getRowParams() ) ){
-      if(!UniqueID()){
-	printf("mult():  Illegal matrix product: underlying vector parameters must match\n"); fflush(stdout);
-	std::cout << "left-column: " << l.getColParams().print() << "\n";
-	std::cout << "right-row: " << r.getRowParams().print() << "\n";
-	std::cout.flush();
-      }
+      LOGA2A << "mult():  Illegal matrix product: underlying vector parameters must match\n"
+	     << "left-column: " << l.getColParams().print() << "\n"
+	     << "right-row: " << r.getRowParams().print() << std::endl;
       exit(-1);
     }
 
@@ -229,12 +226,9 @@ public:
     assert( (void*)&out != (void*)&l || (void*)&out != (void*)&r );
 
     if(! l.getColParams().paramsEqual( r.getRowParams() ) ){
-      if(!UniqueID()){
-	printf("mult():  Illegal matrix product: underlying vector parameters must match\n"); fflush(stdout);
-	std::cout << "left-column: " << l.getColParams().print() << "\n";
-	std::cout << "right-row: " << r.getRowParams().print() << "\n";
-	std::cout.flush();
-      }
+      LOGA2A << "mult():  Illegal matrix product: underlying vector parameters must match\n"
+	     << "left-column: " << l.getColParams().print() << "\n"
+	     << "right-row: " << r.getRowParams().print() << std::endl;
       exit(-1);
     }
 
@@ -379,12 +373,9 @@ public:
     assert( (void*)&out != (void*)&l || (void*)&out != (void*)&r );
 
     if(! l.getColParams().paramsEqual( r.getRowParams() ) ){
-      if(!UniqueID()){
-	printf("mult():  Illegal matrix product: underlying vector parameters must match\n"); fflush(stdout);
-	std::cout << "left-column: " << l.getColParams().print() << "\n";
-	std::cout << "right-row: " << r.getRowParams().print() << "\n";
-	std::cout.flush();
-      }
+      LOGA2A << "mult():  Illegal matrix product: underlying vector parameters must match\n"
+	     << "left-column: " << l.getColParams().print() << "\n"
+	     << "right-row: " << r.getRowParams().print() << std::endl;
       exit(-1);
     }
 

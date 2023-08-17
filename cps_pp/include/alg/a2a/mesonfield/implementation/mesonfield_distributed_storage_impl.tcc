@@ -52,7 +52,7 @@ void nodeGetMany(const int n, std::vector<T> *a, ...){
   }
   va_end(vl);
 
-  print_time("nodeGetMany","Meson field gather",time+dclock());
+  a2a_print_time("nodeGetMany","Meson field gather",time+dclock());
   _nodeGetManyPerf<typename T::MesonFieldDistributedStorageType>::print();
 }
 
@@ -79,7 +79,7 @@ void nodeDistributeMany(const int n, std::vector<T> *a, ...){
   }
   va_end(vl);
 
-  print_time("nodeDistributeMany","Meson field distribute",time+dclock());
+  a2a_print_time("nodeDistributeMany","Meson field distribute",time+dclock());
 }
 
 
@@ -108,7 +108,7 @@ void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_time
   }
   va_end(vl);
 
-  print_time("nodeGetMany","Meson field gather",time+dclock());
+  a2a_print_time("nodeGetMany","Meson field gather",time+dclock());
   _nodeGetManyPerf<typename T::MesonFieldDistributedStorageType>::print();
 }
 
@@ -141,7 +141,7 @@ void nodeDistributeUnique(std::vector<T> &from, const int n, std::vector<T> cons
     if(exclude.count(&from[t]) == 0) from[t].nodeDistribute();
   }
 
-  print_time("nodeDistributeUnique","Meson field distribute",time+dclock());
+  a2a_print_time("nodeDistributeUnique","Meson field distribute",time+dclock());
 }
 
 
@@ -165,7 +165,7 @@ void nodeDistributeUnique(const std::vector< std::vector<T>* > &to_distribute, c
 	discarded_p.insert(&p);
       }
 
-  if(!UniqueID()) printf("nodeDistributeUnique(vector edition) : Distributed %d meson fields in %f seconds\n", discarded_p.size(), time+dclock());
+  a2a_printf("nodeDistributeUnique(vector edition) : Distributed %d meson fields in %f seconds\n", discarded_p.size(), time+dclock());
 }
 
 

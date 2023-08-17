@@ -39,13 +39,11 @@ class ComputeMesonFields{
   template<typename FFTvector, typename BaseVector>
   static void restore(BaseVector &out, FFTvector &in, const ThreeMomentum &p, Lattice &lattice, const std::string &descr){
 #ifdef USE_DESTRUCTIVE_FFT
-    if(!UniqueID()){
-      printf("ComputeMesonFields::compute Restoring %s of size %f MB dynamically as W FFT of size %f MB is deallocated\n",
-	     descr.c_str(),
-	     out.Mbyte_size(in.getArgs(),in.getFieldInputParams()),
-	     in.Mbyte_size(in.getArgs(),in.getFieldInputParams()));
-      fflush(stdout);
-    }
+    a2a_printf("ComputeMesonFields::compute Restoring %s of size %f MB dynamically as W FFT of size %f MB is deallocated\n",
+	       descr.c_str(),
+	       out.Mbyte_size(in.getArgs(),in.getFieldInputParams()),
+	       in.Mbyte_size(in.getArgs(),in.getFieldInputParams()));
+
     printMem(stringize("Prior to %s restore", descr.c_str()));
     in.destructiveUnapplyGaugeFixTwistFFT(out, p.ptr(),lattice); 
     printMem(stringize("After %s restore", descr.c_str()));
@@ -54,18 +52,15 @@ class ComputeMesonFields{
 
   template< template<typename> class FFTtype, template<typename> class BaseType>
   static void printAllocMessage(const BaseType<mf_Policies> &base_field, const std::string &descr){
-    if(!UniqueID()){
 #ifdef USE_DESTRUCTIVE_FFT
-      printf("ComputeMesonFields::compute Allocating %s FFT of size %f MB dynamically as %s of size %f MB is deallocated\n",
-	descr.c_str(),
-	FFTtype<mf_Policies>::Mbyte_size(base_field.getArgs(),base_field.getFieldInputParams()),
-	descr.c_str(),
-	BaseType<mf_Policies>::Mbyte_size(base_field.getArgs(),base_field.getFieldInputParams()) );
+    a2a_printf("ComputeMesonFields::compute Allocating %s FFT of size %f MB dynamically as %s of size %f MB is deallocated\n",
+	       descr.c_str(),
+	       FFTtype<mf_Policies>::Mbyte_size(base_field.getArgs(),base_field.getFieldInputParams()),
+	       descr.c_str(),
+	       BaseType<mf_Policies>::Mbyte_size(base_field.getArgs(),base_field.getFieldInputParams()) );
 #else
-      printf("ComputeMesonFields::compute Allocating a %s FFT of size %f MB\n", descr.c_str(), FFTtype<mf_Policies>::Mbyte_size(base_field.getArgs(), base_field.getFieldInputParams()));
+    a2a_printf("ComputeMesonFields::compute Allocating a %s FFT of size %f MB\n", descr.c_str(), FFTtype<mf_Policies>::Mbyte_size(base_field.getArgs(), base_field.getFieldInputParams()));
 #endif
-      fflush(stdout);
-    }
   }
   
 
@@ -170,10 +165,10 @@ class ComputeMesonFields{
 				  A2AvectorWfftw<mf_Policies> * Wfftw_base[2], A2AvectorVfftw<mf_Policies> * Vfftw_base[2],
 				  const typename StorageType::InnerProductType &M){
 
-    if(!UniqueID()){ printf("ComputeMesonFields::shiftBaseAndComputeMF Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W_args, W_fieldparams)); fflush(stdout); }
+    a2a_printf("ComputeMesonFields::shiftBaseAndComputeMF Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W_args, W_fieldparams)); fflush(stdout);
     A2AvectorWfftw<mf_Policies> fftw_W(W_args, W_fieldparams );
 
-    if(!UniqueID()){ printf("ComputeMesonFields::shiftBaseAndComputeMF Allocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V_args, V_fieldparams)); fflush(stdout); }
+    a2a_printf("ComputeMesonFields::shiftBaseAndComputeMF Allocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V_args, V_fieldparams)); fflush(stdout);
     A2AvectorVfftw<mf_Policies> fftw_V(V_args, V_fieldparams );
 	      
 #ifdef USE_DESTRUCTIVE_FFT
@@ -200,11 +195,11 @@ class ComputeMesonFields{
 					   const typename StorageType::InnerProductType &M, 
 					   bool is_last){
 
-    if(!UniqueID()){ printf("ComputeMesonFields::shiftBaseInPlaceAndComputeMF Shifting base Wfftw in place\n"); fflush(stdout); }
+    a2a_printf("ComputeMesonFields::shiftBaseInPlaceAndComputeMF Shifting base Wfftw in place\n");
     std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> > inplace_w = A2AvectorWfftw<mf_Policies>::inPlaceTwistedFFT(p_w.ptr(), Wfftw_base[0], Wfftw_base[1]);
     const A2AvectorWfftw<mf_Policies> &fftw_W = *inplace_w.first;
 
-    if(!UniqueID()){ printf("ComputeMesonFields::shiftBaseInPlaceAndComputeMF Shifting base Vfftw in place\n"); fflush(stdout); }
+    a2a_printf("ComputeMesonFields::shiftBaseInPlaceAndComputeMF Shifting base Vfftw in place\n");
     std::pair< A2AvectorVfftw<mf_Policies>*, std::vector<int> > inplace_v = A2AvectorVfftw<mf_Policies>::inPlaceTwistedFFT(p_v.ptr(), Vfftw_base[0], Vfftw_base[1]);
     const A2AvectorVfftw<mf_Policies> &fftw_V = *inplace_v.first;
 
@@ -292,8 +287,8 @@ class ComputeMesonFields{
 	      
 	      assert(qidx_v == sv && qidx_w == sw);
 	      
-	      if(!UniqueID()){ printf("ComputeMesonFields::compute Computing mesonfield with W species %d and momentum %s and V species %d and momentum %s\n",
-				      qidx_w,p_w.str().c_str(),qidx_v,p_v.str().c_str()); fflush(stdout); }
+	      a2a_printf("ComputeMesonFields::compute Computing mesonfield with W species %d and momentum %s and V species %d and momentum %s\n",
+			 qidx_w,p_w.str().c_str(),qidx_v,p_v.str().c_str());
 
 #ifdef COMPUTEMANY_INPLACE_SHIFT
 	      shiftBaseInPlaceAndComputeMF(cdest, W_args,W_fieldparams,V_args,V_fieldparams,p_w,p_v,Wfftw_base, Vfftw_base, M, 

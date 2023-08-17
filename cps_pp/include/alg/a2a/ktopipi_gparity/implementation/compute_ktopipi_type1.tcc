@@ -79,7 +79,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::generateRandomOffsets(std::vector<OneFl
 
   for(int shift = 0; shift <= t_pi_1_shift; shift += tstep) {
     int tpi1 = modLt(t_pi_1_start + shift,Lt);
-    if(!UniqueID()){ printf("Assigning random field for tpi1=%d\n",tpi1); fflush(stdout); }
+    a2a_printf("Assigning random field for tpi1=%d\n",tpi1);
     //if(random_fields[tpi1].get() != NULL) continue; //YES I KNOW THIS WILL OVERWRITE SOME ALREADY GENERATED RANDOM NUMBERS
 
     if(random_fields[tpi1] == NULL){
@@ -136,7 +136,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_compute_mfproducts(std::vector<st
   con_pi1_K.resize(Lt); //[tpi][tsep_k_pi]
   con_pi2_K.resize(Lt);
     
-  if(!UniqueID()){ printf("Computing con_pi_K\n"); fflush(stdout); }
+  LOGA2A << "Computing con_pi_K" << std::endl;
   for(int pi_idx = 0; pi_idx < 2; pi_idx++){
     const std::vector<bool> &tpi_mask = pi_idx == 0 ? tpi1_mask : tpi2_mask;
     std::vector<std::vector< mf_WW > > &con_pi_K = pi_idx == 0 ? con_pi1_K : con_pi2_K;
@@ -145,7 +145,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_compute_mfproducts(std::vector<st
     for(int tpi=0;tpi<Lt;tpi++){
       if(!tpi_mask[tpi]) continue;
     
-      if(!UniqueID()){ printf("pi_idx %d tpi = %d\n",pi_idx,tpi); fflush(stdout); }
+      a2a_printf("pi_idx %d tpi = %d\n",pi_idx,tpi);
       con_pi_K[tpi].resize(ntsep_k_pi);
 
       for(int tkpi_idx=0;tkpi_idx<ntsep_k_pi;tkpi_idx++){
@@ -289,12 +289,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_omp(ResultsContainerType result[]
     pi2_tslice_mask[t_pi2] = true;
   }
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-  if(!UniqueID()) printf("Memory prior to fetching meson fields type1 K->pipi:\n");    
+  LOGA2A << "Memory prior to fetching meson fields type1 K->pipi:" << std::endl;
   printMem();
   nodeGetMany(2,
 	      &mf_pi1,&pi1_tslice_mask,
 	      &mf_pi2,&pi2_tslice_mask);
-  if(!UniqueID()) printf("Memory after fetching meson fields type1 K->pipi:\n");
+  LOGA2A << "Memory after fetching meson fields type1 K->pipi:" << std::endl;
   printMem();
 #endif
 
@@ -303,14 +303,14 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_omp(ResultsContainerType result[]
     
   type1_compute_mfproducts(con_pi1_K,con_pi2_K,mf_pi1,mf_pi2,mf_kaon,mf_pions,tsep_k_pi,tsep_pion,Lt,ntsep_k_pi,pi1_tslice_mask,pi2_tslice_mask);
   
-  if(!UniqueID()) printf("Memory after computing mfproducts type1 K->pipi:\n");
+  LOGA2A << "Memory after computing mfproducts type1 K->pipi:" << std::endl;
   printMem();
 
   //Generate the random offsets in the same order as Daiqian did (an order which gives me a headache to think about)
   std::vector<OneFlavorIntegerField*> random_fields; //indexed by t_pi_1
   generateRandomOffsets(random_fields,tsep_k_pi,tstep,xyzStep);
 
-  if(!UniqueID()) printf("Memory after generating random offsets type1 K->pipi:\n");
+  LOGA2A << "Memory after generating random offsets type1 K->pipi:" << std::endl;
   printMem();
 
   //for(int t_pi1=0;t_pi1<GJP.TnodeSites();t_pi1++) if(!UniqueID()){ printf("Random field ptr t_pi1=%d -> %p\n",t_pi1, random_fields[t_pi1]); fflush(stdout); } 
@@ -423,11 +423,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_omp(ResultsContainerType result[]
     }//top_loc loop
   }//tpi loop
 
-  if(!UniqueID()) printf("Memory before finishing up type1 K->pipi:\n");
+  LOGA2A << "Memory before finishing up type1 K->pipi:" << std::endl;
   printMem();
 
 
-  if(!UniqueID()){ printf("Type 1 finishing up results\n"); fflush(stdout); }
+  LOGA2A << "Type 1 finishing up results" << std::endl;
   Type1timings::timer().finish_up -= dclock();
   for(int tkpi_idx =0; tkpi_idx< ntsep_k_pi; tkpi_idx++){
     result[tkpi_idx].threadSum();
@@ -437,18 +437,18 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_omp(ResultsContainerType result[]
   }
   Type1timings::timer().finish_up += dclock();
 
-  if(!UniqueID()) printf("Memory after finishing up type1 K->pipi:\n");
+  LOGA2A << "Memory after finishing up type1 K->pipi:" << std::endl;
   printMem();
 
   for(int i=0;i<random_fields.size();i++) if(random_fields[i] != NULL) delete random_fields[i];
 
-  if(!UniqueID()) printf("Memory after deleting random fields type1 K->pipi:\n");
+  LOGA2A << "Memory after deleting random fields type1 K->pipi:" << std::endl;
   printMem();
   
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   nodeDistributeMany(2,&mf_pi1,&mf_pi2);
-  if(!UniqueID()) printf("Memory after redistributing meson fields type1 K->pipi:\n");
+  LOGA2A << "Memory after redistributing meson fields type1 K->pipi:" << std::endl;
   printMem();
 #endif
   Type1timings::timer().total += dclock();

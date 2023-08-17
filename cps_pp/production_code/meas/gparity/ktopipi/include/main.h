@@ -19,6 +19,8 @@ using namespace cps;
 #include "ktosigma.h"
 #include "do_contractions.h"
 
+typedef typename A2Apolicies::FgridGFclass LatticeType;
+
 void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &cmdline,
 		     const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
 		     const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams){
@@ -32,41 +34,55 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   runInitialGridBenchmarks(cmdline,params);
 
-  GridXconjLanczosDoubleConvSingle<A2Apolicies> eig, eig_s;
-  //GridLanczosDoubleConvSingle<A2Apolicies> eig, eig_s;
-  if(cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, false);
-  if(cmdline.tune_lanczos_heavy) computeEvecs(eig_s, Heavy, params, false);
+  typedef std::unique_ptr<EvecManager<typename A2Apolicies::GridFermionField,typename A2Apolicies::GridFermionFieldF> > LanczosPtrType;
+  LanczosPtrType eig = A2ALanczosFactory<A2Apolicies>(params.jp.lanczos_controls);
+  LanczosPtrType eig_s = A2ALanczosFactory<A2Apolicies>(params.jp.lanczos_controls);
+
+  if(cmdline.tune_lanczos_light) computeEvecs(*eig, Light, params, cmdline.evec_opts_l);
+  if(cmdline.tune_lanczos_heavy) computeEvecs(*eig_s, Heavy, params, cmdline.evec_opts_h);
   if(cmdline.tune_lanczos_light||cmdline.tune_lanczos_heavy) return; //tune and exit
+  if(cmdline.tune_gauge_fix){
+    Lattice* lat = (Lattice*)createFgridLattice<LatticeType>(params.jp);
+    doGaugeFix(*lat, false, params.fix_gauge_arg);
+    delete lat;
+    return;
+  }
 
   //-------------------- Light quark Lanczos ---------------------//
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.randomize_evecs);
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(*eig, Light, params, cmdline.evec_opts_l);
 
   //-------------------- Light quark v and w --------------------//
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
-  computeVW(V, W, Light, params, eig, cmdline.randomize_vw);
+  computeVW(V, W, Light, params, *eig, cmdline.randomize_vw);
 
-  if(!UniqueID()){ printf("Freeing light evecs\n"); fflush(stdout); }
+  LOGA2A << "Freeing light evecs" << std::endl;
   printMem("Memory before light evec free");
-  eig.freeEvecs();
+  eig->freeEvecs();
   printMem("Memory after light evec free");
     
   //-------------------- Strange quark Lanczos ---------------------//
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig_s, Heavy, params, cmdline.randomize_evecs);
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(*eig_s, Heavy, params, cmdline.evec_opts_h);
 
   //-------------------- Strange quark v and w --------------------//
   A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
   A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
-  computeVW(V_s, W_s, Heavy, params, eig_s, cmdline.randomize_vw);
+  computeVW(V_s, W_s, Heavy, params, *eig_s, cmdline.randomize_vw);
 
   printMem("Memory before heavy evec free");
-  eig_s.freeEvecs();
+  eig_s->freeEvecs();
   printMem("Memory after heavy evec free");
 
   //The rest of the code passes the pointer to the lattice around rather than recreating on-the-fly
-  typedef typename A2Apolicies::FgridGFclass LatticeType;
-  Lattice* lat = (Lattice*)createFgridLattice<typename A2Apolicies::FgridGFclass>(params.jp);
+  Lattice* lat = (Lattice*)createFgridLattice<LatticeType>(params.jp);
+
+  //-------------------Fix gauge----------------------------
+  //This may be done with Grid so we will do it before we free up Grid's temporary memory
+  doGaugeFix(*lat, cmdline.skip_gauge_fix, params.fix_gauge_arg);
+
   freeGridSharedMem();
+  GridMemoryManagerFree();
+
   doContractions(conf,params,cmdline,*lat,V,W,V_s,W_s,field3dparams);
   delete lat;
 }
@@ -92,7 +108,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     //-------------------- Light quark Lanczos ---------------------//
     {
       GridLanczosDoubleConvSingle<A2Apolicies> eig;
-      computeEvecs(eig, Light, params, cmdline.randomize_evecs);
+      computeEvecs(eig, Light, params, cmdline.evec_opts_l);
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;
       if(!UniqueID()){ printf("Writing light Lanczos to %s\n",os.str().c_str()); fflush(stdout); }
       double time = -dclock();
@@ -112,7 +128,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     
     //-------------------- Strange quark Lanczos ---------------------//
     GridLanczosDoubleConvSingle<A2Apolicies> eig_s;
-    computeEvecs(eig_s, Heavy, params, cmdline.randomize_evecs);
+    computeEvecs(eig_s, Heavy, params, cmdline.evec_opts_h);
 
     //-------------------- Strange quark v and w --------------------//
     A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
@@ -182,7 +198,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     }
 
     typedef typename A2Apolicies::FgridGFclass LatticeType;
-    Lattice* lat = (Lattice*)createFgridLattice<typename A2Apolicies::FgridGFclass>(params.jp);
+    Lattice* lat = (Lattice*)createFgridLattice<LatticeType>(params.jp);
     freeGridSharedMem();
     doContractions(conf,params,cmdline,*lat,V,W,V_s,W_s,field3dparams);
     delete lat;
@@ -210,7 +226,7 @@ void doConfigurationLLprops(const int conf, Parameters &params, const CommandLin
   
   //-------------------- Light quark Lanczos ---------------------//
   GridLanczosDoubleConvSingle<A2Apolicies> eig;
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute || cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, cmdline.randomize_evecs);
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute || cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
   if(cmdline.tune_lanczos_light) return;
   
   //-------------------- Light quark v and w --------------------//
@@ -258,12 +274,12 @@ void doConfigurationLLpropsSplit(const int conf, Parameters &params, const Comma
   printMem("Memory after gauge and RNG read");
 
   GridLanczosDoubleConvSingle<A2Apolicies> eig;
-  if(cmdline.tune_lanczos_light){ computeEvecs(eig, Light, params, false); return; }
+  if(cmdline.tune_lanczos_light){ computeEvecs(eig, Light, params, cmdline.evec_opts_l); return; }
 
   if(cmdline.split_job_part == 0){
     //-------------------- Light quark Lanczos ---------------------//
     
-    if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.randomize_evecs);
+    if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
 
     //Write to disk
     {

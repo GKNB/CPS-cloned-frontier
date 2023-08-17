@@ -133,9 +133,9 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
     if(UniqueID()==0) printf("Config written.\n");
   }
 
-  if(1) benchmarkMmapMemoryStorage(ntests, opt.nlowmodes);
+  //if(1) benchmarkMmapMemoryStorage(ntests, opt.nlowmodes);
   
-//   if(0) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
+  //  if(1) benchmarkFFT<ScalarA2ApoliciesType>(ntests);
 
 // #ifdef USE_GRID
 //   if(0) benchmarkMFcontractKernel<GridA2ApoliciesType>(ntests,nthreads);
@@ -149,7 +149,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
  
 // #ifdef USE_GRID
   //if(1) benchmarkMFcontract<ScalarA2ApoliciesType,A2ApoliciesSIMDdoubleAutoAllocGparityUVM>(a2a_params, ntests, nthreads); //UVM version
-  //if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_params, ntests, nthreads);
+  if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_params, ntests, nthreads);
 //   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 //   if(0) benchmarkMultiShiftMFcontract<GridA2ApoliciesType>(a2a_args, opt.nshift);
 
@@ -337,7 +337,20 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss << argv[i+1];
       size_t v; ss >> v;
       DeviceMemoryPoolManager::globalPool().setPoolMaxSize(v);
+      HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::DevicePool);	
       i+=2;
+    }else if( cmd == "-host_pool_max_mem" ){
+      std::stringstream ss; ss << argv[i+1];
+      size_t v; ss >> v;
+      HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::HostPool);	
+      i+=2;
+    }else if( cmd == "-mempool_verbose" ){
+      DeviceMemoryPoolManager::globalPool().setVerbose(true);
+      HolisticMemoryPoolManager::globalPool().setVerbose(true);
+      i+=1;
+    }else if( cmd == "-mempool_scratchdir" ){
+      HolisticMemoryPoolManager::globalPool().setDiskRoot(argv[i+1]);
+      i+=2;	
     }else{
       i++;
     }

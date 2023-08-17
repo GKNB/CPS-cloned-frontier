@@ -90,7 +90,7 @@ public:
 
   //Add the parameters of a meson field to the list of pending calculations
   inline void addCompute(const int qidx_w, const int qidx_v, const ThreeMomentum &p_w, const ThreeMomentum &p_v){
-    if(!UniqueID()) printf("MesonFieldStorageBase added computation with qidx_w=%d, qidx_v=%d, p_w=%s, p_v=%s\n", qidx_w, qidx_v, p_w.str().c_str(), p_v.str().c_str());    
+    a2a_printf("MesonFieldStorageBase added computation with qidx_w=%d, qidx_v=%d, p_w=%s, p_v=%s\n", qidx_w, qidx_v, p_w.str().c_str(), p_v.str().c_str());    
     clist.push_back( computeParams(qidx_w,qidx_v,p_w,p_v) );
   }
   inline int nWffts(const int qidx) const{
@@ -434,20 +434,20 @@ protected:
 	optimized_clist[loc->second].addShift(shift);
       }     
     }
-    if(!UniqueID()){
-      printf("MesonFieldShiftSourceStorageBase combined source shifts to:\n");
-      for(int i=0;i<optimized_clist.size();i++){
-	const computeParamsMultiShift &c = optimized_clist[i];
-	printf("%d %d p_wdag %s p_v %s shifts : ",c.qidx_w, c.qidx_v, (-c.p_w).str().c_str(), c.p_v.str().c_str());
-	for(int s=0;s<c.shifts.size();s++)
-	  printf("(%d,%d,%d) ",c.shifts[s][0],c.shifts[s][1],c.shifts[s][2]);
-	printf("\n");
-      }
-      printf("Internal mapping of cidx to <optimized cidx, shift index>:\n");
-      for(int i=0;i<clist.size();i++)
-	printf("%d -> (%d,%d)  ",i,clist_opt_map[i].first,clist_opt_map[i].second);
-      printf("\n");
+
+    a2a_printf("MesonFieldShiftSourceStorageBase combined source shifts to:\n");
+    for(int i=0;i<optimized_clist.size();i++){
+      const computeParamsMultiShift &c = optimized_clist[i];
+      a2a_printf("%d %d p_wdag %s p_v %s shifts : ",c.qidx_w, c.qidx_v, (-c.p_w).str().c_str(), c.p_v.str().c_str());
+      for(int s=0;s<c.shifts.size();s++)
+	a2a_printfnt("(%d,%d,%d) ",c.shifts[s][0],c.shifts[s][1],c.shifts[s][2]);
+      a2a_printfnt("\n");
     }
+    a2a_printf("Internal mapping of cidx to <optimized cidx, shift index>:\n");
+    for(int i=0;i<clist.size();i++)
+      a2a_printfnt("%d -> (%d,%d)  ",i,clist_opt_map[i].first,clist_opt_map[i].second);
+    a2a_printfnt("\n");
+    
     optimized = true;
   }
   
@@ -490,11 +490,11 @@ public:
 	src_shift[i] = b(i); //shift in +b direction  \gamma(n') = \gamma(n-b)
       }
     
-    if(!UniqueID()) printf("MesonFieldShiftSourceStorageBase: Converted p_wdag  %s = 4%s + %s   and p_v  %s = 4%s + %s to  p_wdag %s and p_v %s accompanied by source shift (%d,%d,%d)\n",
-			   p_wdag.str().c_str(), a.str().c_str(), k.str().c_str(),
-			   p_v.str().c_str(), b.str().c_str(), l.str().c_str(),
-			   new_p_wdag.str().c_str(), new_p_v.str().c_str(),
-			   src_shift[0],src_shift[1],src_shift[2]);
+    a2a_printf("MesonFieldShiftSourceStorageBase: Converted p_wdag  %s = 4%s + %s   and p_v  %s = 4%s + %s to  p_wdag %s and p_v %s accompanied by source shift (%d,%d,%d)\n",
+	       p_wdag.str().c_str(), a.str().c_str(), k.str().c_str(),
+	       p_v.str().c_str(), b.str().c_str(), l.str().c_str(),
+	       new_p_wdag.str().c_str(), new_p_v.str().c_str(),
+	       src_shift[0],src_shift[1],src_shift[2]);
     
     this->clist.push_back( computeParams(qidx_w,qidx_v, -new_p_wdag, new_p_v, src_shift) );
   }

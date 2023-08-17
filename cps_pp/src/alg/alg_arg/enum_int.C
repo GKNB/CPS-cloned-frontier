@@ -1210,6 +1210,23 @@ vml_A2AhighModeSourceType (VML *vmls, char *name,A2AhighModeSourceType *objp)
 struct vml_enum_map A2AhighModeSourceType_map[] = {
 	{"A2AhighModeSourceType","A2AhighModeSourceTypeOrig",A2AhighModeSourceTypeOrig},
 	{"A2AhighModeSourceType","A2AhighModeSourceTypeXconj",A2AhighModeSourceTypeXconj},
+	{"A2AhighModeSourceType","A2AhighModeSourceTypeFlavorUnit",A2AhighModeSourceTypeFlavorUnit},
+	{"A2AhighModeSourceType","A2AhighModeSourceTypeFlavorCConj",A2AhighModeSourceTypeFlavorCConj},
+	{NULL,NULL,0}
+};
+
+bool_t
+vml_A2AlanczosType (VML *vmls, char *name,A2AlanczosType *objp)
+{
+	if (!vml_enum (vmls,name,(enum_t *)objp,A2AlanczosType_map))
+		return FALSE;
+	return TRUE;
+}
+struct vml_enum_map A2AlanczosType_map[] = {
+	{"A2AlanczosType","A2AlanczosTypeDoubleConvSingle",A2AlanczosTypeDoubleConvSingle},
+	{"A2AlanczosType","A2AlanczosTypeXconjDoubleConvSingle",A2AlanczosTypeXconjDoubleConvSingle},
+	{"A2AlanczosType","A2AlanczosTypeBlockXconjDoubleConvSingle",A2AlanczosTypeBlockXconjDoubleConvSingle},
+	{"A2AlanczosType","A2AlanczosTypeBlockXconjSingle",A2AlanczosTypeBlockXconjSingle},
 	{NULL,NULL,0}
 };
 CPS_END_NAMESPACE

@@ -93,7 +93,7 @@ void CPSfield_do_fft_onemkl(const int mutotalsites, const size_t howmany,
 			   const bool inverse_transform, 
 			   typename FFTWwrapper<FloatType>::complexType *data,
 			   const size_t data_size){
-  std::cout << "Doing FFT with oneMKL" << std::endl;
+  LOGA2A << "Doing FFT with oneMKL" << std::endl;
   typedef typename FFTWwrapper<FloatType>::complexType ComplexType;
 
   //Get the plan

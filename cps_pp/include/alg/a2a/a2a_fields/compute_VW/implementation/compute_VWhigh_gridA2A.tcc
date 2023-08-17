@@ -19,7 +19,7 @@ void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
   std::vector<GridFermionFieldD> grid_sol_v(block_size,UGrid);
 
   int Nblocks = (nh + block_size - 1)/block_size;
-  std::cout << Grid::GridLogMessage << "Computing V,W high mode contribution in " << Nblocks << " blocks of " << block_size << std::endl;
+  LOGA2A << "Computing V,W high mode contribution in " << Nblocks << " blocks of " << block_size << std::endl;
 
 #ifndef MEMTEST_MODE
   for(size_t b=0;b<Nblocks;b++){

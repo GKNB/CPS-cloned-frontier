@@ -1,8 +1,6 @@
 #pragma once
 
-#include<alg/a2a/utils.h>
-#include "a2a_fft.h"
-#include "field_array.h"
+#include "field_vectors.h"
 
 CPS_START_NAMESPACE
 
@@ -39,7 +37,7 @@ public:
 
   //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
   void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{
-    std::cout << "Setting high-mode sources (original)" << std::endl;
+    LOGA2A << "Setting high-mode sources (original)" << std::endl;
     typedef typename A2AvectorW<A2Apolicies>::ScalarComplexFieldType ScalarComplexFieldType;
     typedef typename ScalarComplexFieldType::FieldSiteType FieldSiteType;
     NullObject null_obj;
@@ -97,7 +95,7 @@ public:
 
   //The high modes sources are diagonal in flavor space but the two diagonal elements are complex conjugate pairs rather than independent
   void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{
-    std::cout << "Setting high-mode sources (flavor-conjugate)" << std::endl;
+    LOGA2A << "Setting high-mode sources (flavor-conjugate)" << std::endl;
     typedef typename A2AvectorW<A2Apolicies>::ScalarComplexFieldType ScalarComplexFieldType;
     typedef typename ScalarComplexFieldType::FieldSiteType FieldSiteType;
     NullObject null_obj;
@@ -127,7 +125,7 @@ public:
   //We must transform into X-conjugate form, and revert this post-facto for the solutions
   void get4DinverseSource(GridFermionFieldD &src, const int high_mode_idx, const A2AvectorW<A2Apolicies> &W) const override{
     double time = -dclock();
-    std::cout << "Starting construction of X-conjugate source for high mode " << high_mode_idx << std::endl;
+    LOGA2A << "Starting construction of X-conjugate source for high mode " << high_mode_idx << std::endl;
     
     typedef typename A2Apolicies::ComplexTypeD ComplexType;
     typedef CPSfermion4D<typename A2Apolicies::ComplexTypeD,typename A2Apolicies::FermionFieldType::FieldMappingPolicy, 
@@ -201,7 +199,7 @@ public:
     src_out.exportGridField(src);
 
     {
-      std::cout << "Check result is X-conjugate" << std::endl;
+      LOGA2A << "Check result is X-conjugate" << std::endl;
       static Grid::Gamma X = Grid::Gamma(Grid::Gamma::Algebra::MinusGammaY) * Grid::Gamma(Grid::Gamma::Algebra::GammaT)*Grid::Gamma(Grid::Gamma::Algebra::Gamma5);
       auto tmp = Grid::PeekIndex<GparityFlavourIndex>(src,0);
       tmp = -(X*conjugate(tmp)) - Grid::PeekIndex<GparityFlavourIndex>(src,1);
@@ -209,12 +207,12 @@ public:
       if(n>1e-8) ERR.General("A2AhighModeSourceXconj","get4DinverseSource","Source %d is not X-conjugate: got %g expect 0",high_mode_idx,n);
     }
 
-    print_time("A2AhighModeSourceXconj","get4DinverseSource",time + dclock());
+    a2a_print_time("A2AhighModeSourceXconj","get4DinverseSource",time + dclock());
   }
 
   void solutionPostOp(A2AvectorV<A2Apolicies> &into) const override{
     double time = -dclock();
-    std::cout << "Starting reconstruction of G-parity solutions from X-conjugate inverses" << std::endl;
+    LOGA2A << "Starting reconstruction of G-parity solutions from X-conjugate inverses" << std::endl;
 	
     //V = M^-1 (rho P_+       ,   rho P_-     )
     //         ( -X rho* P_-  ,  -X rho* P_+  )
@@ -279,13 +277,84 @@ public:
       }//tcol
     }//hit
 
-    print_time("A2AhighModeSourceXconj","solutionPostOp",time + dclock());
+    a2a_print_time("A2AhighModeSourceXconj","solutionPostOp",time + dclock());
   }
 	  
 	  
 
 
 };
+
+
+//This version uses the same random numbers for both diagonal flavor elements so the flavor structure is always the unit matrix
+template<typename A2Apolicies>
+class A2AhighModeSourceFlavorUnit: public A2AhighModeSource<A2Apolicies>{
+public:
+
+  //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
+  void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{
+    LOGA2A << "Setting high-mode sources (original)" << std::endl;
+    typedef typename A2AvectorW<A2Apolicies>::ScalarComplexFieldType ScalarComplexFieldType;
+    typedef typename ScalarComplexFieldType::FieldSiteType FieldSiteType;
+    NullObject null_obj;
+    int nhits = into.getNhits();
+    RandomType rand_type = into.getArgs().rand_type;
+    std::vector<ScalarComplexFieldType> tmp(nhits,null_obj);
+
+    LRG.SetInterval(1, 0);
+    size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
+    ViewArray<ScalarComplexFieldType> views(HostWrite,tmp);
+    for(size_t st = 0; st < sites; ++st) {
+      LRG.AssignGenerator(st,0);
+      for(int j = 0; j < nhits; ++j) {
+	FieldSiteType* p = views[j].site_ptr(st,0);
+	RandomComplex<FieldSiteType>::rand(p,rand_type,FOUR_D);
+	*views[j].site_ptr(st,1) = *p;
+      }
+    }
+    views.free();
+
+    into.setWh(tmp);
+  }    
+
+
+};
+
+//This version uses a random number and its complex conjugate as the diagonal entries, matching the X-conjugate source but without the intermediate rotation
+template<typename A2Apolicies>
+class A2AhighModeSourceFlavorCConj: public A2AhighModeSource<A2Apolicies>{
+public:
+
+  //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
+  void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{
+    LOGA2A << "Setting high-mode sources (original)" << std::endl;
+    typedef typename A2AvectorW<A2Apolicies>::ScalarComplexFieldType ScalarComplexFieldType;
+    typedef typename ScalarComplexFieldType::FieldSiteType FieldSiteType;
+    NullObject null_obj;
+    int nhits = into.getNhits();
+    RandomType rand_type = into.getArgs().rand_type;
+    std::vector<ScalarComplexFieldType> tmp(nhits,null_obj);
+
+    LRG.SetInterval(1, 0);
+    size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
+    ViewArray<ScalarComplexFieldType> views(HostWrite,tmp);
+    for(size_t st = 0; st < sites; ++st) {
+      LRG.AssignGenerator(st,0);
+      for(int j = 0; j < nhits; ++j) {
+	FieldSiteType* p = views[j].site_ptr(st,0);
+	RandomComplex<FieldSiteType>::rand(p,rand_type,FOUR_D);
+	*views[j].site_ptr(st,1) = Grid::conjugate(*p);
+      }
+    }
+    views.free();
+
+    into.setWh(tmp);
+  }    
+
+
+};
+
+
 
 
 CPS_END_NAMESPACE

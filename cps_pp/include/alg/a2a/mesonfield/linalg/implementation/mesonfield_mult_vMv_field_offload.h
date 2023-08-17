@@ -83,7 +83,7 @@ struct mult_vMv_field_offload_timers{
     }
     void print(){
       average();
-      printf("calls=%zu init=%g va'=%g M'=%g vb'=%g Mr=%g l(Mr)=%g prefetch=%g\n", calls, init, vaprime, Mprime, vbprime, Mr, lMr, prefetch);
+      a2a_printf("calls=%zu init=%g va'=%g M'=%g vb'=%g Mr=%g l(Mr)=%g prefetch=%g\n", calls, init, vaprime, Mprime, vbprime, Mr, lMr, prefetch);
     }
 
   };
@@ -370,7 +370,6 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 #if defined(GRID_CUDA) || defined(GRID_HIP)
     uint32_t orig_t = Grid::acceleratorThreads();
     Grid::acceleratorThreads(16);
-    //std::cout << "Changed number of GPU threads from " << orig_t << " to " << Grid::acceleratorThreads() << std::endl;
 #endif
 
     int nxblocks = fourd_block_count;
@@ -379,7 +378,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     
     double block_size_MB = double(njprime_block*xblocksz*sizeof(VectorComplexType))/1024./1024.;
     double Mprime_size_MB = double(niprime_block*njprime_block*sizeof(MFcomplexType))/1024./1024.;
-    if(verbose) std::cout << "Solving M'* vb' with nxblocks=" << nxblocks << ": block volume " << xblocksz << " = " << block_size_MB << " MB and M' size " << niprime_block << "*" << njprime_block << " = " << Mprime_size_MB << " MB" << std::endl;
+    if(verbose) LOGA2A << "Solving M'* vb' with nxblocks=" << nxblocks << ": block volume " << xblocksz << " = " << block_size_MB << " MB and M' size " << niprime_block << "*" << njprime_block << " = " << Mprime_size_MB << " MB" << std::endl;
 
     accelerator_for2d(x4d_block, xblocksz, iprimeb_xb, niprime_block*nxblocks, nsimd,
 			{
@@ -472,10 +471,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			const rA2AfieldType &r,
 			bool conj_l, bool conj_r,
 			const int t_start, const int t_dis){
-    if(!UniqueID()){
-      std::cout << "Starting field vMv multiplication between t=" << t_start << " and " << t_start + t_dis << " (mod Lt)" << std::endl;
-      std::cout << "Packed index sizes: " << l.getNmodes() << " (" << M.getNrows() << "," << M.getNcols() << ") " << r.getNmodes() << std::endl;
-    }
+    LOGA2A << "Starting field vMv multiplication between t=" << t_start << " and " << t_start + t_dis << " (mod Lt)" << std::endl;
+    LOGA2A << "Packed index sizes: " << l.getNmodes() << " (" << M.getNrows() << "," << M.getNcols() << ") " << r.getNmodes() << std::endl;    
 
 #if defined(GRID_CUDA)
     cudaFuncCache cache_default;
@@ -513,17 +510,17 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     //Which local timeslices do we need?
     std::set<int> local_timeslices_v; //use a set to avoid duplicate values ; this leads to subtle errors!
     {
-      std::cout << "t_start=" << t_start << " tsep=" << t_dis << ". This node doing timeslices: ";
+      LOGA2A << "t_start=" << t_start << " tsep=" << t_dis << ". This node doing timeslices: ";
       int toff = GJP.TnodeCoor() * GJP.TnodeSites();
       for(int tlin=t_start; tlin<=t_start + t_dis; tlin++){
 	int tprd = tlin % Lt;
 	int tlcl = tprd - toff;
 	if(tlcl >=0 && tlcl < GJP.TnodeSites()){
 	  local_timeslices_v.insert(tlcl);
-	  std::cout << tlcl << " ";
+	  LOGA2ANT << tlcl << " ";
 	}
       }
-      std::cout << std::endl;
+      LOGA2ANT << std::endl;
     }
     int nt_do = local_timeslices_v.size();
     if(nt_do == 0) return;
@@ -555,7 +552,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     size_t fourd_block_count = BlockedvMvOffloadArgs::bb; //tuneable: how many blocks do we divide the 4D volume into
     //4D volume must be evenly divisible by the block count
     if(vol4d_node_do % fourd_block_count != 0){ 
-      if(!UniqueID()) printf("Initial 4D block count %d does not evenly divide 4D volume %d, adjusting\n",fourd_block_count,vol4d_node_do);
+      a2a_printf("Initial 4D block count %d does not evenly divide 4D volume %d, adjusting\n",fourd_block_count,vol4d_node_do);
       
       //Prefer smaller blocks (larger block count) to avoid memory issues
       bool found = false;
@@ -577,7 +574,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       }
       if(!found) ERR.General("_mult_vMv_field_offload_v", "optimized","Could not find a 4D block count");
       
-      if(!UniqueID()) printf("Adjusted 4D block count to %d with 4D block size %d, adjusting\n",fourd_block_count,vol4d_node_do/fourd_block_count);
+      a2a_printf("Adjusted 4D block count to %d with 4D block size %d, adjusting\n",fourd_block_count,vol4d_node_do/fourd_block_count);
     }
     
     typedef SIMT<VectorComplexType> ACC;
@@ -612,23 +609,21 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
     //Prepare for blocked vMv
     size_t niprime = nil_ir_pairs, njprime = njl_jr_pairs;
-    if(!UniqueID()) std::cout << "niprime=" << niprime << " njprime=" << njprime << std::endl;
+    LOGA2A << "niprime=" << niprime << " njprime=" << njprime << std::endl;
     
     size_t field_size = 12 * nf * vol4d_node_do;
     size_t blocked_fermfields_bytes = field_size * blocksize * sizeof(VectorComplexType);
     size_t blocked_cmplxfields_bytes = vol4d_node_do * blocksize * sizeof(VectorComplexType);    
     size_t Mprime_bytes = blocksize * blocksize * sizeof(MFcomplexType);
 
-    if(!UniqueID()){
-      std::cout << "Outer block size is blocksize=" << blocksize  << std::endl;  //<< " inner blocksize " << inner_blocksize << std::endl;
-      std::cout << "Fermion field size is F=" << double(field_size * sizeof(VectorComplexType)) / 1024./1024. << " MB and complex filed Z="
-		<< double(vol4d_node*sizeof(VectorComplexType)) / 1024./1024. << "MB, for vector temporaries require blocksize * (F + 2*Z) MB total" << std::endl;
-      std::cout << "vaprime " << double(blocked_fermfields_bytes)/1024./1024. << " MB" << std::endl;
-      std::cout << "vbprime " << double(blocked_cmplxfields_bytes)/1024./1024. << " MB" << std::endl;
-      std::cout << "Mprime " << double(Mprime_bytes)/1024./1024. << " MB" << std::endl;
-      std::cout << "Mvbprime " << double(blocked_cmplxfields_bytes)/1024./1024. << " MB" << std::endl;
-    }
-    
+    LOGA2A << "Outer block size is blocksize=" << blocksize  << std::endl
+	   << "Fermion field size is F=" << double(field_size * sizeof(VectorComplexType)) / 1024./1024. << " MB and complex filed Z="
+	   << double(vol4d_node*sizeof(VectorComplexType)) / 1024./1024. << "MB, for vector temporaries require blocksize * (F + 2*Z) MB total" << std::endl
+	   << "vaprime " << double(blocked_fermfields_bytes)/1024./1024. << " MB" << std::endl
+	   << "vbprime " << double(blocked_cmplxfields_bytes)/1024./1024. << " MB" << std::endl
+	   << "Mprime " << double(Mprime_bytes)/1024./1024. << " MB" << std::endl
+	   << "Mvbprime " << double(blocked_cmplxfields_bytes)/1024./1024. << " MB" << std::endl;
+        
     VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(blocked_fermfields_bytes);
     VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(blocked_cmplxfields_bytes); //only one spin,color,flavor    
     MFcomplexType* Mprime = (MFcomplexType*)managed_alloc_check(Mprime_bytes);
@@ -647,8 +642,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       size_t iprimelessthan = std::min(iprimestart + blocksize, niprime);
       size_t niprime_block = iprimelessthan - iprimestart;
 
-      std::cout << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
-      //std::cout << "Create va'" << std::endl;
+      LOGA2A << "iprimeblock:" << iprimeblock << " iprimestart:" << iprimestart << " iprimelessthan:" << iprimelessthan << " niprime_block:"<< niprime_block << std::endl;
 
       create_vaprime(vaprime, into_v, l, alpha_v, il_ir_pairs_v, t_off, l.getArgs().src_width, iprimestart, nf, ntblocks, vol3d_node, local_timeslices, niprime_block, nsimd, conj_l);
       time.vaprime += dclock();
@@ -658,7 +652,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	size_t jprimelessthan = std::min(jprimestart + blocksize, njprime);
 	size_t njprime_block = jprimelessthan - jprimestart;	
 
-	std::cout << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
+	LOGA2A << "jprimeblock:" << jprimeblock << " jprimestart:" << jprimestart << " jprimelessthan:" << jprimelessthan << " njprime_block:"<< njprime_block << std::endl;
 
 	//The kernels below takes a while so we may as well prefetch r for the next cycle
 	//TODO: For UVM the prefetch calls take a while to run, make them happen on a background thread

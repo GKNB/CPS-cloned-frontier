@@ -92,7 +92,7 @@ void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename Comput
 		    const KaonMomentumPolicy &kaon_mom,
 		    const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams, bool randomize_mf,
 		    KaonMesonFields *keep_mesonfields = NULL){
-  if(!UniqueID()) printf("Computing kaon 2pt function\n");
+  LOGA2A << "Computing kaon 2pt function" << std::endl;
   double time = -dclock();
   
   {  
@@ -103,11 +103,11 @@ void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename Comput
     
     if(keep_mesonfields != NULL) keep_mesonfields->move(mf);
   }  
-  print_time("main","Kaon 2pt function",time + dclock());
+  a2a_print_time("main","Kaon 2pt function",time + dclock());
   printMem("Memory after kaon 2pt function computation");
-     
+  
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
-  if(!UniqueID()) printf("Trimming block storage\n");
+  LOGA2A << "Trimming block storage" << std::endl;
   DistributedMemoryStorage::block_allocator().trim();
   if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
 #endif
@@ -115,11 +115,11 @@ void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename Comput
 
 
 template<typename KaonMomentumPolicyStd, typename KaonMomentumPolicyReverse>
-void computeKaon2ptStandardAndSymmetric(typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
-					typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
-					const KaonMomentumPolicyStd &kaon_mom_std, const KaonMomentumPolicyReverse &kaon_mom_rev,
-					const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,bool randomize_mf){
-   if(!UniqueID()) printf("Computing kaon 2pt function standard and symmetric\n");
+  void computeKaon2ptStandardAndSymmetric(typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
+					  typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
+					  const KaonMomentumPolicyStd &kaon_mom_std, const KaonMomentumPolicyReverse &kaon_mom_rev,
+					  const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,bool randomize_mf){
+   LOGA2A << "Computing kaon 2pt function standard and symmetric" << std::endl;
    double time = -dclock();
    const int Lt = GJP.Tnodes() * GJP.TnodeSites();
    
@@ -136,7 +136,7 @@ void computeKaon2ptStandardAndSymmetric(typename ComputeKaon<A2Apolicies>::Vtype
      
    computeKaon2ptContraction(conf,params,mf_symm,"_symm");
    
-   print_time("main","Kaon 2pt function",time + dclock());
+   a2a_print_time("main","Kaon 2pt function",time + dclock());
    printMem("Memory after kaon 2pt function computation");
 }
  

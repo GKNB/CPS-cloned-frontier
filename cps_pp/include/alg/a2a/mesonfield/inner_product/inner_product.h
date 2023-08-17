@@ -2,7 +2,7 @@
 #define _CK_INNER_PRODUCT_H
 
 #include<alg/a2a/mesonfield/a2a_sources.h>
-#include<alg/a2a/a2a_fields/field_array.h>
+#include<alg/a2a/a2a_fields/field_vectors/field_array.h>
 #include "inner_product_spincolorcontract.h"
 #include "inner_product_fmatspincolorcontract.h"
 

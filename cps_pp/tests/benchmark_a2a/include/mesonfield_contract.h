@@ -136,14 +136,13 @@ void benchmarkMFcontract(const A2Aparams &a2a_params, const int ntests, const in
 
   FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
   FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
-
-  A2AvectorWfftw<ScalarA2Apolicies> W(a2a_params);
-  A2AvectorVfftw<ScalarA2Apolicies> V(a2a_params);
   
+  LOGA2A << "Allocating W and V fields" << std::endl;
   A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_params, simd_dims);
   A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_params, simd_dims);
   A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
 
+  LOGA2A << "Starting setup" << std::endl;
   ThreeDSIMDPolicy<OneFlavorPolicy>::ParamType simd_dims_3d;
   ThreeDSIMDPolicy<OneFlavorPolicy>::SIMDdefaultLayout(simd_dims_3d,nsimd);
 
@@ -160,44 +159,37 @@ void benchmarkMFcontract(const A2Aparams &a2a_params, const int ntests, const in
   typedef SCFspinflavorInnerProduct<15,typename GridA2Apolicies::ComplexType,A2AflavorProjectedExpSource<GridSrcPolicy> > GridInnerProduct;
   GridInnerProduct mf_struct_grid(sigma3,src_grid);
   
-  std::cout << "Starting all-time mesonfield contract benchmark\n";
+  LOGA2A << "Starting all-time mesonfield contract benchmark\n";
   if(!UniqueID()){ printf("Using outer blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bi,BlockedMesonFieldArgs::bj,BlockedMesonFieldArgs::bp); fflush(stdout); }
   if(!UniqueID()){ printf("Using inner blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bii,BlockedMesonFieldArgs::bjj,BlockedMesonFieldArgs::bpp); fflush(stdout); }
 
   Float total_time = 0.;
   std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_grid_t;
 
-#if 0
-  std::cout << "Generating random fields" << std::endl;
-  W.testRandom();
-  V.testRandom();
-  std::cout << "Importing random fields into Grid A2A vectors" << std::endl;
-  Wgrid.importFields(W);
-  Vgrid.importFields(V);
-#else
   //Just zero the data, makes no difference
+  LOGA2A << "Initializing V,W fields" << std::endl;
   Wgrid.zero();
   Vgrid.zero();
-#endif
   
   typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
 
 #ifndef GPU_VEC
-  std::cout << "Using CPU implementation" << std::endl;
+  LOGA2A << "Using CPU implementation" << std::endl;
   typedef SingleSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
   //typedef SingleSrcVectorPolicies<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
   mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
 #else
-  std::cout << "Using Grid offloaded implementation" << std::endl;
+  LOGA2A << "Using Grid offloaded implementation" << std::endl;
   typedef SingleSrcVectorPoliciesSIMDoffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
   mfComputeGeneralOffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
 #endif
 
   BlockedMesonFieldArgs::enable_profiling = false; 
 
-  std::cout << "Starting benchmark test loop" << std::endl; std::cout.flush();
+  LOGA2A << "Starting benchmark test loop" << std::endl; std::cout.flush();
   //ProfilerStart("SingleSrcProfile.prof");  
   for(int iter=0;iter<ntests+1;iter++){
+    LOGA2A << "Iteration " << iter << std::endl;
     if(iter > 0) total_time -= dclock();
 
     //__itt_resume();
@@ -211,6 +203,8 @@ void benchmarkMFcontract(const A2Aparams &a2a_params, const int ntests, const in
   //  __itt_detach();
 //ProfilerStop();  
 
+  LOGA2A << "Computing performance" << std::endl;
+  
   const typename GridA2Apolicies::FermionFieldType &mode0 = Wgrid.getMode(0);
   size_t g5_FLOPs = 12*6*nsimd + 12*2*nsimd;//12 vectorized conj(a)*b  + 12 vectorized += or -=         
   size_t siteFmat_FLOPs = 3*nsimd;  //1 vectorized z.im*-1, 1 vectorized -1*z
@@ -268,7 +262,7 @@ void benchmarkMFcontract(const A2Aparams &a2a_params, const int ntests, const in
   double mem_bandwidth_GBps = double(rd_bytes + wr_bytes)/t_avg / 1024/1024/1024;
   double Gflops = double(total_FLOPs)/t_avg/1e9;
 
-  printf("MF contract all t: Avg time new code %d iters: %g secs. Avg flops %g Gflops. Avg bandwidth %g GB/s\n",ntests,t_avg, Gflops, mem_bandwidth_GBps);
+  a2a_printf("MF contract all t: Avg time new code %d iters: %g secs. Avg flops %g Gflops. Avg bandwidth %g GB/s\n",ntests,t_avg, Gflops, mem_bandwidth_GBps);
 #endif
 }
 

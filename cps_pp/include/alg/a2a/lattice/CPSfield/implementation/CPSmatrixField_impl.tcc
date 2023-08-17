@@ -157,7 +157,8 @@ template<typename VectorMatrixType>
 inline CPSmatrixField<VectorMatrixType> operator*(const CPSmatrixField<VectorMatrixType> &a, const CPSmatrixField<VectorMatrixType> &b){
   return binop_v(a,b,_timesV<VectorMatrixType>());
 }
-template<typename ScalarType, typename VectorMatrixType, typename std::enable_if< is_complex_double_or_float<ScalarType>::value, int>::type >
+
+template<typename ScalarType, typename VectorMatrixType, typename std::enable_if< is_complex_double_or_float<ScalarType>::value, int>::type dummy>
 inline CPSmatrixField<VectorMatrixType> operator*(const ScalarType &a, const CPSmatrixField<VectorMatrixType> &b){
   using namespace Grid;
   constexpr int nsimd = getScalarType<VectorMatrixType, typename MatrixTypeClassify<VectorMatrixType>::type>::type::Nsimd();
@@ -170,10 +171,10 @@ inline CPSmatrixField<VectorMatrixType> operator*(const ScalarType &a, const CPS
 		      int lane = Grid::acceleratorSIMTlane(nsimd);
 		      scalar_mult_pre(*ov.site_ptr(x4d), a, *bv.site_ptr(x4d), lane);
 		    }
-		    );
+  		  );
   return out;
 }
-template<typename VectorScalarType, typename VectorMatrixType, typename std::enable_if< is_grid_vector_complex<VectorScalarType>::value, int>::type >
+template<typename VectorScalarType, typename VectorMatrixType, typename std::enable_if< is_grid_vector_complex<VectorScalarType>::value, int>::type dummy>
 inline CPSmatrixField<VectorMatrixType> operator*(const CPSmatrixField<VectorScalarType> &a, const CPSmatrixField<VectorMatrixType> &b){
   using namespace Grid;
   constexpr int nsimd = getScalarType<VectorMatrixType, typename MatrixTypeClassify<VectorMatrixType>::type>::type::Nsimd();
@@ -391,8 +392,6 @@ VectorMatrixType localNodeSum(const CPSmatrixField<VectorMatrixType> &a){
     //swap back and forth between the two temp buffers,
     ScalarType const* from = (iter % 2 == 0 ? tmp : tmp2);
     into = (iter % 2 == 0 ? tmp2 : tmp);
-    
-    //std::cout << "Iteration " << iter << " work=" << work << " nthread=" << Grid::acceleratorThreads() << std::endl;
     
     accelerator_for(offset, work, nsimd,
     		    {

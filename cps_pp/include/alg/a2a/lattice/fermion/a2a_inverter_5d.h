@@ -32,7 +32,7 @@ public:
   A2AdeflatedInverter5dWrapper(const EvecInterface<GridFermionFieldD> &evecs, const A2Ainverter5dBase<GridFermionFieldD> &inverter): evecs(evecs), inverter(inverter){}
 
   void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{ 
-    std::cout << "A2AdeflatedInverter5dWrapper deflating " << in.size() << " fields" << std::endl;
+    LOGA2A << "A2AdeflatedInverter5dWrapper deflating " << in.size() << " fields" << std::endl;
     evecs.deflatedGuessD(out, in); //note this discards the input value of 'out'
     inverter.invert5Dto5D(out,in);
   }
@@ -119,15 +119,12 @@ public:
 
   //Invert 5D source -> 5D solution
   void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
-    std::cout << "Tianle: DEBUG: inside A2Ainverter5dMixedPrecCG::invert5Dto5D, in.size = " << in.size() << std::endl;
     assert(out.size() == in.size());
     Grid::MixedPrecisionConjugateGradient<GridFermionFieldD,GridFermionFieldF> &mCG_ = const_cast<Grid::MixedPrecisionConjugateGradient<GridFermionFieldD,GridFermionFieldF> &>(mCG); //grr
     for(int i=0;i<in.size();i++)
     {
-      std::cout << "Tianle: DEBUG: Will call mCG_(in[i], out[i]) inside A2Ainverter5dMixedPrecCG::invert5Dto5D with i = " << i << std::endl;
       mCG_(in[i], out[i]);
     }
-    std::cout << "Tianle: DEBUG: A2Ainverter5dMixedPrecCG::invert5Dto5D finish" << std::endl;
   }
 
   ~A2Ainverter5dMixedPrecCG(){
@@ -163,7 +160,7 @@ public:
   void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
     assert(out.size() == in.size());
     assert(in.size() >= 1);
-    std::cout << Grid::GridLogMessage << "Doing split Grid solve with " << in.size() << " sources and " << Nsplit << " split grids" << std::endl;
+    LOGA2A << "Doing split Grid solve with " << in.size() << " sources and " << Nsplit << " split grids" << std::endl;
 
     Grid::ConjugateGradientReliableUpdate<GridFermionFieldD,GridFermionFieldF> &cg_subgrid_ = const_cast<Grid::ConjugateGradientReliableUpdate<GridFermionFieldD,GridFermionFieldF> &>(cg_subgrid); //grr
     
@@ -177,11 +174,11 @@ public:
     GridFermionFieldD src_subgrid(doublePrecGrid_subgrid);
 
     int Nsplit_solves = (Nsrc + Nsplit - 1) / Nsplit; //number of split solves, round up
-    std::cout << Grid::GridLogMessage << "Requires " << Nsplit_solves << " concurrent solves" << std::endl;
+    LOGA2A << "Requires " << Nsplit_solves << " concurrent solves" << std::endl;
     for(int solve=0;solve<Nsplit_solves;solve++){
       int StartSrc = solve*Nsplit;
       int Nactual = std::min(Nsplit, Nsrc - StartSrc);
-      std::cout << "Solving sources " << StartSrc << "-" << StartSrc+Nactual-1 << std::endl;
+      LOGA2A << "Solving sources " << StartSrc << "-" << StartSrc+Nactual-1 << std::endl;
 
       for(int i=0;i<Nactual;i++){
 	src_fullgrid[i] = in[StartSrc + i];

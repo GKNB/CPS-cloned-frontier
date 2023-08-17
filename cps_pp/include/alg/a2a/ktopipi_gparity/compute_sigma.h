@@ -25,7 +25,7 @@ struct ComputeSigmaContractions{
     into.resize(Lt);
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-    if(!UniqueID()){ printf("Gathering meson fields\n");  fflush(stdout); }
+    LOGA2A << "Gathering meson fields" << std::endl;
     nodeGetMany(1,&mf);
 #endif
     
@@ -41,12 +41,12 @@ struct ComputeSigmaContractions{
       }
     }
     t_trace += dclock();
-    print_time("ComputeSigmaContractions::computeDisconnectedBubble", "trace", t_trace);
+    a2a_print_time("ComputeSigmaContractions::computeDisconnectedBubble", "trace", t_trace);
     
     double t_reduce = -dclock();
     into.nodeSum();
     t_reduce += dclock();
-    print_time("ComputeSigmaContractions::computeDisconnectedBubble", "reduction", t_reduce);
+    a2a_print_time("ComputeSigmaContractions::computeDisconnectedBubble", "reduction", t_reduce);
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeDistributeMany(1,&mf);
@@ -69,7 +69,7 @@ struct ComputeSigmaContractions{
       }
     }
     time += dclock();
-    print_time("ComputeSigmaContractions::computeDisconnectedDiagram", "total", time);
+    a2a_print_time("ComputeSigmaContractions::computeDisconnectedDiagram", "total", time);
   }
 
   //The second term we compute in full
@@ -86,21 +86,21 @@ struct ComputeSigmaContractions{
     into.resize(Lt,Lt);
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-    if(!UniqueID()){ printf("Gathering meson fields\n");  fflush(stdout); }
+    LOGA2A << "Gathering meson fields" << std::endl;
     nodeGetMany(2,&mf_src,&mf_snk);
     cps::sync();
 #endif
 
-    if(!UniqueID()){ printf("Starting trace\n");  fflush(stdout); }
+    LOGA2A << "Starting trace" << std::endl;
     double time = -dclock();
     trace(into,mf_snk,mf_src);
     into *= typename mf_Policies::ScalarComplexType(-0.5,0);
     rearrangeTsrcTsep(into); //rearrange temporal ordering
     
     cps::sync();
-    if(!UniqueID()){ printf("Finished trace\n");  fflush(stdout); }
+    LOGA2A << "Finished trace" << std::endl;
     time += dclock();
-    print_time("ComputeSigmaContractions::computeConnected", "trace", time);
+    a2a_print_time("ComputeSigmaContractions::computeConnected", "trace", time);
     
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeDistributeMany(2,&mf_src,&mf_snk);

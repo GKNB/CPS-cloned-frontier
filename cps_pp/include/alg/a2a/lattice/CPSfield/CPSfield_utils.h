@@ -39,10 +39,10 @@ inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<C
   glb_max(&fail);
   
   if(fail!=0.0){
-    if(!UniqueID()){ printf("Failed %s check\n", descr.c_str()); fflush(stdout); } 
+    a2a_printf("Failed %s check\n", descr.c_str());
     exit(-1);
   }else{
-    if(!UniqueID()){ printf("Passed %s check\n", descr.c_str()); fflush(stdout); }
+    a2a_printf("Passed %s check\n", descr.c_str());
   }
 }
 
@@ -97,10 +97,10 @@ inline void compareField(const FieldTypeA &A, const FieldTypeB &B, const std::st
   glb_max(&fail);
   
   if(fail!=0.0){
-    if(!UniqueID()){ printf("Failed %s check\n", descr.c_str()); fflush(stdout); } 
+    a2a_printf("Failed %s check\n", descr.c_str());
     exit(-1);
   }else{
-    if(!UniqueID()){ printf("Passed %s check\n", descr.c_str()); fflush(stdout); }
+    a2a_printf("Passed %s check\n", descr.c_str());
   }
 }
 

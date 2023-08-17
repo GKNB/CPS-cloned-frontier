@@ -359,7 +359,7 @@ public:
     std::vector<MfType >& mf_pi1_snk = snk_mesonfields.get(p_pi1_snk);
     std::vector<MfType >& mf_pi2_snk = snk_mesonfields.get(p_pi2_snk);
 
-    std::cout << "Computing fig " << diag << " with meson fields:" << std::endl
+    LOGA2A << "Computing fig " << diag << " with meson fields:" << std::endl
 	      << "pi1_src  mom=" << p_pi1_src.str() << " ptr=" << &mf_pi1_src << std::endl      
 	      << "pi2_src  mom=" << p_pi2_src.str() << " ptr=" << &mf_pi2_src << std::endl
 	      << "pi1_snk  mom=" << p_pi1_snk.str() << " ptr=" << &mf_pi1_snk << std::endl      

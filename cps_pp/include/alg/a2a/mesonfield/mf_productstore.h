@@ -86,8 +86,6 @@ public:
 
   void addAllowedStores(MesonFieldProductStore<mf_Policies> &to) const{
     for(auto const &k : used_count){
-      //std::cout << "Product " << k.first.first << " " << k.first.second << " reuse " << k.second << " allow store " << (k.second > 1) << std::endl;
-      
       if(k.second > 1) to.addAllowedStore(*k.first.first,*k.first.second);
     }
   }
