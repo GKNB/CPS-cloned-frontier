@@ -13,6 +13,8 @@ int main (int argc,char **argv )
   const char *fname="main(int,char**)";
   Start(&argc, &argv);
 
+  MemoryMonitor mmon; mmon.Start();
+  
   const char *cname=argv[0];
   const int TrajStart = atoi(argv[2]);
   const int LessThanLimit = atoi(argv[3]);
@@ -74,6 +76,8 @@ int main (int argc,char **argv )
     
   }//end of config loop
 
+  mmon.Stop();
+  
   LOGA2A << "Done" << std::endl;
   End();
 
