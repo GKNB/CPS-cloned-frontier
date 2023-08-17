@@ -183,20 +183,14 @@ public:
   typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, Aligned128AllocPolicy> ResultsContainerType;
   typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, Aligned128AllocPolicy> MixDiagResultsContainerType;
 
-  template<typename P> using Wtemplate = typename Wtype::template VectorTemplate<P>;
-  template<typename P> using Vtemplate = typename Vtype::template VectorTemplate<P>;
-
-  template<typename P> using WfftTemplate = typename Wtype::template FFTvectorTemplate<P>;
-  template<typename P> using VfftTemplate = typename Vtype::template FFTvectorTemplate<P>;
-
-  typedef WfftTemplate<mf_Policies> WfftType;
-  typedef VfftTemplate<mf_Policies> VfftType;
+  typedef typename Wtype::template FFTvectorTemplate<mf_Policies> WfftType;
+  typedef typename Vtype::template FFTvectorTemplate<mf_Policies> VfftType;
 
   typedef getMesonFieldType<Wtype,Wtype> mf_WW;
   typedef getMesonFieldType<Wtype,Vtype> mf_WV;
 
-  typedef mult_vMv_split_lite<mf_Policies, Vtemplate, WfftTemplate,WfftTemplate, Vtemplate> vMv_split_VWWV;
-  typedef mult_vMv_split_lite<mf_Policies, Vtemplate, WfftTemplate,VfftTemplate, Wtemplate> vMv_split_VWVW;
+  typedef mult_vMv_split_lite<mf_Policies, Vtype::template VectorTemplate, Wtype::template FFTvectorTemplate, Wtype::template FFTvectorTemplate, Vtype::template VectorTemplate> vMv_split_VWWV;
+  typedef mult_vMv_split_lite<mf_Policies, Vtype::template VectorTemplate, Wtype::template FFTvectorTemplate, Vtype::template FFTvectorTemplate, Wtype::template VectorTemplate> vMv_split_VWVW;
  
   //Compute type 1,2,3,4 diagram for fixed tsep(pi->K) and tsep(pi->pi). 
 

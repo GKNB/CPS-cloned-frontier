@@ -21,13 +21,14 @@ void testKtoSigmaType12FieldFull(const A2AArg &a2a_args, const double tol){
   Vhgrid.testRandom();
 
   int Lt = GJP.TnodeSites()*GJP.Tnodes();
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> ComputeP;
+  typedef typename ComputeP::mf_WW mf_WW;
   std::vector<mf_WW> mf_kaon(Lt);
   for(int t=0;t<Lt;t++){
     mf_kaon[t].setup(Wgrid,Whgrid,t,t);
     mf_kaon[t].testRandom();
   }
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
+  typedef typename ComputeP::ResultsContainerType ResultsContainerType;
   
   std::vector<int> tsep_k_sigma = {3,4};
   std::vector<ResultsContainerType> expect_r(2);
@@ -39,7 +40,7 @@ void testKtoSigmaType12FieldFull(const A2AArg &a2a_args, const double tol){
     mf_sigma[t].testRandom();
   }
 
-  ComputeKtoSigma<GridA2Apolicies> compute(Vgrid, Wgrid, Vhgrid, Whgrid, mf_kaon, tsep_k_sigma);
+  ComputeKtoSigma<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> compute(Vgrid, Wgrid, Vhgrid, Whgrid, mf_kaon, tsep_k_sigma);
 
   compute.type12_omp(expect_r, mf_sigma);
   compute.type12_field_SIMD(got_r, mf_sigma);
@@ -93,14 +94,15 @@ void testKtoSigmaType3FieldFull(const A2AArg &a2a_args, const double tol){
   Vhgrid.testRandom();
 
   int Lt = GJP.TnodeSites()*GJP.Tnodes();
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> ComputeP;
+  typedef typename ComputeP::mf_WW mf_WW;
   std::vector<mf_WW> mf_kaon(Lt);
   for(int t=0;t<Lt;t++){
     mf_kaon[t].setup(Wgrid,Whgrid,t,t);
     mf_kaon[t].testRandom();
   }
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+  typedef typename ComputeP::ResultsContainerType ResultsContainerType;
+  typedef typename ComputeP::MixDiagResultsContainerType MixDiagResultsContainerType;
   
   std::vector<int> tsep_k_sigma = {3,4};
   std::vector<ResultsContainerType> expect_r(2);
@@ -114,7 +116,7 @@ void testKtoSigmaType3FieldFull(const A2AArg &a2a_args, const double tol){
     mf_sigma[t].testRandom();
   }
 
-  ComputeKtoSigma<GridA2Apolicies> compute(Vgrid, Wgrid, Vhgrid, Whgrid, mf_kaon, tsep_k_sigma);
+  ComputeKtoSigma<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> compute(Vgrid, Wgrid, Vhgrid, Whgrid, mf_kaon, tsep_k_sigma);
 
   compute.type3_omp(expect_r, expect_mix_r, mf_sigma);
   compute.type3_field_SIMD(got_r, got_mix_r, mf_sigma);
@@ -191,14 +193,15 @@ void testKtoSigmaType4FieldFull(const A2AArg &a2a_args, const double tol){
   Vhgrid.testRandom();
 
   int Lt = GJP.TnodeSites()*GJP.Tnodes();
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> ComputeP;
+  typedef typename ComputeP::mf_WW mf_WW;
   std::vector<mf_WW> mf_kaon(Lt);
   for(int t=0;t<Lt;t++){
     mf_kaon[t].setup(Wgrid,Whgrid,t,t);
     mf_kaon[t].testRandom();
   }
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+  typedef typename ComputeP::ResultsContainerType ResultsContainerType;
+  typedef typename ComputeP::MixDiagResultsContainerType MixDiagResultsContainerType;
   
   std::vector<int> tsep_k_sigma = {3,4};
   ResultsContainerType expect_r;
@@ -206,7 +209,7 @@ void testKtoSigmaType4FieldFull(const A2AArg &a2a_args, const double tol){
   MixDiagResultsContainerType expect_mix_r;
   MixDiagResultsContainerType got_mix_r;
 
-  ComputeKtoSigma<GridA2Apolicies> compute(Vgrid, Wgrid, Vhgrid, Whgrid, mf_kaon, tsep_k_sigma);
+  ComputeKtoSigma<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> compute(Vgrid, Wgrid, Vhgrid, Whgrid, mf_kaon, tsep_k_sigma);
 
   compute.type4_omp(expect_r, expect_mix_r);
   compute.type4_field_SIMD(got_r, got_mix_r);

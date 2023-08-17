@@ -20,14 +20,8 @@ public:
   typedef getMesonFieldType<Wtype,Vtype> SigmaMesonFieldType;
   typedef getMesonFieldType<Wtype,Wtype> KaonMesonFieldType;
   
-  template<typename P> using Wtemplate = typename Wtype::template VectorTemplate<P>;
-  template<typename P> using Vtemplate = typename Vtype::template VectorTemplate<P>;
-  
-  template<typename P> using WfftTemplate = typename Wtype::template FFTvectorTemplate<P>;
-  template<typename P> using VfftTemplate = typename Vtype::template FFTvectorTemplate<P>;
-
-  typedef mult_vMv_split_lite<mf_Policies, Vtemplate, WfftTemplate, WfftTemplate, Vtemplate> vMv_split_VWWV;
-  typedef mult_vMv_split_lite<mf_Policies, Vtemplate, WfftTemplate, VfftTemplate, Wtemplate> vMv_split_VWVW;
+  typedef mult_vMv_split_lite<mf_Policies, Vtype::template VectorTemplate, Wtype::template FFTvectorTemplate, Wtype::template FFTvectorTemplate, Vtype::template VectorTemplate> vMv_split_VWWV;
+  typedef mult_vMv_split_lite<mf_Policies, Vtype::template VectorTemplate, Wtype::template FFTvectorTemplate, Vtype::template FFTvectorTemplate, Wtype::template VectorTemplate> vMv_split_VWVW;
   typedef mult_vMv_split_lite_scratch_space<mf_Policies> vMv_split_shrbuf;
 
 private:

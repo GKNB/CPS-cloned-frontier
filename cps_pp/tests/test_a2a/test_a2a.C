@@ -130,15 +130,15 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   A2AvectorW<A2Apolicies_grid> W_grid(a2a_arg,simd_dims), Wh_grid(a2a_arg,simd_dims);
 
   LatRanGen lrg_bak = LRG;
-  randomizeVW<A2Apolicies_grid>(V_grid,W_grid);
-  randomizeVW<A2Apolicies_grid>(Vh_grid,Wh_grid);
+  randomizeVW(V_grid,W_grid);
+  randomizeVW(Vh_grid,Wh_grid);
 
   A2AvectorV<A2Apolicies_std> V_std(a2a_arg), Vh_std(a2a_arg);
   A2AvectorW<A2Apolicies_std> W_std(a2a_arg), Wh_std(a2a_arg);
 
   LRG = lrg_bak;
-  randomizeVW<A2Apolicies_std>(V_std,W_std);
-  randomizeVW<A2Apolicies_std>(Vh_std,Wh_std);
+  randomizeVW(V_std,W_std);
+  randomizeVW(Vh_std,Wh_std);
 
 
   //Sanity check to ensure Grid and non-Grid V,W are the same
@@ -170,7 +170,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
 
-  /*
+  
   if(1) testPoolAllocator();
   if(1) testAsyncTransferManager();
   if(1) testHolisticPoolAllocator();
@@ -213,13 +213,13 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 #ifdef USE_GRID
   if(1) testMFmultTblock<A2Apolicies_grid>(a2a_arg,tol);
 #endif
-  */
-  //if(1) testCshiftCconjBc();
-  //if(1) testCshiftCconjBcMatrix(simd_dims);
-  //if(1) testGfixCPSmatrixField(lattice, simd_dims);
 
-  //if(1) testGridGaugeFix(lattice, opt.gfix_alpha, simd_dims);
-  /*
+  if(1) testCshiftCconjBc();
+  if(1) testCshiftCconjBcMatrix(simd_dims);
+  if(1) testGfixCPSmatrixField(lattice, simd_dims);
+
+  if(1) testGridGaugeFix(lattice, opt.gfix_alpha, simd_dims);
+
   if(1) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
    
   if(1) testFlavorMatrixSCcontractStd<A2Apolicies_std>(tol);
@@ -236,11 +236,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testMesonFieldComputeSingleReference<A2Apolicies_std>(a2a_arg, tol);
   
   if(1) testMesonFieldComputeSingleMulti<A2Apolicies_std>(a2a_arg, tol);
-  */
   
-  //if(1) testMesonFieldComputePackedReferenceSIMD<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, tol, simd_dims);
+  if(1) testMesonFieldComputePackedReferenceSIMD<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, tol, simd_dims);
 
-    /*
   if(1) testGridMesonFieldCompute<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testGridMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testGridShiftMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
@@ -352,7 +350,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
 
-  //if(1) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);  Current compilation issues on Intel
+  if(1) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);  //Current compilation issues on Intel
 
   if(1) testA2AvectorWnorm<A2Apolicies_grid>(a2a_arg);
 
@@ -360,16 +358,12 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) test_gamma_CPS_vs_Grid();
 
-    /*
   if(1) testXconjWsrc<A2Apolicies_grid>(lattice);
   if(1) testXconjWsrcPostOp<A2Apolicies_grid>(lattice);
   if(1) testXconjWsrcInverse<A2Apolicies_grid>(lattice);
   if(1) testXconjWsrcFull<A2Apolicies_grid>(lattice);
   if(1) testXconjWsrcCConjRelnV<A2Apolicies_grid>(lattice);
   if(1) testXconjWsrcCConjReln<A2Apolicies_grid>(lattice);
-
-
-  */
 
   if(1) testModeContractionIndices(a2a_arg);
   if(1) testWunitaryBasic<A2Apolicies_grid,A2Apolicies_grid_destructive>(a2a_arg, simd_dims, lattice);
@@ -414,15 +408,15 @@ void testPeriodic(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge
   A2AvectorW<A2Apolicies_grid> W_grid(a2a_arg,simd_dims), Wh_grid(a2a_arg,simd_dims);
 
   LatRanGen lrg_bak = LRG;
-  randomizeVW<A2Apolicies_grid>(V_grid,W_grid);
-  randomizeVW<A2Apolicies_grid>(Vh_grid,Wh_grid);
+  randomizeVW(V_grid,W_grid);
+  randomizeVW(Vh_grid,Wh_grid);
 
   A2AvectorV<A2Apolicies_std> V_std(a2a_arg), Vh_std(a2a_arg);
   A2AvectorW<A2Apolicies_std> W_std(a2a_arg), Wh_std(a2a_arg);
 
   LRG = lrg_bak;
-  randomizeVW<A2Apolicies_std>(V_std,W_std);
-  randomizeVW<A2Apolicies_std>(Vh_std,Wh_std);
+  randomizeVW(V_std,W_std);
+  randomizeVW(Vh_std,Wh_std);
 
 
   //Sanity check to ensure Grid and non-Grid V,W are the same

@@ -113,11 +113,13 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
   ThreeMomentum p_pi_plus(2,2,2);
   ThreeMomentum p_pi_minus = -p_pi_plus;
 
-  MesonFieldMomentumContainer<A2Apolicies_grid> mf_ll_con_grid;
-  std::vector<A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_grid_tmp(Lt);
+  typedef A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorVfftw> mf_WV_grid;
+  MesonFieldMomentumContainer<mf_WV_grid> mf_ll_con_grid;
+  std::vector<mf_WV_grid> mf_pion_grid_tmp(Lt);
 
-  MesonFieldMomentumContainer<A2Apolicies_std> mf_ll_con_std;
-  std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_std_tmp(Lt);
+  typedef A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> mf_WV_std;
+  MesonFieldMomentumContainer<mf_WV_std> mf_ll_con_std;
+  std::vector<mf_WV_std> mf_pion_std_tmp(Lt);
 
   for(int t=0;t<Lt;t++){
     mf_pion_grid_tmp[t].setup(W_grid,V_grid,t,t);
@@ -147,18 +149,21 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
   assert(compare(mf_ll_con_grid.get(p_pi_minus), mf_ll_con_std.get(p_pi_minus),1e-12));
 #endif
  
+  typedef ComputeKtoPiPiGparity<A2AvectorV<A2Apolicies_std>, A2AvectorW<A2Apolicies_std>> ComputeStd;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<A2Apolicies_grid>, A2AvectorW<A2Apolicies_grid>> ComputeGrid;
+  
   if(1){
     std::cout << "testKtoPiPiContractionGridStd computing type1 standard calc" << std::endl;
-    typename ComputeKtoPiPiGparity<A2Apolicies_std>::ResultsContainerType type1_std;
+    typename ComputeStd::ResultsContainerType type1_std;
     //const int tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep,
-    ComputeKtoPiPiGparity<A2Apolicies_std>::type1(type1_std, 4, 2, 1, 1, p_pi_plus, mf_ls_ww_std, mf_ll_con_std, V_std, V_std, W_std, W_std);
+    ComputeStd::type1(type1_std, 4, 2, 1, 1, p_pi_plus, mf_ls_ww_std, mf_ll_con_std, V_std, V_std, W_std, W_std);
 
 #ifdef GPU_VEC
     //Test the SIMD CPU version agrees with the non-SIMD CPU version first
     std::cout << "testKtoPiPiContractionGridStd computing type1 standard calc with SIMD" << std::endl;    
     std::vector<int> tsep_k_pi(1,4);
-    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type1_grid_cpu;
-    ComputeKtoPiPiGparity<A2Apolicies_grid>::type1_omp(&type1_grid_cpu, tsep_k_pi, 2, 1, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
+    typename ComputeGrid::ResultsContainerType type1_grid_cpu;
+    ComputeGrid::type1_omp(&type1_grid_cpu, tsep_k_pi, 2, 1, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
 
     if(!compareKtoPiPi(type1_std, "non-SIMD", type1_grid_cpu, "SIMD",  "type1", tol))
       ERR.General("","testKtoPiPiContractionGridStd","non-SIMD vs Grid SIMD implementation type1 test failed\n");
@@ -166,8 +171,8 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
 #endif
        
     std::cout << "testKtoPiPiContractionGridStd computing type1 Grid calc" << std::endl;
-    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type1_grid;
-    ComputeKtoPiPiGparity<A2Apolicies_grid>::type1(type1_grid, 4, 2, 1, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
+    typename ComputeGrid::ResultsContainerType type1_grid;
+    ComputeGrid::type1(type1_grid, 4, 2, 1, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
   
     std::cout << "testKtoPiPiContractionGridStd comparing type1" << std::endl;
     if(!compareKtoPiPi(type1_std, "CPS", type1_grid, "Grid",  "type1", tol))
@@ -176,16 +181,16 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
   }
   if(1){
     std::cout << "testKtoPiPiContractionGridStd computing type2 standard calc" << std::endl;
-    typename ComputeKtoPiPiGparity<A2Apolicies_std>::ResultsContainerType type2_std;
-    ComputeKtoPiPiGparity<A2Apolicies_std>::type2(type2_std, 4, 2, 1, p_pi_plus, mf_ls_ww_std, mf_ll_con_std, V_std, V_std, W_std, W_std);
+    typename ComputeStd::ResultsContainerType type2_std;
+    ComputeStd::type2(type2_std, 4, 2, 1, p_pi_plus, mf_ls_ww_std, mf_ll_con_std, V_std, V_std, W_std, W_std);
 
 #ifdef GPU_VEC
     //Test the SIMD CPU version agrees with the non-SIMD CPU version first
     std::cout << "testKtoPiPiContractionGridStd computing type2 standard calc with SIMD" << std::endl;    
     std::vector<int> tsep_k_pi(1,4);
     std::vector<ThreeMomentum> p(1, p_pi_plus);
-    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type2_grid_cpu;
-    ComputeKtoPiPiGparity<A2Apolicies_grid>::type2_omp_v2(&type2_grid_cpu, tsep_k_pi, 2, 1, p, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
+    typename ComputeGrid::ResultsContainerType type2_grid_cpu;
+    ComputeGrid::type2_omp_v2(&type2_grid_cpu, tsep_k_pi, 2, 1, p, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
 
     if(!compareKtoPiPi(type2_std, "non-SIMD", type2_grid_cpu, "SIMD",  "type2", tol))
       ERR.General("","testKtoPiPiContractionGridStd","non-SIMD vs Grid SIMD implementation type2 test failed\n");
@@ -193,8 +198,8 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
 #endif
     
     std::cout << "testKtoPiPiContractionGridStd computing type2 Grid calc" << std::endl;
-    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type2_grid;
-    ComputeKtoPiPiGparity<A2Apolicies_grid>::type2(type2_grid, 4, 2, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
+    typename ComputeGrid::ResultsContainerType type2_grid;
+    ComputeGrid::type2(type2_grid, 4, 2, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
 
     std::cout << "testKtoPiPiContractionGridStd comparing type2" << std::endl;
     if(!compareKtoPiPi(type2_std, "CPS", type2_grid, "Grid",  "type2", tol))
@@ -204,14 +209,14 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
   }
   if(1){
     std::cout << "testKtoPiPiContractionGridStd computing type3 standard calc" << std::endl;
-    typename ComputeKtoPiPiGparity<A2Apolicies_std>::ResultsContainerType type3_std;
-    typename ComputeKtoPiPiGparity<A2Apolicies_std>::MixDiagResultsContainerType type3_mix_std;
-    ComputeKtoPiPiGparity<A2Apolicies_std>::type3(type3_std, type3_mix_std, 4, 2, 1, p_pi_plus, mf_ls_ww_std, mf_ll_con_std, V_std, V_std, W_std, W_std);
+    typename ComputeStd::ResultsContainerType type3_std;
+    typename ComputeStd::MixDiagResultsContainerType type3_mix_std;
+    ComputeStd::type3(type3_std, type3_mix_std, 4, 2, 1, p_pi_plus, mf_ls_ww_std, mf_ll_con_std, V_std, V_std, W_std, W_std);
 
     std::cout << "testKtoPiPiContractionGridStd computing type3 Grid calc" << std::endl;
-    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type3_grid;
-    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::MixDiagResultsContainerType type3_mix_grid;
-    ComputeKtoPiPiGparity<A2Apolicies_grid>::type3(type3_grid, type3_mix_grid, 4, 2, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
+    typename ComputeGrid::ResultsContainerType type3_grid;
+    typename ComputeGrid::MixDiagResultsContainerType type3_mix_grid;
+    ComputeGrid::type3(type3_grid, type3_mix_grid, 4, 2, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
 
     std::cout << "testKtoPiPiContractionGridStd comparing type3" << std::endl;
     if(!compareKtoPiPi(type3_std, "CPS", type3_grid, "Grid",  "type3", tol))
@@ -221,14 +226,14 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
   }
   if(1){
     std::cout << "testKtoPiPiContractionGridStd computing type4 Grid calc" << std::endl;
-    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type4_grid;
-    typename ComputeKtoPiPiGparity<A2Apolicies_grid>::MixDiagResultsContainerType type4_mix_grid;
-    ComputeKtoPiPiGparity<A2Apolicies_grid>::type4(type4_grid, type4_mix_grid, 1, mf_ls_ww_grid, V_grid, V_grid, W_grid, W_grid);
+    typename ComputeGrid::ResultsContainerType type4_grid;
+    typename ComputeGrid::MixDiagResultsContainerType type4_mix_grid;
+    ComputeGrid::type4(type4_grid, type4_mix_grid, 1, mf_ls_ww_grid, V_grid, V_grid, W_grid, W_grid);
 
     std::cout << "testKtoPiPiContractionGridStd computing type4 standard calc" << std::endl;
-    typename ComputeKtoPiPiGparity<A2Apolicies_std>::ResultsContainerType type4_std;
-    typename ComputeKtoPiPiGparity<A2Apolicies_std>::MixDiagResultsContainerType type4_mix_std;
-    ComputeKtoPiPiGparity<A2Apolicies_std>::type4(type4_std, type4_mix_std, 1, mf_ls_ww_std, V_std, V_std, W_std, W_std);
+    typename ComputeStd::ResultsContainerType type4_std;
+    typename ComputeStd::MixDiagResultsContainerType type4_mix_std;
+    ComputeStd::type4(type4_std, type4_mix_std, 1, mf_ls_ww_std, V_std, V_std, W_std, W_std);
 
     std::cout << "testKtoPiPiContractionGridStd comparing type4" << std::endl;
     if(!compareKtoPiPi(type4_std, "CPS", type4_grid, "Grid",  "type4", tol))
@@ -239,20 +244,21 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
 }
 
 
-template<typename mf_Policies>
-class ComputeKtoPiPiGparityTest: public ComputeKtoPiPiGparity<mf_Policies>{
+template<typename Vtype,typename Wtype>
+class ComputeKtoPiPiGparityTest: public ComputeKtoPiPiGparity<Vtype,Wtype>{
 public:
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::ResultsContainerType ResultsContainerType;
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::SCFmat SCFmat;
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::SCFmatrixField SCFmatrixField;
+  typedef ComputeKtoPiPiGparity<Vtype,Wtype> Compute;
+  typedef typename Compute::ResultsContainerType ResultsContainerType;
+  typedef typename Compute::SCFmat SCFmat;
+  typedef typename Compute::SCFmatrixField SCFmatrixField;
 
   static void type4_contract_test(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
 				  const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H){
-    ComputeKtoPiPiGparity<mf_Policies>::type4_contract(result, t_K, t_dis, thread_id, part1, part2_L, part2_H);
+    Compute::type4_contract(result, t_K, t_dis, thread_id, part1, part2_L, part2_H);
   }
   static void type4_contract_test(ResultsContainerType &result, const int t_K, 
 				  const SCFmatrixField &part1, const SCFmatrixField &part2_L, const SCFmatrixField &part2_H){
-    ComputeKtoPiPiGparity<mf_Policies>::type4_contract(result, t_K, part1, part2_L, part2_H);
+    Compute::type4_contract(result, t_K, part1, part2_L, part2_H);
   }
 };
 
@@ -304,8 +310,9 @@ void testKtoPiPiType4FieldContraction(const double tol){
       }
     }
   }
-  
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> Compute;
+  typedef ComputeKtoPiPiGparityTest<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> ComputeTest;
+  typedef typename Compute::ResultsContainerType ResultsContainerType;
 
   static const int n_contract = 10; //ten type4 diagrams
   static const int con_off = 23; //index of first contraction in set
@@ -329,7 +336,7 @@ void testKtoPiPiType4FieldContraction(const double tol){
 #pragma omp parallel for
       for(size_t x3d=0;x3d<vol3d;x3d++){
 	int me = omp_get_thread_num();
-	ComputeKtoPiPiGparityTest<GridA2Apolicies>::type4_contract_test(expect_r, t_K, t_dis, me,
+	ComputeTest::type4_contract_test(expect_r, t_K, t_dis, me,
 									*part1_v.site_ptr(part1.threeToFour(x3d,t_loc)),
 									*part2_L_v.site_ptr(part1.threeToFour(x3d,t_loc)),
 									*part2_H_v.site_ptr(part1.threeToFour(x3d,t_loc)));
@@ -337,7 +344,7 @@ void testKtoPiPiType4FieldContraction(const double tol){
     }
   }
 
-  ComputeKtoPiPiGparityTest<GridA2Apolicies>::type4_contract_test(got_r, t_K, part1, part2_L, part2_H);
+  ComputeTest::type4_contract_test(got_r, t_K, part1, part2_L, part2_H);
   
   got_r.nodeSum();
   expect_r.threadSum();
@@ -387,14 +394,15 @@ void testKtoPiPiType4FieldFull(const A2AArg &a2a_args, const double tol){
   Vhgrid.testRandom();
 
   int Lt = GJP.TnodeSites()*GJP.Tnodes();
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> Compute;
+  typedef typename Compute::mf_WW mf_WW;
   std::vector<mf_WW> mf_kaon(Lt);
   for(int t=0;t<Lt;t++){
     mf_kaon[t].setup(Wgrid,Whgrid,t,t);
     mf_kaon[t].testRandom();
   }
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+  typedef typename Compute::ResultsContainerType ResultsContainerType;
+  typedef typename Compute::MixDiagResultsContainerType MixDiagResultsContainerType;
 
   ResultsContainerType expect_r;
   ResultsContainerType got_r;
@@ -402,8 +410,8 @@ void testKtoPiPiType4FieldFull(const A2AArg &a2a_args, const double tol){
   MixDiagResultsContainerType got_mix_r;
 
   int tstep = 2;
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type4_omp(expect_r, expect_mix_r, tstep, mf_kaon, Vgrid, Vhgrid, Wgrid, Whgrid);
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type4_field_SIMD(got_r, got_mix_r, tstep, mf_kaon, Vgrid, Vhgrid, Wgrid, Whgrid);  
+  Compute::type4_omp(expect_r, expect_mix_r, tstep, mf_kaon, Vgrid, Vhgrid, Wgrid, Whgrid);
+  Compute::type4_field_SIMD(got_r, got_mix_r, tstep, mf_kaon, Vgrid, Vhgrid, Wgrid, Whgrid);  
 
   static const int n_contract = 10; //ten type4 diagrams
   static const int con_off = 23; //index of first contraction in set
@@ -467,8 +475,12 @@ void testKtoPiPiType1GridOmpStd(const A2AArg &a2a_args,
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
  
   int Lt = GJP.TnodeSites()*GJP.Tnodes();
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW_grid;
-  typedef typename ComputeKtoPiPiGparity<StandardA2Apolicies>::mf_WW mf_WW_std;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<StandardA2Apolicies>,A2AvectorW<StandardA2Apolicies>> ComputeStd;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> ComputeGrid;
+    
+
+  typedef typename ComputeGrid::mf_WW mf_WW_grid;
+  typedef typename ComputeStd::mf_WW mf_WW_std;
   std::vector<mf_WW_grid> mf_kaon_grid(Lt);
   std::vector<mf_WW_std> mf_kaon_std(Lt);
   
@@ -482,8 +494,8 @@ void testKtoPiPiType1GridOmpStd(const A2AArg &a2a_args,
   assert(compare(mf_kaon_std, mf_kaon_grid, 1e-12));
 
   
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType_grid;
-  typedef typename ComputeKtoPiPiGparity<StandardA2Apolicies>::ResultsContainerType ResultsContainerType_std;
+  typedef typename ComputeGrid::ResultsContainerType ResultsContainerType_grid;
+  typedef typename ComputeStd::ResultsContainerType ResultsContainerType_std;
   
   std::vector<int> tsep_k_pi = {3,4};
   std::vector<ResultsContainerType_std> std_r(2);
@@ -495,11 +507,13 @@ void testKtoPiPiType1GridOmpStd(const A2AArg &a2a_args,
   ThreeMomentum p_pi1(1,1,1);
   ThreeMomentum p_pi2 = -p_pi1;
 
-  MesonFieldMomentumContainer<GridA2Apolicies> mf_pion_grid;
-  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_grid_tmp(Lt);
+  typedef A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV_grid;
+  MesonFieldMomentumContainer<mf_WV_grid> mf_pion_grid;
+  std::vector<mf_WV_grid> mf_pion_grid_tmp(Lt);
 
-  MesonFieldMomentumContainer<StandardA2Apolicies> mf_pion_std;
-  std::vector<A2AmesonField<StandardA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_std_tmp(Lt);
+  typedef A2AmesonField<StandardA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV_std;
+  MesonFieldMomentumContainer<mf_WV_std> mf_pion_std;
+  std::vector<mf_WV_std> mf_pion_std_tmp(Lt);
 
   for(int t=0;t<Lt;t++){
     mf_pion_grid_tmp[t].setup(Wgrid,Vgrid,t,t);
@@ -536,10 +550,10 @@ void testKtoPiPiType1GridOmpStd(const A2AArg &a2a_args,
 
   
   std::cout << "testKtoPiPiType1GridOmpStd computing using SIMD implementation" << std::endl;
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type1_omp(grid_r.data(), tsep_k_pi, tsep_pion, tstep, 1,  p_pi1, mf_kaon_grid, mf_pion_grid, Vgrid, Vhgrid, Wgrid, Whgrid);
+  ComputeGrid::type1_omp(grid_r.data(), tsep_k_pi, tsep_pion, tstep, 1,  p_pi1, mf_kaon_grid, mf_pion_grid, Vgrid, Vhgrid, Wgrid, Whgrid);
 
   std::cout << "testKtoPiPiType1GridOmpStd computing using non-SIMD implementation" << std::endl;
-  ComputeKtoPiPiGparity<StandardA2Apolicies>::type1_omp(std_r.data(), tsep_k_pi, tsep_pion, tstep, 1,  p_pi1, mf_kaon_std, mf_pion_std, Vstd, Vhstd, Wstd, Whstd);
+  ComputeStd::type1_omp(std_r.data(), tsep_k_pi, tsep_pion, tstep, 1,  p_pi1, mf_kaon_std, mf_pion_std, Vstd, Vhstd, Wstd, Whstd);
 
   for(int tsep_k_pi_idx=0; tsep_k_pi_idx<2; tsep_k_pi_idx++){
     std::cout << "testKtoPiPiType1GridOmpStd comparing results for tsep_k_pi idx " << tsep_k_pi_idx << std::endl;
@@ -575,13 +589,14 @@ void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
   Vhgrid.testRandom();
 
   int Lt = GJP.TnodeSites()*GJP.Tnodes();
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> Compute;  
+  typedef typename Compute::mf_WW mf_WW;
   std::vector<mf_WW> mf_kaon(Lt);
   for(int t=0;t<Lt;t++){
     mf_kaon[t].setup(Wgrid,Whgrid,t,t);
     mf_kaon[t].testRandom();
   }
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
+  typedef typename Compute::ResultsContainerType ResultsContainerType;
   
   std::vector<int> tsep_k_pi = {3,4};
   std::vector<ResultsContainerType> expect_r(2);
@@ -591,9 +606,9 @@ void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
   int tsep_pion = 1;
   ThreeMomentum p_pi1(1,1,1);
   ThreeMomentum p_pi2 = -p_pi1;
-
-  MesonFieldMomentumContainer<GridA2Apolicies> mf_pion;
-  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_tmp(Lt);
+  typedef A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
+  MesonFieldMomentumContainer<mf_WV> mf_pion;
+  std::vector<mf_WV> mf_pion_tmp(Lt);
   for(int t=0;t<Lt;t++){
     mf_pion_tmp[t].setup(Wgrid,Vgrid,t,t);
     mf_pion_tmp[t].testRandom();
@@ -604,8 +619,8 @@ void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
   }
   mf_pion.copyAdd(p_pi2, mf_pion_tmp);
 
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type1_omp(expect_r.data(), tsep_k_pi, tsep_pion, tstep, 1,  p_pi1, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type1_field_SIMD(got_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
+  Compute::type1_omp(expect_r.data(), tsep_k_pi, tsep_pion, tstep, 1,  p_pi1, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
+  Compute::type1_field_SIMD(got_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
 
   static const int n_contract = 6; //ten type4 diagrams
   static const int con_off = 1; //index of first contraction in set
@@ -657,13 +672,14 @@ void testKtoPiPiType2FieldFull(const A2AArg &a2a_args, const double tol){
   Vhgrid.testRandom();
 
   int Lt = GJP.TnodeSites()*GJP.Tnodes();
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> Compute;  
+  typedef typename Compute::mf_WW mf_WW;
   std::vector<mf_WW> mf_kaon(Lt);
   for(int t=0;t<Lt;t++){
     mf_kaon[t].setup(Wgrid,Whgrid,t,t);
     mf_kaon[t].testRandom();
   }
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
+  typedef typename Compute::ResultsContainerType ResultsContainerType;
   
   std::vector<int> tsep_k_pi = {3,4};
   std::vector<ResultsContainerType> expect_r(2);
@@ -679,9 +695,9 @@ void testKtoPiPiType2FieldFull(const A2AArg &a2a_args, const double tol){
   ThreeMomentum p_pi1_2(-1,1,1);
   ThreeMomentum p_pi2_2 = -p_pi1_2;
 
-
-  MesonFieldMomentumContainer<GridA2Apolicies> mf_pion;
-  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_tmp(Lt);
+  typedef A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
+  MesonFieldMomentumContainer<mf_WV> mf_pion;
+  std::vector<mf_WV> mf_pion_tmp(Lt);
   for(int t=0;t<Lt;t++){
     mf_pion_tmp[t].setup(Wgrid,Vgrid,t,t);
     mf_pion_tmp[t].testRandom();
@@ -704,8 +720,8 @@ void testKtoPiPiType2FieldFull(const A2AArg &a2a_args, const double tol){
   p_pi1_all[1] = p_pi1_2;
 
 
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type2_omp_v2(expect_r.data(), tsep_k_pi, tsep_pion, tstep,  p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type2_field_SIMD(got_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
+  Compute::type2_omp_v2(expect_r.data(), tsep_k_pi, tsep_pion, tstep,  p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
+  Compute::type2_field_SIMD(got_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
 
   static const int n_contract = 6; //ten type4 diagrams
   static const int con_off = 7; //index of first contraction in set
@@ -759,14 +775,15 @@ void testKtoPiPiType3FieldFull(const A2AArg &a2a_args, const double tol){
   Vhgrid.testRandom();
 
   int Lt = GJP.TnodeSites()*GJP.Tnodes();
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::mf_WW mf_WW;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<GridA2Apolicies>,A2AvectorW<GridA2Apolicies>> Compute;  
+  typedef typename Compute::mf_WW mf_WW;
   std::vector<mf_WW> mf_kaon(Lt);
   for(int t=0;t<Lt;t++){
     mf_kaon[t].setup(Wgrid,Whgrid,t,t);
     mf_kaon[t].testRandom();
-  }
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::ResultsContainerType ResultsContainerType;
-  typedef typename ComputeKtoPiPiGparity<GridA2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
+  }  
+  typedef typename Compute::ResultsContainerType ResultsContainerType;
+  typedef typename Compute::MixDiagResultsContainerType MixDiagResultsContainerType;  
 
   std::vector<int> tsep_k_pi = {3,4};
   std::vector<ResultsContainerType> expect_r(2);
@@ -780,8 +797,9 @@ void testKtoPiPiType3FieldFull(const A2AArg &a2a_args, const double tol){
   ThreeMomentum p_pi1(1,1,1);
   ThreeMomentum p_pi2 = -p_pi1;
 
-  MesonFieldMomentumContainer<GridA2Apolicies> mf_pion;
-  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_pion_tmp(Lt);
+  typedef A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
+  MesonFieldMomentumContainer<mf_WV> mf_pion;
+  std::vector<mf_WV> mf_pion_tmp(Lt);
   for(int t=0;t<Lt;t++){
     mf_pion_tmp[t].setup(Wgrid,Vgrid,t,t);
     mf_pion_tmp[t].testRandom();
@@ -794,8 +812,8 @@ void testKtoPiPiType3FieldFull(const A2AArg &a2a_args, const double tol){
 
   std::vector<ThreeMomentum> p_pi1_all(1, p_pi1);
 
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type3_omp_v2(expect_r.data(), expect_mix_r.data(), tsep_k_pi, tsep_pion, tstep,  p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
-  ComputeKtoPiPiGparity<GridA2Apolicies>::type3_field_SIMD(got_r.data(), got_mix_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
+  Compute::type3_omp_v2(expect_r.data(), expect_mix_r.data(), tsep_k_pi, tsep_pion, tstep,  p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);  
+  Compute::type3_field_SIMD(got_r.data(), got_mix_r.data(), tsep_k_pi, tsep_pion, tstep, p_pi1_all, mf_kaon, mf_pion, Vgrid, Vhgrid, Wgrid, Whgrid);
 
   static const int n_contract = 10; //ten type4 diagrams
   static const int con_off = 13; //index of first contraction in set

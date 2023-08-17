@@ -574,7 +574,9 @@ void testGridMesonFieldComputeManySimple(A2AvectorV<GridA2Apolicies> &V, A2Avect
   InnerProductType inner(sigma3, src);
   
   //Define the storage type for ComputeMany
-  typedef GparityFlavorProjectedBasicSourceStorage<GridA2Apolicies, InnerProductType> StorageType;
+  typedef A2AvectorV<GridA2Apolicies> Vtype;
+  typedef A2AvectorW<GridA2Apolicies> Wtype;
+  typedef GparityFlavorProjectedBasicSourceStorage<Vtype,Wtype, InnerProductType> StorageType;
   StorageType storage(inner);
   
   //We want a pion with momentum +2 in each G-parity direction
@@ -602,7 +604,7 @@ void testGridMesonFieldComputeManySimple(A2AvectorV<GridA2Apolicies> &V, A2Avect
  
   //Use computemany
   std::cout << "Starting ComputeMany computation" << std::endl;
-  typedef ComputeMesonFields<GridA2Apolicies,StorageType> ComputeType;
+  typedef ComputeMesonFields<Vtype,Wtype,StorageType> ComputeType;
   typename ComputeType::WspeciesVector Wv = {&W};
   typename ComputeType::VspeciesVector Vv = {&V};
   ComputeType::compute(storage, Wv,Vv, lattice);
@@ -644,9 +646,13 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   typedef typename A2Apolicies::ComplexType mf_Complex;
   typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
+
+  typedef A2AvectorV<A2Apolicies> Vtype;
+  typedef A2AvectorW<A2Apolicies> Wtype;
   
-  A2AvectorW<A2Apolicies> W(a2a_args,fp);
-  A2AvectorV<A2Apolicies> V(a2a_args,fp);
+  Wtype W(a2a_args,fp);
+  Vtype V(a2a_args,fp);
+
   W.testRandom();
   V.testRandom();
 
@@ -685,16 +691,16 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
     std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_std_1s_pp_pp;
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_std_1s_pp_pp, Wfftw_pp, _1s_inner, Vfftw_pp);
 
-    typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, ExpInnerType> ExpStorageType;
+    typedef GparityFlavorProjectedBasicSourceStorage<Vtype,Wtype, ExpInnerType> ExpStorageType;
   
     ExpStorageType exp_store_1s_pp_pp(_1s_inner);
     exp_store_1s_pp_pp.addCompute(0,0,pp,pp);
 
-    typename ComputeMesonFields<A2Apolicies,ExpStorageType>::WspeciesVector Wspecies(1, &W);
-    typename ComputeMesonFields<A2Apolicies,ExpStorageType>::VspeciesVector Vspecies(1, &V);
+    typename ComputeMesonFields<Vtype,Wtype,ExpStorageType>::WspeciesVector Wspecies(1, &W);
+    typename ComputeMesonFields<Vtype,Wtype,ExpStorageType>::VspeciesVector Vspecies(1, &V);
 
     std::cout << "Start 1s ExpStorage compute\n";
-    ComputeMesonFields<A2Apolicies,ExpStorageType>::compute(exp_store_1s_pp_pp,Wspecies,Vspecies,lat);
+    ComputeMesonFields<Vtype,Wtype,ExpStorageType>::compute(exp_store_1s_pp_pp,Wspecies,Vspecies,lat);
 
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     for(int t=0;t<Lt;t++){
@@ -713,22 +719,22 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   
     ExpHydMultiInnerType exp_hyd_multi_inner(sigma3,exp_hyd_multi_src);
 
-    typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, HydInnerType> HydStorageType;
+    typedef GparityFlavorProjectedBasicSourceStorage<Vtype,Wtype, HydInnerType> HydStorageType;
     HydStorageType exp_store_2s_pp_pp(_2s_inner);
     exp_store_2s_pp_pp.addCompute(0,0,pp,pp);
     exp_store_2s_pp_pp.addCompute(0,0,pm,pp);
     exp_store_2s_pp_pp.addCompute(0,0,pp3,pp);
 
   
-    ComputeMesonFields<A2Apolicies,HydStorageType>::compute(exp_store_2s_pp_pp,Wspecies,Vspecies,lat);
+    ComputeMesonFields<Vtype,Wtype,HydStorageType>::compute(exp_store_2s_pp_pp,Wspecies,Vspecies,lat);
 
   
-    typedef GparityFlavorProjectedMultiSourceStorage<A2Apolicies, ExpHydMultiInnerType> ExpHydMultiStorageType;
+    typedef GparityFlavorProjectedMultiSourceStorage<Vtype,Wtype, ExpHydMultiInnerType> ExpHydMultiStorageType;
     ExpHydMultiStorageType exp_store_1s_2s_pp_pp(exp_hyd_multi_inner, exp_hyd_multi_src);
     exp_store_1s_2s_pp_pp.addCompute(0,0,pp,pp);
 
     std::cout << "Start 1s/2s ExpHydMultiStorage compute\n";
-    ComputeMesonFields<A2Apolicies,ExpHydMultiStorageType>::compute(exp_store_1s_2s_pp_pp,Wspecies,Vspecies,lat);
+    ComputeMesonFields<Vtype,Wtype,ExpHydMultiStorageType>::compute(exp_store_1s_2s_pp_pp,Wspecies,Vspecies,lat);
   
     for(int t=0;t<Lt;t++){
       if(!UniqueID()) printf("Comparing test 2 t=%d\n",t);
@@ -807,15 +813,15 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
       
       MultiInnerType multi_inner(sigma3,multi_src);
       
-      typedef GparityFlavorProjectedMultiSourceStorage<A2Apolicies, MultiInnerType> MultiStorageType;
+      typedef GparityFlavorProjectedMultiSourceStorage<Vtype,Wtype, MultiInnerType> MultiStorageType;
       MultiStorageType store(multi_inner, multi_src);
       store.addCompute(0,0,pp,pp3);
 
       std::cout << "Start 1s/point MultiStorage compute\n";
-      typename ComputeMesonFields<A2Apolicies,MultiStorageType>::WspeciesVector Wspecies(1, &W);
-      typename ComputeMesonFields<A2Apolicies,MultiStorageType>::VspeciesVector Vspecies(1, &V);
+      typename ComputeMesonFields<Vtype,Wtype,MultiStorageType>::WspeciesVector Wspecies(1, &W);
+      typename ComputeMesonFields<Vtype,Wtype,MultiStorageType>::VspeciesVector Vspecies(1, &V);
 
-      ComputeMesonFields<A2Apolicies,MultiStorageType>::compute(store,Wspecies,Vspecies,lat);
+      ComputeMesonFields<Vtype,Wtype,MultiStorageType>::compute(store,Wspecies,Vspecies,lat);
   
       //Test 1s
       for(int t=0;t<Lt;t++){
@@ -842,15 +848,15 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
       
       MultiInnerType multi_inner(sigma3,multi_src);
       
-      typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies, MultiInnerType> MultiStorageType;
+      typedef GparityFlavorProjectedShiftSourceStorage<Vtype,Wtype, MultiInnerType> MultiStorageType;
       MultiStorageType store(multi_inner, multi_src);
       store.addCompute(0,0,pp,pp3);
 
       if(!UniqueID()){ printf("Start 1s/point shift multiStorage compute\n"); fflush(stdout); }
-      typename ComputeMesonFields<A2Apolicies,MultiStorageType>::WspeciesVector Wspecies(1, &W);
-      typename ComputeMesonFields<A2Apolicies,MultiStorageType>::VspeciesVector Vspecies(1, &V);
+      typename ComputeMesonFields<Vtype,Wtype,MultiStorageType>::WspeciesVector Wspecies(1, &W);
+      typename ComputeMesonFields<Vtype,Wtype,MultiStorageType>::VspeciesVector Vspecies(1, &V);
 
-      ComputeMesonFields<A2Apolicies,MultiStorageType>::compute(store,Wspecies,Vspecies,lat);
+      ComputeMesonFields<Vtype,Wtype,MultiStorageType>::compute(store,Wspecies,Vspecies,lat);
   
       //Test 1s
       for(int t=0;t<Lt;t++){
@@ -937,6 +943,8 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
       }
     }
   }
+  typedef A2AvectorV<A2Apolicies> Vtype;
+  typedef A2AvectorW<A2Apolicies> Wtype;
   
   typedef A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies> ExpSrcType;
   typedef typename ExpSrcType::FieldParamType SrcFieldParamType;
@@ -948,17 +956,17 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
   ExpSrcType src(2.0, p_v[0].ptr(), sfp); //momentum is not relevant as it is shifted internally
   ExpInnerType inner(sigma3, src);
 
-  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, ExpInnerType> BasicStorageType;
+  typedef GparityFlavorProjectedBasicSourceStorage<Vtype,Wtype, ExpInnerType> BasicStorageType;
 
-  typename ComputeMesonFields<A2Apolicies,BasicStorageType>::WspeciesVector Wspecies(1, &W);
-  typename ComputeMesonFields<A2Apolicies,BasicStorageType>::VspeciesVector Vspecies(1, &V);
+  typename ComputeMesonFields<Vtype,Wtype,BasicStorageType>::WspeciesVector Wspecies(1, &W);
+  typename ComputeMesonFields<Vtype,Wtype,BasicStorageType>::VspeciesVector Vspecies(1, &V);
 
   BasicStorageType store_basic(inner);
   for(int p=0;p<nmom;p++){
     store_basic.addCompute(0,0,-p_wdag[p],p_v[p]);
   }
 
-  ComputeMesonFields<A2Apolicies,BasicStorageType>::compute(store_basic,Wspecies,Vspecies,lat);
+  ComputeMesonFields<Vtype,Wtype,BasicStorageType>::compute(store_basic,Wspecies,Vspecies,lat);
 
   typedef std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > MFvectorType;
   
@@ -977,12 +985,12 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
   for(int p=0;p<nmom;p++)
     set_mom.push_back( std::pair<ThreeMomentum,ThreeMomentum>(-p_wdag[p],p_v[p]) );
   
-  typedef GparityFlavorProjectedSumSourceStorage<A2Apolicies, ExpInnerType> SumStorageType;
+  typedef GparityFlavorProjectedSumSourceStorage<Vtype,Wtype, ExpInnerType> SumStorageType;
 
   SumStorageType store_sum(inner);
   store_sum.addComputeSet(0,0, set_mom);
   
-  ComputeMesonFields<A2Apolicies,SumStorageType>::compute(store_sum,Wspecies,Vspecies,lat);
+  ComputeMesonFields<Vtype,Wtype,SumStorageType>::compute(store_sum,Wspecies,Vspecies,lat);
 
   store_sum.sumToAverage();
 
@@ -997,14 +1005,14 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
   typedef typename A2Apolicies::ComplexType VectorComplexType;
   
   typedef GparitySourceShiftInnerProduct<VectorComplexType,ExpSrcType, flavorMatrixSpinColorContract<15,true,false> > ShiftInnerType;
-  typedef GparityFlavorProjectedShiftSourceSumStorage<A2Apolicies, ShiftInnerType> ShiftSumStorageType;
+  typedef GparityFlavorProjectedShiftSourceSumStorage<Vtype,Wtype, ShiftInnerType> ShiftSumStorageType;
   
   ShiftInnerType shift_inner(sigma3, src);
 
   ShiftSumStorageType shift_store_sum(shift_inner,src);
   shift_store_sum.addComputeSet(0,0, set_mom, true);
   
-  ComputeMesonFields<A2Apolicies,ShiftSumStorageType>::compute(shift_store_sum,Wspecies,Vspecies,lat);
+  ComputeMesonFields<Vtype,Wtype,ShiftSumStorageType>::compute(shift_store_sum,Wspecies,Vspecies,lat);
 
   typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfVector;
   const mfVector &avgd = shift_store_sum(0);
