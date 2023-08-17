@@ -1,8 +1,10 @@
 #ifndef _KTOPIPI_MAIN_A2A_KAON_H_
 #define _KTOPIPI_MAIN_A2A_KAON_H_
 
+template<typename Vtype, typename Wtype>
 struct KaonMesonFields{
-  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfVector;
+  typedef getMesonFieldType<Wtype,Vtype> mf_WV; 
+  typedef std::vector<mf_WV> mfVector;
   mfVector mf_ls;
   mfVector mf_sl;
   KaonMesonFields(){}
@@ -41,10 +43,11 @@ struct KaonMesonFields{
   }
 };
 
-void computeKaon2ptContraction(const int conf, const Parameters &params, const KaonMesonFields &mf, const std::string &postpend = ""){
+template<typename Vtype, typename Wtype>
+void computeKaon2ptContraction(const int conf, const Parameters &params, const KaonMesonFields<Vtype,Wtype> &mf, const std::string &postpend = ""){
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   fMatrix<typename A2Apolicies::ScalarComplexType> kaon(Lt,Lt);
-  ComputeKaon<A2Apolicies>::compute(kaon, mf.mf_ls, mf.mf_sl);
+  ComputeKaon<Vtype,Wtype>::compute(kaon, mf.mf_ls, mf.mf_sl);
   
   std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_kaoncorr" << postpend;
   kaon.write(os.str());
@@ -54,9 +57,12 @@ void computeKaon2ptContraction(const int conf, const Parameters &params, const K
 #endif
 }
 
-template<typename KaonMomentumPolicy>
-void randomizeKaonMesonFields(KaonMesonFields &mf, typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
-			      typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
+template<typename Vtype, typename Wtype, typename KaonMomentumPolicy>
+void randomizeKaonMesonFields(KaonMesonFields<Vtype,Wtype> &mf, 
+			      Vtype &V, 
+			      Wtype &W, 
+			      Vtype &V_s, 
+			      Wtype &W_s,
 			      const KaonMomentumPolicy &kaon_mom){
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   mf.mf_ls.resize(Lt);
@@ -70,33 +76,38 @@ void randomizeKaonMesonFields(KaonMesonFields &mf, typename ComputeKaon<A2Apolic
 }
 			      
 
-template<typename KaonMomentumPolicy>
-void computeKaonMesonFields(KaonMesonFields &mf, typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
-			    typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
+template<typename Vtype, typename Wtype, typename KaonMomentumPolicy>
+void computeKaonMesonFields(KaonMesonFields<Vtype,Wtype> &mf, 
+			    Vtype &V, 
+			    Wtype &W, 
+			    Vtype &V_s, 
+			    Wtype &W_s,
 			    const KaonMomentumPolicy &kaon_mom,
 			    Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
 			    bool randomize_mf){
   if(randomize_mf){    
     randomizeKaonMesonFields(mf,V,W,V_s,W_s,kaon_mom);
   }else{
-    ComputeKaon<A2Apolicies>::computeMesonFields(mf.mf_ls, mf.mf_sl,
+    ComputeKaon<Vtype,Wtype>::computeMesonFields(mf.mf_ls, mf.mf_sl,
 						 W, V, W_s, V_s, kaon_mom,
 						 params.jp.kaon_rad, lat, field3dparams);
   }
 }
 
 
-template<typename KaonMomentumPolicy>
-void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
-		    typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
+template<typename Vtype, typename Wtype, typename KaonMomentumPolicy>
+void computeKaon2pt(Vtype &V, 
+		    Wtype &W, 
+		    Vtype &V_s, 
+		    Wtype &W_s,
 		    const KaonMomentumPolicy &kaon_mom,
 		    const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams, bool randomize_mf,
-		    KaonMesonFields *keep_mesonfields = NULL){
+		    KaonMesonFields<Vtype,Wtype> *keep_mesonfields = NULL){
   LOGA2A << "Computing kaon 2pt function" << std::endl;
   double time = -dclock();
   
   {  
-    KaonMesonFields mf;
+    KaonMesonFields<Vtype,Wtype> mf;
     computeKaonMesonFields(mf,V,W,V_s,W_s,kaon_mom,lat,params,field3dparams,randomize_mf);
     
     computeKaon2ptContraction(conf,params,mf);
@@ -114,21 +125,23 @@ void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename Comput
 }
 
 
-template<typename KaonMomentumPolicyStd, typename KaonMomentumPolicyReverse>
-  void computeKaon2ptStandardAndSymmetric(typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
-					  typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
+template<typename Vtype, typename Wtype, typename KaonMomentumPolicyStd, typename KaonMomentumPolicyReverse>
+  void computeKaon2ptStandardAndSymmetric(Vtype &V, 
+					  Wtype &W, 
+					  Vtype &V_s, 
+					  Wtype &W_s,
 					  const KaonMomentumPolicyStd &kaon_mom_std, const KaonMomentumPolicyReverse &kaon_mom_rev,
 					  const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,bool randomize_mf){
    LOGA2A << "Computing kaon 2pt function standard and symmetric" << std::endl;
    double time = -dclock();
    const int Lt = GJP.Tnodes() * GJP.TnodeSites();
    
-   KaonMesonFields mf_std;
+   KaonMesonFields<Vtype,Wtype> mf_std;
    computeKaonMesonFields(mf_std,V,W,V_s,W_s,kaon_mom_std,lat,params,field3dparams,randomize_mf);
 
    computeKaon2ptContraction(conf,params,mf_std);
    
-   KaonMesonFields mf_symm;
+   KaonMesonFields<Vtype,Wtype> mf_symm;
    computeKaonMesonFields(mf_symm,V,W,V_s,W_s,kaon_mom_rev,lat,params,field3dparams,randomize_mf);
 
    mf_symm.average(mf_std);

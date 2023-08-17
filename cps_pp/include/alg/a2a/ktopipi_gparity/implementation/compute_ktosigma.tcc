@@ -1,5 +1,5 @@
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type12_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2){
+template<typename Vtype, typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type12_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2){
 #ifndef MEMTEST_MODE
 
   //D1   = Tr( [pt1] G5 M1 [pt2] M2 )
@@ -38,8 +38,8 @@ void ComputeKtoSigma<mf_Policies>::type12_contract(ResultsContainerType &result,
 }
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type12_omp(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){  
+template<typename Vtype, typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type12_omp(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){  
   LOGA2A << "Starting type 1/2 K->sigma contractions" << std::endl;
   double total_time = dclock();
        
@@ -169,8 +169,8 @@ void ComputeKtoSigma<mf_Policies>::type12_omp(std::vector<ResultsContainerType> 
 }
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type3_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H){
+template<typename Vtype, typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type3_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H){
 #ifndef MEMTEST_MODE
 
   //D2  = Tr( [pt1] G5 M1   ) * Tr( [pt2_L] M2 )
@@ -226,8 +226,8 @@ void ComputeKtoSigma<mf_Policies>::type3_contract(ResultsContainerType &result, 
 
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type3_omp(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){   
+template<typename Vtype, typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type3_omp(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){   
   LOGA2A << "Starting type 3 K->sigma contractions" << std::endl;
   double total_time = dclock();
   double time;
@@ -382,8 +382,8 @@ void ComputeKtoSigma<mf_Policies>::type3_omp(std::vector<ResultsContainerType> &
 }
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type4_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H){
+template<typename Vtype, typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type4_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H){
 #ifndef MEMTEST_MODE
 
   //D4   = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 V_O W^dag_O M2 ) Tr( [V_S W^dag_S] )
@@ -450,8 +450,8 @@ void ComputeKtoSigma<mf_Policies>::type4_contract(ResultsContainerType &result, 
 
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type4_omp(ResultsContainerType &result, MixDiagResultsContainerType &mix4){
+template<typename Vtype, typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type4_omp(ResultsContainerType &result, MixDiagResultsContainerType &mix4){
   LOGA2A << "Starting type 4 K->sigma contractions" << std::endl;
   double total_time = dclock();
        

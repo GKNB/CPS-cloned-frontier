@@ -17,8 +17,8 @@
 // \sum_{ \vec y, \vec z  }  \Gamma_2 vL(x_op) [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] wL^dag(x_op)
 
 //Run inside threaded environment
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]){
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]){
 #ifndef MEMTEST_MODE
   static const int n_contract = 6; //six type2 diagrams
   static const int con_off = 7; //index of first contraction in set
@@ -52,11 +52,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &re
 }
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(std::vector<mf_WV > &con_pi1_pi2,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type2_compute_mfproducts(std::vector<mf_WV > &con_pi1_pi2,
 							       std::vector<mf_WV > &con_pi2_pi1,							     
 							       const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all,
-							       MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+							       MesonFieldMomentumContainer<mf_WV> &mf_pions,
 							       const int Lt, const int tpi_sampled){
   Type2timings::timer().type2_compute_mfproducts -= dclock();
   con_pi1_pi2.resize(tpi_sampled); //y is associated with pi1, z with pi2
@@ -138,13 +138,13 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(std::vector<mf
 
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<vMv_split_VWWV> &mult_vMv_split_part1,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type2_mult_vMv_setup(std::vector<vMv_split_VWWV> &mult_vMv_split_part1,
 							      std::vector<vMv_split_VWVW> &mult_vMv_split_part2_pi1_pi2,
 							      std::vector<vMv_split_VWVW> &mult_vMv_split_part2_pi2_pi1,
 							      const std::vector< mf_WV > &con_pi1_pi2,
 							      const std::vector< mf_WV > &con_pi2_pi1,
-							      const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, const A2AvectorW<mf_Policies> & wL,
+							      const Vtype & vL, const Vtype & vH, const Wtype & wL,
 							      const std::vector<mf_WW > &mf_kaon,
 							      const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 							      const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon){
@@ -179,8 +179,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<vMv_sp
   Type2timings::timer().type2_mult_vMv_setup += dclock();
 }
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vector<SCFmatVector > &mult_vMv_contracted_part1,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type2_precompute_part1_part2(std::vector<SCFmatVector > &mult_vMv_contracted_part1,
 								      std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi1_pi2,
 								      std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi2_pi1,
 								      std::vector<vMv_split_VWWV> &mult_vMv_split_part1,
@@ -217,12 +217,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vecto
 
 //This version averages over multiple pion momentum configurations. Use to project onto A1 representation at run-time. Saves a lot of time!
 //This version also overlaps computation for multiple K->pi separations. Result should be an array of ResultsContainerType the same size as the vector 'tsep_k_pi'
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_omp_v1(ResultsContainerType result[],
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type2_omp_v1(ResultsContainerType result[],
 		  const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		  const Vtype & vL, const Vtype & vH, 
+		  const Wtype & wL, const Wtype & wH){
   Type2timings::timer().reset();
   Type2timings::timer().total -= dclock();
     
@@ -367,12 +367,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_omp_v1(ResultsContainerType resul
 
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(mf_WV &con_pi1_pi2,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type2_compute_mfproducts(mf_WV &con_pi1_pi2,
 								  mf_WV &con_pi2_pi1,
 								  const int tpi1, const int tpi2,
 								  const std::vector<ThreeMomentum> &p_pi_1_all,
-								  MesonFieldMomentumContainer<mf_Policies> &mf_pions){
+								  MesonFieldMomentumContainer<mf_WV> &mf_pions){
   Type2timings::timer().type2_compute_mfproducts -= dclock();
 
   mf_WV tmp;
@@ -442,12 +442,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(mf_WV &con_pi1
 }
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_omp_v2(ResultsContainerType result[],
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type2_omp_v2(ResultsContainerType result[],
 		  const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		  const Vtype & vL, const Vtype & vH, 
+		  const Wtype & wL, const Wtype & wH){
   Type2timings::timer().reset();
   Type2timings::timer().total -= dclock();
     

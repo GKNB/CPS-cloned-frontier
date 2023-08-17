@@ -18,6 +18,9 @@
 CPS_START_NAMESPACE
 
 template< typename mf_Policies>
+class A2AvectorWfftw;
+
+template< typename mf_Policies>
 class A2AvectorW: public FullyPackedIndexDilution, public mf_Policies::A2AvectorWpolicies{
 public:
   typedef mf_Policies Policies;
@@ -41,6 +44,9 @@ private:
   void initialize(const FieldInputParamType &field_setup_params);
 public:
   typedef FullyPackedIndexDilution DilutionType;
+  typedef A2AvectorWfftw<mf_Policies> FFTvectorType;
+  template<typename P> using FFTvectorTemplate = A2AvectorWfftw<P>;
+  template<typename P> using VectorTemplate = A2AvectorW<P>;
 
   A2AvectorW(const A2AArg &_args);
   A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params);

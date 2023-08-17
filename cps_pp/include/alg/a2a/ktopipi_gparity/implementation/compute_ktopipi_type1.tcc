@@ -21,8 +21,8 @@
 
 
 //Run inside threaded environment
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type1_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat part1[2], const SCFmat part2[2]){
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type1_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat part1[2], const SCFmat part2[2]){
 #ifndef MEMTEST_MODE
   static const int n_contract = 6; //six type1 diagrams
   static const int con_off = 1; //index of first contraction in set
@@ -57,8 +57,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_contract(ResultsContainerType &re
 #endif
 }
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::generateRandomOffsets(std::vector<OneFlavorIntegerField*> &random_fields, const std::vector<int> &tsep_k_pi, const int tstep, const int xyzStep){
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::generateRandomOffsets(std::vector<OneFlavorIntegerField*> &random_fields, const std::vector<int> &tsep_k_pi, const int tstep, const int xyzStep){
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   int size_3d = GJP.VolNodeSites()/GJP.TnodeSites();
 
@@ -120,12 +120,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::generateRandomOffsets(std::vector<OneFl
 
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type1_compute_mfproducts(std::vector<std::vector< mf_WW > > &con_pi1_K,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type1_compute_mfproducts(std::vector<std::vector< mf_WW > > &con_pi1_K,
 							       std::vector<std::vector< mf_WW > > &con_pi2_K,
 							       const std::vector<mf_WV > &mf_pi1,
 							       const std::vector<mf_WV > &mf_pi2,
-							       const std::vector<mf_WW > &mf_kaon, const MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+							       const std::vector<mf_WW > &mf_kaon, const MesonFieldMomentumContainer<mf_WV> &mf_pions,
 							       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int Lt, const int ntsep_k_pi,
 							       const std::vector<bool> &tpi1_mask, const std::vector<bool> &tpi2_mask ){
   Type1timings::timer().type1_compute_mfproducts -= dclock();
@@ -161,22 +161,22 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_compute_mfproducts(std::vector<st
 }
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type1_mult_vMv_setup(vMv_split_VWVW &mult_vMv_split_part1_pi1,
-							      vMv_split_VWVW &mult_vMv_split_part1_pi2,
-							      std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi1,
-							      std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi2,
-							      const std::vector<std::vector< mf_WW > > &con_pi1_K,
-							      const std::vector<std::vector< mf_WW > > &con_pi2_K,
-							      const std::vector<mf_WV > &mf_pi1,
-							      const std::vector<mf_WV > &mf_pi2,							   
-							      const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-							      const A2AvectorW<mf_Policies> & wL,
-							      const ModeContractionIndices<StandardIndexDilution,TimePackedIndexDilution> &i_ind_vw,
-							      const ModeContractionIndices<StandardIndexDilution,FullyPackedIndexDilution> &j_ind_vw,
-							      const ModeContractionIndices<TimePackedIndexDilution,StandardIndexDilution> &j_ind_wv,
-							      const int top_loc, const int t_pi1, const int t_pi2, 
-							      const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], const std::vector<bool> &node_top_used){
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type1_mult_vMv_setup(vMv_split_VWVW &mult_vMv_split_part1_pi1,
+											    vMv_split_VWVW &mult_vMv_split_part1_pi2,
+											    std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi1,
+											    std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi2,
+											    const std::vector<std::vector< mf_WW > > &con_pi1_K,
+											    const std::vector<std::vector< mf_WW > > &con_pi2_K,
+											    const std::vector<mf_WV > &mf_pi1,
+											    const std::vector<mf_WV > &mf_pi2,							   
+											    const Vtype & vL, const Vtype & vH, 
+											    const Wtype & wL,
+											    const ModeContractionIndices<typename Vtype::DilutionType, typename mf_WW::LeftDilutionType> &i_ind_vw,
+											    const ModeContractionIndices<typename mf_WV::RightDilutionType,typename Wtype::DilutionType> &j_ind_vw,
+											    const ModeContractionIndices<typename mf_WW::RightDilutionType,typename Vtype::DilutionType> &j_ind_wv,											    
+											    const int top_loc, const int t_pi1, const int t_pi2, 
+											    const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], const std::vector<bool> &node_top_used){
   Type1timings::timer().type1_mult_vMv_setup -= dclock();
   assert(node_top_used[top_loc]);
 
@@ -203,17 +203,17 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_mult_vMv_setup(vMv_split_VWVW &mu
 
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type1_precompute_part1_part2(SCFmatVector &mult_vMv_contracted_part1_pi1,
-								      SCFmatVector &mult_vMv_contracted_part1_pi2,
-								      std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi1,
-								      std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi2,
-								      vMv_split_VWVW &mult_vMv_split_part1_pi1,
-								      vMv_split_VWVW &mult_vMv_split_part1_pi2,
-								      std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi1,
-								      std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi2,
-								      const int top_loc, const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], 
-								      const std::vector<bool> &node_top_used){
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type1_precompute_part1_part2(SCFmatVector &mult_vMv_contracted_part1_pi1,
+												    SCFmatVector &mult_vMv_contracted_part1_pi2,
+												    std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi1,
+												    std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi2,
+												    vMv_split_VWVW &mult_vMv_split_part1_pi1,
+												    vMv_split_VWVW &mult_vMv_split_part1_pi2,
+												    std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi1,
+												    std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi2,
+												    const int top_loc, const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], 
+												    const std::vector<bool> &node_top_used){
   Type1timings::timer().type1_precompute_part1_part2 -= dclock();
   assert(node_top_used[top_loc]);
 
@@ -248,19 +248,19 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_precompute_part1_part2(SCFmatVect
 //for a random site within the block (site, site+xyzStep) in canonical ordering. Daiqian's original implementation is machine-size dependent, but for repro I had to add an option to do it his way 
 
 //This version overlaps computation for multiple K->pi separations. Result should be an array of ResultsContainerType the same size as the vector 'tsep_k_pi'
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type1_omp(ResultsContainerType result[],
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type1_omp(ResultsContainerType result[],
 					    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
-					    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-					    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-					    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+					    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+					    const Vtype & vL, const Vtype & vH, 
+					    const Wtype & wL, const Wtype & wH){
   Type1timings::timer().reset();
   Type1timings::timer().total -= dclock();
   
   //Precompute mode mappings
-  ModeContractionIndices<StandardIndexDilution,TimePackedIndexDilution> i_ind_vw(vL);
-  ModeContractionIndices<StandardIndexDilution,FullyPackedIndexDilution> j_ind_vw(wL);
-  ModeContractionIndices<TimePackedIndexDilution,StandardIndexDilution> j_ind_wv(vH);
+  ModeContractionIndices<typename Vtype::DilutionType, typename mf_WW::LeftDilutionType> i_ind_vw(vL);
+  ModeContractionIndices<typename mf_WV::RightDilutionType,typename Wtype::DilutionType> j_ind_vw(wL);
+  ModeContractionIndices<typename mf_WW::RightDilutionType,typename Vtype::DilutionType> j_ind_wv(vH);
 
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
   const int ntsep_k_pi = tsep_k_pi.size();

@@ -47,7 +47,8 @@ void computeEvecs(EvecManagerType &eig, const LightHeavy lh, const Parameters &p
   return computeEvecs(eig, lanc_arg, params.jp, name, opts);
 }
 
-void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const EvecManagerType &eig, double mass, const CGcontrols &cg_controls, 
+template<template<typename> class A2AvectorVtype, template<typename> class A2AvectorWtype>
+void computeVW(A2AvectorVtype<A2Apolicies> &V, A2AvectorWtype<A2Apolicies> &W, const EvecManagerType &eig, double mass, const CGcontrols &cg_controls, 
 	       typename A2Apolicies::FgridGFclass *lat, bool randomize_vw){
 #ifdef USE_DESTRUCTIVE_FFT
   LOGA2A << "Allocating V and W vectors" << std::endl;
@@ -59,11 +60,11 @@ void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const Eve
     cps::computeVW(V,W,*lat,*ei,mass,cg_controls);
   }else{
     LOGA2A << "Creating random VW vectors" << std::endl;
-    randomizeVW<A2Apolicies>(V,W);
+    randomizeVW(V,W);
   }
 }
-
-void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const LightHeavy lh, const Parameters &params, const EvecManagerType &eig, const bool randomize_vw){
+template<template<typename> class A2AvectorVtype, template<typename> class A2AvectorWtype>
+void computeVW(A2AvectorVtype<A2Apolicies> &V, A2AvectorWtype<A2Apolicies> &W, const LightHeavy lh, const Parameters &params, const EvecManagerType &eig, const bool randomize_vw){
   auto lat = createFgridLattice<typename A2Apolicies::FgridGFclass>(params.jp);
 
   const LancArg &lanc_arg = (lh == Light ? params.lanc_arg : params.lanc_arg_s);

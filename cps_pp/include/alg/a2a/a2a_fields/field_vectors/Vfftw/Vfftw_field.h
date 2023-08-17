@@ -33,7 +33,8 @@ private:
   
 public:
   typedef StandardIndexDilution DilutionType;
-  
+  template<typename P> using VectorTemplate = A2AvectorVfftw<P>;
+
   A2AvectorVfftw(const A2AArg &_args): StandardIndexDilution(_args){
     v.resize(nv);
     this->allocInitializeFields(v,NullObject());

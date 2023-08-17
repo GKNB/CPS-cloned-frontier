@@ -2,14 +2,14 @@
 
 CPS_START_NAMESPACE
 
-template<typename mf_Policies,typename ComplexClass>
+template<typename Vtype, typename Wtype,typename ComplexClass>
 struct _randomizeVWimpl{};
 
 //Randomize the V and W vectors
-template<typename mf_Policies>
-void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
+template<typename Vtype, typename Wtype>
+void randomizeVW(Vtype &V, Wtype &W){
 #ifndef MEMTEST_MODE
-  return _randomizeVWimpl<mf_Policies,typename ComplexClassify<typename mf_Policies::ComplexType>::type>::randomizeVW(V,W);
+  return _randomizeVWimpl<Vtype,Wtype,typename ComplexClassify<typename Vtype::Policies::ComplexType>::type>::randomizeVW(V,W);
 #endif
 }
 

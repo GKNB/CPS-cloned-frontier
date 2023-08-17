@@ -1,7 +1,8 @@
 //Use a class to instantiate and run all the components
 //The components can also be instantiated manually in the traditional Grid fashion if desired
-template<typename Policies>
+template<typename Vtype, typename Wtype>
 struct computeVW_impl{
+  typedef typename Vtype::Policies Policies;
   typedef typename Policies::GridDirac GridDiracD;
   typedef typename Policies::GridDiracF GridDiracF;
   typedef typename Policies::GridFermionField GridFermionFieldD;
@@ -94,7 +95,7 @@ struct computeVW_impl{
     LOGA2A << "Finished setting up split grids" << std::endl;
   }
 
-  computeVW_impl(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, const EvecInterfaceMixedPrec<typename Policies::GridFermionField, typename Policies::GridFermionFieldF> &evecs,
+  computeVW_impl(Vtype &V, Wtype &W, Lattice &lat, const EvecInterfaceMixedPrec<typename Policies::GridFermionField, typename Policies::GridFermionFieldF> &evecs,
 		 const double mass, const CGcontrols &cg):
     lattice(dynamic_cast<typename Policies::FgridGFclass &>(lat)),
     FrbGridD(lattice.getFrbGrid()), FrbGridF(lattice.getFrbGridF()), FGridD(lattice.getFGrid()), FGridF(lattice.getFGridF()), 
@@ -236,18 +237,19 @@ struct computeVW_impl{
   }
 };
 
-template<typename Policies>
-void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, 
-	       const EvecInterfaceMixedPrec<typename Policies::GridFermionField, typename Policies::GridFermionFieldF> &evecs,
+template<typename Vtype, typename Wtype>
+void computeVW(Vtype &V, Wtype &W, Lattice &lat, 
+	       const EvecInterfaceMixedPrec<typename Vtype::Policies::GridFermionField, typename Vtype::Policies::GridFermionFieldF> &evecs,
 	       const double mass, const CGcontrols &cg){
-  computeVW_impl<Policies> c(V,W,lat,evecs,mass,cg);
+  computeVW_impl<Vtype,Wtype> c(V,W,lat,evecs,mass,cg);
 }	       
 
 
-template<typename Policies>
-void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, 
-	       const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, 
+template<typename Vtype, typename Wtype>
+void computeVW(Vtype &V, Wtype &W, Lattice &lat, 
+	       const std::vector<typename Vtype::Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, 
 	       const double mass, const CGcontrols &cg){
+  typedef typename Vtype::Policies Policies;
   typename Policies::FgridGFclass &lat_ =  dynamic_cast<typename Policies::FgridGFclass &>(lat);
   Grid::GridRedBlackCartesian *FrbGridD = lat_.getFrbGrid();
   Grid::GridRedBlackCartesian *FrbGridF = lat_.getFrbGridF();
@@ -257,13 +259,14 @@ void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat,
   if(evec.size()>0)  assert(evec[0].Grid() == FrbGridF);
 
   EvecInterfaceSinglePrec<typename Policies::GridFermionField, typename Policies::GridFermionFieldF> eveci(evec, eval, FrbGridD, FrbGridF);
-  computeVW<Policies>(V,W,lat,eveci,mass,cg);
+  computeVW<Vtype,Wtype>(V,W,lat,eveci,mass,cg);
 }
 
-template<typename Policies>
-void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, 
-	       const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, 
+template<typename Vtype, typename Wtype>
+void computeVW(Vtype &V, Wtype &W, Lattice &lat, 
+	       const std::vector<typename Vtype::Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, 
 	       const double mass, const CGcontrols &cg){
+  typedef typename Vtype::Policies Policies;
   typename Policies::FgridGFclass &lat_ =  dynamic_cast<typename Policies::FgridGFclass &>(lat);
   Grid::GridRedBlackCartesian *FrbGridD = lat_.getFrbGrid();
   Grid::GridRedBlackCartesian *FrbGridF = lat_.getFrbGridF();
@@ -273,5 +276,5 @@ void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat,
   if(evec.size()>0)  assert(evec[0].Grid() == FrbGridD);
 
   EvecInterfaceMixedDoublePrec<typename Policies::GridFermionField, typename Policies::GridFermionFieldF> eveci(evec, eval, FrbGridD, FrbGridF);
-  computeVW<Policies>(V,W,lat,eveci,mass,cg);
+  computeVW<Vtype,Wtype>(V,W,lat,eveci,mass,cg);
 }

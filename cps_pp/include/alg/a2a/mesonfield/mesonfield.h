@@ -374,6 +374,12 @@ public:
   }
 };
 
+//Get the meson field type associated with two (non-FFT) A2A vectors
+template<class LvectorType, class RvectorType>
+using getMesonFieldType = A2AmesonField<typename LvectorType::Policies, LvectorType::template FFTvectorTemplate, RvectorType::template FFTvectorTemplate>;
+
+template<typename Policies, template<typename> class LvectorTemplate, template<typename> class RvectorTemplate>
+using getMesonFieldTypeT = A2AmesonField<Policies, LvectorTemplate<Policies>::template FFTvectorTemplate, RvectorTemplate<Policies>::template FFTvectorTemplate >;
 
 
 #include "implementation/mesonfield_io.tcc"

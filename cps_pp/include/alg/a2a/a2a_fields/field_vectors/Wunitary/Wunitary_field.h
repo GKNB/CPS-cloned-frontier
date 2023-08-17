@@ -18,6 +18,9 @@
 CPS_START_NAMESPACE
 
 template< typename mf_Policies>
+class A2AvectorWunitaryfftw;
+
+template< typename mf_Policies>
 class A2AvectorWunitary: public TimeSpinColorPackedIndexDilution, public mf_Policies::A2AvectorWunitarypolicies{
 public:
   typedef mf_Policies Policies;
@@ -41,7 +44,10 @@ private:
   void initialize(const FieldInputParamType &field_setup_params);
 public:
   typedef TimeSpinColorPackedIndexDilution DilutionType;
-
+  typedef A2AvectorWunitaryfftw<mf_Policies> FFTvectorType;
+  template<typename P> using FFTvectorTemplate = A2AvectorWunitaryfftw<P>;
+  template<typename P> using VectorTemplate = A2AvectorWunitary<P>;
+  
   A2AvectorWunitary(const A2AArg &_args);
   A2AvectorWunitary(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 

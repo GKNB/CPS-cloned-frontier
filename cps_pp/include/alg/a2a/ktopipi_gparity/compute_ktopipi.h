@@ -114,7 +114,7 @@ public:
 };
 
 
-template<typename mf_Policies>
+template<typename Vtype, typename Wtype>
 class ComputeKtoPiPiGparity: public ComputeKtoPiPiGparityBase{  
 private:
   //Determine what node timeslices are actually needed. Returns true if at least one on-node top is needed
@@ -174,6 +174,7 @@ private:
   }
 
 public:
+  typedef typename Vtype::Policies mf_Policies;
   typedef typename mf_Policies::ComplexType ComplexType;
   typedef CPSspinColorFlavorMatrix<ComplexType> SCFmat;
   typedef typename AlignedVector<SCFmat>::type SCFmatVector;
@@ -182,18 +183,21 @@ public:
   typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, Aligned128AllocPolicy> ResultsContainerType;
   typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, Aligned128AllocPolicy> MixDiagResultsContainerType;
 
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> mf_WW;
+  template<typename P> using Wtemplate = typename Wtype::template VectorTemplate<P>;
+  template<typename P> using Vtemplate = typename Vtype::template VectorTemplate<P>;
 
-  typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
-  typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
+  template<typename P> using WfftTemplate = typename Wtype::template FFTvectorTemplate<P>;
+  template<typename P> using VfftTemplate = typename Vtype::template FFTvectorTemplate<P>;
 
-#ifdef USE_DESTRUCTIVE_FFT
-  typedef A2AvectorW<mf_Policies> Wtype;
-#else
-  typedef const A2AvectorW<mf_Policies> Wtype;
-#endif
-  
+  typedef WfftTemplate<mf_Policies> WfftType;
+  typedef VfftTemplate<mf_Policies> VfftType;
+
+  typedef getMesonFieldType<Wtype,Wtype> mf_WW;
+  typedef getMesonFieldType<Wtype,Vtype> mf_WV;
+
+  typedef mult_vMv_split_lite<mf_Policies, Vtemplate, WfftTemplate,WfftTemplate, Vtemplate> vMv_split_VWWV;
+  typedef mult_vMv_split_lite<mf_Policies, Vtemplate, WfftTemplate,VfftTemplate, Wtemplate> vMv_split_VWVW;
+ 
   //Compute type 1,2,3,4 diagram for fixed tsep(pi->K) and tsep(pi->pi). 
 
   //By convention pi1 is the pion closest to the kaon
@@ -235,8 +239,8 @@ public:
       SourceType fpexp(kaon_rad, pB.ptr() , src_params);
       InnerType mf_struct(sigma0,fpexp); // (1)_flav * (1)_spin 
 
-      A2AvectorWfftw<mf_Policies> fftw_Wl_p(W.getArgs(),fld_params);
-      A2AvectorWfftw<mf_Policies> fftw_Ws_p(W_s.getArgs(),fld_params);
+      WfftType fftw_Wl_p(W.getArgs(),fld_params);
+      WfftType fftw_Ws_p(W_s.getArgs(),fld_params);
       
 #ifdef USE_DESTRUCTIVE_FFT
       fftw_Wl_p.destructiveGaugeFixTwistFFT(W, mpA.ptr(),lat); //will be daggered, swapping momentum
@@ -283,7 +287,7 @@ private:
 				       std::vector<std::vector< mf_WW > > &con_pi2_K,
 				       const std::vector<mf_WV > &mf_pi1,
 				       const std::vector<mf_WV > &mf_pi2,
-				       const std::vector<mf_WW > &mf_kaon, const MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+				       const std::vector<mf_WW > &mf_kaon, const MesonFieldMomentumContainer<mf_WV> &mf_pions,
 				       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int Lt, const int ntsep_k_pi,
 				       const std::vector<bool> &tpi1_mask, const std::vector<bool> &tpi2_mask);
 
@@ -295,11 +299,11 @@ private:
 				   const std::vector<std::vector< mf_WW > > &con_pi2_K,
 				   const std::vector<mf_WV > &mf_pi1,
 				   const std::vector<mf_WV > &mf_pi2,							   
-				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-				   const A2AvectorW<mf_Policies> & wL,
-				   const ModeContractionIndices<StandardIndexDilution,TimePackedIndexDilution> &i_ind_vw,
-				   const ModeContractionIndices<StandardIndexDilution,FullyPackedIndexDilution> &j_ind_vw,
-				   const ModeContractionIndices<TimePackedIndexDilution,StandardIndexDilution> &j_ind_wv,
+				   const Vtype & vL, const Vtype & vH, 
+				   const Wtype & wL,
+				   const ModeContractionIndices<typename Vtype::DilutionType, typename mf_WW::LeftDilutionType> &i_ind_vw,
+				   const ModeContractionIndices<typename mf_WV::RightDilutionType,typename Wtype::DilutionType> &j_ind_vw,
+				   const ModeContractionIndices<typename mf_WW::RightDilutionType,typename Vtype::DilutionType> &j_ind_wv,
 				   const int top_loc, const int t_pi1, const int t_pi2, const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], const std::vector<bool> &node_top_used);
 
   static void type1_precompute_part1_part2(SCFmatVector &mult_vMv_contracted_part1_pi1,
@@ -320,30 +324,30 @@ public:
   //CPU implementation with openmp loop over site
   static void type1_omp(ResultsContainerType result[],
 			     const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
-			     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-			     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-			     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+			     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+			     const Vtype & vL, const Vtype & vH, 
+			     const Wtype & wL, const Wtype & wH);
   
   //Field implementation both threaded and offloadable to GPU. WILL COMPILE ONLY FOR SIMD COMPLEX DATA
   static void type1_field_SIMD(ResultsContainerType result[],
 		     const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const ThreeMomentum &p_pi_1, 
-		     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+		     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		     const Vtype & vL, const Vtype & vH, 
+		     const Wtype & wL, const Wtype & wH);
 
   //Above version only applicable to SIMD data. For non SIMD data this version falls back to CPU version
   static void type1_field(ResultsContainerType result[],
 			       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const ThreeMomentum &p_pi_1, 
-			       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-			       const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-			       const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+			       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+			       const Vtype & vL, const Vtype & vH, 
+			       const Wtype & wL, const Wtype & wH);
 
   //Note xyzstep is ignored for field implementation
   static void type1(ResultsContainerType result[],
 		    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH){
 #if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
     a2a_printf("Using type1 field implementation\n");
     type1_field(result, tsep_k_pi, tsep_pion, tstep, p_pi_1, mf_kaon, mf_pions, vL, vH, wL, wH); //falls back to CPU implementation for non-SIMD data
@@ -356,9 +360,9 @@ public:
 
   static void type1(ResultsContainerType &result,
 		    const int tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH){
     std::vector<int> tt(1,tsep_k_pi);
     return type1(&result,tt, tsep_pion,tstep,xyzStep,p_pi_1,
 		 mf_kaon, mf_pions,
@@ -367,9 +371,9 @@ public:
   }
   static void type1(std::vector<ResultsContainerType> &result,
 		    const std::vector<int> tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH){
     result.resize(tsep_k_pi.size());
     return type1(&result[0],tsep_k_pi, tsep_pion,tstep,xyzStep,p_pi_1,
 		 mf_kaon, mf_pions,
@@ -390,7 +394,7 @@ private:
   static void type2_compute_mfproducts(std::vector<mf_WV > &con_pi1_pi2,
 				       std::vector<mf_WV > &con_pi2_pi1,							     
 				       const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all,
-				       MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+				       MesonFieldMomentumContainer<mf_WV> &mf_pions,
 				       const int Lt, const int tpi_sampled);
 
   static void type2_mult_vMv_setup(std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
@@ -398,7 +402,7 @@ private:
 				   std::vector<vMv_split_VWVW > &mult_vMv_split_part2_pi2_pi1,
 				   const std::vector< mf_WV > &con_pi1_pi2,
 				   const std::vector< mf_WV > &con_pi2_pi1,
-				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, const A2AvectorW<mf_Policies> & wL,
+				   const Vtype & vL, const Vtype & vH, const Wtype & wL,
 				   const std::vector<mf_WW > &mf_kaon,
 				   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 				   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon);
@@ -416,7 +420,7 @@ private:
 				       mf_WV &con_pi2_pi1,
 				       const int tpi1, const int tpi2,
 				       const std::vector<ThreeMomentum> &p_pi_1_all,
-				       MesonFieldMomentumContainer<mf_Policies> &mf_pions);
+				       MesonFieldMomentumContainer<mf_WV> &mf_pions);
 
 public: 
   //This version averages over multiple pion momentum configurations. Use to project onto A1 representation at run-time. Saves a lot of time!
@@ -425,37 +429,37 @@ public:
   //CPU implementation with openmp loop over site
   static void type2_omp_v1(ResultsContainerType result[],
 		       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		       const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		       const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+		       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		       const Vtype & vL, const Vtype & vH, 
+		       const Wtype & wL, const Wtype & wH);
   
   //Improved CPU implementation with openmp loop over site
   static void type2_omp_v2(ResultsContainerType result[],
-		       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		       const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		       const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+			   const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
+			   const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		       const Vtype & vL, const Vtype & vH, 
+		       const Wtype & wL, const Wtype & wH);
 
   //Field implementation both threaded and offloadable to GPU.  WILL COMPILE ONLY FOR SIMD COMPLEX DATA  
   static void type2_field_SIMD(ResultsContainerType result[],
 			  const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-			  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-			  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-			  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+			  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+			  const Vtype & vL, const Vtype & vH, 
+			  const Wtype & wL, const Wtype & wH);
 
   //Above version only applicable to SIMD data. For non SIMD data this version falls back to CPU version
   static void type2_field(ResultsContainerType result[],
 			  const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-			  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-			  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-			  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+			  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+			  const Vtype & vL, const Vtype & vH, 
+			  const Wtype & wL, const Wtype & wH);
 
 
   inline static void type2(ResultsContainerType result[],
 			   const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-			   const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-			   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-			   const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+			   const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+			   const Vtype & vL, const Vtype & vH, 
+			   const Wtype & wL, const Wtype & wH){
 #if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
     a2a_printf("Using type2 field implementation\n");
     type2_field(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
@@ -470,9 +474,9 @@ public:
 
   static void type2(ResultsContainerType &result,
 		    const int tsep_k_pi, const int tsep_pion, const int tstep, const ThreeMomentum &p_pi_1, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH){
     std::vector<int> tkp(1,tsep_k_pi);
     std::vector<ThreeMomentum> p(1, p_pi_1); 
     return type2(&result,tkp,tsep_pion,tstep,p,
@@ -483,9 +487,9 @@ public:
   template<typename MomComputePolicy>
   static void type2(ResultsContainerType &result,
 		    const int tsep_k_pi, const int tsep_pion, const int tstep, const MomComputePolicy &p_pi_1_all, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH){
     std::vector<int> tkp(1,tsep_k_pi);
     std::vector<ThreeMomentum> p(p_pi_1_all.nMom());
     for(int i=0;i<p_pi_1_all.nMom();i++)
@@ -498,9 +502,9 @@ public:
   template<typename MomComputePolicy>
   static void type2(std::vector<ResultsContainerType> &result,
 		    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const MomComputePolicy &p_pi_1_all, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH){
     result.resize(tsep_k_pi.size());
     std::vector<ThreeMomentum> p(p_pi_1_all.nMom());
     for(int i=0;i<p_pi_1_all.nMom();i++)
@@ -527,11 +531,11 @@ private:
   static void type3_compute_mfproducts(std::vector<std::vector<mf_WW > > &con_pi1_pi2_k,
 				       std::vector<std::vector<mf_WW > > &con_pi2_pi1_k,							     
 				       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-				       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+				       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
 				       const int Lt, const int tpi_sampled, const int ntsep_k_pi);
   static void type3_mult_vMv_setup(vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
 				   vMv_split_VWWV &mult_vMv_split_part1_pi2_pi1,
-				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
+				   const Vtype & vL, const Vtype & vH,
 				   const std::vector<std::vector<mf_WW > > &con_pi1_pi2_k,
 				   const std::vector<std::vector<mf_WW > > &con_pi2_pi1_k,
 				   const int top_loc, const int t_pi1_idx, const int tkp);
@@ -545,12 +549,12 @@ private:
 				       std::vector<mf_WW > &con_pi2_pi1_k,
 				       const int tpi1, const int tpi2, const std::vector<int> &tsep_k_pi, const int tsep_pion, 
 				       const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all,
-				       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+				       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
 				       const int Lt, const int ntsep_k_pi);
 
   static void type3_mult_vMv_setup(vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
 				   vMv_split_VWWV &mult_vMv_split_part1_pi2_pi1,
-				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
+				   const Vtype & vL, const Vtype & vH,
 				   const std::vector<mf_WW > &con_pi1_pi2_k,
 				   const std::vector<mf_WW > &con_pi2_pi1_k,
 				   const int top_loc, const int tkp);
@@ -562,38 +566,38 @@ public:
   //CPU implementation with openmp loop over site
   static void type3_omp_v1(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
 		    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH);
 
   //Improved CPU implementation with openmp loop over site
   static void type3_omp_v2(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
 		    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH);
 
   //Field implementation both threaded and offloadable to GPU.  WILL COMPILE ONLY FOR SIMD COMPLEX DATA
   static void type3_field_SIMD(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
 			       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-			       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-			       const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-			       const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+			       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+			       const Vtype & vL, const Vtype & vH, 
+			       const Wtype & wL, const Wtype & wH);
 
   //Above version only applicable to SIMD data. For non SIMD data this version falls back to CPU version
   static void type3_field(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
 			  const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-			  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-			  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-			  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+			  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+			  const Vtype & vL, const Vtype & vH, 
+			  const Wtype & wL, const Wtype & wH);
 
 
 
   inline static void type3(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
 		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH){
 #if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
     a2a_printf("Using type3 field implementation\n");
     type3_field(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
@@ -606,9 +610,9 @@ public:
 
   static void type3(ResultsContainerType &result, MixDiagResultsContainerType &mix3,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const ThreeMomentum &p_pi_1, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH){
     std::vector<int> tkp(1,tsep_k_pi);
     std::vector<ThreeMomentum> p(1, p_pi_1); 
     return type3(&result,&mix3,tkp,tsep_pion,tstep,p,
@@ -619,9 +623,9 @@ public:
   template<typename MomComputePolicy>
   static void type3(ResultsContainerType &result, MixDiagResultsContainerType &mix3,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const MomComputePolicy &p_pi_1_all, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH){
     std::vector<int> tkp(1,tsep_k_pi);
     std::vector<ThreeMomentum> p(p_pi_1_all.nMom());
     for(int i=0;i<p_pi_1_all.nMom();i++)
@@ -634,9 +638,9 @@ public:
   template<typename MomComputePolicy>
   static void type3(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3,
 		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const MomComputePolicy &p_pi_1_all, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH){
     result.resize(tsep_k_pi.size()); mix3.resize(tsep_k_pi.size());
     std::vector<ThreeMomentum> p(p_pi_1_all.nMom());
     for(int i=0;i<p_pi_1_all.nMom();i++)
@@ -661,7 +665,7 @@ protected:
 
   static void type4_mult_vMv_setup(std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
 				   const std::vector<mf_WW > &mf_kaon,
-				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
+				   const Vtype & vL, const Vtype & vH,
 				   const int top_loc, const int tstep, const int Lt);
 
   static void type4_precompute_part1(std::vector<SCFmatVector > &mult_vMv_contracted_part1,
@@ -677,29 +681,29 @@ public:
   static void type4_omp(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
 		    const int tstep,
 		    const std::vector<mf_WW > &mf_kaon,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH);
 
   //Field implementation both threaded and offloadable to GPU. WILL COMPILE ONLY FOR SIMD COMPLEX DATA
   static void type4_field_SIMD(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
 		     const int tstep,
 		     const std::vector<mf_WW > &mf_kaon,
-		     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+		     const Vtype & vL, const Vtype & vH, 
+		     const Wtype & wL, const Wtype & wH);
 
   //Above version only applicable to SIMD data. For non SIMD data this version falls back to CPU version
   static void type4_field(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
 		     const int tstep,
 		     const std::vector<mf_WW > &mf_kaon,
-		     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+		     const Vtype & vL, const Vtype & vH, 
+		     const Wtype & wL, const Wtype & wH);
 
 
   static void type4(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
 		    const int tstep,
 		    const std::vector<mf_WW > &mf_kaon,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		    const Vtype & vL, const Vtype & vH, 
+		    const Wtype & wL, const Wtype & wH){
 #if defined(GPU_VEC) || defined(FORCE_A2A_OFFLOAD)
     a2a_printf("Using type4 field implementation\n");
     type4_field(result, mix4, tstep, mf_kaon, vL, vH, wL, wH);

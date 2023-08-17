@@ -1,13 +1,15 @@
 #ifndef _KTOPIPI_MAIN_A2A_PION_H_
 #define _KTOPIPI_MAIN_A2A_PION_H_
 
-template<typename PionMomentumPolicy>
-void randomizeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
-			  typename computeMesonFieldsBase<A2Apolicies>::Vtype &V, typename computeMesonFieldsBase<A2Apolicies>::Wtype &W,
-			  const PionMomentumPolicy &pion_mom){
+template<typename Vtype, typename Wtype, typename PionMomentumPolicy>
+void randomizeLLmesonFields(MesonFieldMomentumContainer<getMesonFieldType<Wtype,Vtype> > &mf_ll_con,
+			    MesonFieldMomentumContainer<getMesonFieldType<Wtype,Vtype> > &mf_ll_con_2s,
+			    Vtype &V, Wtype &W,
+			    const PionMomentumPolicy &pion_mom){
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
-  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf(Lt);
-  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > *ins;
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldType;
+  std::vector<MesonFieldType> mf(Lt);
+  std::vector<MesonFieldType> *ins;
   for(int t=0;t<Lt;t++) mf[t].setup(W,V,t,t);
 
   for(int p=0;p<pion_mom.nMom();p++){
@@ -26,13 +28,14 @@ void randomizeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
   }
 }
 
-template<typename PionMomentumPolicy>
-void randomizeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
-			  typename computeMesonFieldsBase<A2Apolicies>::Vtype &V, typename computeMesonFieldsBase<A2Apolicies>::Wtype &W,
-			  const PionMomentumPolicy &pion_mom){
+template<typename Vtype, typename Wtype, typename PionMomentumPolicy>
+void randomizeLLmesonFields(MesonFieldMomentumContainer<getMesonFieldType<Wtype,Vtype> > &mf_ll_con,
+			    Vtype &V, Wtype &W,
+			    const PionMomentumPolicy &pion_mom){
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
-  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf(Lt);
-  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > *ins;
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldType;
+  std::vector<MesonFieldType> mf(Lt);
+  std::vector<MesonFieldType> *ins;
   for(int t=0;t<Lt;t++) mf[t].setup(W,V,t,t);
 
   for(int p=0;p<pion_mom.nMom();p++){
@@ -46,9 +49,10 @@ void randomizeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
 
 
 
-template<typename PionMomentumPolicy>
-void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
-			  typename computeMesonFieldsBase<A2Apolicies>::Vtype &V, typename computeMesonFieldsBase<A2Apolicies>::Wtype &W,
+template<typename Vtype, typename Wtype, typename PionMomentumPolicy>
+void computeLLmesonFields(MesonFieldMomentumContainer<getMesonFieldType<Wtype,Vtype> > &mf_ll_con, 
+			  MesonFieldMomentumContainer<getMesonFieldType<Wtype,Vtype> > &mf_ll_con_2s,
+			  Vtype &V, Wtype &W,
 			  const PionMomentumPolicy &pion_mom,
 			  const int conf, Lattice &lat, const Parameters &params, 
 			  const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams, 
@@ -60,7 +64,7 @@ void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, M
     randomizeLLmesonFields(mf_ll_con, mf_ll_con_2s, V, W, pion_mom);
   }else{ 
     assert(GJP.Gparity());
-    computeGparityLLmesonFields1s2s<A2Apolicies, PionMomentumPolicy>::computeMesonFields(mf_ll_con, mf_ll_con_2s, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams,mf_write_postpend);
+    computeGparityLLmesonFields1s2s<Vtype,Wtype,PionMomentumPolicy>::computeMesonFields(mf_ll_con, mf_ll_con_2s, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams,mf_write_postpend);
   }
 
   time += dclock();
@@ -69,9 +73,9 @@ void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, M
   printMem("Memory after light-light meson field computation");
 }
 
-template<typename PionMomentumPolicy>
-void computeLLmesonFields1s(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
-			    typename computeMesonFieldsBase<A2Apolicies>::Vtype &V, typename computeMesonFieldsBase<A2Apolicies>::Wtype &W,
+template<typename Vtype, typename Wtype, typename PionMomentumPolicy>
+void computeLLmesonFields1s(MesonFieldMomentumContainer<getMesonFieldType<Wtype,Vtype> > &mf_ll_con,
+			    Vtype &V, Wtype &W,
 			    const PionMomentumPolicy &pion_mom,
 			    Lattice &lat, const Parameters &params, 
 			    const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams, 
@@ -83,9 +87,9 @@ void computeLLmesonFields1s(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
   }else{ 
 #define MF_1S_SUM_ON_THE_FLY
 #ifdef MF_1S_SUM_ON_THE_FLY
-    typedef computeGparityLLmesonFields1sSumOnTheFly<A2Apolicies, PionMomentumPolicy, 15, sigma3> computeType;
+    typedef computeGparityLLmesonFields1sSumOnTheFly<Vtype,Wtype,PionMomentumPolicy, 15, sigma3> computeType;
 #else
-    typedef computeGparityLLmesonFields1s<A2Apolicies, PionMomentumPolicy, 15, sigma3> computeType;
+    typedef computeGparityLLmesonFields1s<Vtype,Wtype,PionMomentumPolicy, 15, sigma3> computeType;
 #endif
 
     assert(GJP.Gparity());
@@ -104,8 +108,9 @@ void computeLLmesonFields1s(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
 }
 
 
-template<typename PionMomentumPolicy>
-void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){
+template<typename Vtype, typename Wtype, typename PionMomentumPolicy>
+void computePion2pt(MesonFieldMomentumContainer<getMesonFieldType<Wtype,Vtype> > &mf_ll_con, 
+		    const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){
   const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   
@@ -114,7 +119,7 @@ void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
   for(int p=0;p<nmom;p+=2){ //note odd indices 1,3,5 etc have equal and opposite momenta to 0,2,4... 
     LOGA2A << "Starting pidx " << p << std::endl;
     fMatrix<typename A2Apolicies::ScalarComplexType> pion(Lt,Lt);
-    ComputePion<A2Apolicies>::compute(pion, mf_ll_con, pion_mom, p);
+    ComputePion<Vtype,Wtype>::compute(pion, mf_ll_con, pion_mom, p);
     //Note it seems Daiqian's pion momenta are opposite what they should be for 'conventional' Fourier transform phase conventions:
     //f'(p) = \sum_{x,y}e^{ip(x-y)}f(x,y)  [conventional]
     //f'(p) = \sum_{x,y}e^{-ip(x-y)}f(x,y) [Daiqian]

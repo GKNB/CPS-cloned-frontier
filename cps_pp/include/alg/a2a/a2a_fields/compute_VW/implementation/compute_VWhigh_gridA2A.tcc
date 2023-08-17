@@ -1,7 +1,7 @@
 //block_size is the number of sources deflated simultaneously, and if the inverter supports it, inverted concurrently
-template<typename A2Apolicies, typename GridFermionFieldD>
-void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, 
-		   const A2AhighModeSource<A2Apolicies> &Wsrc_impl,
+template<typename GridFermionFieldD, typename Vtype, typename Wtype>
+void computeVWhigh(Vtype &V, Wtype &W, 
+		   const A2AhighModeSource<typename Vtype::Policies> &Wsrc_impl,
 		   const EvecInterface<GridFermionFieldD> &evecs,  
 		   const A2AhighModeCompute<GridFermionFieldD> &impl,
 		   size_t block_size){  

@@ -1,8 +1,8 @@
 #ifndef _KTOPIPI_MAIN_A2A_PIPI_H_
 #define _KTOPIPI_MAIN_A2A_PIPI_H_
 
-template<typename PionMomentumPolicy>
-void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){
+template<typename Vtype, typename Wtype, typename PionMomentumPolicy>
+void computePiPi2pt(MesonFieldMomentumContainer<getMesonFieldType<Wtype,Vtype> > &mf_ll_con, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){
   const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
 
@@ -17,7 +17,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
       fMatrix<typename A2Apolicies::ScalarComplexType> pipi(Lt,Lt);
       ThreeMomentum p_pi1_snk = pion_mom.getMesonMomentum(psnkidx);
 
-      MesonFieldProductStore<A2Apolicies> products; //try to reuse products of meson fields wherever possible (not used ifdef DISABLE_PIPI_PRODUCTSTORE)
+      MesonFieldProductStore<getMesonFieldType<Wtype,Vtype> > products; //try to reuse products of meson fields wherever possible (not used ifdef DISABLE_PIPI_PRODUCTSTORE)
       
       char diag[3] = {'C','D','R'};
       for(int d = 0; d < 3; d++){
@@ -30,12 +30,12 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
 	bool redistribute_src = d == 2 && psnkidx == nmom - 1;
 	bool redistribute_snk = d == 2;
 #endif	
-	typename ComputePiPiGparity<A2Apolicies>::Options opt;
+	typename ComputePiPiGparity<Vtype,Wtype>::Options opt;
 	opt.redistribute_pi1_src = opt.redistribute_pi2_src = redistribute_src;
 	opt.redistribute_pi1_snk = opt.redistribute_pi2_snk = redistribute_snk;
 	
 	double time = -dclock();
-	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products, opt);
+	ComputePiPiGparity<Vtype,Wtype>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products, opt);
 
 	std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_Figure" << diag[d] << "_sep" << params.jp.pipi_separation;
 #ifndef DAIQIAN_PION_PHASE_CONVENTION
@@ -58,7 +58,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
       printMem(stringize("Doing pipi figure V, pidx=%d",psrcidx),0);
       double time = -dclock();
       fVector<typename A2Apolicies::ScalarComplexType> figVdis(Lt);
-      ComputePiPiGparity<A2Apolicies>::computeFigureVdis(figVdis,p_pi1_src,params.jp.pipi_separation,mf_ll_con);
+      ComputePiPiGparity<Vtype,Wtype>::computeFigureVdis(figVdis,p_pi1_src,params.jp.pipi_separation,mf_ll_con);
       std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_FigureVdis_sep" << params.jp.pipi_separation;
 #ifndef DAIQIAN_PION_PHASE_CONVENTION
       os << "_mom" << p_pi1_src.file_str(2);
@@ -92,8 +92,9 @@ inline std::string momPrint(const ThreeMomentum &p){
 #endif
 }
 
-template<typename PionMomentumPolicy>
-void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const std::string &pipi_corr_file, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){
+template<typename Vtype, typename Wtype, typename PionMomentumPolicy>
+void computePiPi2ptFromFile(MesonFieldMomentumContainer<getMesonFieldType<Wtype,Vtype> > &mf_ll_con, const std::string &pipi_corr_file, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){
+  typedef getMesonFieldType<Wtype,Vtype> mf_WV;
   const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
 
@@ -108,13 +109,13 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
   
   for(int c=0;c<correlators.size();c++){
     fMatrix<typename A2Apolicies::ScalarComplexType> pipi(Lt,Lt);
-    MesonFieldProductStore<A2Apolicies> products;
+    MesonFieldProductStore<mf_WV> products;
 
     //Predetermine which products we are going to reuse in order to save memory
-    MesonFieldProductStoreComputeReuse<A2Apolicies> product_usage;
+    MesonFieldProductStoreComputeReuse<mf_WV> product_usage;
     char diag[3] = {'C','D','R'};
     for(int d = 0; d < 3; d++)
-      ComputePiPiGparity<A2Apolicies>::setupProductStore(product_usage, diag[d],
+      ComputePiPiGparity<Vtype,Wtype>::setupProductStore(product_usage, diag[d],
 							 correlators[c].pi1_src, correlators[c].pi2_src,
 							 correlators[c].pi1_snk, correlators[c].pi2_snk,
 							 params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con);
@@ -126,7 +127,7 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
 			 correlators[c].pi1_src.str().c_str(), correlators[c].pi2_src.str().c_str(),
 			 correlators[c].pi1_snk.str().c_str(), correlators[c].pi2_snk.str().c_str()), 0);
       
-      typename ComputePiPiGparity<A2Apolicies>::Options opt;
+      typename ComputePiPiGparity<Vtype,Wtype>::Options opt;
       opt.redistribute_pi1_src = opt.redistribute_pi2_src = d==2;
       opt.redistribute_pi1_snk = opt.redistribute_pi2_snk = d==2;
       if(d==2 && c<correlators.size()-1){
@@ -138,7 +139,7 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
       }
       
       double time = -dclock();
-      ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], 
+      ComputePiPiGparity<Vtype,Wtype>::compute(pipi, diag[d], 
 					       correlators[c].pi1_src, correlators[c].pi2_src,
 					       correlators[c].pi1_snk, correlators[c].pi2_snk,
 					       params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products, opt);
@@ -169,7 +170,7 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
 
       double time = -dclock();
       fVector<typename A2Apolicies::ScalarComplexType> figVdis(Lt);
-      ComputePiPiGparity<A2Apolicies>::computeFigureVdis(figVdis,p_pi1,p_pi2,params.jp.pipi_separation,mf_ll_con);
+      ComputePiPiGparity<Vtype,Wtype>::computeFigureVdis(figVdis,p_pi1,p_pi2,params.jp.pipi_separation,mf_ll_con);
       std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_FigureVdis_sep" << params.jp.pipi_separation
 				<< "_pi1mom" << momPrint(p_pi1) << "_pi2mom" << momPrint(p_pi2)
 				<< postpend;
@@ -185,13 +186,13 @@ void computePiPi2ptFromFile(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
   }
 
   a2a_print_time("main","Pi-pi figure C",timeC);
-  ComputePiPiGparity<A2Apolicies>::timingsC().report();
+  ComputePiPiGparity<Vtype,Wtype>::timingsC().report();
   a2a_print_time("main","Pi-pi figure D",timeD);
-  ComputePiPiGparity<A2Apolicies>::timingsD().report();
+  ComputePiPiGparity<Vtype,Wtype>::timingsD().report();
   a2a_print_time("main","Pi-pi figure R",timeR);
-  ComputePiPiGparity<A2Apolicies>::timingsR().report();
+  ComputePiPiGparity<Vtype,Wtype>::timingsR().report();
   a2a_print_time("main","Pi-pi figure V",timeV);
-  ComputePiPiGparity<A2Apolicies>::timingsV().report();
+  ComputePiPiGparity<Vtype,Wtype>::timingsV().report();
 
   printMem("Memory after pi-pi 2pt function computation");
 }

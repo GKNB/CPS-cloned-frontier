@@ -39,6 +39,7 @@ private:
   void initialize(const FieldInputParamType &field_setup_params);
 public:
   typedef TimePackedIndexDilution DilutionType;
+  template<typename P> using VectorTemplate = A2AvectorWunitaryfftw<P>;
 
   A2AvectorWunitaryfftw(const A2AArg &_args);
   A2AvectorWunitaryfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params);

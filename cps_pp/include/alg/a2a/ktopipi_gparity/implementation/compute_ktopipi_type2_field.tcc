@@ -13,8 +13,8 @@
 
 
 //Expect part2 to be a length=2 vector where for the first elements, pi1 enters first in part2, and in the second element, pi2
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &result, const int t_K, const SCFmatrixField &part1, const std::vector<SCFmatrixField> &part2){
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type2_contract(ResultsContainerType &result, const int t_K, const SCFmatrixField &part1, const std::vector<SCFmatrixField> &part2){
 #ifndef MEMTEST_MODE
   static const int n_contract = 6; //six type2 diagrams
   static const int con_off = 7; //index of first contraction in set
@@ -70,12 +70,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &re
 }
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType result[],
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type2_field_SIMD(ResultsContainerType result[],
 						     const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-						     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-						     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+						     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+						     const Vtype & vL, const Vtype & vH, 
+						     const Wtype & wL, const Wtype & wH){
   Type2FieldTimings::timer().reset();
   timerStart(Type2FieldTimings::timer().total,"Start");
     
@@ -243,44 +243,44 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(ResultsContainerType r
 
 
 //Field version only applicable to SIMD data. For non SIMD data we should fall back to CPU version
-template<typename mf_Policies, typename complexClass>
+template<typename Vtype, typename Wtype, typename complexClass>
 struct _type2_field_wrap{};
 
-template<typename mf_Policies>
-struct _type2_field_wrap<mf_Policies, grid_vector_complex_mark>{
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::ResultsContainerType ResultsContainerType;  
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::mf_WW mf_WW;  
-  static void calc(ResultsContainerType result[],
+template<typename Vtype, typename Wtype>
+struct _type2_field_wrap<Vtype,Wtype, grid_vector_complex_mark>{
+  typedef ComputeKtoPiPiGparity<Vtype,Wtype> Compute;
+
+  static void calc(typename Compute::ResultsContainerType result[],
 		   const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		   const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		   const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-    ComputeKtoPiPiGparity<mf_Policies>::type2_field_SIMD(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
+		   const std::vector<typename Compute::mf_WW > &mf_kaon, MesonFieldMomentumContainer<typename Compute::mf_WV> &mf_pions,
+		   const Vtype & vL, const Vtype & vH, 
+		   const Wtype & wL, const Wtype & wH){
+    Compute::type2_field_SIMD(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
   }
 };
 
-template<typename mf_Policies>
-struct _type2_field_wrap<mf_Policies, complex_double_or_float_mark>{
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::ResultsContainerType ResultsContainerType;  
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::mf_WW mf_WW;  
-  static void calc(ResultsContainerType result[],
+template<typename Vtype, typename Wtype>
+struct _type2_field_wrap<Vtype,Wtype, complex_double_or_float_mark>{
+  typedef ComputeKtoPiPiGparity<Vtype,Wtype> Compute;
+
+  static void calc(typename Compute::ResultsContainerType result[],
 		   const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		   const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		   const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+		   const std::vector<typename Compute::mf_WW > &mf_kaon, MesonFieldMomentumContainer<typename Compute::mf_WV> &mf_pions,
+		   const Vtype & vL, const Vtype & vH, 
+		   const Wtype & wL, const Wtype & wH){
     LOGA2A << "Type2 field implementation falling back to OMP implementation due to non-SIMD data" << std::endl;
-    ComputeKtoPiPiGparity<mf_Policies>::type2_omp_v2(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
+    Compute::type2_omp_v2(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
   }
 };
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_field(ResultsContainerType result[],
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type2_field(ResultsContainerType result[],
 						     const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-						     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-						     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-  _type2_field_wrap<mf_Policies, typename ComplexClassify<ComplexType>::type>::calc(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
+						     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+						     const Vtype & vL, const Vtype & vH, 
+						     const Wtype & wL, const Wtype & wH){
+  _type2_field_wrap<Vtype,Wtype, typename ComplexClassify<ComplexType>::type>::calc(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
 }
 
 

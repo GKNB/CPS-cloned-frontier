@@ -1,9 +1,10 @@
 #ifndef _KTOPIPI_MAIN_A2A_DO_CONTRACTIONS_H_
 #define _KTOPIPI_MAIN_A2A_DO_CONTRACTIONS_H_
 
+template<typename Vtype, typename Wtype>
 void doContractionsBasic(const int conf, Parameters &params, const CommandLineArgs &cmdline, Lattice& lat,
-			 A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
-			 A2AvectorV<A2Apolicies> &V_s, A2AvectorW<A2Apolicies> &W_s,
+			 Vtype &V, Wtype &W,
+			 Vtype &V_s, Wtype &W_s,
 			 const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
 #ifdef USE_SYMMETRIC_MOM_POLICIES
   typedef SymmetricKaonMomentaPolicy KaonMomentumPolicy;
@@ -21,6 +22,8 @@ void doContractionsBasic(const int conf, Parameters &params, const CommandLineAr
   typedef StandardPionMomentaPolicy PionMomentumPolicy;
   typedef StandardLSWWmomentaPolicy LSWWmomentumPolicy;
 #endif
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldWVtype;
+
   //-------------------Fix gauge----------------------------
   doGaugeFix(lat, cmdline.skip_gauge_fix, params.fix_gauge_arg);
 
@@ -37,8 +40,8 @@ void doContractionsBasic(const int conf, Parameters &params, const CommandLineAr
  //For convenience pointers to the meson fields are collected into a single object that is passed to the compute methods
   PionMomentumPolicy pion_mom; //these are the W and V momentum combinations
 
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con; //stores light-light meson fields, accessible by momentum
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_2s; //Gparity only
+  MesonFieldMomentumContainer<MesonFieldWVtype> mf_ll_con; //stores light-light meson fields, accessible by momentum
+  MesonFieldMomentumContainer<MesonFieldWVtype> mf_ll_con_2s; //Gparity only
 
   computeLLmesonFields(mf_ll_con, mf_ll_con_2s, V, W, pion_mom, conf, lat, params, field3dparams, cmdline.randomize_mf);
 
@@ -55,10 +58,13 @@ void doContractionsBasic(const int conf, Parameters &params, const CommandLineAr
 
 
 //Same as the above but do both the standard and symmetric V/W^dag momentum assignments
+template<typename Vtype, typename Wtype>
 void doContractionsStandardAndSymmetric(const int conf, Parameters &params, const CommandLineArgs &cmdline, Lattice& lat,
-				      A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
-				      A2AvectorV<A2Apolicies> &V_s, A2AvectorW<A2Apolicies> &W_s,
+					Vtype &V, Wtype &W,
+					Vtype &V_s, Wtype &W_s,
 				      const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldWVtype;
+
   //-------------------Fix gauge----------------------------
   doGaugeFix(lat, cmdline.skip_gauge_fix, params.fix_gauge_arg);
 
@@ -74,8 +80,8 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
   //The pion two-point function and pipi/k->pipi all utilize the same meson fields. Generate those here
   //For convenience pointers to the meson fields are collected into a single object that is passed to the compute methods
   StandardPionMomentaPolicy pion_mom_std; //these are the W and V momentum combinations
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_std; //stores light-light meson fields, accessible by momentum
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_2s_std; //Gparity only
+  MesonFieldMomentumContainer<MesonFieldWVtype> mf_ll_con_std; //stores light-light meson fields, accessible by momentum
+  MesonFieldMomentumContainer<MesonFieldWVtype> mf_ll_con_2s_std; //Gparity only
 
   computeLLmesonFields(mf_ll_con_std, mf_ll_con_2s_std, V, W, pion_mom_std, conf, lat, params, field3dparams, cmdline.randomize_mf);
 
@@ -87,7 +93,7 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
 
   //--------------------------------------K->pipi contractions--------------------------------------------------------
   StandardLSWWmomentaPolicy lsWW_mom_std;
-  LSWWmesonFields mf_ls_ww_con_std;
+  LSWWmesonFields<Wtype> mf_ls_ww_con_std;
   if(cmdline.do_ktopipi){
 #ifdef SYMM_DUMP_RESTORE
     computeKtoPiPiDumpRestore(mf_ll_con_std,mf_ll_con_2s_std,V,W,V_s,W_s,lat,field3dparams,pion_mom_std,lsWW_mom_std,conf,params, cmdline.randomize_mf, true,&mf_ls_ww_con_std);
@@ -115,8 +121,8 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
 #endif
 
   ReversePionMomentaPolicy pion_mom_rev; //these are the W and V momentum combinations
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_symm; //stores light-light meson fields, accessible by momentum
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_2s_symm; //Gparity only
+  MesonFieldMomentumContainer<MesonFieldWVtype> mf_ll_con_symm; //stores light-light meson fields, accessible by momentum
+  MesonFieldMomentumContainer<MesonFieldWVtype> mf_ll_con_2s_symm; //Gparity only
   computeLLmesonFields(mf_ll_con_symm, mf_ll_con_2s_symm, V, W, pion_mom_rev, conf, lat, params, field3dparams, cmdline.randomize_mf, "_rev");
 
   mf_ll_con_symm.average(mf_ll_con_std);
@@ -132,7 +138,7 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
 
   //--------------------------------------K->pipi contractions--------------------------------------------------------
   if(cmdline.do_ktopipi){
-    LSWWmesonFields mf_ls_ww_con_symm;
+    LSWWmesonFields<Wtype> mf_ls_ww_con_symm;
     ReverseLSWWmomentaPolicy lsWW_mom_rev;
     computeKtoPipiWWmesonFields(mf_ls_ww_con_symm,W,W_s,lat,field3dparams,lsWW_mom_rev,params,cmdline.randomize_mf);
     mf_ls_ww_con_symm.average(mf_ls_ww_con_std);
@@ -150,10 +156,13 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
 
 
 //Same as the above but do both the standard and symmetric V/W^dag momentum assignments. In this version we do not symmetrize the kaon momenta
+template<typename Vtype, typename Wtype>
 void doContractionsStandardAndSymmetricPion(const int conf, Parameters &params, const CommandLineArgs &cmdline, Lattice& lat,
-				      A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
-				      A2AvectorV<A2Apolicies> &V_s, A2AvectorW<A2Apolicies> &W_s,
+					    Vtype &V, Wtype &W,
+					    Vtype &V_s, Wtype &W_s,
 				      const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldWVtype;
+
   //-------------------Fix gauge----------------------------
   doGaugeFix(lat, cmdline.skip_gauge_fix, params.fix_gauge_arg);
 
@@ -168,8 +177,8 @@ void doContractionsStandardAndSymmetricPion(const int conf, Parameters &params, 
   //The pion two-point function and pipi/k->pipi all utilize the same meson fields. Generate those here
   //For convenience pointers to the meson fields are collected into a single object that is passed to the compute methods
   StandardPionMomentaPolicy pion_mom_std; //these are the W and V momentum combinations
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_std; //stores light-light meson fields, accessible by momentum
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_2s_std; //Gparity only
+  MesonFieldMomentumContainer<MesonFieldWVtype> mf_ll_con_std; //stores light-light meson fields, accessible by momentum
+  MesonFieldMomentumContainer<MesonFieldWVtype> mf_ll_con_2s_std; //Gparity only
 
   computeLLmesonFields(mf_ll_con_std, mf_ll_con_2s_std, V, W, pion_mom_std, conf, lat, params, field3dparams, cmdline.randomize_mf);
 
@@ -181,7 +190,7 @@ void doContractionsStandardAndSymmetricPion(const int conf, Parameters &params, 
 
   //--------------------------------------K->pipi contractions--------------------------------------------------------
   StandardLSWWmomentaPolicy lsWW_mom_std;
-  LSWWmesonFields mf_ls_ww_con_std;
+  LSWWmesonFields<Wtype> mf_ls_ww_con_std;
   if(cmdline.do_ktopipi){
     computeKtoPiPi(mf_ll_con_std,mf_ll_con_2s_std,V,W,V_s,W_s,lat,field3dparams,pion_mom_std,lsWW_mom_std,conf,params, cmdline.randomize_mf,&mf_ls_ww_con_std);
   }
@@ -205,8 +214,8 @@ void doContractionsStandardAndSymmetricPion(const int conf, Parameters &params, 
 #endif
 
   ReversePionMomentaPolicy pion_mom_rev; //these are the W and V momentum combinations
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_symm; //stores light-light meson fields, accessible by momentum
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_2s_symm; //Gparity only
+  MesonFieldMomentumContainer<MesonFieldWVtype> mf_ll_con_symm; //stores light-light meson fields, accessible by momentum
+  MesonFieldMomentumContainer<MesonFieldWVtype> mf_ll_con_2s_symm; //Gparity only
   computeLLmesonFields(mf_ll_con_symm, mf_ll_con_2s_symm, V, W, pion_mom_rev, conf, lat, params, field3dparams, cmdline.randomize_mf, "_rev");
 
   mf_ll_con_symm.average(mf_ll_con_std);
@@ -248,15 +257,18 @@ struct AllPionMomenta{
 };
 
 //Extended calculation with additional pion momenta and K->sigma
+template<typename Vtype, typename Wtype>
 void doContractionsExtendedCalcV1(const int conf, Parameters &params, const CommandLineArgs &cmdline, Lattice& lat,
-				  A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
-				  A2AvectorV<A2Apolicies> &V_s, A2AvectorW<A2Apolicies> &W_s,
+				  Vtype &V, Wtype &W,
+				  Vtype &V_s, Wtype &W_s,
 				  const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldWVtype;
+
   if(cmdline.save_all_a2a_inputs){
-    { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_V"; V.writeParallel(os.str()); }
-    { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_W"; W.writeParallel(os.str()); }
-    { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_Vs"; V_s.writeParallel(os.str()); }
-    { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_Ws"; W_s.writeParallel(os.str()); }
+    { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_V"; V.writeParallelWithGrid(os.str()); }
+    { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_W"; W.writeParallelWithGrid(os.str()); }
+    { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_Vs"; V_s.writeParallelWithGrid(os.str()); }
+    { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_Ws"; W_s.writeParallelWithGrid(os.str()); }
   }
 
   //-------------------------Compute the kaon two-point function---------------------------------
@@ -265,15 +277,17 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
 
   //-------------------------Compute the sigma meson fields--------------------------------------
   StationarySigmaMomentaPolicy sigma_mom;
-  MesonFieldMomentumPairContainer<A2Apolicies> mf_sigma;
+  MesonFieldMomentumPairContainer<MesonFieldWVtype> mf_sigma;
   computeSigmaMesonFieldsExt(mf_sigma, V, W, sigma_mom, conf, lat, params, cmdline, field3dparams);
 
   //-------------------------Compute the K->sigma matrix elements -------------------------------
   //First compute kaon WW meson fields
   StandardLSWWmomentaPolicy lsWW_mom_std;
-  LSWWmesonFields mf_ls_ww_con_std;
-  computeKtoPipiWWmesonFields(mf_ls_ww_con_std, W, W_s, lat, field3dparams, lsWW_mom_std, params, cmdline.randomize_mf);
-  
+  LSWWmesonFields<Wtype> mf_ls_ww_con_std;
+  //computeKtoPipiWWmesonFields<Vtype,Wtype>(mf_ls_ww_con_std, W, W_s, lat, field3dparams, lsWW_mom_std, params, cmdline.randomize_mf);
+  ComputeKtoPiPiGparity<Vtype,Wtype>::generatelsWWmesonfields(mf_ls_ww_con_std.mf_ls_ww,W,W_s, lsWW_mom_std,params.jp.kaon_rad,lat, field3dparams);
+
+
   if(cmdline.save_all_a2a_inputs){
     std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_kaon_mfww.dat";
     mf_ls_ww_con_std.write(os.str(),false);
@@ -288,7 +302,7 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
 
   //----------------------------Compute the sigma 2pt function--------------------------------------
   std::vector< fVector<typename A2Apolicies::ScalarComplexType> > sigma_bub;
-  if(cmdline.do_sigma2pt) computeSigma2pt(sigma_bub, mf_sigma, sigma_mom, conf, params);
+  if(cmdline.do_sigma2pt) computeSigma2pt<Vtype,Wtype>(sigma_bub, mf_sigma, sigma_mom, conf, params);
 
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
   printMem("Memory prior to trim");
@@ -300,7 +314,7 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
 #endif
 
   //-------------------------Compute the LL meson fields ------------------------  
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con;
+  MesonFieldMomentumContainer<MesonFieldWVtype> mf_ll_con;
 
   SymmetricPionMomentaPolicy pion_mom_orig;   //Pion meson fields with original quark momentum selections (base+alt, symmetrized)
   AltExtendedPionMomentaPolicy pion_mom_extended; //The other 24 pion meson fields (base+alt, symmetrized)
@@ -318,7 +332,7 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
   }
 
   //----------------------------Compute pipi->sigma----------------------------------------------------
-  if(cmdline.do_pipitosigma) computePiPiToSigma(sigma_bub, mf_sigma,sigma_mom, mf_ll_con, all_pimom, conf, params);
+  if(cmdline.do_pipitosigma) computePiPiToSigma<Vtype,Wtype>(sigma_bub, mf_sigma,sigma_mom, mf_ll_con, all_pimom, conf, params);
 
   //Sigma meson fields no longer needed
   mf_sigma.free_mem();
@@ -400,10 +414,10 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
   mf_ls_ww_con_std.free_mem();
 
   //----------------------------Compute the pion two-point function--------------------------------- */
-  if(cmdline.do_pion2pt) computePion2pt(mf_ll_con, all_pimom, conf, params, "_symm");
+  if(cmdline.do_pion2pt) computePion2pt<Vtype,Wtype>(mf_ll_con, all_pimom, conf, params, "_symm");
 
   //----------------------------Compute the pipi 2pt function ---------------------------------------
-  if(cmdline.do_pipi) computePiPi2ptFromFile(mf_ll_con, "pipi_correlators.in", all_pimom, conf, params, "_symm");
+  if(cmdline.do_pipi) computePiPi2ptFromFile<Vtype,Wtype>(mf_ll_con, "pipi_correlators.in", all_pimom, conf, params, "_symm");
 
   LOGA2A << "Completed contractions" << std::endl;
 }
@@ -414,10 +428,10 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
 
 
 
-
+template<typename Vtype, typename Wtype>
 void doContractions(const int conf, Parameters &params, const CommandLineArgs &cmdline, Lattice& lat,
-		    A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
-		    A2AvectorV<A2Apolicies> &V_s, A2AvectorW<A2Apolicies> &W_s,
+		    Vtype &V, Wtype &W,
+		    Vtype &V_s, Wtype &W_s,
 		    const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
   if(cmdline.nthread_contractions != cmdline.nthreads) LOGA2A << "Changing threads to " << cmdline.nthread_contractions << " for contractions" << std::endl;
   GJP.SetNthreads(cmdline.nthread_contractions);

@@ -41,6 +41,7 @@ private:
   void initialize(const FieldInputParamType &field_setup_params);
 public:
   typedef TimeFlavorPackedIndexDilution DilutionType;
+  template<typename P> using VectorTemplate = A2AvectorWfftw<P>;
 
   A2AvectorWfftw(const A2AArg &_args);
   A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params);

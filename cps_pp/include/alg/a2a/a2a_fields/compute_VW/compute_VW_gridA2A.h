@@ -13,23 +13,23 @@
 CPS_START_NAMESPACE
 
 //Compute the low mode V and W vectors using the abstract implementation classes provided
-template<typename A2Apolicies, typename GridFermionFieldD>
-void computeVWlow(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const EvecInterface<GridFermionFieldD> &evecs,  
+template<typename GridFermionFieldD, typename Vtype, typename Wtype>
+void computeVWlow(Vtype &V, Wtype &W, const EvecInterface<GridFermionFieldD> &evecs,  
 		  const A2AlowModeCompute<GridFermionFieldD> &impl);
 
 //block_size is the number of sources deflated simultaneously, and if the inverter supports it, inverted concurrently
-template<typename A2Apolicies, typename GridFermionField>
-void computeVWhigh(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, 
-		   const A2AhighModeSource<A2Apolicies> &Wsrc_impl,
+template<typename GridFermionField, typename Vtype, typename Wtype>
+void computeVWhigh(Vtype &V, Wtype &W, 
+		   const A2AhighModeSource<typename Vtype::Policies> &Wsrc_impl,
 		   const EvecInterface<GridFermionField> &evecs,  
 		   const A2AhighModeCompute<GridFermionField> &impl,
 		   size_t block_size = 1);
 
 //Compute both V and W with the internal inverter, operators and parameters are created internally controlled by CGcontrols 
 //thus matching the original interface
-template<typename Policies>
-void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, 
-	       const EvecInterface<typename Policies::GridFermionField> &evecs,
+template<typename Vtype, typename Wtype>
+void computeVW(Vtype &V, Wtype &W, Lattice &lat, 
+	       const EvecInterface<typename Vtype::Policies::GridFermionField> &evecs,
 	       const double mass, const CGcontrols &cg);
 
 
@@ -40,14 +40,14 @@ void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat,
 //Pure Grid for both Lanczos and A2A
 
 //Single precision eigenvectors
-template<typename Policies>
-void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, 
-	       const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
+template<typename Vtype, typename Wtype>
+void computeVW(Vtype &V, Wtype &W, Lattice &lat, 
+	       const std::vector<typename Vtype::Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
 
 //Double precision eigenvectors
-template<typename Policies>
-void computeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, 
-	       const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
+template<typename Vtype, typename Wtype>
+void computeVW(Vtype &V, Wtype &W, Lattice &lat, 
+	       const std::vector<typename Vtype::Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
 
 #endif
 

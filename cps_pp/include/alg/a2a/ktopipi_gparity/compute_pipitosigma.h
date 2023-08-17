@@ -9,8 +9,11 @@ CPS_START_NAMESPACE
 #define USE_TIANLES_CONVENTIONS
 #define NODE_LOCAL true
 
-template<typename mf_Policies>
+template<typename Vtype, typename Wtype>
 struct ComputePiPiToSigmaContractions{
+  typedef typename Vtype::Policies mf_Policies;
+  typedef getMesonFieldType<Wtype,Vtype> mf_WV;
+
   //This is identical to the sigma->pipi up to an overall - sign, a sign change of the momenta and swapping tsrc<->tsnk. However we compute it explicitly here rather than reusing it because we want to compute only on a limited number of source timeslices
   
   //This has 2 Wick contractions. The first is disconnected, and we are able to re-use the sigma bubble from the sigma->sigma contractions and the pipi bubble from the pipi->pipi contractions
@@ -31,9 +34,9 @@ struct ComputePiPiToSigmaContractions{
   //  +sqrt(6)/4 tr( [mf_pi1(tsrc,tsrc) mf_pi2(tsrc-delta,tsrc-delta) + mf_pi2(tsrc-delta,tsrc-delta) mf_pi1(tsrc,tsrc) ] mf_sigma(tsnk,tsnk)   )
   
   static void computeConnected(fMatrix<typename mf_Policies::ScalarComplexType> &into,
-			       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sigma,
-			       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1, //inner pion
-			       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2, //outer pion
+			       std::vector<mf_WV> &mf_sigma,
+			       std::vector<mf_WV> &mf_pi1, //inner pion
+			       std::vector<mf_WV> &mf_pi2, //outer pion
 			       const int tsep_pipi, const int tstep_src
 		      ){
     typedef typename mf_Policies::ComplexType ComplexType;
@@ -86,7 +89,7 @@ struct ComputePiPiToSigmaContractions{
 	int tdis = (tsnk - tsrc + Lt) % Lt;
 	
 #ifdef PIPI_SIGMA_USE_G5_HERM
-	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> pi_prod;
+	mf_WV pi_prod;
 	t_mult -= dclock();
 	mult(pi_prod, mf_pi1[tsrc], mf_pi2[tsrc2],NODE_LOCAL);
 	t_mult += dclock();
@@ -98,7 +101,7 @@ struct ComputePiPiToSigmaContractions{
 	
 	into(tsrc,tdis) +=  -sqrt(6.)/2. * incr; 	
 #else
-	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> pi_prod_1, pi_prod_2;
+	mf_WV pi_prod_1, pi_prod_2;
 	t_mult -= dclock();
 	mult(pi_prod_1, mf_pi2[tsrc2], mf_pi1[tsrc],NODE_LOCAL);
 	mult(pi_prod_2, mf_pi1[tsrc], mf_pi2[tsrc2],NODE_LOCAL);
@@ -132,8 +135,8 @@ struct ComputePiPiToSigmaContractions{
   //We provide the momentum index of the second (inner) sink pion
   template<typename SigmaMomentumPolicy, typename PionMomentumPolicy>
   static void computeConnected(fMatrix<typename mf_Policies::ScalarComplexType> &into,
-			       MesonFieldMomentumPairContainer<mf_Policies> &mf_sigma_con, const SigmaMomentumPolicy &sigma_mom, const int pidx_sigma,
-			       MesonFieldMomentumContainer<mf_Policies> &mf_pion_con, const PionMomentumPolicy &pion_mom, const int pidx_pi1,
+			       MesonFieldMomentumPairContainer<mf_WV> &mf_sigma_con, const SigmaMomentumPolicy &sigma_mom, const int pidx_sigma,
+			       MesonFieldMomentumContainer<mf_WV> &mf_pion_con, const PionMomentumPolicy &pion_mom, const int pidx_pi1,
 			       const int tsep_pipi, const int tstep_src
 		      ){
     if(sigma_mom.nAltMom(pidx_sigma) != 1) ERR.General("ComputeSigmaContractions","compute","Sigma with alternate momenta not implemented");
@@ -151,9 +154,9 @@ struct ComputePiPiToSigmaContractions{
     assert(mf_pion_con.contains(p_pi2_src));
     
     //Gather the meson fields
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sigma = mf_sigma_con.get(pWdag_sigma_snk, pV_sigma_snk);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pion_con.get(p_pi1_src); //meson field of the inner pion
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pion_con.get(p_pi2_src);
+    std::vector<mf_WV> &mf_sigma = mf_sigma_con.get(pWdag_sigma_snk, pV_sigma_snk);
+    std::vector<mf_WV> &mf_pi1 = mf_pion_con.get(p_pi1_src); //meson field of the inner pion
+    std::vector<mf_WV> &mf_pi2 = mf_pion_con.get(p_pi2_src);
 
     computeConnected(into, mf_sigma, mf_pi1, mf_pi2, tsep_pipi, tstep_src);
   }
@@ -161,8 +164,8 @@ struct ComputePiPiToSigmaContractions{
   //Allows for moving pipi->sigma. Provide index of momenta for both pions; this then uniquely identifies the sigma momentum
   template<typename SigmaMomentumPolicy, typename PionMomentumPolicy>
   static void computeConnected(fMatrix<typename mf_Policies::ScalarComplexType> &into,
-			       MesonFieldMomentumContainer<mf_Policies> &mf_sigma_con, const SigmaMomentumPolicy &sigma_mom,
-			       MesonFieldMomentumContainer<mf_Policies> &mf_pion_con, const PionMomentumPolicy &pion_mom, const int pidx_pi1, const int pidx_pi2,
+			       MesonFieldMomentumContainer<mf_WV> &mf_sigma_con, const SigmaMomentumPolicy &sigma_mom,
+			       MesonFieldMomentumContainer<mf_WV> &mf_pion_con, const PionMomentumPolicy &pion_mom, const int pidx_pi1, const int pidx_pi2,
 			       const int tsep_pipi, const int tstep_src
 		      ){
     //Work out the momenta we need
@@ -176,9 +179,9 @@ struct ComputePiPiToSigmaContractions{
     assert(mf_pion_con.contains(p_pi2_src));
     
     //Gather the meson fields
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sigma = mf_sigma_con.get(p_sigma_snk);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pion_con.get(p_pi1_src); //meson field of the inner pion
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pion_con.get(p_pi2_src);
+    std::vector<mf_WV> &mf_sigma = mf_sigma_con.get(p_sigma_snk);
+    std::vector<mf_WV> &mf_pi1 = mf_pion_con.get(p_pi1_src); //meson field of the inner pion
+    std::vector<mf_WV> &mf_pi2 = mf_pion_con.get(p_pi2_src);
 
     computeConnected(into, mf_sigma, mf_pi1, mf_pi2, tsep_pipi, tstep_src);
   }

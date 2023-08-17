@@ -8,10 +8,12 @@ CPS_START_NAMESPACE
 //We must construct meson fields with a number of different total momenta. This class holds the fields and allows access in a flexible and transparent manner
 //The ThreeMomentum is the total meson momentum
 //The class owns the meson fields it stores, and they are deleted when it is destroyed
-template<typename mf_Policies>
+template<typename MfType>
 class MesonFieldMomentumContainer{
+public:
+  typedef MfType MesonFieldType;
+
 private:
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MfType;
   typedef std::map<ThreeMomentum, std::vector<MfType >* > MapType; //vector is the time index of the meson field
   MapType mf; //store pointers so we don't have to copy
   
@@ -73,7 +75,7 @@ public:
   
   bool contains(const ThreeMomentum &p) const{ return mf.count(p) != 0; }
 
-  void average(MesonFieldMomentumContainer<mf_Policies> &r){
+  void average(MesonFieldMomentumContainer<MfType> &r){
     LOGA2A << "MesonFieldMomentumContainer::average called" << std::endl;
     double time = -dclock();
     for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++){
@@ -196,10 +198,13 @@ public:
 
 
 //In some cases we are interested in storing multiple momentum combinations with the same total momentum; use this container for easy storage of such
-template<typename mf_Policies>
+template<typename MfType>
 class MesonFieldMomentumPairContainer{
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MfType;
+public:
+  typedef MfType MesonFieldType;
   typedef std::pair<ThreeMomentum,ThreeMomentum> MomentumPair;
+
+private:
   typedef std::map<MomentumPair, std::vector<MfType >* > MapType; //vector is the time index of the meson field
   MapType mf; 
   

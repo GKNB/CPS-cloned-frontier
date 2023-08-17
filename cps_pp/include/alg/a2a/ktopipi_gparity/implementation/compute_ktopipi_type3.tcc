@@ -17,8 +17,8 @@
 
 //Run inside threaded environment
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type3_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
 						     const SCFmat part1[2], const SCFmat &part2_L, const SCFmat &part2_H){
 #ifndef MEMTEST_MODE
   static const int con_off = 13; //index of first contraction in set
@@ -68,11 +68,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(ResultsContainerType &re
 #endif
 }
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<std::vector<mf_WW > > &con_pi1_pi2_k,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type3_compute_mfproducts(std::vector<std::vector<mf_WW > > &con_pi1_pi2_k,
 							       std::vector<std::vector<mf_WW > > &con_pi2_pi1_k,
 							       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all,
-							       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+							       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
 							       const int Lt, const int tpi_sampled, const int ntsep_k_pi){
   Type3timings::timer().type3_compute_mfproducts -= dclock();
   //Form the product of the three meson fields
@@ -144,10 +144,10 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<st
   Type3timings::timer().type3_compute_mfproducts += dclock();
 }
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_mult_vMv_setup(vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type3_mult_vMv_setup(vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
 							      vMv_split_VWWV &mult_vMv_split_part1_pi2_pi1,
-							      const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
+							      const Vtype & vL, const Vtype & vH,
 							      const std::vector<std::vector<mf_WW > > &con_pi1_pi2_k,
 							      const std::vector<std::vector<mf_WW > > &con_pi2_pi1_k,
 							      const int top_loc, const int t_pi1_idx, const int tkp){
@@ -161,8 +161,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_mult_vMv_setup(vMv_split_VWWV &mu
 
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_precompute_part1(SCFmatVector &mult_vMv_contracted_part1_pi1_pi2,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type3_precompute_part1(SCFmatVector &mult_vMv_contracted_part1_pi1_pi2,
 							     SCFmatVector &mult_vMv_contracted_part1_pi2_pi1,
 							     vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
 							     vMv_split_VWWV &mult_vMv_split_part1_pi2_pi1){
@@ -179,12 +179,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_precompute_part1(SCFmatVector &mu
 
 //This version averages over multiple pion momentum configurations. Use to project onto A1 representation at run-time. Saves a lot of time!
 //This version also overlaps computation for multiple K->pi separations. Result should be an array of ResultsContainerType the same size as the vector 'tsep_k_pi'
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_omp_v1(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type3_omp_v1(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
 						  const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-						  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-						  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-						  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+						  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+						  const Vtype & vL, const Vtype & vH, 
+						  const Wtype & wL, const Wtype & wH){
   Type3timings::timer().reset();
   Type3timings::timer().total -= dclock();
   SCFmat mix3_Gamma[2];
@@ -331,12 +331,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_omp_v1(ResultsContainerType resul
 
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf_WW > &con_pi1_pi2_k,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type3_compute_mfproducts(std::vector<mf_WW > &con_pi1_pi2_k,
 								  std::vector<mf_WW > &con_pi2_pi1_k,
 								  const int tpi1, const int tpi2, const std::vector<int> &tsep_k_pi, const int tsep_pion, 
 								  const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all,
-								  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+								  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
 								  const int Lt, const int ntsep_k_pi){
   Type3timings::timer().type3_compute_mfproducts -= dclock();
   //Form the product of the three meson fields
@@ -437,10 +437,10 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf
   Type3timings::timer().type3_compute_mfproducts += dclock();
 }
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_mult_vMv_setup(vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type3_mult_vMv_setup(vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
 							      vMv_split_VWWV &mult_vMv_split_part1_pi2_pi1,
-							      const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
+							      const Vtype & vL, const Vtype & vH,
 							      const std::vector<mf_WW > &con_pi1_pi2_k,
 							      const std::vector<mf_WW > &con_pi2_pi1_k,
 							      const int top_loc, const int tkp){
@@ -453,12 +453,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_mult_vMv_setup(vMv_split_VWWV &mu
 }
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_omp_v2(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type3_omp_v2(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
 						  const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-						  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-						  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-						  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+						  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+						  const Vtype & vL, const Vtype & vH, 
+						  const Wtype & wL, const Wtype & wH){
   printMemNodeFile("type3_v2 1");
   
   CPSautoView(vL_v,vL,HostRead);

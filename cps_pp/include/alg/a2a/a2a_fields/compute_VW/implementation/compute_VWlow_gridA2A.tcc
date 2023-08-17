@@ -1,5 +1,5 @@
-template<typename A2Apolicies, typename GridFermionFieldD>
-void computeVWlow(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const EvecInterface<GridFermionFieldD> &evecs,  
+template<typename GridFermionFieldD, typename Vtype, typename Wtype>
+void computeVWlow(Vtype &V, Wtype &W, const EvecInterface<GridFermionFieldD> &evecs,  
 		  const A2AlowModeCompute<GridFermionFieldD> &impl){  
   int nl = V.getNl();
   if(nl == 0) return;

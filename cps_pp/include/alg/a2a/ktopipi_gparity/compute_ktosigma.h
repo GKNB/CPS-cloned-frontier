@@ -6,30 +6,37 @@
 
 CPS_START_NAMESPACE
 
-template<typename mf_Policies>
+template<typename Vtype, typename Wtype>
 class ComputeKtoSigma: public ComputeKtoPiPiGparityBase{
 public:
+  typedef typename Vtype::Policies mf_Policies;
   typedef typename mf_Policies::ComplexType ComplexType; //can be SIMD vectorized
   typedef CPSspinColorFlavorMatrix<ComplexType> SCFmat; //supports SIMD vectorization
   typedef typename getInnerVectorType<SCFmat,typename ComplexClassify<ComplexType>::type>::type SCFmatVector;
   typedef CPSmatrixField<SCFmat> SCFmatrixField;
   
-  typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, Aligned128AllocPolicy> ResultsContainerType;
-  typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, Aligned128AllocPolicy> MixDiagResultsContainerType;
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> SigmaMesonFieldType;
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> KaonMesonFieldType;
+  typedef KtoPiPiGparityResultsContainer<ComplexType, Aligned128AllocPolicy> ResultsContainerType;
+  typedef KtoPiPiGparityMixDiagResultsContainer<ComplexType, Aligned128AllocPolicy> MixDiagResultsContainerType;
+  typedef getMesonFieldType<Wtype,Vtype> SigmaMesonFieldType;
+  typedef getMesonFieldType<Wtype,Wtype> KaonMesonFieldType;
+  
+  template<typename P> using Wtemplate = typename Wtype::template VectorTemplate<P>;
+  template<typename P> using Vtemplate = typename Vtype::template VectorTemplate<P>;
+  
+  template<typename P> using WfftTemplate = typename Wtype::template FFTvectorTemplate<P>;
+  template<typename P> using VfftTemplate = typename Vtype::template FFTvectorTemplate<P>;
 
-  typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
-  typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
+  typedef mult_vMv_split_lite<mf_Policies, Vtemplate, WfftTemplate, WfftTemplate, Vtemplate> vMv_split_VWWV;
+  typedef mult_vMv_split_lite<mf_Policies, Vtemplate, WfftTemplate, VfftTemplate, Wtemplate> vMv_split_VWVW;
   typedef mult_vMv_split_lite_scratch_space<mf_Policies> vMv_split_shrbuf;
 
 private:
-  const A2AvectorV<mf_Policies> & vL;
-  const A2AvectorV<mf_Policies> & vH;
-  const A2AvectorW<mf_Policies> & wL;
-  const A2AvectorW<mf_Policies> & wH;
-  typedef typename A2AvectorV<mf_Policies>::View VView;
-  typedef typename A2AvectorW<mf_Policies>::View WView;
+  const Vtype & vL;
+  const Vtype & vH;
+  const Wtype & wL;
+  const Wtype & wH;
+  typedef typename Vtype::View VView;
+  typedef typename Wtype::View WView;
 
   const std::vector<KaonMesonFieldType> &mf_ls_WW;
 
@@ -195,7 +202,7 @@ private:
   //D21 = Tr_c(  Tr(VH_O WH^dag_O M2) * Tr( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 ) )
   //D23 = Tr( Tr_c( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M2 )  Tr_c( VH_O WH^dag_O M1 ) )
 
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> Type3MesonFieldProductType;
+  typedef getMesonFieldType<Wtype,Wtype> Type3MesonFieldProductType;
 
   inline void compute_type3_part1(SCFmat &pt1, const int top_loc, const int xop_loc, const Type3MesonFieldProductType &mf_prod, VView &vL_v, VView &vH_v){
     mult(pt1, vL_v, mf_prod, vH_v, xop_loc, top_loc, false, true);
@@ -342,7 +349,7 @@ public:
   }
 
 
-  ComputeKtoSigma(const A2AvectorV<mf_Policies> & vL, const A2AvectorW<mf_Policies> & wL, const A2AvectorV<mf_Policies> & vH, const A2AvectorW<mf_Policies> & wH, 
+  ComputeKtoSigma(const Vtype & vL, const Wtype & wL, const Vtype & vH, const Wtype & wH, 
 		  const std::vector<KaonMesonFieldType> &mf_ls_WW, const std::vector<int> &tsep_k_sigma): vL(vL), wL(wL), vH(vH), wH(wH), mf_ls_WW(mf_ls_WW), tsep_k_sigma(tsep_k_sigma){
     Lt = GJP.Tnodes()*GJP.TnodeSites();
     ntsep_k_sigma = tsep_k_sigma.size();

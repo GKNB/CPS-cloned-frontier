@@ -1,18 +1,20 @@
 #ifndef _COMPUTE_KTOSIGMA_H_
 #define _COMPUTE_KTOSIGMA_H_
 
-template<typename SigmaMomentumPolicy>
-void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
-				const A2AvectorV<A2Apolicies> &V_s, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
-				const LSWWmesonFields &mf_ls_ww_con, MesonFieldMomentumPairContainer<A2Apolicies> &mf_sigma_con,
-				const SigmaMomentumPolicy &sigma_mom, const int conf, const Parameters &params, 
-				const std::string &src_descr, const std::string &src_fappend, bool do_type4, const std::string &postpend = ""){
+template<typename Vtype, typename Wtype, typename SigmaMomentumPolicy>
+void computeKtoSigmaContractions(const Vtype &V, Wtype &W,
+				 const Vtype &V_s, Wtype &W_s,
+				 const LSWWmesonFields<Wtype> &mf_ls_ww_con, MesonFieldMomentumPairContainer<getMesonFieldType<Wtype,Vtype> > &mf_sigma_con,
+				 const SigmaMomentumPolicy &sigma_mom, const int conf, const Parameters &params, 
+				 const std::string &src_descr, const std::string &src_fappend, bool do_type4, const std::string &postpend = ""){
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   
-  typedef ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
-  typedef ComputeKtoPiPiGparity<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
-
-  const std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > &mf_ls_ww = mf_ls_ww_con.mf_ls_ww;
+  typedef ComputeKtoPiPiGparity<Vtype,Wtype> ComputeP;
+  typedef typename ComputeP::ResultsContainerType ResultsContainerType;
+  typedef typename ComputeP::MixDiagResultsContainerType MixDiagResultsContainerType;
+  typedef typename LSWWmesonFields<Wtype>::MesonFieldType mf_WW;
+  typedef getMesonFieldType<Wtype,Vtype> mf_WV;
+  const std::vector<mf_WW> &mf_ls_ww = mf_ls_ww_con.mf_ls_ww;
 
   std::vector<int> k_sigma_separation(params.jp.k_pi_separation.k_pi_separation_len);
   for(int i=0;i<params.jp.k_pi_separation.k_pi_separation_len;i++) k_sigma_separation[i] = params.jp.k_pi_separation.k_pi_separation_val[i];
@@ -21,7 +23,7 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
 
   //Pre-average over sigma meson fields
   double time = dclock();
-  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_sigma(Lt);
+  std::vector<mf_WV> mf_sigma(Lt);
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   void* gather_buf;
@@ -32,7 +34,7 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
     ThreeMomentum pwdag = sigma_mom.getWdagMom(s);
     ThreeMomentum pv = sigma_mom.getVmom(s);
  
-    std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sigma_s = mf_sigma_con.get(pwdag,pv);
+    std::vector<mf_WV> &mf_sigma_s = mf_sigma_con.get(pwdag,pv);
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     if(s==0){
@@ -89,7 +91,7 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
   printMem("Memory at start of K->sigma contraction compute");
 
   //Start the computation
-  ComputeKtoSigma<A2Apolicies> compute(V, W, V_s, W_s, mf_ls_ww, k_sigma_separation);
+  ComputeKtoSigma<Vtype,Wtype> compute(V, W, V_s, W_s, mf_ls_ww, k_sigma_separation);
 
   //Type1/2
   {    

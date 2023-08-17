@@ -18,6 +18,9 @@
 CPS_START_NAMESPACE
 
 template< typename mf_Policies>
+class A2AvectorVfftw;
+
+template< typename mf_Policies>
 class A2AvectorV: public StandardIndexDilution, public mf_Policies::A2AvectorVpolicies{
 public:
   typedef mf_Policies Policies;
@@ -31,6 +34,9 @@ private:
 
 public:
   typedef StandardIndexDilution DilutionType;
+  typedef A2AvectorVfftw<mf_Policies> FFTvectorType;
+  template<typename P> using FFTvectorTemplate = A2AvectorVfftw<P>;
+  template<typename P> using VectorTemplate = A2AvectorV<P>;
 
   A2AvectorV(const A2AArg &_args): StandardIndexDilution(_args){    
     v.resize(nv);

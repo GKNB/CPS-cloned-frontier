@@ -12,8 +12,8 @@
 #include "static_timer_impl.tcc"
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(ResultsContainerType &result, const int t_K, 
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type3_contract(ResultsContainerType &result, const int t_K, 
 							const std::vector<SCFmatrixField> &part1, const SCFmatrixField &part2_L, const SCFmatrixField &part2_H){
 #ifndef MEMTEST_MODE
   static const int con_off = 13; //index of first contraction in set
@@ -90,12 +90,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(ResultsContainerType &re
 
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type3_field_SIMD(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
 						     const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-						     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-						     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+						     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+						     const Vtype & vL, const Vtype & vH, 
+						     const Wtype & wL, const Wtype & wH){
   Type3FieldTimings::timer().reset();
   timerStart(Type3FieldTimings::timer().total,"Start");
   SCFmat mix3_Gamma[2];
@@ -270,45 +270,43 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(ResultsContainerType r
 
 
 //Field version only applicable to SIMD data. For non SIMD data we should fall back to CPU version
-template<typename mf_Policies, typename complexClass>
+template<typename Vtype, typename Wtype, typename complexClass>
 struct _type3_field_wrap{};
 
-template<typename mf_Policies>
-struct _type3_field_wrap<mf_Policies, grid_vector_complex_mark>{
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::ResultsContainerType ResultsContainerType;  
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::mf_WW mf_WW;  
-  static void calc(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
+template<typename Vtype, typename Wtype>
+struct _type3_field_wrap<Vtype,Wtype, grid_vector_complex_mark>{
+  typedef ComputeKtoPiPiGparity<Vtype,Wtype> Compute;
+
+  static void calc(typename Compute::ResultsContainerType result[], typename Compute::MixDiagResultsContainerType mix3[],
 	    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-	    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-	    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-	    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-    ComputeKtoPiPiGparity<mf_Policies>::type3_field_SIMD(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
+	    const std::vector<typename Compute::mf_WW > &mf_kaon, MesonFieldMomentumContainer<typename Compute::mf_WV> &mf_pions,
+	    const Vtype & vL, const Vtype & vH, 
+	    const Wtype & wL, const Wtype & wH){
+    Compute::type3_field_SIMD(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
   }
 };
 
-template<typename mf_Policies>
-struct _type3_field_wrap<mf_Policies, complex_double_or_float_mark>{
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::ResultsContainerType ResultsContainerType;  
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
-  typedef typename ComputeKtoPiPiGparity<mf_Policies>::mf_WW mf_WW;  
-  static void calc(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
+template<typename Vtype, typename Wtype>
+struct _type3_field_wrap<Vtype,Wtype, complex_double_or_float_mark>{
+  typedef ComputeKtoPiPiGparity<Vtype,Wtype> Compute;
+
+  static void calc(typename Compute::ResultsContainerType result[], typename Compute::MixDiagResultsContainerType mix3[],
 	    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-	    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-	    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-	    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+	    const std::vector<typename Compute::mf_WW > &mf_kaon, MesonFieldMomentumContainer<typename Compute::mf_WV> &mf_pions,
+	    const Vtype & vL, const Vtype & vH, 
+	    const Wtype & wL, const Wtype & wH){
     LOGA2A << "Type3 field implementation falling back to OMP implementation due to non-SIMD data" << std::endl;
-    ComputeKtoPiPiGparity<mf_Policies>::type3_omp_v2(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
+    Compute::type3_omp_v2(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
   }
 };
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_field(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type3_field(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
 						     const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-						     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-						     const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-						     const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-  _type3_field_wrap<mf_Policies, typename ComplexClassify<ComplexType>::type>::calc(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
+						     const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_WV> &mf_pions,
+						     const Vtype & vL, const Vtype & vH, 
+						     const Wtype & wL, const Wtype & wH){
+  _type3_field_wrap<Vtype,Wtype, typename ComplexClassify<ComplexType>::type>::calc(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
 }  
 
 #endif

@@ -2,10 +2,10 @@
 #define _KTOPIPI_MAIN_PIPI_TO_SIGMA_GPARITY_H_
 
 //Compute pipi->sigma with file in Tianle's format
-template<typename PionMomentumPolicy, typename SigmaMomentumPolicy>
+template<typename Vtype, typename Wtype, typename PionMomentumPolicy, typename SigmaMomentumPolicy>
 void computePiPiToSigma(const std::vector< fVector<typename A2Apolicies::ScalarComplexType> > &sigma_bub,
-			MesonFieldMomentumPairContainer<A2Apolicies> &mf_sigma_con, const SigmaMomentumPolicy &sigma_mom, 
-			MesonFieldMomentumContainer<A2Apolicies> &mf_pion_con, const PionMomentumPolicy &pion_mom,
+			MesonFieldMomentumPairContainer<getMesonFieldType<Wtype,Vtype> > &mf_sigma_con, const SigmaMomentumPolicy &sigma_mom, 
+			MesonFieldMomentumContainer<getMesonFieldType<Wtype,Vtype> > &mf_pion_con, const PionMomentumPolicy &pion_mom,
 			const int conf, const Parameters &params){
   const int nmom_sigma = sigma_mom.nMom();
   const int nmom_pi = pion_mom.nMom();
@@ -16,7 +16,7 @@ void computePiPiToSigma(const std::vector< fVector<typename A2Apolicies::ScalarC
 
   std::vector<fVector<typename A2Apolicies::ScalarComplexType> > pipi_bub(nmom_pi);
   for(int pidx=0;pidx<nmom_pi;pidx++){
-    ComputePiPiGparity<A2Apolicies>::computeFigureVdis(pipi_bub[pidx], pion_mom.getMesonMomentum(pidx), params.jp.pipi_separation, mf_pion_con);
+    ComputePiPiGparity<Vtype,Wtype>::computeFigureVdis(pipi_bub[pidx], pion_mom.getMesonMomentum(pidx), params.jp.pipi_separation, mf_pion_con);
   }
   
   //All momentum combinations have total momentum 0 at source and sink
@@ -26,13 +26,13 @@ void computePiPiToSigma(const std::vector< fVector<typename A2Apolicies::ScalarC
       a2a_printf("Pipi->sigma connected psigma_idx=%d ppi1_idx=%d\n",psigma_idx,ppi1_idx);
       fMatrix<typename A2Apolicies::ScalarComplexType> into(Lt,Lt);
 
-      ComputePiPiToSigmaContractions<A2Apolicies>::computeConnected(into,mf_sigma_con,sigma_mom,psigma_idx,
+      ComputePiPiToSigmaContractions<Vtype,Wtype>::computeConnected(into,mf_sigma_con,sigma_mom,psigma_idx,
 								    mf_pion_con,pion_mom,ppi1_idx,
 								    params.jp.pipi_separation, params.jp.tstep_pipi); //reuse same tstep currently
 
       //Tianle also computes the disconnected part
       fMatrix<typename A2Apolicies::ScalarComplexType> disconn(Lt,Lt);
-      ComputePiPiToSigmaContractions<A2Apolicies>::computeDisconnectedDiagram(disconn, sigma_bub[psigma_idx], pipi_bub[ppi1_idx], params.jp.tstep_pipi);
+      ComputePiPiToSigmaContractions<Vtype,Wtype>::computeDisconnectedDiagram(disconn, sigma_bub[psigma_idx], pipi_bub[ppi1_idx], params.jp.tstep_pipi);
 
       into += disconn;
       

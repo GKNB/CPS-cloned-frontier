@@ -6,10 +6,10 @@
 CPS_START_NAMESPACE
 
 //Try to avoid recomputing products of meson fields by re-using wherever possible
-template<typename mf_Policies>
+template<typename MesonFieldType>
 class MesonFieldProductStore{
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MfType;
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> const* MfPtr;
+  typedef MesonFieldType MfType;
+  typedef MesonFieldType const* MfPtr;
   typedef std::pair<MfPtr,MfPtr> KeyType;
   typedef std::map<KeyType,MfType> MapType;
   int products_reused; //number of products for which we were able to reuse data
@@ -69,10 +69,10 @@ public:
 };
 
 //Allow for the predetermination of which products will be able to be reused
-template<typename mf_Policies>
+template<typename MesonFieldType>
 class MesonFieldProductStoreComputeReuse{
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MfType;
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> const* MfPtr;
+  typedef MesonFieldType MfType;
+  typedef MesonFieldType const* MfPtr;
   typedef std::pair<MfPtr,MfPtr> KeyType;
  
   std::map<KeyType, int> used_count;
@@ -84,7 +84,7 @@ public:
     else ++it->second;
   }
 
-  void addAllowedStores(MesonFieldProductStore<mf_Policies> &to) const{
+  void addAllowedStores(MesonFieldProductStore<MfType> &to) const{
     for(auto const &k : used_count){
       if(k.second > 1) to.addAllowedStore(*k.first.first,*k.first.second);
     }

@@ -53,6 +53,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   //-------------------- Light quark v and w --------------------//
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
+  //A2AvectorWunitary<A2Apolicies> W(params.a2a_arg, field4dparams);
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
   computeVW(V, W, Light, params, *eig, cmdline.randomize_vw);
 
@@ -66,6 +67,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   //-------------------- Strange quark v and w --------------------//
   A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
+  //A2AvectorWunitary<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
   A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
   computeVW(V_s, W_s, Heavy, params, *eig_s, cmdline.randomize_vw);
 
