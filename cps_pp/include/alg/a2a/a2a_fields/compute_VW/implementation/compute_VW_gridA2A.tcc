@@ -48,6 +48,7 @@ struct computeVW_impl{
 
   void setupSplitGrid(const double mass, const double mob_b, const double mob_c, const double M5, const int Ls, const typename GridDiracD::ImplParams &params, const CGcontrols &cg){
     LOGA2A << "Setting up split grids for VW calculation" << std::endl;
+    printMem("Prior to setting up split grids");
     use_split_grid = true;
 
     Nsplit = 1;

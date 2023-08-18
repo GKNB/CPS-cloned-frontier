@@ -286,7 +286,7 @@ public:
     //Evict all the device-side copies
 #ifndef GRID_UVM
     LOGA2A << "Evicting all of Grid's device-side copies" << std::endl;
-    MemoryManager::EvictVictims(MemoryManager::DeviceMaxBytes);
+    MemoryManager::EvictVictims(MemoryManager::DeviceMaxBytes-1); //FIXME: Grid asserts bytes < Max  rather than bytes <= Max, this needs to be fixed in Grid; for now just subtract 1
 #endif
     LOGA2A << "Grid's memory manager final status" << std::endl;
     MemoryManager::PrintBytes();
