@@ -47,15 +47,18 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
     delete lat;
     return;
   }
+  
+  bool need_light_evecs = (!cmdline.vw_opts_l.randomize_vw && !cmdline.vw_opts_l.load_vw) || cmdline.force_evec_compute;
+  bool need_heavy_evecs = (!cmdline.vw_opts_h.randomize_vw && !cmdline.vw_opts_h.load_vw) || cmdline.force_evec_compute;
 
   //-------------------- Light quark Lanczos ---------------------//
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(*eig, Light, params, cmdline.evec_opts_l);
+  if(need_light_evecs) computeEvecs(*eig, Light, params, cmdline.evec_opts_l);
 
   //-------------------- Light quark v and w --------------------//
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
   //A2AvectorWunitary<A2Apolicies> W(params.a2a_arg, field4dparams);
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
-  computeVW(V, W, Light, params, *eig, cmdline.randomize_vw);
+  computeVW(V, W, Light, params, *eig, cmdline.vw_opts_l);
 
   LOGA2A << "Freeing light evecs" << std::endl;
   printMem("Memory before light evec free");
@@ -63,13 +66,13 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   printMem("Memory after light evec free");
     
   //-------------------- Strange quark Lanczos ---------------------//
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(*eig_s, Heavy, params, cmdline.evec_opts_h);
+  if(need_heavy_evecs) computeEvecs(*eig_s, Heavy, params, cmdline.evec_opts_h);
 
   //-------------------- Strange quark v and w --------------------//
   A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
   //A2AvectorWunitary<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
   A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
-  computeVW(V_s, W_s, Heavy, params, *eig_s, cmdline.randomize_vw);
+  computeVW(V_s, W_s, Heavy, params, *eig_s, cmdline.vw_opts_h);
 
   printMem("Memory before heavy evec free");
   eig_s->freeEvecs();
@@ -136,7 +139,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
     A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
 
-    computeVW(V_s, W_s, Heavy, params, eig_s, cmdline.randomize_vw);
+    computeVW(V_s, W_s, Heavy, params, eig_s, cmdline.vw_opts_h);
     
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.V_s.cfg" << conf;
@@ -171,7 +174,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     //-------------------- Light quark v and w --------------------//
     A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
     A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
-    computeVW(V, W, Light, params, eig, cmdline.randomize_vw);
+    computeVW(V, W, Light, params, eig, cmdline.vw_opts_l);
     
     eig.freeEvecs();
     printMem("Memory after light evec free");    
@@ -228,13 +231,15 @@ void doConfigurationLLprops(const int conf, Parameters &params, const CommandLin
   
   //-------------------- Light quark Lanczos ---------------------//
   GridLanczosDoubleConvSingle<A2Apolicies> eig;
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute || cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
+  bool need_light_evecs = (!cmdline.vw_opts_l.randomize_vw && !cmdline.vw_opts_l.load_vw) || cmdline.force_evec_compute;
+
+  if(need_light_evecs || cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
   if(cmdline.tune_lanczos_light) return;
   
   //-------------------- Light quark v and w --------------------//
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
-  computeVW(V, W, Light, params, eig, cmdline.randomize_vw);
+  computeVW(V, W, Light, params, eig, cmdline.vw_opts_l);
   
   size_t nodes = GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes();
   {
@@ -280,8 +285,8 @@ void doConfigurationLLpropsSplit(const int conf, Parameters &params, const Comma
 
   if(cmdline.split_job_part == 0){
     //-------------------- Light quark Lanczos ---------------------//
-    
-    if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
+    bool need_light_evecs = (!cmdline.vw_opts_l.randomize_vw && !cmdline.vw_opts_l.load_vw) || cmdline.force_evec_compute;    
+    if(need_light_evecs) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
 
     //Write to disk
     {
@@ -305,7 +310,7 @@ void doConfigurationLLpropsSplit(const int conf, Parameters &params, const Comma
     //-------------------- Light quark v and w --------------------//
     A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
     A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
-    computeVW(V, W, Light, params, eig, cmdline.randomize_vw);
+    computeVW(V, W, Light, params, eig, cmdline.vw_opts_l);
 
     size_t nodes = GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes();
     {

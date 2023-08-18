@@ -47,9 +47,9 @@ void computeEvecs(EvecManagerType &eig, const LightHeavy lh, const Parameters &p
   return computeEvecs(eig, lanc_arg, params.jp, name, opts);
 }
 
-template<template<typename> class A2AvectorVtype, template<typename> class A2AvectorWtype>
-void computeVW(A2AvectorVtype<A2Apolicies> &V, A2AvectorWtype<A2Apolicies> &W, const EvecManagerType &eig, double mass, const CGcontrols &cg_controls, 
-	       typename A2Apolicies::FgridGFclass *lat, bool randomize_vw){
+template<typename Vtype, typename Wtype>
+void computeVW(Vtype &V, Wtype &W, const EvecManagerType &eig, double mass, const CGcontrols &cg_controls, 
+	       typename A2Apolicies::FgridGFclass *lat, const computeVWopts &opts = computeVWopts()){
 #ifdef USE_DESTRUCTIVE_FFT
   LOGA2A << "Allocating V,W vectors" << std::endl;  
   V.allocModes(); W.allocModes();
@@ -57,17 +57,27 @@ void computeVW(A2AvectorVtype<A2Apolicies> &V, A2AvectorWtype<A2Apolicies> &W, c
   LOGA2A << "Initializing V,W" << std::endl;
   V.zero(); W.zero(); //force the memory to be assigned right now (TESTING)
 #endif
-  if(!randomize_vw){
+  if(opts.randomize_vw){
+    LOGA2A << "Creating random VW vectors" << std::endl;
+    randomizeVW(V,W);
+  }else if(opts.load_vw){
+    LOGA2A << "Loading V,W vectors" << std::endl;
+    W.readParallelWithGrid(opts.load_vw_stub + "_w");
+    V.readParallelWithGrid(opts.load_vw_stub + "_v");
+  }else{
     LOGA2A << "Creating interface and running VW calculation" << std::endl;
     auto ei = eig.createInterface();
     cps::computeVW(V,W,*lat,*ei,mass,cg_controls);
-  }else{
-    LOGA2A << "Creating random VW vectors" << std::endl;
-    randomizeVW(V,W);
+  }
+
+  if(opts.save_vw){
+    LOGA2A << "Saving V,W vectors" << std::endl;
+    W.writeParallelWithGrid(opts.save_vw_stub + "_w");
+    V.writeParallelWithGrid(opts.save_vw_stub + "_v");
   }
 }
-template<template<typename> class A2AvectorVtype, template<typename> class A2AvectorWtype>
-void computeVW(A2AvectorVtype<A2Apolicies> &V, A2AvectorWtype<A2Apolicies> &W, const LightHeavy lh, const Parameters &params, const EvecManagerType &eig, const bool randomize_vw){
+template<typename Vtype, typename Wtype>
+void computeVW(Vtype &V, Wtype &W, const LightHeavy lh, const Parameters &params, const EvecManagerType &eig, const computeVWopts &opts = computeVWopts()){
   auto lat = createFgridLattice<typename A2Apolicies::FgridGFclass>(params.jp);
 
   const LancArg &lanc_arg = (lh == Light ? params.lanc_arg : params.lanc_arg_s);
@@ -76,7 +86,7 @@ void computeVW(A2AvectorVtype<A2Apolicies> &V, A2AvectorWtype<A2Apolicies> &W, c
   LOGA2A << "Computing " << name << " quark A2A vectors" << std::endl;
   double time = -dclock();
 
-  computeVW(V,W,eig,lanc_arg.mass, params.jp.cg_controls,lat,randomize_vw);
+  computeVW(V,W,eig,lanc_arg.mass, params.jp.cg_controls,lat,opts);
   
   printMem(stringize("Memory after %s A2A vector computation", name));
 

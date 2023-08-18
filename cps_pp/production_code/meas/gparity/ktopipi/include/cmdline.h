@@ -14,14 +14,30 @@ struct computeEvecsOpts{
   {}
 };
 
+struct computeVWopts{
+  bool randomize_vw; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
+
+  bool save_vw;
+  std::string save_vw_stub;
+
+  bool load_vw;
+  std::string load_vw_stub;
+
+  computeVWopts(): randomize_vw(false), save_vw(false), load_vw(false)
+  {}
+};
+
+
 //Command line argument store/parse
 struct CommandLineArgs{
   int nthreads;
   int nthread_contractions;
-  bool randomize_vw; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
 
   computeEvecsOpts evec_opts_l;
   computeEvecsOpts evec_opts_h;
+
+  computeVWopts vw_opts_l;
+  computeVWopts vw_opts_h;
 
   bool randomize_evecs; 
   bool randomize_mf; //use random meson fields
@@ -73,7 +89,6 @@ struct CommandLineArgs{
     nthreads = 64;
 #endif
     nthread_contractions = -1;
-    randomize_vw = false;
     randomize_mf = false;
     force_evec_compute = false; //randomize_evecs causes Lanczos to be skipped unless this option is used
     tune_lanczos_light = false; //just run the light lanczos on first config then exit
@@ -146,13 +161,15 @@ struct CommandLineArgs{
 	LOGA2A << "Setting number of threads in contractions to " << nthread_contractions << std::endl;
 	arg+=2;
       }else if( strncmp(cmd,"-randomize_vw",15) == 0){
-	randomize_vw = true;
+	vw_opts_l.randomize_vw = vw_opts_h.randomize_vw = true;
 	LOGA2A << "Using random vectors for V and W, skipping Lanczos and inversion stages" << std::endl;
 	arg++;
       }else if( strncmp(cmd,"-randomize_evecs",15) == 0){
 	evec_opts_l.randomize_evecs = evec_opts_h.randomize_evecs = true;
 	LOGA2A << "Using random eigenvectors" << std::endl;
 	arg++;      
+
+
       }else if( cmdstr == "-load_light_evecs"){
 	assert(arg < argc-1);
 	evec_opts_l.load_evecs = true;
@@ -177,6 +194,34 @@ struct CommandLineArgs{
 	evec_opts_h.save_evecs_stub = argv[arg+1];
 	LOGA2A << "Saving heavy eigenvectors with stub " << evec_opts_h.save_evecs_stub << std::endl;
 	arg += 2;
+
+
+      }else if( cmdstr == "-load_light_vw"){
+	assert(arg < argc-1);
+	vw_opts_l.load_vw = true;
+	vw_opts_l.load_vw_stub = argv[arg+1];
+	LOGA2A << "Loading light VW fields with stub " << vw_opts_l.load_vw_stub << std::endl;
+	arg += 2;
+      }else if( cmdstr == "-save_light_vw"){
+	assert(arg < argc-1);
+	vw_opts_l.save_vw = true;
+	vw_opts_l.save_vw_stub = argv[arg+1];
+	LOGA2A << "Saving light VW fields with stub " << vw_opts_l.save_vw_stub << std::endl;
+	arg += 2;
+      }else if( cmdstr == "-load_heavy_vw"){
+	assert(arg < argc-1);
+	vw_opts_h.load_vw = true;
+	vw_opts_h.load_vw_stub = argv[arg+1];
+	LOGA2A << "Loading heavy VW fields with stub " << vw_opts_h.load_vw_stub << std::endl;
+	arg += 2;
+      }else if( cmdstr == "-save_heavy_vw"){
+	assert(arg < argc-1);
+	vw_opts_h.save_vw = true;
+	vw_opts_h.save_vw_stub = argv[arg+1];
+	LOGA2A << "Saving heavy VW fields with stub " << vw_opts_h.save_vw_stub << std::endl;
+	arg += 2;
+
+
       }else if( strncmp(cmd,"-randomize_mf",15) == 0){
 	randomize_mf = true;
 	LOGA2A << "Using random meson fields" << std::endl;
