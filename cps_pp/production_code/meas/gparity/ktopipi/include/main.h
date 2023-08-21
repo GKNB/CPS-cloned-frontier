@@ -56,8 +56,11 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   //-------------------- Light quark v and w --------------------//
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
-  //A2AvectorWunitary<A2Apolicies> W(params.a2a_arg, field4dparams);
+#ifdef KTOPIPI_USE_WUNITARY
+  A2AvectorWunitary<A2Apolicies> W(params.a2a_arg, field4dparams);
+#else
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
+#endif
   computeVW(V, W, Light, params, *eig, cmdline.vw_opts_l);
 
   LOGA2A << "Freeing light evecs" << std::endl;
@@ -70,8 +73,11 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   //-------------------- Strange quark v and w --------------------//
   A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
-  //A2AvectorWunitary<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
+#ifdef KTOPIPI_USE_WUNITARY
+  A2AvectorWunitary<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
+#else
   A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
+#endif
   computeVW(V_s, W_s, Heavy, params, *eig_s, cmdline.vw_opts_h);
 
   printMem("Memory before heavy evec free");

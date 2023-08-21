@@ -116,6 +116,8 @@ struct computeVW_impl{
       Wsrc_impl.reset(new A2AhighModeSourceFlavorUnit<Policies>()); break;
     case A2AhighModeSourceTypeFlavorCConj:
       Wsrc_impl.reset(new A2AhighModeSourceFlavorCConj<Policies>()); break;
+    case A2AhighModeSourceTypeFlavorUnitary:
+      Wsrc_impl.reset(new A2AhighModeSourceFlavorUnitary<Policies>()); break;
     default:
       assert(0);
     }

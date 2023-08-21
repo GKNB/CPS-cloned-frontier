@@ -409,7 +409,7 @@ public:
 
   //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
   void setHighModeSources(A2AvectorWunitary<A2Apolicies> &into) const override{
-    LOGA2A << "Setting high-mode sources (original) for Wunitary" << std::endl;
+    LOGA2A << "Setting high-mode sources (flavor unitary) for Wunitary" << std::endl;
     typedef typename A2AvectorWunitary<A2Apolicies>::ScalarComplexFieldType ScalarComplexFieldType;
     typedef typename ScalarComplexFieldType::FieldSiteType FieldSiteType;
     NullObject null_obj;
