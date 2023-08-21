@@ -153,6 +153,9 @@ public:
     return *this;
   }
 
+  //Set all sites equal to 'with'. It should be an array of size SiteSize
+  void fill(SiteType *with);
+  
   static std::size_t byte_size(const InputParamType &params){
     CPSfield<SiteType,SiteSize,MappingPolicy,NullAllocPolicy> tmp(params); //doesn't allocate
     std::size_t out = SiteSize * sizeof(SiteType);

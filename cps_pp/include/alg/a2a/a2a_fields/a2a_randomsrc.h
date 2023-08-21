@@ -400,6 +400,54 @@ public:
 };
 
 
+template<typename A2Apolicies>
+class A2AhighModeSourceFlavorUnitary: public A2AhighModeSource<A2Apolicies>{
+public:
+  //Flavor structure
+  //| rnd_1   rnd_2 |
+  //| -rnd_2* rnd_1*|
+
+  //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
+  void setHighModeSources(A2AvectorWunitary<A2Apolicies> &into) const override{
+    LOGA2A << "Setting high-mode sources (original) for Wunitary" << std::endl;
+    typedef typename A2AvectorWunitary<A2Apolicies>::ScalarComplexFieldType ScalarComplexFieldType;
+    typedef typename ScalarComplexFieldType::FieldSiteType FieldSiteType;
+    NullObject null_obj;
+    int nhits = into.getNhits();
+    RandomType rand_type = into.getArgs().rand_type;
+    std::vector<ScalarComplexFieldType> tmp(into.getNhighModes(),null_obj);
+
+    LRG.SetInterval(1, 0);
+    size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
+    ViewArray<ScalarComplexFieldType> views(HostWrite,tmp);
+    for(size_t st = 0; st < sites; ++st) {
+      for(int j = 0; j < nhits; ++j) {
+	FieldSiteType rnd_1, rnd_2;
+	LRG.AssignGenerator(st,0);
+	RandomComplex<FieldSiteType>::rand(&rnd_1,rand_type,FOUR_D);
+	LRG.AssignGenerator(st,1);
+	RandomComplex<FieldSiteType>::rand(&rnd_2,rand_type,FOUR_D);
+
+	rnd_1 = rnd_1 / sqrt(2.);
+	rnd_2 = rnd_2 / sqrt(2.);
+	
+	int col_f0 = into.indexMap(j,0), col_f1 = into.indexMap(j,1);
+	*views[col_f0].site_ptr(st,0) = rnd_1;	
+	*views[col_f0].site_ptr(st,1) = -cconj(rnd_2);
+	*views[col_f1].site_ptr(st,0) = rnd_2;	
+	*views[col_f1].site_ptr(st,1) = cconj(rnd_1);
+      }
+    }
+    views.free();
+
+    into.setWh(tmp);
+  }    
+
+  void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{ 
+    ERR.General("A2AhighModeSourceFlavorUnitary","setHighModeSources(A2AvectorW)", "Invalid W species");
+  }    
+
+};
 
 
 CPS_END_NAMESPACE

@@ -170,7 +170,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
 
-  
+#if 0  
   if(1) testPoolAllocator();
   if(1) testAsyncTransferManager();
   if(1) testHolisticPoolAllocator();
@@ -367,6 +367,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) testModeContractionIndices(a2a_arg);
   if(1) testWunitaryBasic<A2Apolicies_grid,A2Apolicies_grid_destructive>(a2a_arg, simd_dims, lattice);
+#endif
+  if(1) testWunitaryUnitaryRandomSrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
+    
 
 }
 

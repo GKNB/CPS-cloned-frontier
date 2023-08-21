@@ -184,6 +184,15 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::average(const CPSfie
   }
 }
 
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::fill(SiteType *with){
+  CPSautoView(t_v,(*this),HostWrite);
+#pragma omp parallel for
+  for(size_t i=0;i<this->fsize;i++){
+    memset(t_v.fsite_ptr(i),with,SiteSize*sizeof(SiteType));
+  }
+}
+
 //Implemenation objects for CPSfermion4d gauge fix
 template<typename SIMDcomplex, typename SIMDmappingPolicy, typename FieldType>
 struct _gauge_fix_conv_gfix_mat{
