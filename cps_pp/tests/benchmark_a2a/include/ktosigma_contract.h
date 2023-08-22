@@ -13,11 +13,18 @@ struct _benchmarkKtoSigmaOffload<A2Apolicies, 0>{
 template<typename A2Apolicies>
 struct _benchmarkKtoSigmaOffload<A2Apolicies, 1>{
   typedef typename A2Apolicies::ComplexType mf_Complex;
+  typedef A2AvectorW<A2Apolicies> Wtype;
+  typedef A2AvectorV<A2Apolicies> Vtype;
   typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;    
-  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_WV;
-  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > mf_WW;
-  typedef typename ComputeKtoSigma<A2Apolicies>::ResultsContainerType ResultsContainerType;
-  typedef typename ComputeKtoSigma<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+  typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
+  typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> mf_WW;
+
+  typedef std::vector<mf_WV> mf_WV_vec;
+  typedef std::vector<mf_WW> mf_WW_vec;
+  
+  typedef ComputeKtoSigma<Vtype,Wtype> Compute;
+  typedef typename Compute::ResultsContainerType ResultsContainerType;
+  typedef typename Compute::MixDiagResultsContainerType MixDiagResultsContainerType;
 
   Lattice &lat;
   const A2AArg &a2a_args;
@@ -27,13 +34,13 @@ struct _benchmarkKtoSigmaOffload<A2Apolicies, 1>{
   int Lt;
 
   FieldInputParamType fp;
-  A2AvectorW<A2Apolicies> *W;
-  A2AvectorV<A2Apolicies> *V;
-  A2AvectorW<A2Apolicies> *Wh;
-  A2AvectorV<A2Apolicies> *Vh;
+  Wtype *W;
+  Vtype *V;
+  Wtype *Wh;
+  Vtype *Vh;
 
-  mf_WV tmp_WV;
-  mf_WW tmp_WW;
+  mf_WV_vec tmp_WV;
+  mf_WW_vec tmp_WW;
     
   std::vector<int> tsep_k_s;
 
@@ -55,13 +62,13 @@ struct _benchmarkKtoSigmaOffload<A2Apolicies, 1>{
     
     defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
   
-    W = new A2AvectorW<A2Apolicies>(a2a_args,fp);
-    V = new A2AvectorV<A2Apolicies>(a2a_args,fp);
+    W = new Wtype(a2a_args,fp);
+    V = new Vtype(a2a_args,fp);
     W->testRandom();
     V->testRandom();
 
-    Wh = new A2AvectorW<A2Apolicies>(a2a_args_s,fp);
-    Vh = new A2AvectorV<A2Apolicies>(a2a_args_s,fp);
+    Wh = new Wtype(a2a_args_s,fp);
+    Vh = new Vtype(a2a_args_s,fp);
     Wh->testRandom();
     Vh->testRandom();
 
@@ -77,7 +84,7 @@ struct _benchmarkKtoSigmaOffload<A2Apolicies, 1>{
  
   void type12(){
     if(!UniqueID()){ printf("Timing K->sigma type 1/2 field version\n"); fflush(stdout); }
-    ComputeKtoSigma<A2Apolicies> compute(*V, *W, *Vh, *Wh, tmp_WW, tsep_k_s);
+    Compute compute(*V, *W, *Vh, *Wh, tmp_WW, tsep_k_s);
     std::vector<ResultsContainerType> result(tsep_k_s.size());
     compute.type12(result, tmp_WV);
     if(!UniqueID()){ printf("End of timing of K->sigma type 1/2 field version\n"); fflush(stdout); }
@@ -85,7 +92,7 @@ struct _benchmarkKtoSigmaOffload<A2Apolicies, 1>{
 
   void type3(){
     if(!UniqueID()){ printf("Timing K->sigma type 3 field version\n"); fflush(stdout); }
-    ComputeKtoSigma<A2Apolicies> compute(*V, *W, *Vh, *Wh, tmp_WW, tsep_k_s);
+    Compute compute(*V, *W, *Vh, *Wh, tmp_WW, tsep_k_s);
     std::vector<ResultsContainerType> result(tsep_k_s.size());
     std::vector<MixDiagResultsContainerType> mix3_result(tsep_k_s.size());
     compute.type3(result, mix3_result, tmp_WV);
@@ -94,7 +101,7 @@ struct _benchmarkKtoSigmaOffload<A2Apolicies, 1>{
 
   void type4(){
     if(!UniqueID()){ printf("Timing K->sigma type 4 field version\n"); fflush(stdout); }
-    ComputeKtoSigma<A2Apolicies> compute(*V, *W, *Vh, *Wh, tmp_WW, tsep_k_s);
+    Compute compute(*V, *W, *Vh, *Wh, tmp_WW, tsep_k_s);
     ResultsContainerType result;
     MixDiagResultsContainerType mix4_result;
     compute.type4(result, mix4_result);

@@ -7,13 +7,17 @@ void benchmarkPiPiContractions(const A2AArg &a2a_args){
   printMem("Benchmark start");
   
   StandardPionMomentaPolicy mom_policy;
-  MesonFieldMomentumContainer<A2Apolicies> mf_con;
 
   A2Aparams params(a2a_args);
 
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   
+  typedef A2AvectorW<A2Apolicies> Wtype;
+  typedef A2AvectorV<A2Apolicies> Vtype;
   typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> MfType; 
+  typedef ComputePiPiGparity<Vtype,Wtype> Compute;
+
+  MesonFieldMomentumContainer<MfType> mf_con;
 
   //Only do the first mom combination with total mom 0
   int psrcidx(0), psnkidx(0);
@@ -63,13 +67,13 @@ void benchmarkPiPiContractions(const A2AArg &a2a_args){
 
   fMatrix<typename A2Apolicies::ScalarComplexType> pipi(Lt,Lt);
   
-  MesonFieldProductStore<A2Apolicies> products; //try to reuse products of meson fields wherever possible (not used ifdef DISABLE_PIPI_PRODUCTSTORE)
+  MesonFieldProductStore<MfType> products; //try to reuse products of meson fields wherever possible (not used ifdef DISABLE_PIPI_PRODUCTSTORE)
 
   //Predetermine which products we are going to reuse in order to save memory
-  MesonFieldProductStoreComputeReuse<A2Apolicies> product_usage;
+  MesonFieldProductStoreComputeReuse<MfType> product_usage;
   char diag[3] = {'C','D','R'};
   for(int d = 0; d < 3; d++)
-    ComputePiPiGparity<A2Apolicies>::setupProductStore(product_usage, diag[d], p_pi1_src, p_pi1_snk, tsep_pipi, tstep_src, mf_con);
+    Compute::setupProductStore(product_usage, diag[d], p_pi1_src, p_pi1_snk, tsep_pipi, tstep_src, mf_con);
 
   product_usage.addAllowedStores(products); //restrict storage only to products we know we are going to reuse
 
@@ -81,12 +85,12 @@ void benchmarkPiPiContractions(const A2AArg &a2a_args){
     bool redistribute_src = d == 2;
     bool redistribute_snk = d == 2;
 
-    typename ComputePiPiGparity<A2Apolicies>::Options opt;
+    typename Compute::Options opt;
     opt.redistribute_pi1_src = opt.redistribute_pi2_src = redistribute_src;
     opt.redistribute_pi1_snk = opt.redistribute_pi2_snk = redistribute_snk;
 	
     double time = -dclock();
-    ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, tsep_pipi, tstep_src, mf_con, products, opt);
+    Compute::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, tsep_pipi, tstep_src, mf_con, products, opt);
     time += dclock();
     *timeCDR[d] += time;
 
@@ -102,7 +106,7 @@ void benchmarkPiPiContractions(const A2AArg &a2a_args){
     printMem(stringize("Doing pipi figure V, pidx=%d",psrcidx),0);
     double time = -dclock();
     fVector<typename A2Apolicies::ScalarComplexType> figVdis(Lt);
-    ComputePiPiGparity<A2Apolicies>::computeFigureVdis(figVdis,p_pi1_src,tsep_pipi,mf_con);
+    Compute::computeFigureVdis(figVdis,p_pi1_src,tsep_pipi,mf_con);
     time += dclock();
     timeV += time;
   }
@@ -112,10 +116,10 @@ void benchmarkPiPiContractions(const A2AArg &a2a_args){
   print_time("main","Pi-pi figure R",timeR);
   print_time("main","Pi-pi figure V",timeV);
 
-  ComputePiPiGparity<A2Apolicies>::timingsC().report();
-  ComputePiPiGparity<A2Apolicies>::timingsD().report();
-  ComputePiPiGparity<A2Apolicies>::timingsR().report();
-  ComputePiPiGparity<A2Apolicies>::timingsV().report();
+  Compute::timingsC().report();
+  Compute::timingsD().report();
+  Compute::timingsR().report();
+  Compute::timingsV().report();
   
 #ifdef MULT_IMPL_CUBLASXT
   if(!UniqueID()) _mult_impl_base::getTimers().print();

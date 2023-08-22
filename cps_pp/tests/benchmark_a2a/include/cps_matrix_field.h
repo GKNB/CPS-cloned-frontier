@@ -268,7 +268,11 @@ void benchmarkCPSmatrixField(const int ntests){
 
   if(0){    
     //Trace(M1*Ms)  where Ms is not a field
-    CPSspinColorFlavorMatrix<ComplexType> Ms = *m2.site_ptr(size_t(0));
+    CPSspinColorFlavorMatrix<ComplexType> Ms;
+    {
+      CPSautoView(m2_v,m2,HostRead);
+      Ms = *m2_v.site_ptr(size_t(0));
+    }
     tr_m1 = Trace(m1,Ms);
 
     Float total_time = -dclock();
