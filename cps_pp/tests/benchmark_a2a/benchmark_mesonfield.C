@@ -132,6 +132,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
     if(UniqueID()==0) printf("Config written.\n");
   }
+#if 0
 
   if(1) benchmarkMmapMemoryStorage(ntests, opt.nlowmodes);
   
@@ -196,6 +197,10 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #endif
 
   if(0) benchmarkMesonFieldGather(a2a_args, ntests);
+
+#endif
+
+  benchmarkPackGridFieldIO<GridA2ApoliciesType>(lattice);
 }
 
 int main(int argc,char *argv[])

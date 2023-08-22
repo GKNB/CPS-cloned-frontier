@@ -281,8 +281,139 @@ void benchmarkMmapMemoryStorage(int ntest, int nval){
 
 }
 
+template<typename vtype> using iDataType2 = Grid::iVector<Grid::iVector<Grid::iVector<Grid::iVector<vtype, Grid::Nc>, Grid::Ns>, Grid::Ngp>, 2 >;
+template<typename vtype> using iDataType4 = Grid::iVector<Grid::iVector<Grid::iVector<Grid::iVector<vtype, Grid::Nc>, Grid::Ns>, Grid::Ngp>, 4 >;
+template<typename vtype> using iDataType8 = Grid::iVector<Grid::iVector<Grid::iVector<Grid::iVector<vtype, Grid::Nc>, Grid::Ns>, Grid::Ngp>, 8 >;
+template<typename vtype> using iDataType16 = Grid::iVector<Grid::iVector<Grid::iVector<Grid::iVector<vtype, Grid::Nc>, Grid::Ns>, Grid::Ngp>, 16 >;
 
+template<typename A2Apolicies>
+void benchmarkPackGridFieldIO(typename A2Apolicies::FgridGFclass &lattice, int nfield=32){
+#ifndef HAVE_LIME
+  return;
+#else
+  using namespace Grid;
+  assert(nfield % 16 == 0);
+  
+  GridCartesian *UGrid = lattice.getUGrid();
+  GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
+  GridCartesian *FGrid = lattice.getFGrid();
+  GridRedBlackCartesian *FrbGrid = lattice.getFrbGrid();
+  LatticeGaugeFieldD *Umu = lattice.getUmu();
 
+  int nodes = 1;
+  for(int i=0;i<4;i++) nodes *= GJP.Nodes(i);
+
+  std::string data_file = "tmp";
+
+  {
+    typedef iGparitySpinColourVector<vComplexD> GparitySpinColourVectorD;
+    typedef Grid::Lattice<GparitySpinColourVectorD> GparityLatticeFermionD;
+    
+    std::vector<GparityLatticeFermionD> data(nfield, UGrid); //4D full-grid fermions
+    size_t field_bytes = nodes*data[0].oSites()*sizeof(GparitySpinColourVectorD);
+    std::cout << "Field size " << field_bytes << " bytes" << std::endl;
+
+    Grid::emptyUserRecord record;
+    Grid::ScidacWriter WR(UGrid->IsBoss());
+    double time = -dclock();
+    WR.open(data_file);
+    for(int k=0; k<nfield;k++){
+      WR.writeScidacFieldRecord(data[k],record);
+    }
+    WR.close();
+    time += dclock();
+    std::cout << "Wrote " << nfield << " fields of size " << double(field_bytes)/1024./1024. << "MB in " << time << "s: rate " << nfield*double(field_bytes)/1024./1024./time << "MB/s" << std::endl;
+  }
+  std::cout << "-----------------------------------------------" << std::endl;
+  {
+    typedef iDataType2<vComplexD> DataTypeD;
+    typedef Grid::Lattice<DataTypeD> LatticeTypeD;
+    
+    int nfieldt = nfield/2;
+
+    std::vector<LatticeTypeD> data(nfieldt, UGrid); //4D full-grid fermions
+    size_t field_bytes = nodes*data[0].oSites()*sizeof(DataTypeD);
+    std::cout << "Field size " << field_bytes << " bytes" << std::endl;
+
+    Grid::emptyUserRecord record;
+    Grid::ScidacWriter WR(UGrid->IsBoss());
+    double time = -dclock();
+    WR.open(data_file);
+    for(int k=0; k<nfieldt;k++){
+      WR.writeScidacFieldRecord(data[k],record);
+    }
+    WR.close();
+    time += dclock();
+    std::cout << "Wrote " << nfieldt << " fields of size " << double(field_bytes)/1024./1024. << "MB in " << time << "s: rate " << nfieldt*double(field_bytes)/1024./1024./time << "MB/s" << std::endl;
+  }
+  std::cout << "-----------------------------------------------" << std::endl;
+  {
+    typedef iDataType4<vComplexD> DataTypeD;
+    typedef Grid::Lattice<DataTypeD> LatticeTypeD;
+    
+    int nfieldt = nfield/4;
+
+    std::vector<LatticeTypeD> data(nfieldt, UGrid); //4D full-grid fermions
+    size_t field_bytes = nodes*data[0].oSites()*sizeof(DataTypeD);
+    std::cout << "Field size " << field_bytes << " bytes" << std::endl;
+
+    Grid::emptyUserRecord record;
+    Grid::ScidacWriter WR(UGrid->IsBoss());
+    double time = -dclock();
+    WR.open(data_file);
+    for(int k=0; k<nfieldt;k++){
+      WR.writeScidacFieldRecord(data[k],record);
+    }
+    WR.close();
+    time += dclock();
+    std::cout << "Wrote " << nfieldt << " fields of size " << double(field_bytes)/1024./1024. << "MB in " << time << "s: rate " << nfieldt*double(field_bytes)/1024./1024./time << "MB/s" << std::endl;
+  }
+  std::cout << "-----------------------------------------------" << std::endl;
+  {
+    typedef iDataType8<vComplexD> DataTypeD;
+    typedef Grid::Lattice<DataTypeD> LatticeTypeD;
+    
+    int nfieldt = nfield/8;
+
+    std::vector<LatticeTypeD> data(nfieldt, UGrid); //4D full-grid fermions
+    size_t field_bytes = nodes*data[0].oSites()*sizeof(DataTypeD);
+    std::cout << "Field size " << field_bytes << " bytes" << std::endl;
+
+    Grid::emptyUserRecord record;
+    Grid::ScidacWriter WR(UGrid->IsBoss());
+    double time = -dclock();
+    WR.open(data_file);
+    for(int k=0; k<nfieldt;k++){
+      WR.writeScidacFieldRecord(data[k],record);
+    }
+    WR.close();
+    time += dclock();
+    std::cout << "Wrote " << nfieldt << " fields of size " << double(field_bytes)/1024./1024. << "MB in " << time << "s: rate " << nfieldt*double(field_bytes)/1024./1024./time << "MB/s" << std::endl;
+  }
+  std::cout << "-----------------------------------------------" << std::endl;
+  {
+    typedef iDataType16<vComplexD> DataTypeD;
+    typedef Grid::Lattice<DataTypeD> LatticeTypeD;
+    
+    int nfieldt = nfield/16;
+
+    std::vector<LatticeTypeD> data(nfieldt, UGrid); //4D full-grid fermions
+    size_t field_bytes = nodes*data[0].oSites()*sizeof(DataTypeD);
+    std::cout << "Field size " << field_bytes << " bytes" << std::endl;
+
+    Grid::emptyUserRecord record;
+    Grid::ScidacWriter WR(UGrid->IsBoss());
+    double time = -dclock();
+    WR.open(data_file);
+    for(int k=0; k<nfieldt;k++){
+      WR.writeScidacFieldRecord(data[k],record);
+    }
+    WR.close();
+    time += dclock();
+    std::cout << "Wrote " << nfieldt << " fields of size " << double(field_bytes)/1024./1024. << "MB in " << time << "s: rate " << nfieldt*double(field_bytes)/1024./1024./time << "MB/s" << std::endl;
+  }
+#endif
+}
 
 
 CPS_END_NAMESPACE
