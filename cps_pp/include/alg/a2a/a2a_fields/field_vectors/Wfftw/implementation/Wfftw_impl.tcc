@@ -59,6 +59,7 @@ struct _W_fft_impl{
 
   inline static void fft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_preop){
     fft_opt_mu_timings::get().reset();
+    fft_opt_timings::get().reset();
     a2a_printf("Doing W FFT\n");
     typedef typename FermionFieldType::InputParamType FieldParamType;
     FieldParamType field_setup = from.getFieldInputParams();
@@ -125,6 +126,7 @@ struct _W_fft_impl{
     a2a_print_time("A2AvectorWfftw::fft","FFT",fft_time);
     a2a_print_time("A2AvectorWfftw::fft","actionOutputMode",action_output_mode_time);
     a2a_print_time("A2AvectorWfftw::fft","actionInputMode",action_input_mode_time);
+    fft_opt_timings::get().print();
     fft_opt_mu_timings::get().print();
   }
 };
@@ -144,6 +146,7 @@ struct _W_invfft_impl{
   static inline void inversefft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_postop){
     a2a_printf("Doing W inverse FFT\n");
     fft_opt_mu_timings::get().reset();
+    fft_opt_timings::get().reset();
     typedef typename FermionFieldType::InputParamType FieldParamType;
     FieldParamType field_setup = from.getFieldInputParams();
     FermionFieldType tmp(field_setup), tmp2(field_setup);
@@ -220,6 +223,7 @@ struct _W_invfft_impl{
     a2a_print_time("A2AvectorWfftw::fftinverse","Postop",postop_time);
     a2a_print_time("A2AvectorWfftw::fftinverse","actionOutputMode",action_output_mode_time);
     a2a_print_time("A2AvectorWfftw::fftinverse","actionInputMode",action_input_mode_time);
+    fft_opt_timings::get().print();
     fft_opt_mu_timings::get().print();
   }
 };

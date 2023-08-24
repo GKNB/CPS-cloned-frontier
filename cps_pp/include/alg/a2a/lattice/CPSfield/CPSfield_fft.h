@@ -56,6 +56,38 @@ void fft(CPSfieldType &fftme, const bool* do_dirs){
   fft(fftme,fftme,do_dirs);
 }
 
+
+//Timers for fft_opt_mu
+struct fft_opt_timings{
+  struct timers{
+    size_t calls;
+    double setup;
+    double fft_mu;
+    double impex;    
+    double total;
+    
+    timers(): calls(0), setup(0), fft_mu(0), impex(0){}
+
+    void reset(){
+      setup = fft_mu = impex = total = 0;
+      calls = 0;
+    }
+    void average(){
+      setup/=calls;
+      fft_mu/=calls;
+      impex/=calls;
+      total/=calls;
+    }
+    void print(){
+      a2a_printf("Totals: calls=%zu total=%g : setup=%g fft_mu=%g impex=%g\n", calls, total, setup, fft_mu, impex);
+      average();
+      a2a_printf("Averages: calls=%zu total=%g : setup=%g fft_mu=%g impex=%g\n", calls, total, setup, fft_mu, impex);
+    }
+  };
+  static timers & get(){ static timers t; return t; }
+};
+
+
 //An optimized implementation of the FFT
 //Requires MPI
 //do_dirs is a vector of bool of dimension equal to the field dimension, and indicate which directions in which to perform the FFT
@@ -68,6 +100,11 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
 #ifndef USE_MPI
   fft(into,from,do_dirs,inverse_transform);
 #else
+  auto & timer = fft_opt_timings::get();
+  timer.calls++;
+  timer.total -= dclock();
+  timer.setup -= dclock();
+  
   enum { Dimension = CPSfieldType::FieldMappingPolicy::EuclideanDimension };
   int ndirs_fft = 0; for(int i=0;i<Dimension;i++) if(do_dirs[i]) ++ndirs_fft;
   if(! ndirs_fft ) return;
@@ -91,6 +128,8 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
   CPSfieldType* out = tmp1;
 
   int fft_count = 0;
+  timer.setup += dclock();
+  timer.fft_mu -= dclock();
   for(int mu=0; mu<Dimension; mu++){
     if(do_dirs[mu]){
       CPSfieldType const *msrc = fft_count == 0 ? &from : src;
@@ -99,8 +138,44 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
       std::swap(src,out);      
     }
   }
+  timer.fft_mu += dclock();
+  timer.total += dclock();
 #endif
 }
+
+//Optimized FFT for SIMD data
+//Unpacks data into non-SIMD format and invokes regular optimized FFT
+#ifdef USE_GRID
+template<typename CPSfieldType>
+void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, const bool inverse_transform = false,
+	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, grid_vector_complex_mark>::value, const int>::type = 0
+	     ){ //we can avoid the copies below but with some effort - do at some point
+# ifndef USE_MPI
+#error "Not using MPI"
+  fft(into,from,do_dirs,inverse_transform);
+# else
+  typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
+  typedef typename CPSfieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarDimPol;
+  typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol> ScalarFieldType;
+
+  auto & timer = fft_opt_timings::get();
+  timer.impex -= dclock();  
+  NullObject null_obj;
+  ScalarFieldType tmp_in(null_obj);
+  ScalarFieldType tmp_out(null_obj);
+  tmp_in.importField(from);
+  timer.impex += dclock();
+  
+  fft_opt(tmp_out, tmp_in, do_dirs, inverse_transform);
+
+  timer.impex -= dclock();  
+  tmp_out.exportField(into);
+  timer.impex += dclock();
+# endif
+}
+#endif
+
+
 
 //Optimized FFT in a single direction mu
 //node_map is the mapping of CPS UniqueID to MPI rank, and can be obtained with   "getMPIrankMap(node_map)"
@@ -117,12 +192,13 @@ struct fft_opt_mu_timings{
     double fft;
     double comm_scatter;
     double scatter;
+    double total;
     std::string method;
     
-    timers(): calls(0), setup(0), gather(0), comm_gather(0), fft(0), comm_scatter(0), scatter(0), method("unset"){}
+    timers(): calls(0), setup(0), gather(0), comm_gather(0), fft(0), comm_scatter(0), scatter(0), total(0), method("unset"){}
 
     void reset(){
-      setup = gather = comm_gather = fft = comm_scatter = scatter = 0;
+      setup = gather = comm_gather = fft = comm_scatter = scatter = total = 0;
       calls = 0;
     }
     void average(){
@@ -132,10 +208,12 @@ struct fft_opt_mu_timings{
       fft/=calls;
       comm_scatter/=calls;
       scatter/=calls;
+      total/=calls;
     }
     void print(){
+      a2a_printf("Totals: calls=%zu method=%s total=%g : setup=%g gather=%g comm_gather=%g fft=%g comm_scatter=%g scatter=%g\n", calls, method.c_str(), total, setup, gather, comm_gather, fft, comm_scatter, scatter);
       average();
-      a2a_printf("calls=%zu method=%s setup=%g gather=%g comm_gather=%g fft=%g comm_scatter=%g scatter=%g\n", calls, method.c_str(), setup, gather, comm_gather, fft, comm_scatter, scatter);
+      a2a_printf("Averages: calls=%zu method=%s total=%g : setup=%g gather=%g comm_gather=%g fft=%g comm_scatter=%g scatter=%g\n", calls, method.c_str(), total, setup, gather, comm_gather, fft, comm_scatter, scatter);
     }
   };
   static timers & get(){ static timers t; return t; }
@@ -150,8 +228,10 @@ template<typename CPSfieldType>
 void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, const std::vector<int> &node_map, const bool inverse_transform,
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
 	     ){
-  fft_opt_mu_timings::get().calls++;
-  fft_opt_mu_timings::get().setup -= dclock();
+  auto &timer = fft_opt_mu_timings::get();
+  timer.calls++;
+  timer.total -= dclock();
+  timer.setup -= dclock();
   
   enum {SiteSize = CPSfieldType::FieldSiteSize, Dimension = CPSfieldType::FieldMappingPolicy::EuclideanDimension };
   typedef typename CPSfieldType::FieldSiteType ComplexType;
@@ -196,9 +276,9 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
     munodes_mpiranks[i] = node_map[munode_lex];
   }
   
-  fft_opt_mu_timings::get().setup += dclock();
+  timer.setup += dclock();
 
-  fft_opt_mu_timings::get().gather -= dclock();
+  timer.gather -= dclock();
 
   //Gather send data
   ComplexType* send_bufs[munodes];
@@ -233,9 +313,9 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
     }
   }
 
-  fft_opt_mu_timings::get().gather += dclock();
+  timer.gather += dclock();
 
-  fft_opt_mu_timings::get().comm_gather -= dclock();
+  timer.comm_gather -= dclock();
 
   MPI_Request send_req[munodes], recv_req[munodes];
   MPI_Status status[munodes];
@@ -254,9 +334,9 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   }      
   assert( MPI_Waitall(munodes,recv_req,status) == MPI_SUCCESS );
    
-  fft_opt_mu_timings::get().comm_gather += dclock();
+  timer.comm_gather += dclock();
   
-  fft_opt_mu_timings::get().fft -= dclock();
+  timer.fft -= dclock();
 
   //Do FFT
   const size_t howmany = munodes_work[munodecoor] * nf * SiteSize;
@@ -276,10 +356,10 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 #endif //!GRID_CUDA
   assert(MPI_Waitall(munodes,send_req,status) == MPI_SUCCESS);
       
-  fft_opt_mu_timings::get().fft += dclock();
+  timer.fft += dclock();
 
   //Send back out. Reuse the old send buffers as receive buffers and vice versa
-  fft_opt_mu_timings::get().comm_scatter -= dclock();
+  timer.comm_scatter -= dclock();
   for(int i=0;i<munodes;i++){ //works fine to send to all nodes, even if this involves a send to self
     assert( MPI_Isend(recv_buf + i*munodes_work[munodecoor]*nf*SiteSize*munodesites, send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], 0, MPI_COMM_WORLD, &send_req[i]) == MPI_SUCCESS );
     assert( MPI_Irecv(send_bufs[i], send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], MPI_ANY_TAG, MPI_COMM_WORLD, &recv_req[i]) == MPI_SUCCESS );
@@ -287,10 +367,10 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   
   assert( MPI_Waitall(munodes,recv_req,status) == MPI_SUCCESS );
 
-  fft_opt_mu_timings::get().comm_scatter += dclock();
+  timer.comm_scatter += dclock();
 
 
-  fft_opt_mu_timings::get().scatter -= dclock();
+  timer.scatter -= dclock();
 
   //Poke into output
   CPSautoView(into_v,into,HostWrite);
@@ -321,43 +401,17 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 
   assert( MPI_Waitall(munodes,send_req,status) == MPI_SUCCESS);
       
-  fft_opt_mu_timings::get().scatter += dclock();
+  timer.scatter += dclock();
 
-  fft_opt_mu_timings::get().setup -= dclock();
+  timer.setup -= dclock();
 
   free(recv_buf);
   for(int i=0;i<munodes;i++) free(send_bufs[i]);
 
-  fft_opt_mu_timings::get().setup += dclock();
+  timer.setup += dclock();
+  timer.total += dclock();
 }
 #endif
-
-
-//Optimized FFT for SIMD data
-//Unpacks data into non-SIMD format and invokes regular optimized FFT
-#ifdef USE_GRID
-template<typename CPSfieldType>
-void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, const bool inverse_transform = false,
-	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, grid_vector_complex_mark>::value, const int>::type = 0
-	     ){ //we can avoid the copies below but with some effort - do at some point
-# ifndef USE_MPI
-#error "Not using MPI"
-  fft(into,from,do_dirs,inverse_transform);
-# else
-  typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
-  typedef typename CPSfieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarDimPol;
-  typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol> ScalarFieldType;
-
-  NullObject null_obj;
-  ScalarFieldType tmp_in(null_obj);
-  ScalarFieldType tmp_out(null_obj);
-  tmp_in.importField(from);
-  fft_opt(tmp_out, tmp_in, do_dirs, inverse_transform);
-  tmp_out.exportField(into);
-# endif
-}
-#endif
-
 
 CPS_END_NAMESPACE
 
