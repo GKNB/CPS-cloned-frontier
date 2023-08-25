@@ -170,7 +170,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
 
-#if 0  
+  /*
   if(1) testPoolAllocator();
   if(1) testAsyncTransferManager();
   if(1) testHolisticPoolAllocator();
@@ -278,14 +278,16 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 								      W_std, V_std, Wh_std, Vh_std,
   								      tol);
   if(1) testhostDeviceMirroredContainer();
+
   if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
   if(1) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
 
-
+  */
   if(1) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  /*
   
   if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
 
@@ -367,10 +369,10 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) testModeContractionIndices(a2a_arg);
   if(1) testWunitaryBasic<A2Apolicies_grid,A2Apolicies_grid_destructive>(a2a_arg, simd_dims, lattice);
-#endif
   if(1) testWunitaryUnitaryRandomSrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
-    
-
+   
+  if(1) testVectorWithAview();
+  */
 }
 
 

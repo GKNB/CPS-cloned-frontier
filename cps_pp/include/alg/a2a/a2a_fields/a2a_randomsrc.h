@@ -140,7 +140,7 @@ public:
 
   //The high modes sources are diagonal in flavor space but the two diagonal elements are complex conjugate pairs rather than independent
   void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{
-    LOGA2A << "Setting high-mode sources (flavor-conjugate)" << std::endl;
+    LOGA2A << "Setting high-mode sources (Xconj)" << std::endl;
     typedef typename A2AvectorW<A2Apolicies>::ScalarComplexFieldType ScalarComplexFieldType;
     typedef typename ScalarComplexFieldType::FieldSiteType FieldSiteType;
     NullObject null_obj;
@@ -338,7 +338,7 @@ public:
 
   //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
   void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{
-    LOGA2A << "Setting high-mode sources (original)" << std::endl;
+    LOGA2A << "Setting high-mode sources (flavor unit)" << std::endl;
     typedef typename A2AvectorW<A2Apolicies>::ScalarComplexFieldType ScalarComplexFieldType;
     typedef typename ScalarComplexFieldType::FieldSiteType FieldSiteType;
     NullObject null_obj;
@@ -372,7 +372,7 @@ public:
 
   //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
   void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{
-    LOGA2A << "Setting high-mode sources (original)" << std::endl;
+    LOGA2A << "Setting high-mode sources (flavor cconj)" << std::endl;
     typedef typename A2AvectorW<A2Apolicies>::ScalarComplexFieldType ScalarComplexFieldType;
     typedef typename ScalarComplexFieldType::FieldSiteType FieldSiteType;
     NullObject null_obj;

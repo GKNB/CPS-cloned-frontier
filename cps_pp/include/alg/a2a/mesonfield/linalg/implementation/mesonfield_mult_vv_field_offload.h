@@ -71,6 +71,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
   
   typedef typename mf_Policies::ComplexType VectorComplexType;
   typedef typename VectorComplexType::scalar_type ScalarComplexType;
+  
+  typedef VectorWithAview<VectorComplexType, typename mf_Policies::AllocPolicy> VprimeType;
 
   //A slow but simple implementation ignoring the index compression
   static void simple(PropagatorField &into,
@@ -134,8 +136,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 
 
 #if defined(GRID_CUDA) || defined(GRID_HIP)
-  static void run_VV_kernel_GPU(VectorComplexType* vaprime,
-				VectorComplexType* vbprime,
+  static void run_VV_kernel_GPU(const VprimeType &vaprime,
+				const VprimeType &vbprime,
 				typename ManagedVector<uint8_t>::View &alpha,
 				PropagatorField &into,
 				size_t niprime, size_t niprime_block,
@@ -158,6 +160,9 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 
     using namespace Grid;
     CPSautoView(into_v,into,DeviceReadWrite);
+    CPSautoView(vaprime_v,vaprime,DeviceRead);
+    CPSautoView(vbprime_v,vbprime,DeviceRead);
+
     accelerator_for_shmem(x4d, 
 			  vol4d, 
 			  nsimd, 
@@ -193,7 +198,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 				  int scl = cl + 3*sl;
 				  for(int isb=0; isb < iprimeb_subblock_size; isb++){
 				    size_t iprimeb = isb + iprimeb_start;
-				    VectorComplexType const* lptr = vaprime + iprimeb + niprime_block*(scl + 12*(fl + nf*x4d) );
+				    VectorComplexType const* lptr = vaprime_v.data() + iprimeb + niprime_block*(scl + 12*(fl + nf*x4d) );
 				    matA[isb + iprimeb_subblock_size*cl] = ACC::read(*lptr);				  
 				  }
 				}
@@ -205,7 +210,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 				      int scr = cr + 3*sr;
 				      for(int isb=0; isb < iprimeb_subblock_size; isb++){
 					size_t iprimeb = isb + iprimeb_start;
-					VectorComplexType const* rptr = vbprime + iprimeb + niprime_block*(scr + 12*(fr + nf*x4d) );
+					VectorComplexType const* rptr = vbprime_v.data() + iprimeb + niprime_block*(scr + 12*(fr + nf*x4d) );
 					matB[isb + iprimeb_subblock_size*cr] = ACC::read(*rptr);
 				      }
 				    }
@@ -244,8 +249,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 
 
 #if !defined(GRID_CUDA) && !defined(GRID_HIP)
-  static void run_VV_kernel_base(VectorComplexType* vaprime,
-				 VectorComplexType* vbprime,
+  static void run_VV_kernel_base(const VprimeType &vaprime,
+				 const VprimeType &vbprime,
 				 typename ManagedVector<uint8_t>::View &alpha,
 				 PropagatorField &into,
 				 size_t niprime, size_t niprime_block,
@@ -256,6 +261,9 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
     
     using namespace Grid;
     CPSautoView(into_v,into,DeviceReadWrite);    
+    CPSautoView(vaprime_v,vaprime,DeviceRead);
+    CPSautoView(vbprime_v,vbprime,DeviceRead);
+
     accelerator_for(x4d, 
 		    vol4d, 
 		    nsimd, 
@@ -288,7 +296,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 			      int scl = cl + 3*sl;
 			      for(int isb=0; isb < iprimeb_subblock_size; isb++){
 				size_t iprimeb = isb + iprimeb_start;
-				VectorComplexType const* lptr = vaprime + iprimeb + niprime_block*(scl + 12*(fl + nf*x4d) );
+				VectorComplexType const* lptr = vaprime_v.data() + iprimeb + niprime_block*(scl + 12*(fl + nf*x4d) );
 				matA[isb + iprimeb_subblock_size*cl] = ACC::read(*lptr);				  
 			      }
 			    }
@@ -300,7 +308,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 				  int scr = cr + 3*sr;
 				  for(int isb=0; isb < iprimeb_subblock_size; isb++){
 				    size_t iprimeb = isb + iprimeb_start;
-				    VectorComplexType const* rptr = vbprime + iprimeb + niprime_block*(scr + 12*(fr + nf*x4d) );
+				    VectorComplexType const* rptr = vbprime_v.data() + iprimeb + niprime_block*(scr + 12*(fr + nf*x4d) );
 				    matB[isb + iprimeb_subblock_size*cr] = ACC::read(*rptr);
 				  }
 				}
@@ -338,14 +346,17 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 
 
 
-  static void run_VV_kernel_base_simple(VectorComplexType* vaprime,
-					VectorComplexType* vbprime,
+  static void run_VV_kernel_base_simple(const VprimeType &vaprime,
+					const VprimeType &vbprime,
 					typename ManagedVector<uint8_t>::View &alpha,
 					PropagatorField &into,
 					size_t niprime, size_t niprime_block,
 					size_t iprimestart, size_t iprimelessthan,
 					size_t vol4d, int t_off, int nf, int src_width, size_t nsimd
 					){
+    CPSautoView(vaprime_v,vaprime,DeviceRead);
+    CPSautoView(vbprime_v,vbprime,DeviceRead);
+
     using namespace Grid;
     CPSautoView(into_v,into,DeviceReadWrite);    
     accelerator_for(x4d, 
@@ -378,8 +389,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 				    uint8_t const* alptr = alpha.data() + iprimestart + niprime * ( scr + 12*(fr + nf*( scl + 12*( fl + nf*t_glob_block) ) ) );
 				    
 				    for(int iprimeb=0; iprimeb < niprime_block; iprimeb++){  
-				      VectorComplexType const* lptr = vaprime + iprimeb + niprime_block*(scl + 12*(fl + nf*x4d) );
-				      VectorComplexType const* rptr = vbprime + iprimeb + niprime_block*(scr + 12*(fr + nf*x4d) );
+				      VectorComplexType const* lptr = vaprime_v.data() + iprimeb + niprime_block*(scl + 12*(fl + nf*x4d) );
+				      VectorComplexType const* rptr = vbprime_v.data() + iprimeb + niprime_block*(scr + 12*(fr + nf*x4d) );
 				    
 				      if(*alptr++ == 1){
 					sum = sum + (*lptr) * (*rptr);
@@ -542,9 +553,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
     size_t field_size = 12 * nf * vol4d;
     size_t vprime_bytes = field_size * blocksize * sizeof(VectorComplexType);
 
-    VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
-    VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(vprime_bytes);
-    
+    VprimeType vaprime(field_size * blocksize, AllocLocationPref::Device), vbprime(field_size * blocksize, AllocLocationPref::Device);
+
     LOGA2A << "Outer block size " << blocksize << std::endl
 	   << "vaprime " << double(vprime_bytes)/1024./1024. << " MB" << std::endl
 	   << "vbprime " << double(vprime_bytes)/1024./1024. << " MB" << std::endl;
@@ -580,6 +590,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 	auto r_v = r.view(DeviceRead,rmodes_used);	
        
 	CPSautoView(il_ir_pairs_v, il_ir_pairs, DeviceRead);
+	CPSautoView(vaprime_v,vaprime,DeviceWrite);
+	CPSautoView(vbprime_v,vbprime,DeviceWrite);
 
 	prefetch_start(iprimeblock, niprime_blocks, blocksize, niprime, l, r, il_ir_pairs);
 	
@@ -596,16 +608,16 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 			    for(int sc=0;sc<12;sc++){
 
 			      {
-				VectorComplexType *into = vaprime +  iprimeb + niprime_block*( sc + 12*(f + nf*x4d) ); //contiguous in summed index
+				VectorComplexType &into = vaprime_v[iprimeb + niprime_block*( sc + 12*(f + nf*x4d) )]; //contiguous in summed index
 				auto val = ACC::read(l_v.nativeElem(il_ir_pairs_v[iprime].first, x4d, sc, f));
 				val = conj_l ? Grid::conjugate(val) : val;
-				ACC::write(*into, val);
+				ACC::write(into, val);
 			      }
 			      {
-				VectorComplexType *into = vbprime + iprimeb + niprime_block*( sc + 12*(f + nf*x4d) );  //contiguous in summed index
+				VectorComplexType &into = vbprime_v[iprimeb + niprime_block*( sc + 12*(f + nf*x4d) )];  //contiguous in summed index
 				auto val = ACC::read(r_v.nativeElem(il_ir_pairs_v[iprime].second, x4d, sc, f));
 				val = conj_r ? Grid::conjugate(val) : val;
-				ACC::write(*into, val);
+				ACC::write(into, val);
 			      }
 
 			    }
@@ -629,10 +641,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
       prefetch_wait();
       
       time.vv += dclock();
-    }
-    
-    device_free(vaprime);
-    device_free(vbprime);
+    }   
   }//end of func
 
   static void implementation(PropagatorField &into,

@@ -153,5 +153,122 @@ void testAsyncTransferManager(){
   device_free(vto);
 }
 
+void testVectorWithAview(){
+  std::cout << "Starting testVectorWithAview" << std::endl;
+  {
+    //Test default constructor    
+    VectorWithAview<double, ExplicitCopyDiskBackedPoolAllocPolicy> v;
+    assert(v.size() == 0);
+    
+    //Test resize
+    v.resize(100);
+    assert(v.size() == 100);
+
+    //Test ability to write to full array on host
+    {
+      CPSautoView(v_v,v,HostWrite);
+      for(int i=0;i<100;i++) v_v[i] = (double)i;
+    }
+    {
+      CPSautoView(v_v,v,HostRead);
+      for(int i=0;i<100;i++) assert(v_v[i] == (double)i);
+    }
+
+    //Test ability to write to full array on device
+    {
+      CPSautoView(v_v,v,DeviceWrite);
+      using namespace Grid;
+      accelerator_for(i, 100, 1, {
+	  v_v[i] = (double)(2*i);
+	});
+    }
+    {
+      CPSautoView(v_v,v,HostRead);
+      for(int i=0;i<100;i++) assert(v_v[i] == (double)(2*i));
+    }
+  }
+
+  {
+    //Test size initialization
+    VectorWithAview<double, ExplicitCopyDiskBackedPoolAllocPolicy> v(100);
+    assert(v.size() == 100);
+
+    {
+      CPSautoView(v_v,v,HostWrite);
+      for(int i=0;i<100;i++) v_v[i] = (double)(3*i);
+    }
+    //Test copy construction
+    VectorWithAview<double, ExplicitCopyDiskBackedPoolAllocPolicy> w(v);
+
+    {
+      CPSautoView(w_v,v,HostRead);
+      for(int i=0;i<100;i++) assert(w_v[i] == (double)(3*i));
+    }
+    
+    //Test move construction
+    void* pw;
+    {
+      CPSautoView(w_v,w,HostRead);
+      pw = w_v();
+    }
+
+    VectorWithAview<double, ExplicitCopyDiskBackedPoolAllocPolicy> x(std::move(w));
+    assert(x.size() == 100);
+    assert(w.size() == 0);
+    
+    {
+      CPSautoView(x_v,x,HostRead);
+      for(int i=0;i<100;i++) assert(x_v[i] == (double)(3*i));
+    }
+    
+    void *px;
+    {
+      CPSautoView(x_v,x,HostRead);
+      px = x_v();
+    }
+    assert(px == pw);
+  }
+
+  {
+    VectorWithAview<double, ExplicitCopyDiskBackedPoolAllocPolicy> v(100);
+    {
+      CPSautoView(v_v,v,HostWrite);
+      for(int i=0;i<100;i++) v_v[i] = (double)(3*i);
+    }
+    //Test copy
+    VectorWithAview<double, ExplicitCopyDiskBackedPoolAllocPolicy> w;
+    w = v;
+
+    {
+      CPSautoView(w_v,v,HostRead);
+      for(int i=0;i<100;i++) assert(w_v[i] == (double)(3*i));
+    }
+    
+    //Test move
+    void* pw;
+    {
+      CPSautoView(w_v,w,HostRead);
+      pw = w_v();
+    }
+
+    VectorWithAview<double, ExplicitCopyDiskBackedPoolAllocPolicy> x;
+    x = std::move(w);
+    assert(x.size() == 100);
+    assert(w.size() == 0);
+    
+    {
+      CPSautoView(x_v,x,HostRead);
+      for(int i=0;i<100;i++) assert(x_v[i] == (double)(3*i));
+    }
+    
+    void *px;
+    {
+      CPSautoView(x_v,x,HostRead);
+      px = x_v();
+    }
+    assert(px == pw);
+  }
+  std::cout << "Passed testVectorWithAview" << std::endl;
+}
 
 CPS_END_NAMESPACE

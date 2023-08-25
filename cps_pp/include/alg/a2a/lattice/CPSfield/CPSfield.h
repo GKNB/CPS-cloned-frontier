@@ -32,7 +32,7 @@ protected:
   size_t fsize; //number of SiteType in the array = SiteSize * fsites
 
   void alloc(){
-    this->_alloc(fsize*sizeof(SiteType));
+    this->_alloc(fsize*sizeof(SiteType), AllocLocationPref::Host); //default host allocate for now in order to avoid CPS and Grid competing for device mem during the stage when CPS is employing Grid
   }
   void freemem(){
     this->_free();
