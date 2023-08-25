@@ -110,6 +110,7 @@ void computeKtoSigmaContractions(const Vtype &V, Wtype &W,
 #endif
     }
     a2a_print_time("main","K->sigma type 1/2",time+dclock());
+    printMem("Memory after K->sigma type 1/2");
   }
 
   //Type3
@@ -129,6 +130,7 @@ void computeKtoSigmaContractions(const Vtype &V, Wtype &W,
 #endif
     }
     a2a_print_time("main","K->sigma type 3",time+dclock());
+    printMem("Memory after K->sigma type 3");	
   }  
 
   //Type4
@@ -146,6 +148,7 @@ void computeKtoSigmaContractions(const Vtype &V, Wtype &W,
     os << ".hexfloat"; write(os.str(), result, mix, true);
 #endif
     a2a_print_time("main","K->sigma type 4",time+dclock());
+    printMem("Memory after K->sigma type 4");	
   }
 
   printMem("Memory at end of K->sigma contractions");

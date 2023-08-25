@@ -20,7 +20,7 @@ public:
     r._move(*this);
   }
   VectorWithAview & operator=(VectorWithAview &&r){
-    _free();
+    this->_free();
     sz = r.sz;
     alloc_loc = r.alloc_loc;
     r._move(*this);
@@ -36,7 +36,7 @@ public:
   }
 
   VectorWithAview & operator=(const VectorWithAview &r){
-    _free();
+    this->_free();
     sz = r.sz;
     alloc_loc = r.alloc_loc;
     this->_alloc(sz * sizeof(T));

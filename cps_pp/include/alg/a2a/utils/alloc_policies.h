@@ -91,7 +91,7 @@ class HostAllocPolicy{
 protected:
   struct AllocView{
     void* ptr;
-    accelerator_inline void* operator()(){ return ptr; }
+    accelerator_inline void* operator()() const{ return ptr; }
 
     AllocView() = default;
     AllocView(const AllocView &r) = default;
@@ -147,7 +147,7 @@ protected:
   struct AllocView{
     hostDeviceMirroredContainer<char>::View v;
     
-    accelerator_inline void* operator()(){ return (void*)v.data(); }
+    accelerator_inline void* operator()() const{ return (void*)v.data(); }
 
     AllocView() = default;
     AllocView(const AllocView &r) = default;
@@ -200,7 +200,7 @@ public:
 class NullAllocPolicy{
 protected:
   struct AllocView{
-    accelerator_inline void* operator()(){ return nullptr; }
+    accelerator_inline void* operator()() const{ return nullptr; }
     void free(){}
   };
 
@@ -238,7 +238,7 @@ protected:
     void* ptr;
     DeviceMemoryPoolManager::HandleIterator h;
     
-    accelerator_inline void* operator()(){ return ptr; }
+    accelerator_inline void* operator()() const{ return ptr; }
 
     AllocView() = default;
     AllocView(const AllocView &r) = default;
@@ -312,7 +312,7 @@ protected:
     void* ptr;
     HolisticMemoryPoolManager::HandleIterator h;
     
-    accelerator_inline void* operator()(){ return ptr; }
+    accelerator_inline void* operator()() const{ return ptr; }
 
     AllocView() = default;
     AllocView(const AllocView &r) = default;
