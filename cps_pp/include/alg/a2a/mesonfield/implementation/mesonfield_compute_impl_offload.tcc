@@ -1128,12 +1128,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     //Allocate work item temp memory
     const size_t multiplicity = this->accumMultiplicity();
     const size_t naccum = bi * bj * bx * multiplicity;
-    accumType *accum = (accumType*)device_alloc_check(naccum*sizeof(accumType));
-#ifndef MF_REDUCE_ON_DEVICE
-    //Require host location to stage from
-    accumType *accum_host = (accumType*)malloc_check(naccum*sizeof(accumType));    
-#endif
-    
+
+    VectorWithAview<accumType, typename mf_Policies::AllocPolicy> accum(naccum, AllocLocationPref::Device);   
     LOGA2A << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
     
 
@@ -1274,6 +1270,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	  CPSautoView(site_offsets_i_v,site_offsets_i,DeviceRead);
 	  CPSautoView(base_ptrs_j_v,base_ptrs_j,DeviceRead);
 	  CPSautoView(site_offsets_j_v,site_offsets_j,DeviceRead);
+
 	  ptr_setup_time += dclock();
 
 	  //Chunk over x-blocks
@@ -1293,6 +1290,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    
 	    using namespace Grid;
 	    {
+	      CPSautoView(accum_v, accum, DeviceReadWrite);
 	      accelerator_for(elem, nwork, Nsimd, 
 			      {
 #ifdef MF_OFFLOAD_INNER_BLOCKING
@@ -1324,7 +1322,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 				int x = xx+x0;
 #endif
 				
-				accumType *into = accum + multiplicity*(xx + bx*(jj + bj*ii));
+				accumType *into = accum_v.data() + multiplicity*(xx + bx*(jj + bj*ii));
 				typename SIMT<accumType>::value_type zero; Grid::zeroit(zero);
 				for(int m=0;m<multiplicity;m++)			      
 				  SIMT<accumType>::write(into[m], zero);
@@ -1336,16 +1334,21 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 				
 				M_v(acc,lptr,rptr,x,t);
 			      });
-	    };
+	    }
 	    kernel_time += dclock();
 	    
 	    reduce_time -= dclock();
-#ifndef MF_REDUCE_ON_DEVICE
-	    copy_device_to_host(accum_host, accum, naccum*sizeof(accumType));
-	    this->reduce(mf_t, accum_host, i0, j0, bi_true, bj_true, bj, t, bx_true);
+
+#ifndef MF_REDUCE_ON_DEVICE	    
+	    ViewMode md = HostReadWrite;
 #else
-	    this->reduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, bx_true);
-#endif	    
+	    ViewMode md = DeviceReadWrite;
+#endif
+	    {
+	      CPSautoView(accum_v, accum, md);
+	      this->reduce(mf_t, accum_v.data(), i0, j0, bi_true, bj_true, bj, t, bx_true);
+	    }
+
 	    reduce_time += dclock();
 
 	    if(x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) device_profile_stop();
@@ -1381,12 +1384,6 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     this->nodeSum(mf_t,Lt);
 #endif
     a2a_print_time("A2AmesonField","nodeSum",time + dclock());
-    
-    device_free(accum);
-
-#ifndef MF_REDUCE_ON_DEVICE
-    free(accum_host);
-#endif
     a2a_print_time("A2AmesonField","total",total_time + dclock());
   }
  
