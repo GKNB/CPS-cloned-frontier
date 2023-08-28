@@ -423,4 +423,99 @@ void testWunitaryUnitaryRandomSrc(A2AArg a2a_arg, const typename SIMDpolicyBase<
 }
 
 
+template<typename A2Apolicies>
+void testWunitaryRotYRandomSrc(A2AArg a2a_arg, const typename SIMDpolicyBase<4>::ParamType &simd_dims, Lattice &lat){
+  std::cout << "Starting testWunitaryRotYRandomSrc" << std::endl;
+
+  typedef typename A2Apolicies::FermionFieldType FermionFieldType;
+  typedef typename A2Apolicies::ComplexFieldType ComplexFieldType;
+
+  typedef typename A2Apolicies::ScalarFermionFieldType ScalarFermionFieldType;
+  typedef typename A2Apolicies::ScalarComplexFieldType ScalarComplexFieldType;
+
+  FermionFieldType tmp_ferm(simd_dims);
+  NullObject null_obj;
+  ScalarFermionFieldType tmp_ferm_s(null_obj);
+
+  a2a_arg.nl = 0;
+
+  int nf = GJP.Gparity()+1;
+
+  A2AvectorWunitary<A2Apolicies> Wu(a2a_arg,simd_dims);
+  
+  A2AhighModeSourceFlavorRotY<A2Apolicies> src_pol;
+  src_pol.setHighModeSources(Wu);
+
+  typedef typename getPropagatorFieldType<A2Apolicies>::type PropagatorField;
+
+  {
+    //Test unitary source by computing   W(x) W^dag(x)
+    PropagatorField pfield(simd_dims);
+    mult(pfield,Wu,Wu,false,true);
+       
+    PropagatorField pfield_expect(simd_dims);
+    setUnit(pfield_expect);
+
+    PropagatorField pfield_diff = pfield - pfield_expect;
+
+    std::cout << "W unitary check: " << CPSmatrixFieldNorm2(pfield_diff) << std::endl;
+  }
+  {
+    //Show noise is only proportional to unit matrix and sigma2
+    A2AvectorWunitary<A2Apolicies> Wu_shift(a2a_arg,simd_dims);
+    for(int i=0;i<Wu.getNhighModes();i++) cyclicPermute( Wu_shift.getWh(i), Wu.getWh(i), 0, +1, 1);
+
+    PropagatorField pfield(simd_dims);
+
+    mult(pfield,Wu,Wu_shift,false,true);
+
+    std::cout << "Testing noise structure" << std::endl;
+
+    auto c0 = TraceIndex<2>(pfield);
+    std::cout << "sigma0: " << CPSmatrixFieldNorm2(c0) << std::endl;
+    
+    PropagatorField tmp(simd_dims);
+
+    tmp = pfield; pr(tmp,sigma1);
+    auto c1 = TraceIndex<2>(tmp);
+    std::cout << "sigma1: " << CPSmatrixFieldNorm2(c1) << std::endl;
+
+    tmp = pfield; pr(tmp,sigma2);
+    auto c2 = TraceIndex<2>(tmp);
+    std::cout << "sigma2: " << CPSmatrixFieldNorm2(c2) << std::endl;
+
+    tmp = pfield; pr(tmp,sigma3);
+    auto c3 = TraceIndex<2>(tmp);
+    std::cout << "sigma3: " << CPSmatrixFieldNorm2(c3) << std::endl;
+  }
+
+  if(0){
+    //Test W(x) W^dag(y)  ->   0  in large hit limit   
+    A2AvectorWunitary<A2Apolicies> Wu_shift(a2a_arg,simd_dims);
+    for(int i=0;i<Wu.getNhighModes();i++) cyclicPermute( Wu_shift.getWh(i), Wu.getWh(i), 0, +1, 1);
+
+    PropagatorField pfield_sum(simd_dims);
+    pfield_sum.zero();
+
+    PropagatorField pfield(simd_dims);
+
+    int iter=0;
+    while(iter < 15000){
+      mult(pfield,Wu,Wu_shift,false,true);
+      pfield_sum = pfield_sum + pfield;
+
+      pfield = cps::ComplexD(1./(iter+1)) * pfield_sum;
+
+      std::cout << "TEST " << iter << " " << CPSmatrixFieldNorm2(pfield) << std::endl;
+
+      src_pol.setHighModeSources(Wu);
+      for(int i=0;i<Wu.getNhighModes();i++) cyclicPermute( Wu_shift.getWh(i), Wu.getWh(i), 0, +1, 1);
+      ++iter;
+    }
+  }
+
+  std::cout << "testWunitaryRotYRandomSrc passed" << std::endl;
+}
+
+
 CPS_END_NAMESPACE

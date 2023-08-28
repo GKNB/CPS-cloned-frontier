@@ -450,4 +450,53 @@ public:
 };
 
 
+template<typename A2Apolicies>
+class A2AhighModeSourceFlavorRotY: public A2AhighModeSource<A2Apolicies>{
+public:
+  //Flavor structure
+  //exp(i \theta \sigma_2) = \cos \theta + i\sigma_2 \sin \theta
+  //|  c    s |
+  //| -s   c  |
+
+  //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
+  void setHighModeSources(A2AvectorWunitary<A2Apolicies> &into) const override{
+    LOGA2A << "Setting high-mode sources (flavor-Y rotation) for Wunitary" << std::endl;
+    typedef typename A2AvectorWunitary<A2Apolicies>::ScalarComplexFieldType ScalarComplexFieldType;
+    typedef typename ScalarComplexFieldType::FieldSiteType FieldSiteType;
+    NullObject null_obj;
+    int nhits = into.getNhits();
+    RandomType rand_type = into.getArgs().rand_type;
+    std::vector<ScalarComplexFieldType> tmp(into.getNhighModes(),null_obj);
+
+    LRG.SetInterval(1, 0);
+    size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
+    ViewArray<ScalarComplexFieldType> views(HostWrite,tmp);
+    for(size_t st = 0; st < sites; ++st) {
+      for(int j = 0; j < nhits; ++j) {
+	//To generate angle, use a U(1) random number and obtain the phase angle
+	FieldSiteType u;
+	LRG.AssignGenerator(st,0);
+	RandomComplex<FieldSiteType>::rand(&u,rand_type,FOUR_D);
+	
+	//u  =  cu + isu
+	int col_f0 = into.indexMap(j,0), col_f1 = into.indexMap(j,1);
+	*views[col_f0].site_ptr(st,0) = u.real();	
+	*views[col_f0].site_ptr(st,1) = -u.imag();
+	*views[col_f1].site_ptr(st,0) = u.imag();	
+	*views[col_f1].site_ptr(st,1) = u.real();
+      }
+    }
+    views.free();
+
+    into.setWh(tmp);
+  }    
+
+  void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{ 
+    ERR.General("A2AhighModeSourceFlavorRotY","setHighModeSources(A2AvectorW)", "Invalid W species");
+  }    
+
+};
+
+
+
 CPS_END_NAMESPACE
