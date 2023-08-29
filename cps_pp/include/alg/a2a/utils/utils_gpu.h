@@ -1244,7 +1244,7 @@ protected:
     if(pool == DevicePool){
       device_free(it->ptr); device_allocated -= it->bytes;
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Freed device memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
-    }else{ //DevicePool
+    }else{ //HostPool
       ::free(it->ptr); host_allocated -= it->bytes;
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Freed host memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;	
     }

@@ -5,8 +5,6 @@
 
 #ifdef GRID_HIP
 
-#define MF_REDUCE_ON_DEVICE
-
 template<typename ComplexType>
 __global__ void reduceKernel(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t bi_true, const size_t bj_true, const size_t bj, const size_t size_3d, const size_t multiplicity)
 {
@@ -62,17 +60,13 @@ void blockReduce(typename ComplexType::scalar_type* into, ComplexType const* fro
   }
 }
 
-#endif //GRID_HIP
-
-//Implementation of offloaded reduction kernel only CUDA currently
-#ifdef GRID_CUDA
+//end of GRID_HIP
+#elif defined(GRID_CUDA)
 
 CPS_END_NAMESPACE
 #include <cuda_profiler_api.h>
 //#include<int_fastdiv.h>
 CPS_START_NAMESPACE
-
-#define MF_REDUCE_ON_DEVICE
 
 template<typename ComplexType>
 __global__ void reduceKernel(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t bi_true, const size_t bj_true, const size_t bj, const size_t size_3d, const size_t multiplicity){
@@ -84,7 +78,7 @@ __global__ void reduceKernel(typename ComplexType::scalar_type* into, ComplexTyp
   int lane = threadIdx.x;
 
   //input off = m + multiplicity*(x + size_3d*(jj + bj*ii))
-  //output off = m + multiplicity*(jj + bj*ii)
+  //output off = m + multiplicity*(jj + bj_true*ii)
   
   ComplexType const* fb = from + m + multiplicity*size_3d*(jj + bj*ii); //x=0
   typename ComplexType::scalar_type* ib = into + m + multiplicity*(jj + bj_true*ii);
@@ -122,30 +116,56 @@ void blockReduce(typename ComplexType::scalar_type* into, ComplexType const* fro
   }
 }
 
-#endif //GRID_CUDA
+#else //end of GRID_CUDA
+
+//NB: into's size is bi_true*bj_true*multiplicity
+template<typename ComplexType>
+void blockReduce(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t bi_true, const size_t bj_true, const size_t bj, const size_t size_3d, const size_t multiplicity){
+  using namespace Grid;
+  accelerator_for2d(ii, bi_true, jj, bj_true, 1, {
+      for(int m=0; m<multiplicity; m++){
+	ComplexType const* fb = from + m + multiplicity*size_3d*(jj + bj*ii); //x=0
+	typename ComplexType::scalar_type* ib = into + m + multiplicity*(jj + bj_true*ii);
+
+	*ib = Reduce(fb[0]);
+	for(size_t x=1; x<size_3d; x++){
+	  *ib = *ib + Reduce(fb[multiplicity*x]);
+	}
+      }
+    });
+}
+
+#endif
+
 
 //acc(int m):  return a view to the meson field for multiplicity index m
 //m = {0..multiplicity-1}
-template<typename accumType, typename Accessor>
+template<typename AllocPolicy, typename accumType, typename Accessor>
 void mesonFieldComputeReduce(accumType const* accum,
 			     const size_t i0, const size_t j0, //block index
 			     const size_t bi_true, const size_t bj_true, //true size of this block
 			     const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 			     const size_t size_3d,
 			     const int multiplicity, const Accessor &acc){
-#ifdef MF_REDUCE_ON_DEVICE
-    double talloc_free = 0;
-    double tkernel = 0;
-    double tpoke = 0;
+  double talloc_free = 0;
+  double tkernel = 0;
+  double tpoke = 0;
   
-    double time = dclock();
-    Grid::ComplexD* tmp = (Grid::ComplexD*)managed_alloc_check(bi_true * bj_true * multiplicity * sizeof(Grid::ComplexD));
-    talloc_free += dclock() - time;
-    time = dclock();
-    blockReduce(tmp, accum, bi_true, bj_true, bj, size_3d, multiplicity);
-    tkernel += dclock() - time;
+  talloc_free -= dclock();
+  VectorWithAview<Grid::ComplexD, AllocPolicy> tmp(bi_true * bj_true * multiplicity, AllocLocationPref::Device);
+  talloc_free += dclock();
+  
+  tkernel -= dclock();
+  {
+    CPSautoView(tmp_v,tmp,DeviceWrite);
+    blockReduce(tmp_v.data(), accum, bi_true, bj_true, bj, size_3d, multiplicity);
+  }
+  tkernel += dclock();
+  
+  tpoke -= dclock();
+  {
+    CPSautoView(tmp_v,tmp,HostRead);
 
-    time = dclock();
 #pragma omp parallel for
     for(size_t z=0; z < bi_true*bj_true*multiplicity; z++){
       size_t rem = z;     
@@ -155,32 +175,12 @@ void mesonFieldComputeReduce(accumType const* accum,
       
       size_t i = ii+i0;
       size_t j = jj+j0;
-
-      acc(m)(i,j) += tmp[m + multiplicity *(jj + bj_true*ii)];
+      
+      acc(m)(i,j) += tmp_v[m + multiplicity *(jj + bj_true*ii)];
     }
-    tpoke += dclock() - time;
-
-    time = dclock();
-    managed_free(tmp);
-    talloc_free += dclock() - time;
-#else
-    //Reduce over size_3d
-    //(Do this on host for now) //GENERALIZE ME
-    for(int ii=0;ii<bi_true;ii++)
-      for(int jj=0;jj<bj_true;jj++){
-	size_t i = ii+i0;
-	size_t j = jj+j0;
-	accumType const* from_base = accum + multiplicity*size_3d*(jj + bj*ii);
-	for(int x=0;x<size_3d;x++)
-	  for(int m=0;m<multiplicity;m++)
-	    acc(m)(i,j) += Reduce(from_base[m + multiplicity*x]);    
-      }
-#endif
+  }
+  tpoke += dclock();
 }
-
-
-
-
 
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
@@ -221,14 +221,13 @@ struct SingleSrcVectorPoliciesSIMDoffload{
   }
 
   //Sum over x and SIMD reduce
-  //If MF_REDUCE_ON_DEVICE is defined then accum must be a device-accessible pointer, otherwise it should be a host pointer
   static inline void reduce(mfVectorType &mf_t, accumType const* accum,
 			    const size_t i0, const size_t j0, //block index
 			    const size_t bi_true, const size_t bj_true, //true size of this block
 			    const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 			    const int t, const size_t size_3d){
-    CPSautoView(mf_t_v,mf_t[t],HostWrite);
-    mesonFieldComputeReduce(accum, i0, j0, bi_true, bj_true, bj, size_3d, 1, [&](int m)->typename MesonFieldType::View &{ return mf_t_v; });
+    CPSautoView(mf_t_v,mf_t[t],HostReadWrite);
+    mesonFieldComputeReduce<typename mf_Policies::AllocPolicy>(accum, i0, j0, bi_true, bj_true, bj, size_3d, 1, [&](int m)->typename MesonFieldType::View &{ return mf_t_v; });
   }
   
 };
@@ -282,15 +281,14 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 
   
   //Sum over x and SIMD reduce
-  //If MF_REDUCE_ON_DEVICE is defined then accum must be a device-accessible pointer, otherwise it should be a host pointer  
   inline void reduce(mfVectorType &mf_st, accumType const* accum,
 		     const size_t i0, const size_t j0, //block index
 		     const size_t bi_true, const size_t bj_true, //true size of this block
 		     const int bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 		     const int t, const size_t size_3d) const{
     typedef typename MesonFieldType::View ViewType;
-    ViewAutoDestructWrapper<ViewType> views[mfPerTimeSlice]; for(int m=0;m<mfPerTimeSlice;m++) views[m].reset(new ViewType( (*mf_st[m])[t].view(HostWrite)));
-    mesonFieldComputeReduce(accum, i0, j0, bi_true, bj_true, bj, size_3d, mfPerTimeSlice, [&](int m)->ViewType &{ return *views[m]; });
+    ViewAutoDestructWrapper<ViewType> views[mfPerTimeSlice]; for(int m=0;m<mfPerTimeSlice;m++) views[m].reset(new ViewType( (*mf_st[m])[t].view(HostReadWrite)));
+    mesonFieldComputeReduce<typename mf_Policies::AllocPolicy>(accum, i0, j0, bi_true, bj_true, bj, size_3d, mfPerTimeSlice, [&](int m)->ViewType &{ return *views[m]; });
   }
   
 };
@@ -397,12 +395,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     //Allocate work item temp memory
     const size_t multiplicity = this->accumMultiplicity();
     const size_t naccum = bi * bj * bx * multiplicity;
-    accumType *accum = (accumType*)device_alloc_check(naccum*sizeof(accumType));
-#ifndef MF_REDUCE_ON_DEVICE
-    //Require host location to stage from
-    accumType *accum_host = (accumType*)malloc_check(naccum*sizeof(accumType));    
-#endif
-    
+    accumType *accum = (accumType*)device_alloc_check(naccum*sizeof(accumType));   
     LOGA2A << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
     
 
@@ -551,12 +544,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    if(kernel_exec_it % 50 == 0){ a2a_printf("Kernel iteration %zu / %zu\n", kernel_exec_it, kernel_execs ); }	    
 	    
 	    reduce_time -= dclock();
-#ifndef MF_REDUCE_ON_DEVICE
-	    copy_device_to_host(accum_host, accum, naccum*sizeof(accumType));
-	    this->reduce(mf_t, accum_host, i0, j0, bi_true, bj_true, bj, t, bx_true);
-#else
 	    this->reduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, bx_true);
-#endif	    
 	    reduce_time += dclock();
 
 #ifdef GRID_CUDA
@@ -592,11 +580,6 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     Free(site_offsets_i);
     Free(site_offsets_j);
     device_free(accum);
-
-#ifndef MF_REDUCE_ON_DEVICE
-    free(accum_host);
-#endif
-
   }
 
 
@@ -785,10 +768,6 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     const size_t multiplicity = this->accumMultiplicity();
     const size_t naccum = bi * bj * bx * multiplicity;
     accumType *accum = (accumType*)device_alloc_check(naccum*sizeof(accumType));
-#ifndef MF_REDUCE_ON_DEVICE
-    //Require host location to stage from
-    accumType *accum_host = (accumType*)malloc_check(naccum*sizeof(accumType));    
-#endif
     
     LOGA2A << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement for block MF accumulation is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
 
@@ -1016,12 +995,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    if(kernel_exec_it % 50 == 0){ a2a_printf("Kernel iteration %zu / %zu\n", kernel_exec_it, kernel_execs ); }	    
 	    
 	    reduce_time -= dclock();
-#ifndef MF_REDUCE_ON_DEVICE
-	    copy_device_to_host(accum_host, accum, naccum*sizeof(accumType));
-	    this->reduce(mf_t, accum_host, i0, j0, bi_true, bj_true, bj, t, bx_true);
-#else
 	    this->reduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, bx_true);
-#endif
 	    reduce_time += dclock();
 	    
 #ifdef GRID_CUDA
@@ -1055,9 +1029,6 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     a2a_print_time("A2AmesonField","nodeSum",time + dclock());
     
     device_free(accum);
-#ifndef MF_REDUCE_ON_DEVICE
-    free(accum_host);
-#endif
     a2a_print_time("A2AmesonField","total",total_time + dclock());
   }
 
@@ -1075,7 +1046,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 
     LOGA2A << "Initializing meson fields" << std::endl;
     double time = -dclock();
-    this->initializeMesonFields(mf_t,l,r,Lt,do_setup);
+    this->initializeMesonFields(mf_t,l,r,Lt,do_setup); //assumed to zero meson fields
     a2a_print_time("A2AmesonField","setup",time + dclock());
    
     time = -dclock();
@@ -1159,6 +1130,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 
     
     CPSautoView(M_v,M,DeviceRead);
+    CPSautoView(accum_v,accum,DeviceReadWrite); //keep open throughout
     
     double reduce_time = 0;
     double ptr_setup_time = 0;
@@ -1290,7 +1262,6 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    
 	    using namespace Grid;
 	    {
-	      CPSautoView(accum_v, accum, DeviceReadWrite);
 	      accelerator_for(elem, nwork, Nsimd, 
 			      {
 #ifdef MF_OFFLOAD_INNER_BLOCKING
@@ -1338,17 +1309,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    kernel_time += dclock();
 	    
 	    reduce_time -= dclock();
-
-#ifndef MF_REDUCE_ON_DEVICE	    
-	    ViewMode md = HostReadWrite;
-#else
-	    ViewMode md = DeviceReadWrite;
-#endif
-	    {
-	      CPSautoView(accum_v, accum, md);
-	      this->reduce(mf_t, accum_v.data(), i0, j0, bi_true, bj_true, bj, t, bx_true);
-	    }
-
+	    this->reduce(mf_t, accum_v.data(), i0, j0, bi_true, bj_true, bj, t, bx_true);
 	    reduce_time += dclock();
 
 	    if(x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) device_profile_stop();
