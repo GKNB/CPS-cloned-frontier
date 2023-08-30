@@ -476,7 +476,7 @@ public:
 	//To generate angle, use a U(1) random number and obtain the phase angle
 	FieldSiteType u;
 	LRG.AssignGenerator(st,0);
-	RandomComplex<FieldSiteType>::rand(&u,rand_type,FOUR_D);
+	RandomComplex<FieldSiteType>::rand(&u,UONE,FOUR_D);
 	
 	//u  =  cu + isu
 	int col_f0 = into.indexMap(j,0), col_f1 = into.indexMap(j,1);

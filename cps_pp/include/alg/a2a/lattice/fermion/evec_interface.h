@@ -68,7 +68,7 @@ public:
   //Get the deflated guess for a set of 5D source vectors
   //if use_Nevecs is set the number of evecs used will be constrained to that number
   virtual void deflatedGuessDp(GridFermionFieldD *out, GridFermionFieldD const *in, int Nfield, int use_Nevecs = -1) const{
-    if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
+    if(use_Nevecs == -1) use_Nevecs = this->nEvecs();
     else assert(use_Nevecs <= this->nEvecs());    
     basicDeflatedGuess(out, in, Nfield, use_Nevecs, [&](GridFermionFieldD &into, const int i){ return this->getEvecD(into,i); });
   }
@@ -131,7 +131,7 @@ public:
   virtual double getEvecF(GridFermionFieldF &into, const int idx) const = 0;
 
   virtual void deflatedGuessFp(GridFermionFieldF *out, GridFermionFieldF const *in, int Nfield, int use_Nevecs = -1) const{
-    if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
+    if(use_Nevecs == -1) use_Nevecs = this->nEvecs();
     else assert(use_Nevecs <= this->nEvecs());    
     basicDeflatedGuess(out, in, Nfield, use_Nevecs, [&](GridFermionFieldF &into, const int i){ return this->getEvecF(into,i); });
   }
@@ -409,7 +409,7 @@ public:
   
   //Perform the deflation in the blocked space to avoid uncompression overheads
   void deflatedGuessDp(GridFermionFieldD *out, GridFermionFieldD const *in, int Nfield, int use_Nevecs = -1) const override{
-    if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
+    if(use_Nevecs == -1) use_Nevecs = this->nEvecs();
     else assert(use_Nevecs <= this->nEvecs());    
 
     assert(m_coarseEvecsD.size() > 0);
@@ -423,7 +423,7 @@ public:
   }
 
   void deflatedGuessFp(GridFermionFieldF *out, GridFermionFieldF const *in, int Nfield, int use_Nevecs = -1) const override{
-    if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
+    if(use_Nevecs == -1) use_Nevecs = this->nEvecs();
     else assert(use_Nevecs <= this->nEvecs());    
 
     assert(m_coarseEvecsD.size() > 0);
@@ -493,7 +493,7 @@ public:
   
   //Perform the deflation in the blocked space to avoid uncompression overheads
   void deflatedGuessDp(GridFermionFieldD *out, GridFermionFieldD const *in, int Nfield, int use_Nevecs = -1) const override{
-    if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
+    if(use_Nevecs == -1) use_Nevecs = this->nEvecs();
     else assert(use_Nevecs <= this->nEvecs());    
 
     assert(m_coarseEvecsF.size() > 0);
@@ -508,7 +508,7 @@ public:
   }
 
   void deflatedGuessFp(GridFermionFieldF *out, GridFermionFieldF const *in, int Nfield, int use_Nevecs = -1) const override{
-    if(use_Nevecs = -1) use_Nevecs = this->nEvecs();
+    if(use_Nevecs == -1) use_Nevecs = this->nEvecs();
     else assert(use_Nevecs <= this->nEvecs());    
 
     assert(m_coarseEvecsF.size() > 0);
