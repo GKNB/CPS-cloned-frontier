@@ -104,7 +104,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   IRL.calc(eval,evec,
 	   src,
 	   Nconv
-	   , true
+	   , false
 	   );
   
   a2a_print_time("gridLanczos","Algorithm",time+dclock());
@@ -374,7 +374,10 @@ void gridBlockLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionFie
   
   int Nconv; //ignore this, the evecs will be resized to Nstop  
   IRL.calc(eval,evec,src,Nconv,Grid::LanczosType::rbl);
- 
+  //Block Lanczos sorts the output in descending order, we want ascending
+  std::reverse(eval.begin(),eval.end());
+  std::reverse(evec.begin(),evec.end());
+
   a2a_print_time("gridLanczos","Algorithm",time+dclock());
 #endif
   delete HermOp;
