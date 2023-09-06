@@ -226,6 +226,12 @@ struct computeVW_impl{
       }else{
 	assert(0);
       }
+#ifdef A2A_CHECKPOINT_INVERSIONS
+      //This compile option will checkpoint around every block of inversions performed, allowing much finer grained checkpointing
+      //WARNING: these are only reusable between runs if the sources and eigenvectors are identical to the run in which they were generated
+      std::unique_ptr<A2Ainverter5dBase<GridFermionFieldD> > inv5d_int(std::move(inv5d));
+      inv5d.reset(new A2Ainverter5dCheckpointWrapper<GridFermionFieldD>(*inv5d_int, SchurOpD.getLinOp(), cg.CG_tolerance));
+#endif
 
 #if 0
       //Slower, original version

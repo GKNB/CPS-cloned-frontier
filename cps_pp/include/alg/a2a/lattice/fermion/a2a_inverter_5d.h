@@ -257,6 +257,58 @@ public:
   }
 };
 
+template<typename _GridFermionFieldD>
+class A2Ainverter5dCheckpointWrapper: public A2Ainverter5dBase<_GridFermionFieldD>{
+public:
+  typedef _GridFermionFieldD GridFermionFieldD;
+private:
+  A2Ainverter5dBase<GridFermionFieldD> &solver;
+  static int idx(){
+    static int i = 0;
+    return i++;
+  }
+
+  //Maintain a regular CG to check solutions!
+  Grid::LinearOperatorBase<GridFermionFieldD> & LinOp;
+  Grid::ConjugateGradient<GridFermionFieldD> cg;
+
+public:
+
+
+  A2Ainverter5dCheckpointWrapper(A2Ainverter5dBase<GridFermionFieldD> &_solver, 
+				 Grid::LinearOperatorBase<GridFermionFieldD> &_LinOp, double _tol): solver(_solver), LinOp(_LinOp), cg(_tol,10000){}
+  
+  void invert5Dto5D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in) const override{
+    assert(out.size() == in.size());
+    std::string filename = "cgwrapper_ckpoint_" + std::to_string(idx());    
+    Grid::GridBase* grid = in[0].Grid();
+    Grid::emptyUserRecord record;
+    if(checkFileExists(filename)){
+      std::cout << "A2Ainverter5dCheckpointWrapper reloading checkpoint " << filename << std::endl;
+      Grid::ScidacReader RD;
+      RD.open(filename);
+      for(int i=0; i<out.size();i++)
+	RD.readScidacFieldRecord(out[i],record);
+      RD.close();
+
+      //Check; should converge immediately
+      for(int i=0; i<out.size();i++)
+	const_cast<Grid::ConjugateGradient<GridFermionFieldD> &>(cg)(LinOp, in[i], out[i]);
+
+    }else{
+      solver.invert5Dto5D(out,in);
+      cps::sync();      
+      std::cout << "A2Ainverter5dCheckpointWrapper writing checkpoint " << filename << std::endl;
+      Grid::ScidacWriter WR(grid->IsBoss());
+      WR.open(filename);
+      for(int i=0; i<in.size();i++)
+	WR.writeScidacFieldRecord(out[i],record);
+      WR.close();
+    }
+  }
+};
+
+
 CPS_END_NAMESPACE
 
 #endif

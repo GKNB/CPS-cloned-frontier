@@ -227,6 +227,10 @@ inline bool checkDirExists(const std::string& dir){
   return false; //never reached
 }
 
+inline bool checkFileExists(const std::string& name) {
+  struct stat buffer;   
+  return (stat (name.c_str(), &buffer) == 0); 
+}
 
 inline void makedir(const std::string& dir, const mode_t mode = 0775){
   if(!UniqueID()){
