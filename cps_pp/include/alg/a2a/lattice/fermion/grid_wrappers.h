@@ -64,7 +64,7 @@ int testEigenvectors(const EvecInterface<GridFermionFieldD> &evecs, const double
       tmp1 = tmp1 * (1.0/std::sqrt(nn));
       
       HermOp->HermOp(tmp1,tmp2);
-      double vnum = real(innerProduct(tmp1,tmp2)); // HermOp.
+      double vnum = Grid::real(innerProduct(tmp1,tmp2)); // HermOp.
       double vden = norm2(tmp1);
       double na = vnum/vden;
       if (fabs(evalMaxApprox/na - 1.0) < 0.0001)
