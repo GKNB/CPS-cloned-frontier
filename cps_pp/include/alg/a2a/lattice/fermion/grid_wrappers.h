@@ -48,6 +48,32 @@ int testEigenvectors(const EvecInterface<GridFermionFieldD> &evecs, const double
   
   conformable(FrbGrid, evecs.getEvecGridD());
   GridFermionFieldD tmp1(FrbGrid), tmp2(FrbGrid), tmp3(FrbGrid), evec(FrbGrid);
+  
+  //Grid normalizes the residual with respect to the largest eigenvalue
+  Grid::RealD evalMaxApprox = 0.0;
+  {  
+    Grid::GridParallelRNG RNG(FGrid);
+    RNG.SeedFixedIntegers({1,2,3,4});
+    GridFermionFieldD gauss(FGrid);   
+    gaussian(RNG, gauss); 
+    pickCheckerboard(Odd, tmp1, gauss);
+
+    for (int i=0;i<50;i++) {
+      //normalize
+      double nn = norm2(tmp1);
+      tmp1 = tmp1 * (1.0/std::sqrt(nn));
+      
+      HermOp->HermOp(tmp1,tmp2);
+      double vnum = real(innerProduct(tmp1,tmp2)); // HermOp.
+      double vden = norm2(tmp1);
+      double na = vnum/vden;
+      if (fabs(evalMaxApprox/na - 1.0) < 0.0001)
+	i=50;
+      evalMaxApprox = na;
+      LOGA2A << " Approximation of largest eigenvalue: " << evalMaxApprox << std::endl;
+      tmp1 = tmp2;
+    }
+  }
 
   int N = evecs.nEvecs();
   int Nconv = 0;
@@ -60,7 +86,7 @@ int testEigenvectors(const EvecInterface<GridFermionFieldD> &evecs, const double
 
     tmp3 = eval * evec; //tmp3 = lambda v
 
-    double nrm = sqrt(axpy_norm(tmp1, -1., tmp2, tmp3)); //tmp1 = tmp3 - tmp2
+    double nrm = sqrt(axpy_norm(tmp1, -1., tmp2, tmp3)) / evalMaxApprox; //tmp1 = tmp3 - tmp2
     
     int conv = nrm < tol;
     a2a_printf("Idx %d Eval %g Resid %g #Evecs %d #Evals %d %s\n",i,eval,nrm,N,N, conv ? "converged" : "NOT converged");
