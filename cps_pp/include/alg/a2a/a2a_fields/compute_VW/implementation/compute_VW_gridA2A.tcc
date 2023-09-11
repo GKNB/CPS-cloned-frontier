@@ -226,25 +226,35 @@ struct computeVW_impl{
       }else{
 	assert(0);
       }
-#ifdef A2A_CHECKPOINT_INVERSIONS
-      //This compile option will checkpoint around every block of inversions performed, allowing much finer grained checkpointing
-      //WARNING: these are only reusable between runs if the sources and eigenvectors are identical to the run in which they were generated
-      std::unique_ptr<A2Ainverter5dBase<GridFermionFieldD> > inv5d_int(std::move(inv5d));
-      inv5d.reset(new A2Ainverter5dCheckpointWrapper<GridFermionFieldD>(*inv5d_int, SchurOpD.getLinOp(), cg.CG_tolerance));
-#endif
 
+// #ifdef A2A_CHECKPOINT_INVERSIONS
+//COMMENTED OUT BECAUSE FILES ARE WAY TOO LARGE!
+//       //This compile option will checkpoint around every block of inversions performed, allowing much finer grained checkpointing
+//       //WARNING: these are only reusable between runs if the sources and eigenvectors are identical to the run in which they were generated
+//       std::unique_ptr<A2Ainverter5dBase<GridFermionFieldD> > inv5d_int(std::move(inv5d));
+//       inv5d.reset(new A2Ainverter5dCheckpointWrapper<GridFermionFieldD>(*inv5d_int, SchurOpD.getLinOp(), cg.CG_tolerance));
+// #endif
+      
+      std::unique_ptr< A2AhighModeCompute<GridFermionFieldD> > vwhighimpl;     
 #if 0
       //Slower, original version
       A2AdeflatedInverter5dWrapper<GridFermionFieldD> inv5d_defl_wrap(evecs, *inv5d);
       A2Ainverter4dSchurPreconditioned<GridDiracD> inv4d(SchurOpD, inv5d_defl_wrap);  
-      A2AhighModeComputeGeneric<GridFermionFieldD> vwhighimpl(vwlowimpl, inv4d);
+      vwhighimpl.reset(new A2AhighModeComputeGeneric<GridFermionFieldD>(vwlowimpl, inv4d));
 #else
       //Use the high mode implementation that combines the low mode part calculation with computing the guess
       //No need for initial deflation
-      A2AhighModeComputeSchurPreconditioned<GridDiracD> vwhighimpl(SchurOpD, *inv5d);
+      vwhighimpl.reset(new A2AhighModeComputeSchurPreconditioned<GridDiracD>(SchurOpD, *inv5d));
 #endif
 
-      computeVWhigh(V,W,*Wsrc_impl,evecs,vwhighimpl, cg.multiCG_block_size);
+#ifdef A2A_CHECKPOINT_INVERSIONS
+      //WARNING: these are only reusable between runs if the sources and eigenvectors are identical to the run in which they were generated
+      //Unfortunately, because these are 4D solutions there is no way to check this!
+      std::unique_ptr< A2AhighModeCompute<GridFermionFieldD> > vwhighimpl_int(std::move(vwhighimpl));
+      vwhighimpl.reset(new A2AhighModeComputeCheckpointWrapper<GridFermionFieldD>(*vwhighimpl_int));
+#endif
+
+      computeVWhigh(V,W,*Wsrc_impl,evecs,*vwhighimpl, cg.multiCG_block_size);
     }
   }
 };

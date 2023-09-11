@@ -127,6 +127,52 @@ public:
 
 };
 
+
+template<typename _GridFermionFieldD>
+class A2AhighModeComputeCheckpointWrapper: public A2AhighModeCompute<_GridFermionFieldD>{
+public:
+  typedef _GridFermionFieldD GridFermionFieldD;
+private:
+  const A2AhighModeCompute<GridFermionFieldD> &solver;
+  static int idx(){
+    static int i = 0;
+    return i++;
+  }
+public:
+  A2AhighModeComputeCheckpointWrapper(const A2AhighModeCompute<GridFermionFieldD> &solver): solver(solver){}
+
+  Grid::GridBase* get4Dgrid() const override{ return solver.get4Dgrid(); }
+
+  //The calculation of the low mode contribution to be subtracted from the high mode component is also dependent on the preconditioning scheme
+  //Input and output are 4D fields
+  void highModeContribution4D(std::vector<GridFermionFieldD> &out, const std::vector<GridFermionFieldD> &in, 
+			      const EvecInterface<GridFermionFieldD> &evecs, const int nl) const override{
+    assert(out.size() == in.size());
+    std::string filename = "cgwrapper4d_ckpoint_" + std::to_string(idx());    
+    Grid::GridBase* grid = in[0].Grid();
+    Grid::emptyUserRecord record;
+    if(checkFileExists(filename)){
+      std::cout << "A2AhighModeComputeCheckpointWrapper reloading checkpoint " << filename << std::endl;
+      Grid::ScidacReader RD;
+      RD.open(filename);
+      for(int i=0; i<out.size();i++)
+	RD.readScidacFieldRecord(out[i],record);
+      RD.close();
+    }else{
+      solver.highModeContribution4D(out,in,evecs,nl);
+      cps::sync();      
+      std::cout << "A2AhighModeComputeCheckpointWrapper writing checkpoint " << filename << std::endl;
+      Grid::ScidacWriter WR(grid->IsBoss());
+      WR.open(filename);
+      for(int i=0; i<in.size();i++)
+	WR.writeScidacFieldRecord(out[i],record);
+      WR.close();
+    }
+  }
+ 
+};
+
+
 CPS_END_NAMESPACE
 
 #endif
