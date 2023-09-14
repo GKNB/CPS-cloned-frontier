@@ -518,4 +518,72 @@ void testWunitaryRotYRandomSrc(A2AArg a2a_arg, const typename SIMDpolicyBase<4>:
 }
 
 
+template<typename A2Apolicies>
+void testSourceConvergence(A2AArg a2a_arg, const typename SIMDpolicyBase<4>::ParamType &simd_dims, const typename SIMDpolicyBase<3>::ParamType &simd_dims_3d, typename A2Apolicies::FgridGFclass &lat){
+  typedef typename A2Apolicies::ScalarComplexType ScalarComplexType;
+  typedef typename A2Apolicies::GridFermionField GridFermionFieldD;
+  typedef typename A2Apolicies::GridFermionFieldF GridFermionFieldF;
+
+  a2a_arg.nl = 0;
+
+  CGcontrols cg_orig;
+  cg_orig.CGalgorithm = AlgorithmMixedPrecisionReliableUpdateCG;
+  cg_orig.CG_tolerance = 1e-8;
+  cg_orig.CG_max_iters = 10000;
+  cg_orig.reliable_update_delta = 0.1;
+  cg_orig.reliable_update_transition_tol = 0;
+  cg_orig.highmode_source = A2AhighModeSourceTypeOrig;
+  cg_orig.multiCG_block_size = 1;
+
+  CGcontrols cg_new = cg_orig;
+  cg_new.highmode_source = A2AhighModeSourceTypeXconj;
+
+  typedef A2AvectorV<A2Apolicies> Vtype;
+  typedef A2AvectorW<A2Apolicies> Wtype;
+
+  ThreeMomentum p(2,2,2);
+  EvecInterfaceMixedPrecNone<GridFermionFieldD, GridFermionFieldF> eveci(lat.getFrbGrid(), lat.getFrbGridF());
+  StandardPionMomentaPolicy mompol;
+
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  fVector<ScalarComplexType> Vdis_sum_orig(Lt), Vdis_sum_new(Lt);
+
+  for(int hit=0;hit<100;hit++){
+    
+    //Orig
+    {
+      Wtype W(a2a_arg,simd_dims);
+      Vtype V(a2a_arg,simd_dims);      
+      computeVW(V,W,lat,eveci,0.01,cg_orig);      
+      MesonFieldMomentumContainer<getMesonFieldType<Wtype,Vtype> > mf_ll_con;
+      computeGparityLLmesonFields1sSumOnTheFly<Vtype,Wtype,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con, mompol, W, V, 2, lat, simd_dims_3d);
+      fVector<ScalarComplexType> Vdis;
+      ComputePiPiGparity<Vtype,Wtype>::computeFigureVdis(Vdis, p, 3, mf_ll_con);
+      assert(Vdis.size() == Lt);
+      for(int t=0;t<Lt;t++) Vdis_sum_orig(t) += Vdis(t);
+    }
+    //New
+    {
+      Wtype W(a2a_arg,simd_dims);
+      Vtype V(a2a_arg,simd_dims);      
+      computeVW(V,W,lat,eveci,0.01,cg_new);      
+      MesonFieldMomentumContainer<getMesonFieldType<Wtype,Vtype> > mf_ll_con;
+      computeGparityLLmesonFields1sSumOnTheFly<Vtype,Wtype,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con, mompol, W, V, 2, lat, simd_dims_3d);
+      fVector<ScalarComplexType> Vdis;
+      ComputePiPiGparity<Vtype,Wtype>::computeFigureVdis(Vdis, p, 3, mf_ll_con);
+      assert(Vdis.size() == Lt);
+      for(int t=0;t<Lt;t++) Vdis_sum_new(t) += Vdis(t);
+    }
+
+    for(int t=0;t<Lt;t++){
+      std::cout << "TEST " << hit << " " << t << " " << Vdis_sum_orig(t) * (1./(hit+1)) << " " << Vdis_sum_new(t) * (1./(hit+1)) << std::endl;
+    }
+  }
+
+
+
+  
+}
+
+
 CPS_END_NAMESPACE

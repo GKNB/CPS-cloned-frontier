@@ -238,12 +238,11 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testMesonFieldComputeSingleMulti<A2Apolicies_std>(a2a_arg, tol);
   
   if(1) testMesonFieldComputePackedReferenceSIMD<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, tol, simd_dims);
-  */
+
   if(1) testGridMesonFieldCompute<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
  
   if(1) testGridMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testGridShiftMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  /*
 
   if(1) testFFTopt<A2Apolicies_std>();
 #ifdef USE_GRID
@@ -375,6 +374,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) testVectorWithAview();
   */
+
+  testSourceConvergence<A2Apolicies_grid>(a2a_arg, simd_dims, simd_dims_3d, lattice);
 }
 
 
