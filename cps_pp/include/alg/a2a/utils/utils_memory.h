@@ -93,7 +93,23 @@ inline std::string memPoolManagerReport();
 
 //Print memory usage
 inline void printMem(const std::string &reason = "", int node = 0, FILE* stream = stdout){
+#ifdef USE_GRID
+  std::string time_str = "unknown";
+  if(!omp_in_parallel()){ //Grid's global stopwatch is not thread safe
+    using namespace Grid;
+    Logger::GlobalStopWatch.Stop();
+    GridTime time = Grid::Logger::GlobalStopWatch.Elapsed();
+    Logger::GlobalStopWatch.Start();
+    std::ostringstream ss; ss << time; time_str = ss.str();
+  }
+  if(UniqueID()==node){
+    fprintf(stream,"printMem node %d : %s s",node,time_str.c_str());    
+    if(reason != "") fprintf(stream, ": called with reason: %s", reason.c_str());
+    fprintf(stream,"\n");
+  }
+#else    
   if(UniqueID()==node && reason != "") fprintf(stream, "printMem node %d called with reason: %s\n", node, reason.c_str());
+#endif
   
 #ifdef ARCH_BGQ
   #warning "printMem using ARCH_BGQ"
