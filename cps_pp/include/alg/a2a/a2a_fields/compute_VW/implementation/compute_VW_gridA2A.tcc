@@ -61,7 +61,8 @@ struct computeVW_impl{
 
     LOGA2A << Nsplit << " split Grids" << std::endl;
     LOGA2A << "Setting up double precision split grids" << std::endl;
-   
+    printMem("Prior to setting up double-precision split grids");
+    
     SUGridD.reset(new Grid::GridCartesian(UGridD->_fdimensions,
 					  UGridD->_simd_layout,
 					  split_grid_proc,
@@ -71,7 +72,8 @@ struct computeVW_impl{
     SUrbGridD.reset(Grid::SpaceTimeGrid::makeFourDimRedBlackGrid(SUGridD.get()));
     SFrbGridD.reset(Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,SUGridD.get()));
 
-     LOGA2A << "Setting up single precision split grids" << std::endl;
+    LOGA2A << "Setting up single precision split grids" << std::endl;
+    printMem("Prior to setting up single-precision split grids");
     
     SUGridF.reset(new Grid::GridCartesian(UGridF->_fdimensions,
 					  UGridF->_simd_layout,
@@ -83,14 +85,18 @@ struct computeVW_impl{
     SFrbGridF.reset(Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,SUGridF.get()));
 
     LOGA2A << "Splitting double-precision gauge field" << std::endl;
+    printMem("Prior to splitting double-precision gauge field");
+
     SUmuD.reset(new Grid::LatticeGaugeFieldD(SUGridD.get()));
     Grid::Grid_split(*UmuD,*SUmuD);
     
-    LOGA2A << "Performing split gauge field precision change" << std::endl;    
+    LOGA2A << "Performing split gauge field precision change" << std::endl;
+    printMem("Prior to split gauge field precision change");
     SUmuF.reset(new Grid::LatticeGaugeFieldF(SUGridF.get()));
     Grid::precisionChange(*SUmuF,*SUmuD);
 
-    LOGA2A << "Creating split Dirac operators" << std::endl;    
+    LOGA2A << "Creating split Dirac operators" << std::endl;
+    printMem("Prior to creating split Dirac operators");
     SOpD.reset(new GridDiracD(*SUmuD,*SFGridD,*SFrbGridD,*SUGridD,*SUrbGridD,mass,M5,mob_b,mob_c, params));
     SOpF.reset(new GridDiracF(*SUmuF,*SFGridF,*SFrbGridF,*SUGridF,*SUrbGridF,mass,M5,mob_b,mob_c, params));
     LOGA2A << "Finished setting up split grids" << std::endl;
