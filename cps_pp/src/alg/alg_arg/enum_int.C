@@ -1214,6 +1214,7 @@ struct vml_enum_map A2AhighModeSourceType_map[] = {
 	{"A2AhighModeSourceType","A2AhighModeSourceTypeFlavorCConj",A2AhighModeSourceTypeFlavorCConj},
 	{"A2AhighModeSourceType","A2AhighModeSourceTypeFlavorUnitary",A2AhighModeSourceTypeFlavorUnitary},
 	{"A2AhighModeSourceType","A2AhighModeSourceTypeFlavorRotY",A2AhighModeSourceTypeFlavorRotY},
+	{"A2AhighModeSourceType","A2AhighModeSourceTypeU1X",A2AhighModeSourceTypeU1X},
 	{NULL,NULL,0}
 };
 

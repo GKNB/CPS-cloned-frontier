@@ -58,6 +58,8 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
 #ifdef KTOPIPI_USE_WUNITARY
   A2AvectorWunitary<A2Apolicies> W(params.a2a_arg, field4dparams);
+#elif defined(KTOPIPI_USE_WTIMEPACKED)
+  A2AvectorWtimePacked<A2Apolicies> W(params.a2a_arg, field4dparams);
 #else
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
 #endif
@@ -75,6 +77,8 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
 #ifdef KTOPIPI_USE_WUNITARY
   A2AvectorWunitary<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
+#elif defined(KTOPIPI_USE_WTIMEPACKED)
+  A2AvectorWtimePacked<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
 #else
   A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
 #endif

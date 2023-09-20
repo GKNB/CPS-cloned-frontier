@@ -34,6 +34,21 @@ public:
     //Export to Grid field
     v4dfield.exportGridField(src);
   }
+
+
+  //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
+  virtual void setHighModeSources(A2AvectorWtimePacked<A2Apolicies> &into) const{ ERR.General("A2AhighModeSource","setHighModeSources","Not implemented for A2AvectorWtimePacked"); }
+
+  //Get the 4D source vector that we will invert upon
+  virtual void get4DinverseSource(GridFermionFieldD &src, const int high_mode_idx, const A2AvectorWtimePacked<A2Apolicies> &W) const{
+    CPSfermion4D<typename A2Apolicies::ComplexTypeD,typename A2Apolicies::FermionFieldType::FieldMappingPolicy, 
+		 typename A2Apolicies::FermionFieldType::FieldAllocPolicy> v4dfield(W.getFieldInputParams());
+    W.getDilutedSource(v4dfield, high_mode_idx);
+
+    //Export to Grid field
+    v4dfield.exportGridField(src);
+  }
+
   
   //Perform any post-inverse operations required upon the solutions
   virtual void solutionPostOp(A2AvectorV<A2Apolicies> &into) const{}
@@ -108,6 +123,44 @@ public:
 
     into.setWh(tmp);
   }    
+
+  void setHighModeSources(A2AvectorWtimePacked<A2Apolicies> &into) const override{ 
+    LOGA2A << "Setting high-mode sources (original) for WtimePacked" << std::endl;
+    typedef typename A2AvectorWtimePacked<A2Apolicies>::ScalarFermionFieldType ScalarFermionFieldType;
+    typedef typename ScalarFermionFieldType::FieldSiteType FieldSiteType;
+    NullObject null_obj;
+    int nhits = into.getNhits();
+    RandomType rand_type = into.getArgs().rand_type;
+    std::vector<ScalarFermionFieldType> tmp(into.getNhighModes(),null_obj);
+    for(int i=0;i<tmp.size();i++) tmp[i].zero();
+
+    LRG.SetInterval(1, 0);
+    size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
+    ViewArray<ScalarFermionFieldType> views(HostWrite,tmp);
+    for(size_t i = 0; i < sites*flavors; ++i) {
+      int flav = i / sites;
+      size_t st = i % sites;
+      
+      LRG.AssignGenerator(st,flav);
+
+      //Flavor/spin/color structure
+      //| rnd_1 I_sc       0     |
+      //|  0           rnd2 I_sc |
+      //where I_sc is a 12x12 unit matrix
+
+      for(int j = 0; j < nhits; ++j) {
+	FieldSiteType v; RandomComplex<FieldSiteType>::rand(&v,rand_type,FOUR_D);
+	for(int sc=0;sc<12;sc++){
+	  FieldSiteType* p = views[into.indexMap(j,sc,flav)].site_ptr(st,flav) + sc; //diagonal spin-color structure
+	  *p = v;
+	}
+      }
+    }
+    views.free();
+
+    into.setWh(tmp);
+  }    
+
 
 };
 
@@ -369,6 +422,9 @@ public:
 template<typename A2Apolicies>
 class A2AhighModeSourceFlavorCConj: public A2AhighModeSource<A2Apolicies>{
 public:
+  //Flavor structure
+  //| rnd_1   0   |
+  //|  0    rnd_1*|
 
   //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
   void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{
@@ -496,6 +552,228 @@ public:
   }    
 
 };
+
+
+
+template<typename A2Apolicies>
+class A2AhighModeSourceU1X: public A2AhighModeSource<A2Apolicies>{
+private:
+  typedef CPSspinMatrix<cps::ComplexD> SpinMat;
+  SpinMat X;
+public:
+  //Flavor structure
+  //|  c+sX  0    |
+  //|   0   c+sX  |
+  //c^2+s^2=1
+
+  A2AhighModeSourceU1X(){
+    SpinMat C; C.unit(); C.gl(1).gl(3); //C=-gY gT = gT gY
+    X = C; X.gr(-5);
+  }
+
+  //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
+  void setHighModeSources(A2AvectorWtimePacked<A2Apolicies> &into) const override{
+    LOGA2A << "Setting high-mode sources (U1X) for WtimePacked" << std::endl;
+    assert(GJP.Gparity());
+    typedef typename A2AvectorWtimePacked<A2Apolicies>::ScalarFermionFieldType ScalarFermionFieldType;
+    typedef typename ScalarFermionFieldType::FieldSiteType FieldSiteType;
+    NullObject null_obj;
+    int nhits = into.getNhits();
+    RandomType rand_type = into.getArgs().rand_type;
+    std::vector<ScalarFermionFieldType> tmp(into.getNhighModes(),null_obj);
+    for(int i=0;i<tmp.size();i++) tmp[i].zero();
+
+    LRG.SetInterval(1, 0);
+    size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
+    ViewArray<ScalarFermionFieldType> views(HostWrite,tmp);
+    for(size_t st = 0; st < sites; ++st) { //use different random numbers for each timeslice for convenience
+      for(int j = 0; j < nhits; ++j) {
+	//To generate angle, use a U(1) random number and obtain the phase angle
+	FieldSiteType u;
+	LRG.AssignGenerator(st,0);
+	RandomComplex<FieldSiteType>::rand(&u,UONE,FOUR_D);
+	double C = u.real(), S = u.imag();	
+	for(int srow=0;srow<4;srow++){
+	  for(int scol=0;scol<4;scol++){
+	    for(int c=0;c<3;c++){
+	      int scrow = c + 3*srow,  sccol = c + 3*scol;     	      
+	      for(int f=0;f<flavors;f++){ //diagonal flavor
+		*( views[into.indexMap(j,sccol,f)].site_ptr(st,f) + scrow ) = (srow == scol ? C : 0.) + S * X(srow,scol);
+	      }
+	    }
+	  }
+	}
+      }
+    }
+    views.free();
+
+    into.setWh(tmp);
+  }    
+
+  void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{ 
+    ERR.General("A2AhighModeSourceU1X","setHighModeSources(A2AvectorW)", "Invalid W species");
+  }    
+
+};
+
+
+template<typename A2Apolicies>
+class A2AhighModeSourceU1g0: public A2AhighModeSource<A2Apolicies>{
+private:
+  typedef CPSspinMatrix<cps::ComplexD> SpinMat;
+  SpinMat g0;
+public:
+  //Flavor structure
+  //|  c+isg0  0    |
+  //|   0   c+isg0  |
+  //c^2+s^2=1
+  //g0 = gamma_x
+
+  A2AhighModeSourceU1g0(){
+    g0.unit(); g0.gl(0);
+  }
+
+  //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
+  void setHighModeSources(A2AvectorWtimePacked<A2Apolicies> &into) const override{
+    LOGA2A << "Setting high-mode sources (U1g0) for WtimePacked" << std::endl;
+    assert(GJP.Gparity());
+    typedef typename A2AvectorWtimePacked<A2Apolicies>::ScalarFermionFieldType ScalarFermionFieldType;
+    typedef typename ScalarFermionFieldType::FieldSiteType FieldSiteType;
+    NullObject null_obj;
+    int nhits = into.getNhits();
+    RandomType rand_type = into.getArgs().rand_type;
+    std::vector<ScalarFermionFieldType> tmp(into.getNhighModes(),null_obj);
+    for(int i=0;i<tmp.size();i++) tmp[i].zero();
+
+    ComplexD zero(0.);
+    LRG.SetInterval(1, 0);
+    size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
+    ViewArray<ScalarFermionFieldType> views(HostWrite,tmp);
+    for(size_t st = 0; st < sites; ++st) { //use different random numbers for each timeslice for convenience
+      for(int j = 0; j < nhits; ++j) {
+	//To generate angle, use a U(1) random number and obtain the phase angle
+	FieldSiteType u;
+	LRG.AssignGenerator(st,0);
+	RandomComplex<FieldSiteType>::rand(&u,UONE,FOUR_D);
+	ComplexD C = u.real(), iS = ComplexD(0,1)*u.imag();	
+	for(int srow=0;srow<4;srow++){
+	  for(int scol=0;scol<4;scol++){
+	    for(int c=0;c<3;c++){
+	      int scrow = c + 3*srow,  sccol = c + 3*scol;     	      
+	      for(int f=0;f<flavors;f++){ //diagonal flavor
+		*( views[into.indexMap(j,sccol,f)].site_ptr(st,f) + scrow ) = (srow == scol ? C : zero) + iS * g0(srow,scol);
+	      }
+	    }
+	  }
+	}
+      }
+    }
+    views.free();
+
+    into.setWh(tmp);
+  }    
+
+  void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{ 
+    ERR.General("A2AhighModeSourceU1g0","setHighModeSources(A2AvectorW)", "Invalid W species");
+  }    
+
+};
+
+
+template<typename A2Apolicies>
+class A2AhighModeSourceU1H: public A2AhighModeSource<A2Apolicies>{
+private:
+  typedef CPSspinMatrix<cps::ComplexD> SpinMat;
+
+  SpinMat Pplus;
+  SpinMat Pminus;
+  SpinMat mXPplus;
+  SpinMat mXPminus;
+public:  
+
+  //Flavor structure
+  //|  rho P_+         rho P_-      |
+  //|   -X rho* P_-    -X rho* P_+  |
+  //rho \in U(1), Z2, whatever
+
+  //Alternate P_+, P_- pattern for odd/even parity sites to kill some noise!
+
+  A2AhighModeSourceU1H(){
+   SpinMat C; C.unit(); C.gl(1).gl(3); //C=-gY gT = gT gY
+    SpinMat X = C; X.gr(-5);
+    SpinMat one; one.unit();
+    cps::ComplexD _i(0,1);
+    Pplus = 0.5*(one + _i*X);
+    Pminus = 0.5*(one - _i*X);
+    mXPplus = -X*Pplus;
+    mXPminus = -X*Pminus;
+  }
+
+  //Set the high mode sources. The input vector will be resized to the number of hits prior to this call
+  void setHighModeSources(A2AvectorWtimePacked<A2Apolicies> &into) const override{
+    LOGA2A << "Setting high-mode sources (U1H) for WtimePacked" << std::endl;
+    assert(GJP.Gparity());
+    typedef typename A2AvectorWtimePacked<A2Apolicies>::ScalarFermionFieldType ScalarFermionFieldType;
+    typedef typename ScalarFermionFieldType::FieldSiteType FieldSiteType;
+    NullObject null_obj;
+    int nhits = into.getNhits();
+    RandomType rand_type = into.getArgs().rand_type;
+    std::vector<ScalarFermionFieldType> tmp(into.getNhighModes(),null_obj);
+    for(int i=0;i<tmp.size();i++) tmp[i].zero();
+
+    ComplexD zero(0.);
+    LRG.SetInterval(1, 0);
+    size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
+    ViewArray<ScalarFermionFieldType> views(HostWrite,tmp);
+    for(size_t st = 0; st < sites; ++st) { //use different random numbers for each timeslice for convenience
+      int x[4];
+      tmp[0].siteUnmap(st,x);
+      int parity = (x[0] + x[1] + x[2]) % 2; //checkerboard pattern in 3D space
+      SpinMat const &Pa = parity == 0 ? Pplus : Pminus;
+      SpinMat const &Pb = parity == 0 ? Pminus : Pplus;
+      SpinMat const &mXPa = parity == 0 ? mXPplus : mXPminus;
+      SpinMat const &mXPb = parity == 0 ? mXPminus : mXPplus;
+
+      for(int j = 0; j < nhits; ++j) {
+	FieldSiteType rho;
+	LRG.AssignGenerator(st,0);
+	RandomComplex<FieldSiteType>::rand(&rho,rand_type,FOUR_D);
+
+	FieldSiteType rhostar = Grid::conjugate(rho);
+
+	for(int srow=0;srow<4;srow++){
+	  for(int scol=0;scol<4;scol++){
+	    for(int c=0;c<3;c++){ //color diagonal
+	      int scrow = c + 3*srow,  sccol = c + 3*scol;     	      
+	        //|  rho P_a         rho P_b      |
+   	        //|   -X rho* P_b    -X rho* P_a  |
+
+	      //0,0
+	      *( views[into.indexMap(j,sccol,0)].site_ptr(st,0) + scrow ) = rho * Pa(srow,scol);
+	      //0,1
+	      *( views[into.indexMap(j,sccol,1)].site_ptr(st,0) + scrow ) = rho * Pb(srow,scol);
+	      //1,0
+	      *( views[into.indexMap(j,sccol,0)].site_ptr(st,1) + scrow ) = rhostar * mXPb(srow,scol);
+	      //1,1
+	      *( views[into.indexMap(j,sccol,1)].site_ptr(st,1) + scrow ) = rhostar * mXPa(srow,scol);
+	    }
+	  }
+	}
+      }
+    }
+    views.free();
+
+    into.setWh(tmp);
+  }    
+
+  void setHighModeSources(A2AvectorW<A2Apolicies> &into) const override{ 
+    ERR.General("A2AhighModeSourceU1H","setHighModeSources(A2AvectorW)", "Invalid W species");
+  }    
+
+};
+
+
+
 
 
 
