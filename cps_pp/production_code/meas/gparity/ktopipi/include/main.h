@@ -48,8 +48,8 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
     return;
   }
   
-  bool need_light_evecs = (!cmdline.vw_opts_l.randomize_vw && !cmdline.vw_opts_l.load_vw) || cmdline.force_evec_compute;
-  bool need_heavy_evecs = (!cmdline.vw_opts_h.randomize_vw && !cmdline.vw_opts_h.load_vw) || cmdline.force_evec_compute;
+  bool need_light_evecs = cmdline.vw_opts_l.needEvecs() || cmdline.force_evec_compute;
+  bool need_heavy_evecs = cmdline.vw_opts_h.needEvecs() || cmdline.force_evec_compute;
 
   //-------------------- Light quark Lanczos ---------------------//
   if(need_light_evecs) computeEvecs(*eig, Light, params, cmdline.evec_opts_l);
@@ -87,6 +87,9 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   printMem("Memory before heavy evec free");
   eig_s->freeEvecs();
   printMem("Memory after heavy evec free");
+
+  //End the configuration here if we are not doing contractions or if W,V are not available for either light or heavy quarks
+  if(!cmdline.do_contractions || cmdline.vw_opts_l.skip_vw ||  cmdline.vw_opts_h.skip_vw) return;
 
   //The rest of the code passes the pointer to the lattice around rather than recreating on-the-fly
   Lattice* lat = (Lattice*)createFgridLattice<LatticeType>(params.jp);

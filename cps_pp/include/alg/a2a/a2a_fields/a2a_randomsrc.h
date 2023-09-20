@@ -773,8 +773,26 @@ public:
 };
 
 
-
-
-
+template<typename Policies>
+inline A2AhighModeSource<Policies>* highModeSourceFactory(A2AhighModeSourceType src){
+  switch(src){
+  case A2AhighModeSourceTypeOrig:
+    return new A2AhighModeSourceOriginal<Policies>();
+  case A2AhighModeSourceTypeXconj:
+    return new A2AhighModeSourceXconj<Policies>();
+  case A2AhighModeSourceTypeFlavorUnit:
+    return new A2AhighModeSourceFlavorUnit<Policies>();
+  case A2AhighModeSourceTypeFlavorCConj:
+    return new A2AhighModeSourceFlavorCConj<Policies>();
+  case A2AhighModeSourceTypeFlavorUnitary:
+    return new A2AhighModeSourceFlavorUnitary<Policies>();
+  case A2AhighModeSourceTypeFlavorRotY:
+    return new A2AhighModeSourceFlavorRotY<Policies>();
+  case A2AhighModeSourceTypeU1X:
+    return new A2AhighModeSourceU1X<Policies>();
+  default:
+    assert(0);
+  }
+}
 
 CPS_END_NAMESPACE

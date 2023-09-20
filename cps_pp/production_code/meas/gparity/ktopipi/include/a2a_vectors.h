@@ -57,7 +57,13 @@ void computeVW(Vtype &V, Wtype &W, const EvecManagerType &eig, double mass, cons
   LOGA2A << "Initializing V,W" << std::endl;
   V.zero(); W.zero(); //force the memory to be assigned right now (TESTING)
 #endif
-  if(opts.randomize_vw){
+  if(opts.skip_vw){
+    LOGA2A << "Skipping generation of V,W vectors" << std::endl;
+    //Should still set the W sources to ensure the random numbers are consistent even if V,W is skipped
+    std::unique_ptr<A2AhighModeSource<A2Apolicies> > Wsrc_impl(highModeSourceFactory<A2Apolicies>(cg_controls.highmode_source));
+    Wsrc_impl->setHighModeSources(W);
+    W.free_mem(); V.free_mem();
+  }else if(opts.randomize_vw){
     LOGA2A << "Creating random VW vectors" << std::endl;
     randomizeVW(V,W);
   }else if(opts.load_vw){
