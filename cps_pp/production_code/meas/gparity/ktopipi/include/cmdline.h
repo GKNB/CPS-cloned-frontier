@@ -16,6 +16,7 @@ struct computeEvecsOpts{
 
 struct computeVWopts{
   bool randomize_vw; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
+  bool skip_vw; //don't compute this V,W pair at all. Contractions will not be possible if this is enabled for either light or heavy quarks
 
   bool save_vw;
   std::string save_vw_stub;
@@ -23,8 +24,10 @@ struct computeVWopts{
   bool load_vw;
   std::string load_vw_stub;
 
-  computeVWopts(): randomize_vw(false), save_vw(false), load_vw(false)
+  computeVWopts(): randomize_vw(false), save_vw(false), load_vw(false), skip_vw(false)
   {}
+
+  bool needEvecs() const{ return !randomize_vw && !skip_vw && !load_vw; }
 };
 
 
@@ -47,6 +50,8 @@ struct CommandLineArgs{
   bool skip_gauge_fix;
   bool tune_gauge_fix;
   bool double_latt; //most ancient 8^4 quenched lattices stored both U and U*. Enable this to read those configs
+
+  bool do_contractions;
   bool do_kaon2pt;
   bool do_pion2pt;
   bool do_pipi;
@@ -96,6 +101,8 @@ struct CommandLineArgs{
     skip_gauge_fix = false;
     tune_gauge_fix = false;
     double_latt = false; //most ancient 8^4 quenched lattices stored both U and U*. Enable this to read those configs
+
+    do_contractions = true; //globally disable contractions
     do_kaon2pt = true;
     do_pion2pt = true;
     do_pipi = true;
@@ -222,6 +229,17 @@ struct CommandLineArgs{
 	arg += 2;
 
 
+      }else if( cmdstr == "-skip_light_vw"){
+	vw_opts_l.skip_vw = true;
+	LOGA2A << "Skipping light VW fields" << std::endl;
+	arg++;
+      }else if( cmdstr == "-skip_heavy_vw"){
+	vw_opts_h.skip_vw = true;
+	LOGA2A << "Skipping heavy VW fields" << std::endl;
+	arg++;
+      
+
+
       }else if( strncmp(cmd,"-randomize_mf",15) == 0){
 	randomize_mf = true;
 	LOGA2A << "Using random meson fields" << std::endl;
@@ -276,6 +294,10 @@ struct CommandLineArgs{
 	checkpoint_dir = argv[arg+1];
 	LOGA2A << "Doing LL props only with checkpoint directory "<< checkpoint_dir << std::endl;
 	arg+=2;
+      }else if( cmdstr == "-skip_contractions" ){
+	LOGA2A << "Disabling contractions" << std::endl;
+	do_contractions = false;
+	arg++;
       }else if( strncmp(cmd,"-skip_kaon2pt",30) == 0){
 	do_kaon2pt = false;
 	arg++;

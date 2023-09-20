@@ -921,7 +921,8 @@ enum A2AhighModeSourceType{
      A2AhighModeSourceTypeFlavorUnit,
      A2AhighModeSourceTypeFlavorCConj,
      A2AhighModeSourceTypeFlavorUnitary,
-     A2AhighModeSourceTypeFlavorRotY
+     A2AhighModeSourceTypeFlavorRotY,
+     A2AhighModeSourceTypeU1X
 };
 
 enum A2AlanczosType{

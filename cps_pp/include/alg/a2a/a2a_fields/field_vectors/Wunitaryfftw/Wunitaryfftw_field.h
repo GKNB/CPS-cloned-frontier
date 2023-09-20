@@ -72,6 +72,9 @@ public:
   inline const FermionFieldType & getLowMode(const int il) const{ return *wl[il]; }
   inline const FermionFieldType & getHighMode(const int ih) const{ return *wh[ih]; }
 
+  inline FermionFieldType & getLowMode(const int il){ return *wl[il]; }
+  inline FermionFieldType & getHighMode(const int ih){ return *wh[ih]; }
+
   //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices: for i>=nl the modeIndexSet is used to obtain the appropriate mode 
   inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color, i_high_unmapped.flavor): getWl(i); }
  
@@ -241,16 +244,29 @@ public:
     reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); inversefft(to, &op);
   }
 
+  void fft(const A2AvectorWtimePacked<Policies> &from, fieldOperation<FermionFieldType>* mode_preop = NULL);
+  
+  void inversefft(A2AvectorWtimePacked<Policies> &to, fieldOperation<FermionFieldType>* mode_postop = NULL) const;
+  
+  //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
+  void gaugeFixTwistFFT(const A2AvectorWtimePacked<Policies> &from, const int _p[3], Lattice &_lat){
+    gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
+  }
+  
+  //Unapply the phase and gauge fixing to give back a V vector
+  void unapplyGaugeFixTwistFFT(A2AvectorWtimePacked<Policies> &to, const int _p[3], Lattice &_lat) const{
+    reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); inversefft(to, &op);
+  }
+
   //Use the relations between FFTs to obtain the FFT for a chosen quark momentum
   //With G-parity BCs there are 2 disjoint sets of momenta hence there are 2 base FFTs
   void getTwistedFFT(const int p[3], A2AvectorWunitaryfftw<Policies> const *base_p, A2AvectorWunitaryfftw<Policies> const *base_m = NULL);
 
-  void shiftFieldsInPlace(const std::vector<int> &shift);
-
   //A version of the above that directly shifts the base Wfftw rather than outputting into a separate storage
   //Returns the pointer to the Wfftw acted upon and the *shift required to restore the Wfftw to it's original form* (use shiftFieldsInPlace to restore)
-  
   static std::pair< A2AvectorWunitaryfftw<mf_Policies>*, std::vector<int> > inPlaceTwistedFFT(const int p[3], A2AvectorWunitaryfftw<mf_Policies> *base_p, A2AvectorWunitaryfftw<mf_Policies> *base_m = NULL);
+
+  void shiftFieldsInPlace(const std::vector<int> &shift);
   
   //Replace this vector with the average of this another vector, 'with'
   void average(const A2AvectorWunitaryfftw<Policies> &with, const bool &parallel = true){

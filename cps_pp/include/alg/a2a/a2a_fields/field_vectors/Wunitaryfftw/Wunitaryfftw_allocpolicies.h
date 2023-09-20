@@ -66,6 +66,23 @@ public:
     reverseGaugeFixAndTwist<typename mf_Policies::FermionFieldType> op(_p,_lat); destructiveInversefft(to, &op);
   }
 
+  void destructivefft(A2AvectorWtimePacked<mf_Policies> &from, fieldOperation<typename mf_Policies::FermionFieldType>* mode_preop = NULL){
+    _Wtimepacked_fft_impl<A2AvectorWunitaryfftw<mf_Policies>, A2AvectorWtimePacked<mf_Policies>, WFFTfieldPolicyAllocFree>::fft(static_cast<A2AvectorWunitaryfftw<mf_Policies>&>(*this),from,mode_preop);
+  }
+
+  void destructiveInversefft(A2AvectorWtimePacked<mf_Policies> &to, fieldOperation<typename mf_Policies::FermionFieldType>* mode_postop = NULL){
+    _Wtimepacked_invfft_impl<A2AvectorWtimePacked<mf_Policies>, A2AvectorWunitaryfftw<mf_Policies>, WFFTfieldPolicyAllocFree>::inversefft(to,static_cast<A2AvectorWunitaryfftw<mf_Policies>&>(*this),mode_postop);
+  }
+
+  void destructiveGaugeFixTwistFFT(A2AvectorWtimePacked<mf_Policies> &from, const int _p[3], Lattice &_lat){
+    gaugeFixAndTwist<typename mf_Policies::FermionFieldType> op(_p,_lat); destructivefft(from, &op);
+  }
+
+  void destructiveUnapplyGaugeFixTwistFFT(A2AvectorWtimePacked<mf_Policies> &to, const int _p[3], Lattice &_lat){
+    reverseGaugeFixAndTwist<typename mf_Policies::FermionFieldType> op(_p,_lat); destructiveInversefft(to, &op);
+  }
+
+
   inline bool lowModeIsAllocated(const int i) const{ return lptr->operator[](i).assigned(); }
   inline bool highModeIsAllocated(const int i) const{ return hptr->operator[](i).assigned(); }
 };

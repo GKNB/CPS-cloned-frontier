@@ -112,23 +112,7 @@ struct computeVW_impl{
     use_split_grid(false){
 
     //Setup the W src policy
-    std::unique_ptr<A2AhighModeSource<Policies> > Wsrc_impl;
-    switch(cg.highmode_source){
-    case A2AhighModeSourceTypeOrig:
-      Wsrc_impl.reset(new A2AhighModeSourceOriginal<Policies>()); break;
-    case A2AhighModeSourceTypeXconj:
-      Wsrc_impl.reset(new A2AhighModeSourceXconj<Policies>()); break;
-    case A2AhighModeSourceTypeFlavorUnit:
-      Wsrc_impl.reset(new A2AhighModeSourceFlavorUnit<Policies>()); break;
-    case A2AhighModeSourceTypeFlavorCConj:
-      Wsrc_impl.reset(new A2AhighModeSourceFlavorCConj<Policies>()); break;
-    case A2AhighModeSourceTypeFlavorUnitary:
-      Wsrc_impl.reset(new A2AhighModeSourceFlavorUnitary<Policies>()); break;
-    case A2AhighModeSourceTypeFlavorRotY:
-      Wsrc_impl.reset(new A2AhighModeSourceFlavorRotY<Policies>()); break;
-    default:
-      assert(0);
-    }
+    std::unique_ptr<A2AhighModeSource<Policies> > Wsrc_impl(highModeSourceFactory<Policies>(cg.highmode_source));
     
     UmuF.reset(new Grid::LatticeGaugeFieldF(UGridF));
     precisionChange(*UmuF, *UmuD);

@@ -369,13 +369,23 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testModeContractionIndices(a2a_arg);
   if(1) testWunitaryBasic<A2Apolicies_grid,A2Apolicies_grid_destructive>(a2a_arg, simd_dims, lattice);
   if(1) testWunitaryUnitaryRandomSrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
-
   if(1) testWunitaryRotYRandomSrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
 
+  if(1) testWtimePackedBasic<A2Apolicies_grid,A2Apolicies_grid_destructive>(a2a_arg, simd_dims, lattice);
+
+  if(1) testWtimePackedU1Xsrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
+
+  if(1) testWtimePackedU1g0src<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
+
+  if(1) testWtimePackedU1Hsrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
+  
   if(1) testVectorWithAview();
+
+  if(1) testSourceConvergence<A2Apolicies_grid>(a2a_arg, simd_dims, simd_dims_3d, lattice);
+ /*
   */
 
-  testSourceConvergence<A2Apolicies_grid>(a2a_arg, simd_dims, simd_dims_3d, lattice);
+  if(1) testXconjDiagRecon<A2Apolicies_grid>(lattice);
 }
 
 

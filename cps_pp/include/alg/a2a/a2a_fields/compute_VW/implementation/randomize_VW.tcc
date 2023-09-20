@@ -77,3 +77,42 @@ struct _randomizeVWimpl<Vtype,Wtype,grid_vector_complex_mark>{
     }
   }
 };
+
+
+template<typename Vtype>
+struct _randomizeVWimpl<Vtype,A2AvectorWtimePacked<typename Vtype::Policies>,grid_vector_complex_mark>{
+  typedef A2AvectorWtimePacked<typename Vtype::Policies> Wtype;
+  static inline void randomizeVW(Vtype &V, Wtype &W){
+    typedef typename Vtype::Policies mf_Policies;
+    typedef typename mf_Policies::FermionFieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarMappingPolicy;
+  
+    typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, ScalarMappingPolicy, typename mf_Policies::AllocPolicy> ScalarFermionFieldType;
+  
+    int nl = V.getNl();
+    int nh = V.getNh(); //number of fully diluted high-mode indices
+    int nhit = V.getNhits();
+    int nwhi = W.getNhighModes();
+    assert(nl == W.getNl());
+    assert(nh == W.getNh());
+    assert(nhit == W.getNhits());
+
+    ScalarFermionFieldType tmp;
+  
+    for(int i=0;i<nl;i++){
+      tmp.setUniformRandom();
+      W.getWl(i).importField(tmp);
+    }
+    for(int i=0;i<nl;i++){
+      tmp.setUniformRandom();
+      V.getVl(i).importField(tmp);
+    }
+    for(int i=0;i<nwhi;i++){
+      tmp.setUniformRandom();
+      W.getWh(i).importField(tmp);
+    }
+    for(int i=0;i<nh;i++){
+      tmp.setUniformRandom();
+      V.getVh(i).importField(tmp);
+    }
+  }
+};
