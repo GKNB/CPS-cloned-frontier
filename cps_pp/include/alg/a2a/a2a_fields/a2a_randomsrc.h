@@ -645,7 +645,7 @@ public:
     std::vector<ScalarFermionFieldType> tmp(into.getNhighModes(),null_obj);
     for(int i=0;i<tmp.size();i++) tmp[i].zero();
 
-    ComplexD zero(0.);
+    FieldSiteType zero(0.);
     LRG.SetInterval(1, 0);
     size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
     ViewArray<ScalarFermionFieldType> views(HostWrite,tmp);
@@ -655,13 +655,13 @@ public:
 	FieldSiteType u;
 	LRG.AssignGenerator(st,0);
 	RandomComplex<FieldSiteType>::rand(&u,UONE,FOUR_D);
-	ComplexD C = u.real(), iS = ComplexD(0,1)*u.imag();	
+	FieldSiteType C = u.real(), iS = FieldSiteType(0,1)*u.imag();
 	for(int srow=0;srow<4;srow++){
 	  for(int scol=0;scol<4;scol++){
 	    for(int c=0;c<3;c++){
 	      int scrow = c + 3*srow,  sccol = c + 3*scol;     	      
 	      for(int f=0;f<flavors;f++){ //diagonal flavor
-		*( views[into.indexMap(j,sccol,f)].site_ptr(st,f) + scrow ) = (srow == scol ? C : zero) + iS * g0(srow,scol);
+		*( views[into.indexMap(j,sccol,f)].site_ptr(st,f) + scrow ) = (srow == scol ? C : zero) + iS * FieldSiteType(g0(srow,scol));
 	      }
 	    }
 	  }
@@ -749,13 +749,13 @@ public:
    	        //|   -X rho* P_b    -X rho* P_a  |
 
 	      //0,0
-	      *( views[into.indexMap(j,sccol,0)].site_ptr(st,0) + scrow ) = rho * Pa(srow,scol);
+	      *( views[into.indexMap(j,sccol,0)].site_ptr(st,0) + scrow ) = rho * FieldSiteType(Pa(srow,scol));  //rho_Pa_ss; //rho * Pa_ss;  //Pa(srow,scol);
 	      //0,1
-	      *( views[into.indexMap(j,sccol,1)].site_ptr(st,0) + scrow ) = rho * Pb(srow,scol);
+	      *( views[into.indexMap(j,sccol,1)].site_ptr(st,0) + scrow ) = rho * FieldSiteType(Pb(srow,scol));
 	      //1,0
-	      *( views[into.indexMap(j,sccol,0)].site_ptr(st,1) + scrow ) = rhostar * mXPb(srow,scol);
+	      *( views[into.indexMap(j,sccol,0)].site_ptr(st,1) + scrow ) = rhostar * FieldSiteType(mXPb(srow,scol));
 	      //1,1
-	      *( views[into.indexMap(j,sccol,1)].site_ptr(st,1) + scrow ) = rhostar * mXPa(srow,scol);
+	      *( views[into.indexMap(j,sccol,1)].site_ptr(st,1) + scrow ) = rhostar * FieldSiteType(mXPa(srow,scol));
 	    }
 	  }
 	}
