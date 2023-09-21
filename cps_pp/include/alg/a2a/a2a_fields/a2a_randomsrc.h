@@ -790,6 +790,10 @@ inline A2AhighModeSource<Policies>* highModeSourceFactory(A2AhighModeSourceType 
     return new A2AhighModeSourceFlavorRotY<Policies>();
   case A2AhighModeSourceTypeU1X:
     return new A2AhighModeSourceU1X<Policies>();
+  case A2AhighModeSourceTypeU1g0:
+    return new A2AhighModeSourceU1g0<Policies>();
+  case A2AhighModeSourceTypeU1H:
+    return new A2AhighModeSourceU1H<Policies>();
   default:
     assert(0);
   }
