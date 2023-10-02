@@ -165,9 +165,6 @@ public:
   template<typename TargetFermionFieldType>
   void getDilutedSource(TargetFermionFieldType &into, const int dil_id) const;
 
-  //When gauge fixing prior to taking the FFT it is necessary to uncompact the wh field in the spin-color index, as these indices are acted upon by the gauge fixing
-  void getSpinColorDilutedSource(FermionFieldType &into, const int high_mode_idx, const int sc_id) const;
-
   //Set each float to a uniform random number in the specified range.
   //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
   void testRandom(const Float &hi = 0.5, const Float &lo = -0.5){

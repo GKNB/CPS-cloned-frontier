@@ -415,6 +415,42 @@ public:
     into.setWh(tmp);
   }    
 
+  void setHighModeSources(A2AvectorWtimePacked<A2Apolicies> &into) const override{
+    LOGA2A << "Setting high-mode sources (flavor unit) for WtimePacked" << std::endl;
+    assert(GJP.Gparity());
+    typedef typename A2AvectorWtimePacked<A2Apolicies>::ScalarFermionFieldType ScalarFermionFieldType;
+    typedef typename ScalarFermionFieldType::FieldSiteType FieldSiteType;
+    NullObject null_obj;
+    int nhits = into.getNhits();
+    RandomType rand_type = into.getArgs().rand_type;
+    std::vector<ScalarFermionFieldType> tmp(into.getNhighModes(),null_obj);
+    for(int i=0;i<tmp.size();i++) tmp[i].zero();
+
+    LRG.SetInterval(1, 0);
+    size_t sites = tmp[0].nsites(), flavors = tmp[0].nflavors();
+    ViewArray<ScalarFermionFieldType> views(HostWrite,tmp);
+    for(size_t st = 0; st < sites; ++st) { //use different random numbers for each timeslice for convenience
+      for(int j = 0; j < nhits; ++j) {
+	FieldSiteType u;
+	LRG.AssignGenerator(st,0);
+	RandomComplex<FieldSiteType>::rand(&u,rand_type,FOUR_D);
+
+	for(int srow=0;srow<4;srow++){
+	  for(int scol=0;scol<4;scol++){
+	    for(int c=0;c<3;c++){
+	      int scrow = c + 3*srow,  sccol = c + 3*scol;     	      
+	      for(int f=0;f<flavors;f++){ //diagonal flavor
+		*( views[into.indexMap(j,sccol,f)].site_ptr(st,f) + scrow ) = (srow == scol ? u : 0.);
+	      }
+	    }
+	  }
+	}
+      }
+    }
+    views.free();
+
+    into.setWh(tmp);
+  }    
 
 };
 
