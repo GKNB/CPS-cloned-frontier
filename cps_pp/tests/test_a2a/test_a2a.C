@@ -239,10 +239,12 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   
   if(1) testMesonFieldComputePackedReferenceSIMD<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, tol, simd_dims);
 
+  */
   if(1) testGridMesonFieldCompute<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
  
   if(1) testGridMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testGridShiftMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  /*
 
   if(1) testFFTopt<A2Apolicies_std>();
 #ifdef USE_GRID
@@ -370,9 +372,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testWunitaryBasic<A2Apolicies_grid,A2Apolicies_grid_destructive>(a2a_arg, simd_dims, lattice);
   if(1) testWunitaryUnitaryRandomSrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
   if(1) testWunitaryRotYRandomSrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
-  */
+
   if(1) testWtimePackedBasic<A2Apolicies_grid,A2Apolicies_grid_destructive>(a2a_arg, simd_dims, lattice);
-  /*
+
   if(1) testWtimePackedU1Xsrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
 
   if(1) testWtimePackedU1g0src<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);

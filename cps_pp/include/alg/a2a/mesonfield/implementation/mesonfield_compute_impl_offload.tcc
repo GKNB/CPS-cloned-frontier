@@ -1101,6 +1101,9 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     const size_t naccum = bi * bj * bx * multiplicity;
 
     VectorWithAview<accumType, typename mf_Policies::AllocPolicy> accum(naccum, AllocLocationPref::Device);   
+    VectorWithAview<vPtr, typename mf_Policies::AllocPolicy> base_ptrs_i(bi), base_ptrs_j(bj);
+    VectorWithAview<offsetT, typename mf_Policies::AllocPolicy> site_offsets_i(bi), site_offsets_j(bj);
+
     LOGA2A << "Using block sizes " << bi << " " << bj << " " << bx << ", temp memory requirement is " << byte_to_MB(naccum * sizeof(accumType)) << " MB" << std::endl;
     
 
@@ -1156,9 +1159,6 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
       auto l_v = l.view(DeviceRead, lmodes_used);
       copy_prefetch_time += dclock();
 	
-      hostDeviceMirroredContainer<vPtr> base_ptrs_i(bi_true);
-      hostDeviceMirroredContainer<offsetT> site_offsets_i(bi_true);
-
       for(size_t j0 = 0; j0< nmodes_r; j0+=bj) {
 	LOGA2A << "j-block " << j0/bj << "/" << njoblocks << std::endl;
 	size_t jup = std::min(j0+bj,nmodes_r);
@@ -1202,9 +1202,6 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	}	
 	copy_prefetch_time += dclock();
 
-	hostDeviceMirroredContainer<vPtr> base_ptrs_j(bj_true);
-	hostDeviceMirroredContainer<offsetT> site_offsets_j(bj_true);
-	  
 	//Each node only works on its time block
 	for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){   
 	  const int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
