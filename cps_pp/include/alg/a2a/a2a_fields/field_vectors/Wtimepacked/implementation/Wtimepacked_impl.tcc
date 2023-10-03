@@ -89,29 +89,14 @@ void A2AvectorWtimePacked<mf_Policies>::getDilutedSource(TargetFermionFieldType 
     x[3] = tblock_origt_lcl + rem;
 
     for(int f=0;f<nflavors;f++){ //not a unit matrix in flavor
-      TargetComplex *into_site = (TargetComplex*)(into_v.site_ptr(x,f) + spin_color);
-      mf_Complex const* from_site = (mf_Complex*)(wh_v.site_ptr(x,f) + spin_color);
-      *into_site = *from_site;
+      for(int sc=0;sc<nspincolor;sc++){ //also not a unit matrix in spin/color
+	TargetComplex *into_site = (TargetComplex*)(into_v.site_ptr(x,f) + sc);
+	mf_Complex const* from_site = (mf_Complex*)(wh_v.site_ptr(x,f) + sc);
+	*into_site = *from_site;
+      }
     }
   }
 }
-
-//When gauge fixing prior to taking the FFT it is necessary to uncompact the wh field in the spin-color index, as these indices are acted upon by the gauge fixing
-template< typename mf_Policies>
-void A2AvectorWtimePacked<mf_Policies>::getSpinColorDilutedSource(FermionFieldType &into, const int high_mode_idx, const int sc_id) const{
-  const char* fname = "getSpinColorDilutedSource(...)";
-  
-  into.zero();
-  CPSautoView(into_v,into,HostReadWrite);
-  CPSautoView(wh_v,(*w[nl+high_mode_idx]),HostRead);
-#pragma omp parallel for
-  for(int i=0;i<wh_v.nfsites();i++){
-    FieldSiteType &into_site = *(into_v.fsite_ptr(i) + sc_id);
-    const FieldSiteType &from_site = *(wh_v.fsite_ptr(i) + sc_id);
-    into_site = from_site;
-  }
-}
-
 
 template< typename mf_Policies>
 void A2AvectorWtimePacked<mf_Policies>::writeParallelWithGrid(const std::string &file_stub) const

@@ -27,6 +27,7 @@
 #include <atomic>
 #include <regex>
 #include <thread>
+#include <omp.h>
 
 #ifdef PRINTMEM_HEAPDUMP_GPERFTOOLS
 //Allows dumping of heap state. Requires linking against libtcmalloc  -ltcmalloc

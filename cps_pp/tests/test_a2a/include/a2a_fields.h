@@ -703,29 +703,6 @@ void testWtimePackedBasic(const A2AArg &a2a_arg, const typename SIMDpolicyBase<4
     assert(dil_w.equals(dil_wu,1e-12,true));
   }
 
-  //Test getSpinColorDilutedSource
-  dil_w.zero(); dil_wu.zero(); tmpferm.zero();
-  for(int h=0;h<nhit;h++){
-    for(int sc=0;sc<12;sc++){
-      W.getSpinColorDilutedSource(dil_w,h,sc); 
-      //this returns a fermion with the sc element populated and other elements 0. The value will be the same for all sc index
-      //both flavor elements will be populated, but not necessarily with the same value
-
-      //To get the Wu corresponding field we can sum the two flavor columns (they live on different flavor row indices)
-      //Because of the way we set it up above, the value will be zero unless   mode_sc == sc, but we can test better by summing over all
-      dil_wu.zero();
-      for(int mode_sc=0;mode_sc<12;mode_sc++){
-	Wu.getSpinColorDilutedSource(tmpferm, Wu.indexMap(h,mode_sc,0) ,sc);
-	dil_wu = dil_wu + tmpferm;
-	
-	Wu.getSpinColorDilutedSource(tmpferm, Wu.indexMap(h,mode_sc,1) ,sc);
-	dil_wu = dil_wu + tmpferm;
-      }
-
-      assert(dil_w.equals(dil_wu,1e-12,true));
-    }
-  }
-
   //Test FFT
   A2AvectorWfftw<A2Apolicies> W_fft(a2a_arg,simd_dims);
   A2AvectorWunitaryfftw<A2Apolicies> Wu_fft(a2a_arg,simd_dims);
@@ -971,6 +948,35 @@ void testWtimePackedBasic(const A2AArg &a2a_arg, const typename SIMDpolicyBase<4
   pfield_wu_up = linearUnpack(pfield_wu);
   assert(pfield_w_up.equals(pfield_wu_up,1e-8,true));
  
+
+  {
+    std::cout << "Test with A2AhighModeSourceFlavorUnit" << std::endl;
+    A2AhighModeSourceFlavorUnit<A2Apolicies> src;
+    
+    A2AvectorW<A2Apolicies> Ws(a2a_arg,simd_dims);
+    A2AvectorWtimePacked<A2Apolicies> Wsu(a2a_arg,simd_dims);
+    
+    auto LRGbak = LRG;
+    src.setHighModeSources(Ws);
+    LRG = LRGbak;
+    src.setHighModeSources(Wsu);
+    
+    //Test W(x) W^dag(y)  noise
+    A2AvectorW<A2Apolicies> Ws_shift(a2a_arg,simd_dims);
+    for(int i=0;i<Ws.getNhighModes();i++) cyclicPermute( Ws_shift.getWh(i), Ws.getWh(i), 0, +1, 1);
+
+    A2AvectorWtimePacked<A2Apolicies> Wsu_shift(a2a_arg,simd_dims);
+    for(int i=0;i<Wsu.getNhighModes();i++) cyclicPermute( Wsu_shift.getWh(i), Wsu.getWh(i), 0, +1, 1);
+
+    PropagatorField ps(simd_dims), psu(simd_dims);
+    mult(ps,Ws,Ws_shift,false,true);
+    mult(psu,Wsu,Wsu_shift,false,true);
+
+    auto ps_up = linearUnpack(ps);
+    auto psu_up = linearUnpack(psu);
+    assert(ps_up.equals(psu_up,1e-8,true));
+  }
+
   std::cout << "testWtimePackedBasic passed" << std::endl;
 }
 
