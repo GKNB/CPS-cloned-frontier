@@ -140,13 +140,13 @@ void blockReduce(typename ComplexType::scalar_type* into, ComplexType const* fro
 
 //acc(int m):  return a view to the meson field for multiplicity index m
 //m = {0..multiplicity-1}
-template<typename AllocPolicy, typename accumType, typename Accessor>
+template<typename AllocPolicy, typename accumType, typename ViewType>
 void mesonFieldComputeReduce(accumType const* accum,
 			     const size_t i0, const size_t j0, //block index
 			     const size_t bi_true, const size_t bj_true, //true size of this block
 			     const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 			     const size_t size_3d,
-			     const int multiplicity, const Accessor &acc){
+			     const int multiplicity, ViewType *mf_views){ //mf_views expected to be of size=multiplicity
   double talloc_free = 0;
   double tkernel = 0;
   double tpoke = 0;
@@ -176,7 +176,7 @@ void mesonFieldComputeReduce(accumType const* accum,
       size_t i = ii+i0;
       size_t j = jj+j0;
       
-      acc(m)(i,j) += tmp_v[m + multiplicity *(jj + bj_true*ii)];
+      mf_views[m](i,j) += tmp_v[m + multiplicity *(jj + bj_true*ii)];
     }
   }
   tpoke += dclock();
@@ -227,7 +227,7 @@ struct SingleSrcVectorPoliciesSIMDoffload{
 			    const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 			    const int t, const size_t size_3d){
     CPSautoView(mf_t_v,mf_t[t],HostReadWrite);
-    mesonFieldComputeReduce<typename mf_Policies::AllocPolicy>(accum, i0, j0, bi_true, bj_true, bj, size_3d, 1, [&](int m)->typename MesonFieldType::View &{ return mf_t_v; });
+    mesonFieldComputeReduce<typename mf_Policies::AllocPolicy>(accum, i0, j0, bi_true, bj_true, bj, size_3d, 1, &mf_t_v);
   }
   
 };
@@ -287,8 +287,11 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 		     const int bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 		     const int t, const size_t size_3d) const{
     typedef typename MesonFieldType::View ViewType;
-    ViewAutoDestructWrapper<ViewType> views[mfPerTimeSlice]; for(int m=0;m<mfPerTimeSlice;m++) views[m].reset(new ViewType( (*mf_st[m])[t].view(HostReadWrite)));
-    mesonFieldComputeReduce<typename mf_Policies::AllocPolicy>(accum, i0, j0, bi_true, bj_true, bj, size_3d, mfPerTimeSlice, [&](int m)->ViewType &{ return *views[m]; });
+    ViewType* views = (ViewType*)memalign_check(128, mfPerTimeSlice*sizeof(ViewType));
+    for(int m=0;m<mfPerTimeSlice;m++) new (views+m) ViewType( (*mf_st[m])[t].view(HostReadWrite) );
+    mesonFieldComputeReduce<typename mf_Policies::AllocPolicy>(accum, i0, j0, bi_true, bj_true, bj, size_3d, mfPerTimeSlice, views);
+    for(int m=0;m<mfPerTimeSlice;m++) views[m].free();
+    free(views);
   }
   
 };
