@@ -65,6 +65,13 @@ void readGaugeRNG(const DoArg &do_arg, const MeasArg &meas_arg, const bool doubl
   if(do_arg.start_seed_kind == START_SEED_FILE){
     LOGA2A << "Reading RNG state from file" << std::endl;
     ReadRngFile(meas_arg,double_latt); 
+  }else if(do_arg.start_seed_kind == START_SEED_INPUT){
+    //Here the input seed in the do_arg is used as a base seed to which 23*meas_arg.TrajCur is added
+    //This ensures different random seeds for each configuration in a consistent way
+    GJP.SetSeedKind(START_SEED_INPUT); // was overridden in initCPS
+    GJP.SettSeedValue(do_arg.start_seed_value + 23*meas_arg.TrajCur);
+    LOGA2A << "Seeding RNG with base seed " << GJP.StartSeedValue() << std::endl;
+    LRG.Reinitialize();
   }else{
     LOGA2A << "Using existing RNG state" << std::endl;
   }
