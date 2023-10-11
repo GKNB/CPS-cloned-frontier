@@ -1136,7 +1136,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 
     
     CPSautoView(M_v,M,DeviceRead);
-    CPSautoView(accum_v,accum,DeviceReadWrite); //keep open throughout
+    CPSautoView(accum_v,accum,DeviceWrite); //keep open throughout
     
     double reduce_time = 0;
     double ptr_setup_time = 0;
@@ -1245,6 +1245,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 
 	  ptr_setup_time += dclock();
 
+	  device_memset(accum_v.data(),0,naccum*sizeof(accumType));
+
 	  //Chunk over x-blocks
 	  for(int x0 = 0; x0<size_3d; x0+=bx){
 	    int xup = std::min(x0+bx, size_3d);
@@ -1293,11 +1295,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 				int x = xx+x0;
 #endif
 				
-				accumType *into = accum_v.data() + multiplicity*(xx + bx*(jj + bj*ii));
-				typename SIMT<accumType>::value_type zero; Grid::zeroit(zero);
-				for(int m=0;m<multiplicity;m++)			      
-				  SIMT<accumType>::write(into[m], zero);
-				
+				accumType *into = accum_v.data() + multiplicity*(xx + bx*(jj + bj*ii));			
 				vPtr lptr = base_ptrs_i_v[ii]; lptr.incrementPointers(site_offsets_i_v[ii], x);
 				vPtr rptr = base_ptrs_j_v[jj]; rptr.incrementPointers(site_offsets_j_v[jj], x);
 
@@ -1308,12 +1306,13 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    }
 	    kernel_time += dclock();
 	    
-	    reduce_time -= dclock();
-	    this->reduce(mf_t, accum_v.data(), i0, j0, bi_true, bj_true, bj, t, bx_true);
-	    reduce_time += dclock();
-
 	    if(x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) device_profile_stop();
 	  }//x0
+
+	  reduce_time -= dclock();
+	  this->reduce(mf_t, accum_v.data(), i0, j0, bi_true, bj_true, bj, t, bx);
+	  reduce_time += dclock();
+
 	}//t
 
 	LOGA2A << "Waiting for prefetch completion prior to starting next j-block" << std::endl;
