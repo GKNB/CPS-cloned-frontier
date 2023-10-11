@@ -220,10 +220,12 @@ inline void device_unpin_memory(void const* ptr){
 #endif
 }
 
- 
-	 
-
-
+//Free device memory held onto by the GPU for stack
+inline void reset_device_stack_memory(){
+#ifdef GRID_CUDA
+  cudaDeviceSetLimit(cudaLimitStackSize, 0);
+#endif
+}	 
 
 inline void device_profile_start(){
 #ifdef CPS_ENABLE_DEVICE_PROFILING

@@ -196,8 +196,8 @@ inline void printMem(const std::string &reason = "", int node = 0, FILE* stream 
     assert(0);
   }
   if(UniqueID()==node){
-    fprintf(stream,"printMem node %d: GPU memory free %f MB, total %f MB\n",
-	    node, byte_to_MB(gpu_free), byte_to_MB(gpu_tot) );
+    fprintf(stream,"printMem node %d: GPU memory free %f MB, used %f MB, total %f MB\n",
+	    node, byte_to_MB(gpu_free), byte_to_MB(gpu_tot-gpu_free), byte_to_MB(gpu_tot) );
   }
 #elif defined(GRID_HIP)
   size_t gpu_free, gpu_tot;
@@ -207,8 +207,8 @@ inline void printMem(const std::string &reason = "", int node = 0, FILE* stream 
     assert(0);
   }
   if(UniqueID()==node){
-    fprintf(stream,"printMem node %d: GPU memory free %f MB, total %f MB\n",
-	    node, byte_to_MB(gpu_free), byte_to_MB(gpu_tot) );
+    fprintf(stream,"printMem node %d: GPU memory free %f MB, used %f MB, total %f MB\n",
+	    node, byte_to_MB(gpu_free), byte_to_MB(gpu_tot-gpu_free), byte_to_MB(gpu_tot) );
   }
 #endif
 
