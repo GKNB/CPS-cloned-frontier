@@ -271,4 +271,18 @@ void testVectorWithAview(){
   std::cout << "Passed testVectorWithAview" << std::endl;
 }
 
+
+void test_mmap_alloc(){
+  void* p = mmap_alloc_check(128, 1024);
+  assert(isAligned(p,128));
+  mmap_free(p);
+
+  p = mmap_alloc_check(32, 1024);
+  assert(isAligned(p,32));
+  mmap_free(p);
+
+  p = mmap_alloc_check(1, 1024);
+  mmap_free(p);
+}
+
 CPS_END_NAMESPACE

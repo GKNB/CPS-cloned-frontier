@@ -1195,7 +1195,8 @@ protected:
       device_allocated += bytes;
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Allocated device entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
     }else{ //HostPool
-      e.ptr = memalign_check(A2A_MEMPOOL_ALIGNMENT,bytes);
+      //e.ptr = memalign_check(A2A_MEMPOOL_ALIGNMENT,bytes);
+      e.ptr = mmap_alloc_check(A2A_MEMPOOL_ALIGNMENT,bytes);
       host_allocated += bytes;
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Allocated host entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;
     }
@@ -1248,7 +1249,9 @@ protected:
       device_free(it->ptr); device_allocated -= it->bytes;
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Freed device memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
     }else{ //HostPool
-      ::free(it->ptr); host_allocated -= it->bytes;
+      //::free(it->ptr); 
+      mmap_free(it->ptr);
+      host_allocated -= it->bytes;
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Freed host memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;	
     }
   }

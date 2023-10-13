@@ -73,6 +73,50 @@ inline void* malloc_check(const size_t sz){
   return p;
 }
 
+inline void* mmap_alloc_check(const size_t align, const size_t byte_size){
+  assert(align > 0);
+
+  //Need space for an extra size_t for length, a ptrdiff_t
+  size_t asize = sizeof(size_t) + sizeof(ptrdiff_t) + align + byte_size;
+  void *p = mmap (NULL, asize, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, (off_t)0);
+  if(p == MAP_FAILED){
+    printf("mmap_alloc_check alloc of alignment %d and size %f MB failed on node %d. Stack trace:\n", align, double(asize)/1024./1024., UniqueID());
+    perror("reason");
+    printBacktrace(std::cout);
+    printMem("Memory status on fail", UniqueID());
+    std::cout.flush(); fflush(stdout);
+    ERR.General("","mmap_alloc_check","Mem alloc failed\n");
+  }
+
+  char* v = (char*)p;
+  *( (size_t*)v ) = asize;
+  v += sizeof(size_t) + sizeof(ptrdiff_t);
+  
+  char* valigned = (char*)aligned_ptr(v, align);
+  ptrdiff_t vshift = valigned - v;
+
+  v = valigned - sizeof(ptrdiff_t);
+  *( (ptrdiff_t*)v ) = vshift;
+ 
+  //std::cout << "mmap_alloc_check(" << align << "," << byte_size << ") actual size " << asize << " base ptr " << p << " aligned ptr " << valigned << " alignment shift " << vshift << std::endl;
+  return valigned;
+}
+inline void mmap_free(void* pv){
+  char* c = (char*)pv;
+  c -= sizeof(ptrdiff_t);
+  ptrdiff_t vshift = *( (ptrdiff_t*)c );
+  c -= vshift;
+  c -= sizeof(size_t);
+  size_t asize = *( (size_t*)c );
+  
+  //std::cout << "mmap_free(" << pv << ") actual size " << asize << " base ptr "<<  (void*)c << " alignment shift " << vshift << std::endl;
+
+  if( munmap(c, asize) != 0){
+    ERR.General("","mmap_free","Mem free failed\n");
+  }
+}
+
+
 //Note, CUDA does not allow alignment; apparently it is always "sufficient"
 inline void* managed_alloc_check(const size_t align, const size_t byte_size){
 #ifdef GPU_VEC
