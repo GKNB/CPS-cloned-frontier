@@ -1122,8 +1122,9 @@ public:
 };
 
 
-
-
+#ifndef A2A_MEMPOOL_ALIGNMENT
+#define A2A_MEMPOOL_ALIGNMENT 32
+#endif
 
 //3-level memory pool manager with device,host,disk storage locations with eviction possible from device, host
 class HolisticMemoryPoolManager{
@@ -1190,11 +1191,11 @@ protected:
     e.bytes = bytes;
     e.owned_by = nullptr;
     if(pool == DevicePool){
-      e.ptr = device_alloc_check(128,bytes);
+      e.ptr = device_alloc_check(A2A_MEMPOOL_ALIGNMENT,bytes);
       device_allocated += bytes;
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Allocated device entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
     }else{ //HostPool
-      e.ptr = memalign_check(128,bytes);
+      e.ptr = memalign_check(A2A_MEMPOOL_ALIGNMENT,bytes);
       host_allocated += bytes;
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Allocated host entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;
     }
