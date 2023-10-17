@@ -4,8 +4,13 @@
 #include <cstdarg>
 #include <cxxabi.h>
 #include <chrono>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <util/lattice.h>
 #include <alg/fix_gauge_arg.h>
+#include "utils_malloc.h"
 
 CPS_START_NAMESPACE
 
@@ -122,6 +127,86 @@ inline double secs_since_first_call(){
     return double(us)/1e6;
   }
 }
+
+void write_data_bypass_cache(const std::string &file, char const* data, size_t bytes){
+  int fd = open(file.c_str(), O_WRONLY | O_CREAT | O_DIRECT | O_DSYNC | O_TRUNC, S_IRWXU);
+  if(fd == -1){
+    perror(errno);
+    ERR.General("","write_data_bypass_cache","Failed to open %s", file.c_str());
+  }
+
+  /* //Need an aligned memory region */
+
+  //Can't get statx working on qcdserver??
+  /* struct statx st; */
+  /* int e = statx(fd, "", AT_EMPTY_PATH, STATX_DIOALIGN, &st); */
+  /* if(e == -1){ */
+  /*   perror(errno); */
+  /*   ERR.General("","write_data_bypass_cache","Failed to query file alignment");     */
+  /* } */
+  /* if(st.stx_dio_mem_align == 0) ERR.General("","write_data_bypass_cache","Direct IO not supported on this file");     */
+  
+  /* size_t bufsz = (10*1024*1024 + st.stx_dio_offset_align) % st.stx_dio_offset_align;   */
+  /* void* buf = memalign_check(st.stx_dio_mem_align, bufsz); */
+
+  size_t bufsz = 10*1024*1024;
+  void* buf = memalign_check(4096, bufsz);
+  
+  while(bytes > 0){
+    size_t count = std::min(bytes, bufsz);
+    memcpy(buf, data, count);
+    ssize_t f = write(fd, buf, count);
+    if(f==-1){
+      perror(errno);
+      ERR.General("","write_data_bypass_cache","Write failed");    
+    }else if(f != count){
+      ERR.General("","write_data_bypass_cache","Write did not write expected number of bytes");    
+    }
+    bytes -= count;
+    data += count;
+  }  
+  int e = close(fd);
+  if(e == -1){
+    perror(errno);
+    ERR.General("","write_data_bypass_cache","Failed to close file");
+  }
+  free(buf);
+}
+
+
+void read_data_bypass_cache(const std::string &file, char * data, size_t bytes){
+  int fd = open(file.c_str(), O_RDONLY | O_DIRECT);
+  if(fd == -1){
+    perror(errno);
+    ERR.General("","read_data_bypass_cache","Failed to open %s", file.c_str());
+  }
+
+  /* //Need an aligned memory region */
+  size_t bufsz = 10*1024*1024;
+  void* buf = memalign_check(4096, bufsz);
+  
+  while(bytes > 0){
+    size_t count = std::min(bytes, bufsz);
+    ssize_t f = read(fd, buf, count);
+    if(f==-1){
+      perror(errno);
+      ERR.General("","read_data_bypass_cache","Read failed");    
+    }else if(f != count){
+      ERR.General("","read_data_bypass_cache","Read did not write expected number of bytes");    
+    }
+    memcpy(data, buf, count);
+    bytes -= count;
+    data += count;
+  }  
+  int e = close(fd);
+  if(e == -1){
+    perror(errno);
+    ERR.General("","read_data_bypass_cache","Failed to close file");
+  }
+  free(buf);
+}
+
+
 
 CPS_END_NAMESPACE
 

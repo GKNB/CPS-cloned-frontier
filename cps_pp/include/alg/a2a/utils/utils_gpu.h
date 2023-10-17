@@ -1441,11 +1441,15 @@ protected:
 	handle.disk_file = disk_root + "/mempool." + std::to_string(UniqueID()) + "." + std::to_string(idx++);
       }
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing host " << handle.host_entry->ptr << " to disk " << handle.disk_file << std::endl;
+#ifdef A2A_MEMPOOL_BYPASS_CACHE
+      write_data_bypass_cache(handle.disk_file, (char*)handle.host_entry->ptr, handle.bytes);
+#else
       std::fstream f(handle.disk_file.c_str(), std::ios::out | std::ios::binary);
       if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncHostToDisk","Failed to open file %s for write\n",handle.disk_file.c_str());
       f.write((char*)handle.host_entry->ptr, handle.bytes);
       if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncHostToDisk","Write error in file %s\n",handle.disk_file.c_str());
       f.flush(); //should ensure data is written to disk immediately and not kept around in some memory buffer, but may slow things down
+#endif
 
       handle.disk_in_sync = true;
     }
@@ -1455,12 +1459,17 @@ protected:
     assert(handle.initialized);
     if(!handle.host_in_sync){
       assert(handle.disk_in_sync && handle.disk_file != "");
-      if(!handle.host_valid) attachEntry(handle, HostPool);      
+      if(!handle.host_valid) attachEntry(handle, HostPool);     
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing disk " << handle.disk_file << " to host " << handle.host_entry->ptr << std::endl;
+#ifdef A2A_MEMPOOL_BYPASS_CACHE
+      read_data_bypass_cache(handle.disk_file, (char*)handle.host_entry->ptr, handle.bytes);
+#else
       std::fstream f(handle.disk_file.c_str(), std::ios::in | std::ios::binary);
       if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncDiskToHost","Failed to open file %s for write\n",handle.disk_file.c_str());
       f.read((char*)handle.host_entry->ptr, handle.bytes);
       if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncDiskToHost","Write error in file %s\n",handle.disk_file.c_str());
+#endif
+
       handle.host_in_sync = true;
     }
   }
@@ -1592,7 +1601,7 @@ public:
 
   void setDiskRoot(const std::string &to){ disk_root = to; }
   
-  //Set the pool max size. When the next eviction cycle happens the extra memory will be deallocated
+  //Set the pool max size in bytes. When the next eviction cycle happens the extra memory will be deallocated
   void setPoolMaxSize(size_t to, Pool pool){
     auto &m = (pool == DevicePool ? device_pool_max_size : host_pool_max_size );
     m = to;

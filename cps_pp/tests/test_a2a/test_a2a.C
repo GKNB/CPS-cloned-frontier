@@ -387,7 +387,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testXconjDiagRecon<A2Apolicies_grid>(lattice);
   */
 
-  test_mmap_alloc();
+  //test_mmap_alloc();
+
+  test_write_data_bypass_cache();
 }
 
 

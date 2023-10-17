@@ -377,13 +377,13 @@ struct CommandLineArgs{
 	arg+=2;
 #endif
 
-      }else if( cmdstr == "-gpu_pool_max_mem" ){
+      }else if( cmdstr == "-gpu_pool_max_mem" ){ //bytes
 	std::stringstream ss; ss << argv[arg+1];
 	size_t v; ss >> v;
 	DeviceMemoryPoolManager::globalPool().setPoolMaxSize(v);
 	HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::DevicePool);	
 	arg+=2;
-      }else if( cmdstr == "-host_pool_max_mem" ){
+      }else if( cmdstr == "-host_pool_max_mem" ){ //bytes
 	std::stringstream ss; ss << argv[arg+1];
 	size_t v; ss >> v;
 	HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::HostPool);	
