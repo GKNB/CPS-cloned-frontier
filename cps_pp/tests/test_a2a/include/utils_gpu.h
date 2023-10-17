@@ -286,7 +286,7 @@ void test_mmap_alloc(){
 }
 
 void test_write_data_bypass_cache(){
-  //Try with data size smaller than 10MB
+  //Try with data size smaller than 4kB
   {
     int nd = 128;
     size_t sz = nd*sizeof(double);
@@ -304,6 +304,26 @@ void test_write_data_bypass_cache(){
     free(p);
     free(q);
   }
+
+  //Try with data size smaller than 10MB
+  {
+    int nd = 600;
+    size_t sz = nd*sizeof(double);
+    double* p = (double*)malloc_check(sz);
+    for(int i=0;i<nd;i++) p[i] = double(i);
+    write_data_bypass_cache("test.dat", (char*)p, sz);
+
+    double* q = (double*)malloc_check(sz);
+    read_data_bypass_cache("test.dat", (char*)q, sz);  
+
+    for(int i=0;i<nd;i++){
+      assert(p[i] == q[i]);
+      assert(q[i] == double(i));
+    }
+    free(p);
+    free(q);
+  }
+
 
   {
     int nd = 20*1024*1024/8;

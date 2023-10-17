@@ -155,6 +155,11 @@ void write_data_bypass_cache(const std::string &file, char const* data, size_t b
   while(bytes > 0){
     size_t count = std::min(bytes, bufsz);
     memcpy(buf, data, count);
+    if(count % 4096 != 0){
+      count = (count + 4096) % 4096; //round up to nearest disk block size to avoid errors. This can only happen for the last snippet of data
+      assert(count <= bufsz); //sanity check! Should always pass because bufsz is a multiple of 4kB
+    }
+
     ssize_t f = write(fd, buf, count);
     if(f==-1){
       perror("Write failed");
@@ -187,6 +192,11 @@ void read_data_bypass_cache(const std::string &file, char * data, size_t bytes){
   
   while(bytes > 0){
     size_t count = std::min(bytes, bufsz);
+    if(count % 4096 != 0){
+      count = (count + 4096) % 4096; //round up to nearest disk block size to avoid errors. This can only happen for the last snippet of data
+      assert(count <= bufsz); //sanity check! Should always pass because bufsz is a multiple of 4kB
+    }
+
     ssize_t f = read(fd, buf, count);
     if(f==-1){
       perror("Read failed");
