@@ -131,7 +131,7 @@ inline double secs_since_first_call(){
 void write_data_bypass_cache(const std::string &file, char const* data, size_t bytes){
   int fd = open(file.c_str(), O_WRONLY | O_CREAT | O_DIRECT | O_DSYNC | O_TRUNC, S_IRWXU);
   if(fd == -1){
-    perror(errno);
+    perror("Failed to open file");
     ERR.General("","write_data_bypass_cache","Failed to open %s", file.c_str());
   }
 
@@ -157,7 +157,7 @@ void write_data_bypass_cache(const std::string &file, char const* data, size_t b
     memcpy(buf, data, count);
     ssize_t f = write(fd, buf, count);
     if(f==-1){
-      perror(errno);
+      perror("Write failed");
       ERR.General("","write_data_bypass_cache","Write failed");    
     }else if(f != count){
       ERR.General("","write_data_bypass_cache","Write did not write expected number of bytes");    
@@ -167,7 +167,7 @@ void write_data_bypass_cache(const std::string &file, char const* data, size_t b
   }  
   int e = close(fd);
   if(e == -1){
-    perror(errno);
+    perror("File close failed");
     ERR.General("","write_data_bypass_cache","Failed to close file");
   }
   free(buf);
@@ -177,7 +177,7 @@ void write_data_bypass_cache(const std::string &file, char const* data, size_t b
 void read_data_bypass_cache(const std::string &file, char * data, size_t bytes){
   int fd = open(file.c_str(), O_RDONLY | O_DIRECT);
   if(fd == -1){
-    perror(errno);
+    perror("Failed to open file");
     ERR.General("","read_data_bypass_cache","Failed to open %s", file.c_str());
   }
 
@@ -189,7 +189,7 @@ void read_data_bypass_cache(const std::string &file, char * data, size_t bytes){
     size_t count = std::min(bytes, bufsz);
     ssize_t f = read(fd, buf, count);
     if(f==-1){
-      perror(errno);
+      perror("Read failed");
       ERR.General("","read_data_bypass_cache","Read failed");    
     }else if(f != count){
       ERR.General("","read_data_bypass_cache","Read did not write expected number of bytes");    
@@ -200,7 +200,7 @@ void read_data_bypass_cache(const std::string &file, char * data, size_t bytes){
   }  
   int e = close(fd);
   if(e == -1){
-    perror(errno);
+    perror("Failed to close file");
     ERR.General("","read_data_bypass_cache","Failed to close file");
   }
   free(buf);
