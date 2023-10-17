@@ -106,6 +106,24 @@ inline void copy_device_to_host(void* to, void const* from, size_t bytes){
 #endif
 }
 
+inline void copy_device_to_device(void* to, void const* from, size_t bytes){
+#ifdef GPU_VEC
+
+#  if defined(GRID_CUDA)
+  assert( cudaMemcpy(to,from,bytes, cudaMemcpyDeviceToDevice) == cudaSuccess );
+#  elif defined(GRID_HIP)
+  assert( hipMemcpy(to,from,bytes, hipMemcpyHostToDevice) == hipSuccess );
+#  else
+  assert(0);
+#  endif
+
+#else
+  //no GPU
+  memcpy(to, from, bytes);
+#endif
+}
+
+
 //memset for device memory
 inline void device_memset(void *ptr, int value, size_t count){
 #ifdef GPU_VEC

@@ -10,10 +10,24 @@ public:
 private:
   AllocLocationPref alloc_loc;
   size_t sz;  
+  
+  //Copy the data in the preferred location
+  inline void copyDataInPrefLoc(const VectorWithAview & r){
+    if(alloc_loc == AllocLocationPref::Host){
+      CPSautoView(r_v, r, HostRead);
+      CPSautoView(t_v, (*this), HostWrite);
+      memcpy(t_v(), r_v(), sz * sizeof(T));
+    }else{
+      CPSautoView(r_v, r, DeviceRead);
+      CPSautoView(t_v, (*this), DeviceWrite);
+      copy_device_to_device(t_v(), r_v(), sz * sizeof(T));
+    }
+  }
+
 public:
 
   VectorWithAview(size_t _sz = 0, AllocLocationPref _alloc_loc = AllocLocationPref::Host): sz(_sz), alloc_loc(_alloc_loc){
-    this->_alloc(_sz * sizeof(T));
+    this->_alloc(_sz * sizeof(T), alloc_loc);
   }
   VectorWithAview(VectorWithAview && r): sz(r.sz), alloc_loc(r.alloc_loc){
     r.sz = 0;
@@ -29,20 +43,16 @@ public:
   }
 
   VectorWithAview(const VectorWithAview & r): sz(r.sz), alloc_loc(r.alloc_loc){
-    this->_alloc(sz * sizeof(T));
-    CPSautoView(r_v, r, HostRead);
-    CPSautoView(t_v, (*this), HostWrite);
-    memcpy(t_v(), r_v(), sz * sizeof(T));
+    this->_alloc(sz * sizeof(T), alloc_loc);
+    copyDataInPrefLoc(r);
   }
 
   VectorWithAview & operator=(const VectorWithAview &r){
     this->_free();
     sz = r.sz;
     alloc_loc = r.alloc_loc;
-    this->_alloc(sz * sizeof(T));
-    CPSautoView(r_v, r, HostRead);
-    CPSautoView(t_v, (*this), HostWrite);
-    memcpy(t_v(), r_v(), sz * sizeof(T));
+    this->_alloc(sz * sizeof(T), alloc_loc);
+    copyDataInPrefLoc(r);
     return *this;
   }
 
@@ -54,7 +64,7 @@ public:
   void resize(size_t _sz){
     sz = _sz;
     this->_free();
-    this->_alloc(_sz * sizeof(T));
+    this->_alloc(_sz * sizeof(T), alloc_loc);
   }
     
   ~VectorWithAview(){
