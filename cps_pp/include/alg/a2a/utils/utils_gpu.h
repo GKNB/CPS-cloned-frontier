@@ -1524,6 +1524,28 @@ protected:
     return getLRUpool(pool).erase(entry); //remove from list
   }
 
+  static void summarizePoolStatus(std::ostream &os, const std::string &descr, const std::map<size_t,std::list<Entry>, std::greater<size_t> > &pool_stat){
+    os << descr << " (size_MB,count,total_MB):";
+    double tot = 0;
+    for(auto const &e : pool_stat){
+      double MB = byte_to_MB(e.first);
+      os << " (" << MB << "," << e.second.size() << "," << e.second.size() * MB << ")";
+      tot += e.second.size() * MB;
+    }
+    os << " : TOTAL " << tot << std::endl;
+  }
+  static void summarizePoolStatus(std::ostream &os, const std::string &descr, const std::map<size_t,int, std::greater<size_t> > &pool_stat){
+    os << descr << " (size_MB,count,total_MB):";
+    double tot = 0;
+    for(auto const &e : pool_stat){
+      double MB = byte_to_MB(e.first);
+      os << " (" << MB << "," << e.second << "," << e.second * MB << ")";
+      tot += e.second * MB;
+    }
+    os << " : TOTAL " << tot << std::endl;
+  }
+
+
 public:
 
   HolisticMemoryPoolManager(): device_allocated(0), device_pool_max_size(1024*1024*1024), host_allocated(0), host_pool_max_size(1024*1024*1024), verbose(false), disk_root("."){}
@@ -1577,12 +1599,40 @@ public:
     return out;
   }
 
-  std::string report() const{
+  std::string report(bool detailed = false) const{
     std::ostringstream os;
     os << "HolisticMemoryPoolManager consumption - device: " << double(device_allocated)/1024./1024.
        << " MB, host: " << double(host_allocated)/1024./1024.
        << " MB, disk (cached): " << double(getDiskCachedBytes())/1024./1024.
        << " MB, disk (total): " << double(getDiskUsedBytes())/1024/1024. << " MB";
+
+    if(detailed){
+      os << std::endl;
+
+      summarizePoolStatus(os, "DeviceFreePool", device_free_pool);
+      std::map<size_t, int, std::greater<size_t> > in_use;
+      for(auto const &e : device_in_use_pool){
+	auto it = in_use.find(e.bytes);
+	if(it == in_use.end()){
+	  in_use[e.bytes] = 1;
+	}else{
+	  ++(it->second);
+	}
+      }
+      summarizePoolStatus(os, "DeviceInUsePool", in_use);
+      in_use.clear();
+      summarizePoolStatus(os, "HostFreePool", host_free_pool);
+      for(auto const &e : host_in_use_pool){
+	auto it = in_use.find(e.bytes);
+	if(it == in_use.end()){
+	  in_use[e.bytes] = 1;
+	}else{
+	  ++(it->second);
+	}
+      }
+      summarizePoolStatus(os, "HostInUsePool", in_use);
+    }
+
     return os.str();
   }
   
@@ -1694,8 +1744,8 @@ public:
 
 };
 
-inline std::string memPoolManagerReport(){
-  return HolisticMemoryPoolManager::globalPool().report();
+inline std::string memPoolManagerReport(bool detailed = false){
+  return HolisticMemoryPoolManager::globalPool().report(detailed);
 }
 
 

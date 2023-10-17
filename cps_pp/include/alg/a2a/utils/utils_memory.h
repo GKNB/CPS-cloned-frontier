@@ -90,7 +90,7 @@ inline void getRSSbreakdown(long int &anon, long int &file, long int &shmem){ //
 
 
 
-inline std::string memPoolManagerReport();
+inline std::string memPoolManagerReport(bool detailed);
 
 //Print memory usage
 inline void printMem(const std::string &reason = "", int node = 0, FILE* stream = stdout){
@@ -217,7 +217,11 @@ inline void printMem(const std::string &reason = "", int node = 0, FILE* stream 
   }
 
   if(UniqueID()==node){
-    fprintf(stream, "%s\n", memPoolManagerReport().c_str());
+#ifdef A2A_PRINTMEM_MEMPOOL_DETAILED_REPORT
+    fprintf(stream, "%s\n", memPoolManagerReport(true).c_str());
+#else
+    fprintf(stream, "%s\n", memPoolManagerReport(false).c_str());
+#endif
   }
 
 #ifdef USE_GRID
