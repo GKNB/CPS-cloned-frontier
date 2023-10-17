@@ -132,7 +132,7 @@ void write_data_bypass_cache(const std::string &file, char const* data, size_t b
   int fd = open(file.c_str(), O_WRONLY | O_CREAT | O_DIRECT | O_DSYNC | O_TRUNC, S_IRWXU);
   if(fd == -1){
     perror("Failed to open file");
-    ERR.General("","write_data_bypass_cache","Failed to open %s", file.c_str());
+    ERR.General("","write_data_bypass_cache","Failed to open file %s", file.c_str());
   }
 
   /* //Need an aligned memory region */
@@ -154,26 +154,27 @@ void write_data_bypass_cache(const std::string &file, char const* data, size_t b
   
   while(bytes > 0){
     size_t count = std::min(bytes, bufsz);
-    memcpy(buf, data, count);
+    size_t cpcount = count;
+    memcpy(buf, data, cpcount);
     if(count % 4096 != 0){
-      count = (count + 4096) % 4096; //round up to nearest disk block size to avoid errors. This can only happen for the last snippet of data
+      count = ((count + 4096) / 4096) * 4096; //round up to nearest disk block size to avoid errors. This can only happen for the last snippet of data
       assert(count <= bufsz); //sanity check! Should always pass because bufsz is a multiple of 4kB
     }
 
     ssize_t f = write(fd, buf, count);
     if(f==-1){
       perror("Write failed");
-      ERR.General("","write_data_bypass_cache","Write failed");    
+      ERR.General("","write_data_bypass_cache","Write failed for bytes %lu", count);    
     }else if(f != count){
-      ERR.General("","write_data_bypass_cache","Write did not write expected number of bytes");    
+      ERR.General("","write_data_bypass_cache","Write did not write expected number of bytes, wrote %lu requested %lu", f, count);    
     }
-    bytes -= count;
-    data += count;
+    bytes -= cpcount;
+    data += cpcount;
   }  
   int e = close(fd);
   if(e == -1){
     perror("File close failed");
-    ERR.General("","write_data_bypass_cache","Failed to close file");
+    ERR.General("","write_data_bypass_cache","Failed to close file %s", file.c_str());
   }
   free(buf);
 }
@@ -192,26 +193,27 @@ void read_data_bypass_cache(const std::string &file, char * data, size_t bytes){
   
   while(bytes > 0){
     size_t count = std::min(bytes, bufsz);
+    size_t cpcount = count;
     if(count % 4096 != 0){
-      count = (count + 4096) % 4096; //round up to nearest disk block size to avoid errors. This can only happen for the last snippet of data
+      count = ((count + 4096) / 4096) * 4096; //round up to nearest disk block size to avoid errors. This can only happen for the last snippet of data
       assert(count <= bufsz); //sanity check! Should always pass because bufsz is a multiple of 4kB
     }
 
     ssize_t f = read(fd, buf, count);
     if(f==-1){
       perror("Read failed");
-      ERR.General("","read_data_bypass_cache","Read failed");    
+      ERR.General("","read_data_bypass_cache","Read failed for bytes %lu", count);
     }else if(f != count){
-      ERR.General("","read_data_bypass_cache","Read did not write expected number of bytes");    
+      ERR.General("","read_data_bypass_cache","Read did not read expected number of bytes, got %lu requested %lu", f, count);
     }
-    memcpy(data, buf, count);
-    bytes -= count;
-    data += count;
+    memcpy(data, buf, cpcount);
+    bytes -= cpcount;
+    data += cpcount;
   }  
   int e = close(fd);
   if(e == -1){
     perror("Failed to close file");
-    ERR.General("","read_data_bypass_cache","Failed to close file");
+    ERR.General("","read_data_bypass_cache","Failed to close file %s", file.c_str());
   }
   free(buf);
 }
