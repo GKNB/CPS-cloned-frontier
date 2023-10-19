@@ -1,6 +1,7 @@
 #ifndef CK_A2A_UTILS
 #define CK_A2A_UTILS
 
+#include "utils/utils_logging.h"
 #include "utils/utils_generic.h"
 #include "utils/utils_array.h"
 #include "utils/utils_floatingpt.h"
