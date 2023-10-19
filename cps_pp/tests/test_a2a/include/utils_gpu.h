@@ -346,7 +346,27 @@ void test_write_data_bypass_cache(){
 
 
 }
-  
+
+void test_disk_reduce(){
+  int nodes = GJP.TotalNodes();
+  for(int i=0;i<100;i++){
+    double v[10];
+    for(int j=0;j<10;j++)
+      v[j] = UniqueID() * (3.14*i + 2.76*j) + 7.54;
+    
+    double vexpect[10] = {0};
+    for(int n=0;n<nodes;n++)
+      for(int j=0;j<10;j++)
+	vexpect[j] += n * (3.14*i + 2.76*j) + 7.54;
+    
+    disk_reduce(v, 10);
+    
+    for(int j=0;j<10;j++){
+      std::cout << j << " " << v[j] << " " << vexpect[j] << " " << v[j]-vexpect[j] << std::endl;
+      assert(v[j] == vexpect[j]);
+    }
+  }
+}  
 
 
 CPS_END_NAMESPACE

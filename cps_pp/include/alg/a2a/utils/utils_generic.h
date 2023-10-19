@@ -128,7 +128,7 @@ inline double secs_since_first_call(){
   }
 }
 
-void write_data_bypass_cache(const std::string &file, char const* data, size_t bytes){
+inline void write_data_bypass_cache(const std::string &file, char const* data, size_t bytes){
   int fd = open(file.c_str(), O_WRONLY | O_CREAT | O_DIRECT | O_DSYNC | O_TRUNC, S_IRWXU);
   if(fd == -1){
     perror("Failed to open file");
@@ -180,7 +180,7 @@ void write_data_bypass_cache(const std::string &file, char const* data, size_t b
 }
 
 
-void read_data_bypass_cache(const std::string &file, char * data, size_t bytes){
+inline void read_data_bypass_cache(const std::string &file, char * data, size_t bytes){
   int fd = open(file.c_str(), O_RDONLY | O_DIRECT);
   if(fd == -1){
     perror("Failed to open file");
@@ -218,7 +218,81 @@ void read_data_bypass_cache(const std::string &file, char * data, size_t bytes){
   free(buf);
 }
 
+inline void disk_write_immediate(const std::string &file, void* data, size_t len){
+  int fd = open(file.c_str(), O_WRONLY | O_CREAT | O_DSYNC | O_TRUNC, S_IRWXU);
+  if(fd == -1){
+    perror("Failed to open file");
+    ERR.General("","disk_write_immediate","Failed to open file %s", file.c_str());
+  }
+  ssize_t f = write(fd, data, len);
+  if(f==-1){
+    perror("Write failed");
+    ERR.General("","disk_write_immediate","Write failed for bytes %lu", len);    
+  }else if(f != len){
+    ERR.General("","disk_write_immediate","Write did not write expected number of bytes, wrote %lu requested %lu", f, len);
+  }
+  int e = close(fd);
+  if(e == -1){
+    perror("Failed to close file");
+    ERR.General("","disk_write_immediate","Failed to close file %s", file.c_str());
+  }
+}
 
+inline void disk_read(const std::string &file, void* data, size_t len){
+  int fd = open(file.c_str(), O_RDONLY);
+  if(fd == -1){
+    perror("Failed to open file");
+    ERR.General("","disk_read","Failed to open file %s", file.c_str());
+  }
+  ssize_t f = read(fd, data, len);
+  if(f==-1){
+    perror("Read failed");
+    ERR.General("","disk_read","Read failed for bytes %lu", len);    
+  }else if(f != len){
+    ERR.General("","disk_read","Write did not write expected number of bytes, wrote %lu requested %lu", f, len);    
+  }
+  int e = close(fd);
+  if(e == -1){
+    perror("Failed to close file");
+    ERR.General("","disk_read","Failed to close file %s", file.c_str());
+  }
+}
+
+
+
+//Perform reduction via the disk rather than MPI
+template<typename T>
+void disk_reduce(T* data, size_t size){
+  static int rc = 0;
+  std::string df = "reddata." + std::to_string(UniqueID()) + "." + std::to_string(rc);
+
+  disk_write_immediate(df,(void*)data,size*sizeof(T));
+  cps::sync(); //Assume MPI barrier is available
+  
+  int nodes = GJP.TotalNodes();
+  
+  memset(data, 0, size*sizeof(T));
+
+  T* buf = (T*)malloc_check(size*sizeof(T));
+  for(int i=0;i<nodes;i++){
+    std::string dfi = "reddata." + std::to_string(i) + "." + std::to_string(rc);
+    disk_read(dfi, (void*)buf, size*sizeof(T));
+    for(int j=0;j<size;j++) data[j] += buf[j];
+  }
+  free(buf);
+
+  cps::sync();
+  remove(df.c_str());
+  ++rc;
+}
+  // std::string ddone = "done." + std::to_string(UniqueID()) + "." + std::to_string(rc);
+  // disk_write_immediate(ddone,(void*)&rc,sizeof(int));  
+  // //Wait for all done files to be written
+  // std::vector<bool> done(GJP.Vol
+  // 			 while(1){    
+  // 	std::this_thread::sleep_for (std::chrono::milliseconds(100));
+
+  
 
 CPS_END_NAMESPACE
 

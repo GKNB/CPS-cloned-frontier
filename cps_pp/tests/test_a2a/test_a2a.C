@@ -389,7 +389,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   //test_mmap_alloc();
 
-  test_write_data_bypass_cache();
+  //test_write_data_bypass_cache();
+
+  test_disk_reduce();
 }
 
 

@@ -14,7 +14,10 @@
 CPS_START_NAMESPACE
 
 inline void globalSum(double *result, size_t len = 1){
-#ifdef USE_QMP
+#ifdef A2A_GLOBALSUM_DISK
+  std::cout << "DISK REDUCE" << std::endl;
+  disk_reduce(result,len);
+#elif defined(USE_QMP)
   QMP_sum_double_array(result, len);
 #elif defined(USE_MPI)
   MPI_Allreduce(MPI_IN_PLACE, result, len, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -24,7 +27,10 @@ inline void globalSum(double *result, size_t len = 1){
 }
 
 inline void globalSum(float *result, size_t len = 1){
-#ifdef USE_QMP
+#ifdef A2A_GLOBALSUM_DISK
+  std::cout << "DISK REDUCE" << std::endl;
+  disk_reduce(result,len);
+#elif defined(USE_QMP)
   QMP_sum_float_array(result, len);
 #elif defined(USE_MPI)
   MPI_Allreduce(MPI_IN_PLACE, result, len, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
