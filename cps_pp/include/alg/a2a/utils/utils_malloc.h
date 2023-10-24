@@ -65,6 +65,7 @@ inline void* malloc_check(const size_t sz){
   void* p = malloc(sz);
   if(p == NULL){ 
     printf("malloc_check alloc of size %f MB failed on node %d. Stack trace:\n", double(sz)/1024./1024., UniqueID());
+    perror("reason");
     printBacktrace(std::cout);
     printMem("Memory status on fail", UniqueID());
     std::cout.flush(); fflush(stdout);
