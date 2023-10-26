@@ -336,12 +336,12 @@ inline void gaugeFixCPSlattice(Lattice &lat){
 }
 
 
-inline void rankToNodeCoor(int rcoor[4], int rank, const std::vector<int> &mpi){
+inline void lexRankToNodeCoor(int rcoor[4], int rank, const std::vector<int> &mpi){
   for(int i=0;i<4;i++){
     rcoor[i] = rank % mpi[i]; rank /= mpi[i];   //r = rx + Nx*( ry + Ny * (rz + Nz * rt))
   }
 }
-inline int nodeCoorToRank(const int rcoor[4], const std::vector<int> &mpi){
+inline int nodeCoorToLexRank(const int rcoor[4], const std::vector<int> &mpi){
   return rcoor[0] + mpi[0]*( rcoor[1] + mpi[1] * ( rcoor[2] + mpi[2] * rcoor[3] ) );
 }
 
@@ -354,6 +354,17 @@ inline int localSiteCoorToOffset(const int lcoor[4], const std::vector<int> &nod
   return lcoor[0] + nodesites[0]*( lcoor[1] + nodesites[1] * ( lcoor[2] + nodesites[2] * lcoor[3] ) );
 }
 
+//Rank mappings,  4 integers offset by 4*rank
+inline std::vector<int> determineRankMapping(int rank, int nrank){
+  std::vector<int> nodecoors(4*nrank, 0);
+  int* base = nodecoors.data() + 4*rank;
+  for(int i=0;i<4;i++) base[i] = GJP.NodeCoor(i);
+
+  printf("Rank %d node coord %d %d %d %d\n", rank, base[0],base[1],base[2],base[3]);
+  assert( MPI_Allreduce(MPI_IN_PLACE, nodecoors.data(), 4*nrank, MPI_INT, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
+  return nodecoors;
+}
+
 inline std::ostream & operator<<(std::ostream &os , const std::vector<int> &v){
   os << "("; 
   for(int const e : v) os << e << " ";
@@ -363,10 +374,18 @@ inline std::ostream & operator<<(std::ostream &os , const std::vector<int> &v){
 
 template<typename SiteType, int SiteSize, typename AllocPolicy, typename FlavorPolicy>
 void write_parallel_parts(const CPSfield<SiteType,SiteSize,FourDpolicy<FlavorPolicy>,AllocPolicy> &from, const std::string &file_stub){
+  int rank;
+  assert( MPI_Comm_rank(MPI_COMM_WORLD, &rank) == MPI_SUCCESS );
+  int nrank = 1;
+  for(int i=0;i<4;i++)
+    nrank *= GJP.Nodes(i);
+
+  std::vector<int> nodecoors = determineRankMapping(rank, nrank);
   if(!UniqueID()){
     std::vector<int> mpi_orig(4);
     for(int i=0;i<4;i++) mpi_orig[i] = GJP.Nodes(i);
     disk_write_immediate(file_stub + ".mpi", mpi_orig.data(), 4*sizeof(int));
+    disk_write_immediate(file_stub + ".rcoor", nodecoors.data(), nodecoors.size()*sizeof(int));
   }
   size_t bytes = from.nfsites() * SiteSize * sizeof(SiteType);
   std::stringstream fn; fn << file_stub << '.' << GJP.NodeCoor(0) << '.' << GJP.NodeCoor(1) << '.' << GJP.NodeCoor(2) << '.' << GJP.NodeCoor(3) << ".dat"; 
@@ -384,28 +403,37 @@ void read_parallel_parts(CPSfield<SiteType,SiteSize,FourDpolicy<FlavorPolicy>,Al
   disk_read(file_stub+".mpi",mpi_orig.data(),4*sizeof(int));
    
   int nrank_orig = 1;
+  for(int i=0;i<4;i++) nrank_orig *= mpi_orig[i];
+  
+  std::vector<int> orig_rank_nodecoors(4*nrank_orig);
+  disk_read(file_stub+".rcoor",orig_rank_nodecoors.data(),4*nrank_orig*sizeof(int));
+
+  //lexrank is the lexicographic rank built from the node coordinate in the usual fashion
+  std::vector<int> lexrank_to_origrank_map(nrank_orig);
+  for(int r=0;r<nrank_orig;r++){
+    int const* n = orig_rank_nodecoors.data() + 4*r;
+    int lexrank = nodeCoorToLexRank(n, mpi_orig);
+    lexrank_to_origrank_map[lexrank] = r;
+  }
+
   int nrank_new = 1;
   std::vector<int> mpi_new(4);
   size_t orig_nodevol = 1, new_nodevol = 1;
 
   std::vector<int> nodesites_orig(4), nodesites_new(4);
   std::vector<int> sites(4);
-  size_t total_sites = 1;
 
   for(int i=0;i<4;i++){
-    nrank_orig *= mpi_orig[i];
     nrank_new *= GJP.Nodes(i);
 
     mpi_new[i] = GJP.Nodes(i);
 
-    sites[i] = GJP.NodeSites(i) * GJP.Nodes(i);
+    int isites = GJP.NodeSites(i) * GJP.Nodes(i);
     nodesites_new[i] = GJP.NodeSites(i);
-    nodesites_orig[i] = sites[i]/mpi_orig[i];
+    nodesites_orig[i] = isites/mpi_orig[i];
     
     orig_nodevol *= nodesites_orig[i];
     new_nodevol *= nodesites_new[i];
-
-    total_sites *= sites[i];
   }
 
   int nf = into.nflavors();
@@ -416,19 +444,17 @@ void read_parallel_parts(CPSfield<SiteType,SiteSize,FourDpolicy<FlavorPolicy>,Al
   std::cout << "MPI geometry orig: " << mpi_orig << ",  new: " << mpi_new << std::endl;
 
   //Get the mapping of MPI rank to node coordinate in this job
-  std::vector<int> new_rank_nodecoors(4*nrank_new, 0);
-  {
-    int* base = new_rank_nodecoors.data() + 4*rank;
-    for(int i=0;i<4;i++) base[i] = GJP.NodeCoor(i);
+  std::vector<int> new_rank_nodecoors = determineRankMapping(rank, nrank_new);
 
-    printf("Rank %d node coord %d %d %d %d\n", rank, base[0],base[1],base[2],base[3]);
-    assert( MPI_Allreduce(MPI_IN_PLACE, new_rank_nodecoors.data(), 4*nrank_new, MPI_INT, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
-
-    std::cout << "Rank mapping:" << std::endl;
-    for(int r=0;r<nrank_new;r++){
-      int* base = new_rank_nodecoors.data() + 4*r;
-      std::cout << r << ":" << base[0] << " " << base[1] << " " << base[2] << " " << base[3] << std::endl;
-    }
+  std::cout << "New rank mapping:" << std::endl;
+  for(int r=0;r<nrank_new;r++){
+    int* base = new_rank_nodecoors.data() + 4*r;
+    std::cout << r << ":" << base[0] << " " << base[1] << " " << base[2] << " " << base[3] << std::endl;
+  }
+  std::cout << "Orig rank mapping:" << std::endl;
+  for(int r=0;r<nrank_orig;r++){
+    int* base = orig_rank_nodecoors.data() + 4*r;
+    std::cout << r << ":" << base[0] << " " << base[1] << " " << base[2] << " " << base[3] << std::endl;
   }
 
   //Load the original data blocks with a particular order defined as follows:
@@ -439,10 +465,9 @@ void read_parallel_parts(CPSfield<SiteType,SiteSize,FourDpolicy<FlavorPolicy>,Al
   size_t orig_nodebytes = nf * orig_nodevol * site_bytes;
 
   std::vector<char*> node_data;
-  for(int ro=0;ro<nrank_orig;ro++){ 
-    if(ro % nrank_new == rank){ //this rank loads data from original "ranks" according to a known mapping
-      int node_coor_orig[4];  //x + Lx*(y + Ly*( z + Lz*t )
-      rankToNodeCoor(node_coor_orig, ro, mpi_orig);
+  for(int rank_orig=0;rank_orig<nrank_orig;rank_orig++){ 
+    if(rank_orig % nrank_new == rank){ //this rank loads data from original "ranks" according to a known mapping
+      int const* node_coor_orig = orig_rank_nodecoors.data() + 4*rank_orig;
 
       char *d = (char*)malloc_check(orig_nodebytes);
       //Open file  file_stub + .nx.ny.nz.nt -> d
@@ -469,10 +494,7 @@ void read_parallel_parts(CPSfield<SiteType,SiteSize,FourDpolicy<FlavorPolicy>,Al
       int xloc[4];
       offsetToLocalSiteCoor(xloc, s, nodesites_new);
 
-      int nodecoor_new[4];
-      memcpy(nodecoor_new, new_rank_nodecoors.data() + 4*rank_new, 4*sizeof(int));
-
-      //rankToNodeCoor(nodecoor_new, rank_new, mpi_new);
+      int const* nodecoor_new = new_rank_nodecoors.data() + 4*rank_new;
 
       int nodecoor_orig[4];     
       int xloc_orig[4];
@@ -482,7 +504,9 @@ void read_parallel_parts(CPSfield<SiteType,SiteSize,FourDpolicy<FlavorPolicy>,Al
 	xloc_orig[i] = xi_full - nodecoor_orig[i] * nodesites_orig[i];
       }
    
-      int orig_rank = nodeCoorToRank(nodecoor_orig, mpi_orig); //cf above, this is not the same as the original MPI rank
+      int orig_lexrank = nodeCoorToLexRank(nodecoor_orig, mpi_orig);
+      int orig_rank = lexrank_to_origrank_map[orig_lexrank];
+
       int orig_off = localSiteCoorToOffset(xloc_orig, nodesites_orig);
 
       int orig_rank_data_owner = orig_rank % nrank_new; //which MPI rank in this job currently owns this data block
