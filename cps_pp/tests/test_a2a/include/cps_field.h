@@ -507,6 +507,44 @@ void testCPSfieldIO(){
   
 }
 
+template<typename A2Apolicies>
+void testCPSfieldWriteParts(bool write){
+  if(write){
+    CPSfield_checksumType cksumtype = checksumCRC32;
+    FP_FORMAT fileformat = FP_IEEE64BIG;
+  
+    CPSfermion4D<cps::ComplexD> a;
+    a.testRandom();    
+
+    Grid::GridCartesian *UGrid = FgridBase::getUGrid();
+    Grid::emptyUserRecord record;
+    Grid::ScidacWriter WR(UGrid->IsBoss());
+    WR.open("field");
+    typename A2Apolicies::GridFermionField grid_rep(UGrid);
+    a.exportGridField(grid_rep);
+    WR.writeScidacFieldRecord(grid_rep,record);	  
+    WR.close();
+
+    write_parallel_parts(a, "field_parts");
+  }else{
+    CPSfermion4D<cps::ComplexD> a_true;
+
+    Grid::GridCartesian *UGrid = FgridBase::getUGrid();
+    Grid::emptyUserRecord record;
+    Grid::ScidacReader RD;
+    RD.open("field");
+    typename A2Apolicies::GridFermionField grid_rep(UGrid);
+    RD.readScidacFieldRecord(grid_rep,record);    
+    RD.close();
+    a_true.importGridField(grid_rep);
+    
+    CPSfermion4D<cps::ComplexD> a_got;
+    read_parallel_parts(a_got, "field_parts");
+    
+    assert( a_got.equals(a_true, 0., true));
+  }
+}
+
 
 
 CPS_END_NAMESPACE

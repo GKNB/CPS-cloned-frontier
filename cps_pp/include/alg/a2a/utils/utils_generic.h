@@ -292,8 +292,6 @@ void disk_reduce(T* data, size_t size){
   // 			 while(1){    
   // 	std::this_thread::sleep_for (std::chrono::milliseconds(100));
 
-  
-
 CPS_END_NAMESPACE
 
 #endif

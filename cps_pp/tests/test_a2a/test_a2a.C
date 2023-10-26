@@ -87,9 +87,11 @@ void setupDoArg(DoArg &do_arg, int size[5], int ngp, bool verbose = true){
 struct Options{
   double gfix_alpha;
   bool do_init_gauge_fix;
+  bool write;
   Options(){
     gfix_alpha = 0.01;
     do_init_gauge_fix = false;
+    write = false;
   }
 };
 
@@ -391,7 +393,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   //test_write_data_bypass_cache();
 
-  test_disk_reduce();
+  //test_disk_reduce();
+
+  testCPSfieldWriteParts<A2Apolicies_grid>(opt.write);
 }
 
 
@@ -627,6 +631,9 @@ int main(int argc,char *argv[])
     }else if( cmd == "-do_init_gauge_fix"){
       opt.do_init_gauge_fix = true;
       std::cout << "Doing initial gauge fixing" << std::endl;
+      i++;
+    }else if( cmd == "-write"){
+      opt.write =true;
       i++;
     }else{
       bool is_grid_arg = false;
