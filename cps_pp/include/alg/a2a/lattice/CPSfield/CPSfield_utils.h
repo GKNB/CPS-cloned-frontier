@@ -384,13 +384,16 @@ void write_parallel_parts(const CPSfield<SiteType,SiteSize,FourDpolicy<FlavorPol
   if(!UniqueID()){
     std::vector<int> mpi_orig(4);
     for(int i=0;i<4;i++) mpi_orig[i] = GJP.Nodes(i);
-    disk_write_immediate(file_stub + ".mpi", mpi_orig.data(), 4*sizeof(int));
-    disk_write_immediate(file_stub + ".rcoor", nodecoors.data(), nodecoors.size()*sizeof(int));
+
+    cpsBinaryWriter wr(file_stub+".meta");
+    wr.write(mpi_orig.data(), 4*sizeof(int), true);
+    wr.write(nodecoors.data(), nodecoors.size()*sizeof(int), true);
   }
   size_t bytes = from.nfsites() * SiteSize * sizeof(SiteType);
   std::stringstream fn; fn << file_stub << '.' << GJP.NodeCoor(0) << '.' << GJP.NodeCoor(1) << '.' << GJP.NodeCoor(2) << '.' << GJP.NodeCoor(3) << ".dat"; 
   CPSautoView(from_v,from,HostRead);
-  disk_write_immediate(fn.str(),from_v.ptr(),bytes);
+  cpsBinaryWriter wr(fn.str());
+  wr.write(from_v.ptr(),bytes);
   cps::sync();
 }
 
@@ -400,13 +403,18 @@ void read_parallel_parts(CPSfield<SiteType,SiteSize,FourDpolicy<FlavorPolicy>,Al
   assert( MPI_Comm_rank(MPI_COMM_WORLD, &rank) == MPI_SUCCESS );
 
   std::vector<int> mpi_orig(4);
-  disk_read(file_stub+".mpi",mpi_orig.data(),4*sizeof(int));
-   
   int nrank_orig = 1;
-  for(int i=0;i<4;i++) nrank_orig *= mpi_orig[i];
-  
-  std::vector<int> orig_rank_nodecoors(4*nrank_orig);
-  disk_read(file_stub+".rcoor",orig_rank_nodecoors.data(),4*nrank_orig*sizeof(int));
+  std::vector<int> orig_rank_nodecoors;
+
+  {
+    cpsBinaryReader rd(file_stub+".meta");
+    rd.read(mpi_orig.data(),4*sizeof(int), true);
+    
+    for(int i=0;i<4;i++) nrank_orig *= mpi_orig[i];
+
+    orig_rank_nodecoors.resize(4*nrank_orig);
+    rd.read(orig_rank_nodecoors.data(),4*nrank_orig*sizeof(int), true);
+  }
 
   //lexrank is the lexicographic rank built from the node coordinate in the usual fashion
   std::vector<int> lexrank_to_origrank_map(nrank_orig);
@@ -473,7 +481,8 @@ void read_parallel_parts(CPSfield<SiteType,SiteSize,FourDpolicy<FlavorPolicy>,Al
       //Open file  file_stub + .nx.ny.nz.nt -> d
       std::stringstream fn; fn << file_stub << '.' << node_coor_orig[0] << '.' << node_coor_orig[1] << '.' << node_coor_orig[2] << '.' << node_coor_orig[3] << ".dat"; 
       printf("Rank %d reading file %s\n", rank, fn.str().c_str());
-      disk_read(fn.str(),d,orig_nodebytes);
+      cpsBinaryReader rd(fn.str());
+      rd.read(d,orig_nodebytes,true);
       node_data.push_back(d);
     }
   }  

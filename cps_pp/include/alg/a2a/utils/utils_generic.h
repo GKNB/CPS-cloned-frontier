@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <util/lattice.h>
 #include <alg/fix_gauge_arg.h>
+#include <zlib.h>
 #include "utils_malloc.h"
 
 CPS_START_NAMESPACE
@@ -257,6 +258,116 @@ inline void disk_read(const std::string &file, void* data, size_t len){
     ERR.General("","disk_read","Failed to close file %s", file.c_str());
   }
 }
+
+class cpsBinaryWriter{
+  int fd;
+  const std::string file;
+public:
+  void open(const std::string &_file, bool immediate = false){
+    int flags =  O_WRONLY | O_CREAT  | O_TRUNC;
+    if(immediate) flags = flags | O_DSYNC;
+
+    fd = ::open(_file.c_str(), flags, S_IRWXU);
+    if(fd == -1){
+      perror("Failed to open file");
+      ERR.General("cpsBinaryWriter","open","Failed to open file %s", _file.c_str());
+    }
+    file = _file;
+  }
+  
+  cpsBinaryWriter(): fd(-1){}
+  cpsBinaryWriter(const std::string &_file, bool immediate = false): fd(-1){ open(_file, immediate); }
+
+  void write(void* data, size_t len, bool checksum = true) const{
+    if(fd == -1) ERR.General("cpsBinaryWriter","write","No file is open");
+
+    if(checksum){
+      uint32_t crc = crc32(0L, data, len);
+      ssize_t f = ::write(fd, &crc, sizeof(uint32_t));
+      if(f==-1){
+	perror("Write failed");
+	ERR.General("cpsBinaryWriter","write","CRC write failed");    
+      }else if(f != sizeof(uint32_t)){
+	ERR.General("cpsBinaryWriter","write","CRC write did not write expected number of bytes, wrote %lu requested %lu", f, sizeof(uint32_t));
+      }
+    }
+    ssize_t f = ::write(fd, data, len);
+    if(f==-1){
+      perror("Write failed");
+      ERR.General("cpsBinaryWriter","write","Write failed for bytes %lu", len);
+    }else if(f != len){
+      ERR.General("cpsBinaryWriter","write","Write did not write expected number of bytes, wrote %lu requested %lu", f, len);
+    }
+  }
+
+  void close(){
+    if(fd!=-1){
+      int e = ::close(fd);
+      if(e == -1){
+	perror("Failed to close file");
+	ERR.General("cpsBinaryWriter","close","Failed to close file %s", file.c_str());
+      }
+      fd=-1;
+    }
+  }
+  ~cpsBinaryWriter(){ close(); }
+};
+
+
+class cpsBinaryReader{
+  int fd;
+  const std::string file;
+public:
+  void open(const std::string &_file){
+    fd = ::open(_file.c_str(), O_RDONLY);
+    if(fd == -1){
+      perror("Failed to open file");
+      ERR.General("cpsBinaryReader","open","Failed to open file %s", _file.c_str());
+    }
+    file = _file;
+  }
+  
+  cpsBinaryReader(): fd(-1){}
+  cpsBinaryReader(const std::string &_file): fd(-1){ open(_file); }
+
+  void read(void* data, size_t len, bool checksum = true) const{
+    if(fd == -1) ERR.General("cpsBinaryReader","read","No file is open");
+
+    uint32_t crc;
+    if(checksum){
+      ssize_t f = ::read(fd, &crc, sizeof(uint32_t));
+      if(f==-1){
+	perror("Read failed");
+	ERR.General("cpsBinaryReader","read","CRC read failed");    
+      }else if(f != sizeof(uint32_t)){
+	ERR.General("cpsBinaryReader","read","CRC read did not read expected number of bytes, wrote %lu requested %lu", f, sizeof(uint32_t));
+      }
+    }
+    ssize_t f = ::read(fd, data, len);
+    if(f==-1){
+      perror("Read failed");
+      ERR.General("cpsBinaryReader","read","Read failed for bytes %lu", len);
+    }else if(f != len){
+      ERR.General("cpsBinaryReader","read","Read did not read expected number of bytes, wrote %lu requested %lu", f, len);
+    }
+
+    uint32_t crc_got = crc32(0L, data, len);
+    if(crc_got != crc) ERR.General("cpsBinaryReader","read","CRC checksum failed");
+  }
+
+  void close(){
+    if(fd!=-1){
+      int e = ::close(fd);
+      if(e == -1){
+	perror("Failed to close file");
+	ERR.General("cpsBinaryReader","close","Failed to close file %s", file.c_str());
+      }
+      fd=-1;
+    }
+  }
+  ~cpsBinaryReader(){ close(); }
+};
+
 
 
 
