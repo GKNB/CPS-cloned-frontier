@@ -462,9 +462,13 @@ class cpsFieldPartIOreader: public cpsFieldPartIObase{
     size_t dest_off;
     size_t size;
     int src_blockidx; //which of the blocks of data on the source rank should it send? (potentially > 1)
+    int tag; //unique tag for each communication event
   };
 
-  std::vector< std::vector<CommInfo> > sends; //mapping data for MPI comms broken down by current job rank
+  std::vector<CommInfo> sends; //MPI sends from this rank
+  std::vector<CommInfo> recvs; //MPI recvs to this rank
+  std::vector<CommInfo> copies; //internal copies
+  
   size_t orig_nodebytes;
   size_t site_bytes;
 
@@ -554,8 +558,7 @@ public:
     }
   
     //Generate the mapping information for the MPI IO cross-communication
-    sends.resize(nrank_new);
-    for(int i=0;i<nrank_new;i++) sends[i].clear();
+    std::vector<std::vector<CommInfo> > all_comms(nrank_new);
 
 #pragma omp parallel for
     for(int rank_new = 0 ; rank_new < nrank_new; rank_new++){ //dest rank
@@ -582,7 +585,7 @@ public:
 	int orig_rank_data_block = orig_rank / nrank_new;
       
 	//Merge consecutive sends
-	CommInfo *bck = s > 0 ? &sends[rank_new].back() : nullptr;
+	CommInfo *bck = s > 0 ? &all_comms[rank_new].back() : nullptr;
 
 	if(bck && 
 	   bck->rank_from == orig_rank_data_owner && bck->src_blockidx == orig_rank_data_block &&
@@ -596,10 +599,21 @@ public:
 	  snd.dest_off = s;
 	  snd.size = 1;
 	  snd.src_blockidx = orig_rank_data_block;
-	  sends[rank_new].push_back(snd);
+	  snd.tag = rank_new + nrank_new * all_comms[rank_new].size(); //every node will agree with this tag
+	  all_comms[rank_new].push_back(snd);
 	}
       }//s
     }//rank_new
+
+    //Break out those comms that this node takes part in
+    for(int r=0;r< nrank_new; r++){
+      for(int s=0;s<all_comms[r].size();s++){
+    	auto const &ss = all_comms[r][s];
+	if(ss.rank_from == rank && ss.rank_to == rank) copies.push_back(ss);
+	else if(ss.rank_from == rank) sends.push_back(ss);
+	else if(ss.rank_to == rank) recvs.push_back(ss);
+      }
+    }
 
     rd_data.clear();
     //Load the original data blocks with a particular order defined as follows:
@@ -634,7 +648,7 @@ public:
 
     std::vector<char*> node_data(rd_data.size());
     for(int d=0;d<rd_data.size();d++){
-      node_data[d]=(char*)malloc_check(orig_nodebytes);
+      node_data[d]=(char*)memalign_check(32,orig_nodebytes);
       rd_data[d].read(node_data[d],orig_nodebytes,true);
     }
 
@@ -647,32 +661,33 @@ public:
     t_comms -= dclock();
     CPSautoView(into_v, into, HostWrite);
     char* into_p = (char*)into_v.ptr();
-    
-    std::vector<MPI_Request> comms;
-    int nsend=0, nrecv=0, ncp=0;
-    
-    for(int r=0;r< nrank_new; r++){
-      for(int s=0;s<sends[r].size();s++){
-	auto const &ss = sends[r][s];
-	if(ss.rank_from == rank && ss.rank_to == rank){
-	  for(int f=0;f<nf;f++){
-	    memcpy(into_p + (ss.dest_off + new_foff*f)*site_bytes, node_data[ss.src_blockidx] + (ss.src_off + orig_foff*f)*site_bytes, ss.size*site_bytes);
-	    ++ncp;
-	  }
-	}else if(ss.rank_from == rank){
-	  for(int f=0;f<nf;f++){
-	    comms.push_back(MPI_Request());
-	    assert( MPI_Isend(node_data[ss.src_blockidx] + (ss.src_off + orig_foff*f)*site_bytes , ss.size*site_bytes, MPI_CHAR, ss.rank_to, f, MPI_COMM_WORLD, &comms.back()) == MPI_SUCCESS );
-	    ++nsend;
-	  }
-	}else if(ss.rank_to == rank){
-	  for(int f=0;f<nf;f++){
-	    comms.push_back(MPI_Request());
-	    assert( MPI_Irecv(into_p + (ss.dest_off + new_foff*f)*site_bytes, ss.size*site_bytes, MPI_CHAR, ss.rank_from, f, MPI_COMM_WORLD, &comms.back()) == MPI_SUCCESS );
-	    ++nrecv;
-	  }
-	}
-      }
+
+    int nsend=nf*sends.size(), nrecv=nf*recvs.size(), ncp=nf*copies.size();    
+
+    std::vector<MPI_Request> comms(nsend+nrecv);
+
+    //Start sends
+    MPI_Request *sbase = comms.data();
+#pragma omp parallel for
+    for(int s=0; s < sends.size(); s++){
+      auto const &ss = sends[s];
+      for(int f=0;f<nf;f++)
+	assert( MPI_Isend(node_data[ss.src_blockidx] + (ss.src_off + orig_foff*f)*site_bytes , ss.size*site_bytes, MPI_CHAR, ss.rank_to, f+nf*ss.tag, MPI_COMM_WORLD, sbase + f + nf*s) == MPI_SUCCESS );
+    }
+    //Start recvs
+    MPI_Request *rbase = comms.data() + nsend;
+#pragma omp parallel for
+    for(int s=0; s < recvs.size(); s++){
+      auto const &ss = recvs[s];
+      for(int f=0;f<nf;f++)
+	assert( MPI_Irecv(into_p + (ss.dest_off + new_foff*f)*site_bytes, ss.size*site_bytes, MPI_CHAR, ss.rank_from, f+nf*ss.tag, MPI_COMM_WORLD, rbase + f + nf*s) == MPI_SUCCESS );
+    }
+    //Do copies while waiting for MPI
+#pragma omp parallel for
+    for(int s=0; s < copies.size(); s++){
+      auto const &ss = copies[s];
+      for(int f=0;f<nf;f++)
+	memcpy(into_p + (ss.dest_off + new_foff*f)*site_bytes, node_data[ss.src_blockidx] + (ss.src_off + orig_foff*f)*site_bytes, ss.size*site_bytes);
     }
     if(verbose) printf("Rank %d comm events %d : sends %d recvs %d copies %d\n", rank, comms.size(), nsend, nrecv, ncp);
 
@@ -693,7 +708,7 @@ public:
       LOGA2A << "cpsFieldPartIOreader: Read bandwidth " << byte_to_MB(bytes_read) / t_read << " MB/s" << std::endl;
       
       t_total += dclock();
-      LOGA2A << "cpsFieldPartIOwriter timings - setup:" << t_setup << "s  read:" << t_read << "s  comms:" << t_comms << "s  total: " << t_total << "s" << std::endl;
+      LOGA2A << "cpsFieldPartIOreader timings - setup:" << t_setup << "s  read:" << t_read << "s  comms:" << t_comms << "s  total: " << t_total << "s" << std::endl;
     }
   }
   ~cpsFieldPartIOreader(){ close(); }
