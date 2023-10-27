@@ -495,7 +495,7 @@ class cpsFieldPartIOreader: public cpsFieldPartIObase{
 
 public:
   void open(const std::string &file_stub){
-    t_setup -= dclock(); t_total -= dclock(); t_read = t_comms = 0;
+    t_setup = -dclock(); t_total = -dclock(); t_read = t_comms = 0;
 
     assert( MPI_Comm_rank(MPI_COMM_WORLD, &rank) == MPI_SUCCESS );
    
