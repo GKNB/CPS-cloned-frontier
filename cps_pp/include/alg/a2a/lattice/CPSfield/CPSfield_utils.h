@@ -378,6 +378,7 @@ template<typename CPSfieldType,
 	 typename std::enable_if<std::is_same<typename CPSfieldType::FieldMappingPolicy,  FourDpolicy<typename CPSfieldType::FieldMappingPolicy::FieldFlavorPolicy> >::value, int>::type = 0>
 class cpsFieldPartIOwriter: public cpsFieldPartIObase{
   cpsBinaryWriter wr_data;
+  cpsBinaryWriter wr_meta;
   size_t bytes_written;
 
   double t_total;
@@ -403,9 +404,9 @@ public:
       std::vector<int> mpi_orig(4);
       for(int i=0;i<4;i++) mpi_orig[i] = GJP.Nodes(i);
       
-      cpsBinaryWriter wr(file_stub+".meta");
-      wr.write(mpi_orig.data(), 4*sizeof(int), true);
-      wr.write(nodecoors.data(), nodecoors.size()*sizeof(int), true);
+      wr_meta.open(file_stub+".meta");
+      wr_meta.write(mpi_orig.data(), 4*sizeof(int), true);
+      wr_meta.write(nodecoors.data(), nodecoors.size()*sizeof(int), true);
     }
 
     bytes_written = 0;
@@ -419,11 +420,17 @@ public:
   cpsFieldPartIOwriter(const std::string &file_stub){ open(file_stub); }
   
   void write(const CPSfieldType &field){
-    t_write -= dclock(); t_total -= dclock();
+    t_total -= dclock();
+
+    double nrm = field.norm2();
+
+    t_write -= dclock(); 
+
+    if(!UniqueID()) wr_meta.write(&nrm, sizeof(double),true);
 
     size_t field_bytes = field.nfsites() * SiteSize * sizeof(SiteType);
     CPSautoView(from_v,field,HostRead);
-    wr_data.write(from_v.ptr(),field_bytes);
+    wr_data.write(from_v.ptr(),field_bytes,true);
    
     bytes_written += field_bytes;
     
@@ -431,6 +438,7 @@ public:
   }
   
   void close(){
+    wr_meta.close();
     if(wr_data.isOpen()){
       t_total -= dclock();;
       wr_data.close();
@@ -447,6 +455,8 @@ template<typename CPSfieldType,
 	 typename std::enable_if<std::is_same<typename CPSfieldType::FieldMappingPolicy,  FourDpolicy<typename CPSfieldType::FieldMappingPolicy::FieldFlavorPolicy> >::value, int>::type = 0>
 class cpsFieldPartIOreader: public cpsFieldPartIObase{
   std::vector<cpsBinaryReader> rd_data;
+  cpsBinaryReader rd_meta;
+
   int rank;
   int nrank_new;
   int nf;
@@ -488,20 +498,16 @@ public:
     t_setup -= dclock(); t_total -= dclock(); t_read = t_comms = 0;
 
     assert( MPI_Comm_rank(MPI_COMM_WORLD, &rank) == MPI_SUCCESS );
-
+   
+    rd_meta.open(file_stub+".meta");
     std::vector<int> mpi_orig(4);
-    int nrank_orig = 1;
-    std::vector<int> orig_rank_nodecoors;
-
-    {
-      cpsBinaryReader rd(file_stub+".meta");
-      rd.read(mpi_orig.data(),4*sizeof(int), true);
+    rd_meta.read(mpi_orig.data(),4*sizeof(int), true);
     
-      for(int i=0;i<4;i++) nrank_orig *= mpi_orig[i];
-
-      orig_rank_nodecoors.resize(4*nrank_orig);
-      rd.read(orig_rank_nodecoors.data(),4*nrank_orig*sizeof(int), true);
-    }
+    int nrank_orig = 1;
+    for(int i=0;i<4;i++) nrank_orig *= mpi_orig[i];
+    
+    std::vector<int> orig_rank_nodecoors(4*nrank_orig);
+    rd_meta.read(orig_rank_nodecoors.data(),4*nrank_orig*sizeof(int), true);
 
     //lexrank is the lexicographic rank built from the node coordinate in the usual fashion
     std::vector<int> lexrank_to_origrank_map(nrank_orig);
@@ -645,6 +651,9 @@ public:
   void read(CPSfieldType &into){
     t_read -= dclock(); t_total -= dclock();
     double t_rd_data = -dclock();
+    
+    double nrm_in;
+    rd_meta.read(&nrm_in, sizeof(double), true); //every node reads
 
     std::vector<char*> node_data(rd_data.size());
     for(int d=0;d<rd_data.size();d++){
@@ -659,46 +668,56 @@ public:
     LOGA2A << "cpsFieldPartIOreader: Field part read bandwidth " << rate << " MB/s" << std::endl;
 
     t_comms -= dclock();
-    CPSautoView(into_v, into, HostWrite);
-    char* into_p = (char*)into_v.ptr();
 
-    int nsend=nf*sends.size(), nrecv=nf*recvs.size(), ncp=nf*copies.size();    
+    {
+      CPSautoView(into_v, into, HostWrite);
+      char* into_p = (char*)into_v.ptr();
 
-    std::vector<MPI_Request> comms(nsend+nrecv);
+      int nsend=nf*sends.size(), nrecv=nf*recvs.size(), ncp=nf*copies.size();    
 
-    //Start sends
-    MPI_Request *sbase = comms.data();
+      std::vector<MPI_Request> comms(nsend+nrecv);
+
+      //Start sends
+      MPI_Request *sbase = comms.data();
 #pragma omp parallel for
-    for(int s=0; s < sends.size(); s++){
-      auto const &ss = sends[s];
-      for(int f=0;f<nf;f++)
-	assert( MPI_Isend(node_data[ss.src_blockidx] + (ss.src_off + orig_foff*f)*site_bytes , ss.size*site_bytes, MPI_CHAR, ss.rank_to, f+nf*ss.tag, MPI_COMM_WORLD, sbase + f + nf*s) == MPI_SUCCESS );
-    }
-    //Start recvs
-    MPI_Request *rbase = comms.data() + nsend;
+      for(int s=0; s < sends.size(); s++){
+	auto const &ss = sends[s];
+	for(int f=0;f<nf;f++)
+	  assert( MPI_Isend(node_data[ss.src_blockidx] + (ss.src_off + orig_foff*f)*site_bytes , ss.size*site_bytes, MPI_CHAR, ss.rank_to, f+nf*ss.tag, MPI_COMM_WORLD, sbase + f + nf*s) == MPI_SUCCESS );
+      }
+      //Start recvs
+      MPI_Request *rbase = comms.data() + nsend;
 #pragma omp parallel for
-    for(int s=0; s < recvs.size(); s++){
-      auto const &ss = recvs[s];
-      for(int f=0;f<nf;f++)
-	assert( MPI_Irecv(into_p + (ss.dest_off + new_foff*f)*site_bytes, ss.size*site_bytes, MPI_CHAR, ss.rank_from, f+nf*ss.tag, MPI_COMM_WORLD, rbase + f + nf*s) == MPI_SUCCESS );
-    }
-    //Do copies while waiting for MPI
+      for(int s=0; s < recvs.size(); s++){
+	auto const &ss = recvs[s];
+	for(int f=0;f<nf;f++)
+	  assert( MPI_Irecv(into_p + (ss.dest_off + new_foff*f)*site_bytes, ss.size*site_bytes, MPI_CHAR, ss.rank_from, f+nf*ss.tag, MPI_COMM_WORLD, rbase + f + nf*s) == MPI_SUCCESS );
+      }
+      //Do copies while waiting for MPI
 #pragma omp parallel for
-    for(int s=0; s < copies.size(); s++){
-      auto const &ss = copies[s];
-      for(int f=0;f<nf;f++)
-	memcpy(into_p + (ss.dest_off + new_foff*f)*site_bytes, node_data[ss.src_blockidx] + (ss.src_off + orig_foff*f)*site_bytes, ss.size*site_bytes);
-    }
-    if(verbose) printf("Rank %d comm events %d : sends %d recvs %d copies %d\n", rank, comms.size(), nsend, nrecv, ncp);
+      for(int s=0; s < copies.size(); s++){
+	auto const &ss = copies[s];
+	for(int f=0;f<nf;f++)
+	  memcpy(into_p + (ss.dest_off + new_foff*f)*site_bytes, node_data[ss.src_blockidx] + (ss.src_off + orig_foff*f)*site_bytes, ss.size*site_bytes);
+      }
+      if(verbose) printf("Rank %d comm events %d : sends %d recvs %d copies %d\n", rank, comms.size(), nsend, nrecv, ncp);
 
-    assert(MPI_Waitall(comms.size(), comms.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS );
+      assert(MPI_Waitall(comms.size(), comms.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS );
+    }
     t_comms += dclock();
   
     for(int b=0;b<node_data.size();b++) free(node_data[b]);
+    
+    double nrm_got = into.norm2();
+    double rdiff = fabs((nrm_in - nrm_got)/nrm_in);
+    LOGA2A << "cpsFieldPartIOreader: Field norm " << nrm_got << " expect " << nrm_in << " rel-diff " << rdiff << std::endl; 
+    if(rdiff > 1e-8) ERR.General("cpsFieldPartIOreader","read","norm check failed");
+
     t_total += dclock();
   }
 
   void close(){
+    rd_meta.close();
     if(rd_data.size()){
       t_total -= dclock();;
       for(int d=0;d<rd_data.size();d++) rd_data[d].close();
