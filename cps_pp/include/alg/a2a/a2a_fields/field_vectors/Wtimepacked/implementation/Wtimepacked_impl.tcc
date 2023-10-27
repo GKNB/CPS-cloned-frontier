@@ -184,3 +184,32 @@ void A2AvectorWtimePacked<mf_Policies>::readParallelWithGrid(const std::string &
 #endif
 }
 
+template< typename mf_Policies>
+void A2AvectorWtimePacked<mf_Policies>::writeParallelByParts(const std::string &file_stub) const
+{
+  if(w.size() == 0) return;
+  typedef typename mf_Policies::ScalarFermionFieldType ScalarFermionFieldType;
+
+  ScalarFermionFieldType tmp;
+  cpsFieldPartIOwriter<ScalarFermionFieldType> wr(file_stub);
+  for(int k=0;k<w.size();k++){
+    tmp.importField(*w[k]);
+    wr.write(tmp);
+  }
+  wr.close();
+}
+
+template<typename mf_Policies>
+void A2AvectorWtimePacked<mf_Policies>::readParallelByParts(const std::string &file_stub)
+{
+  if(w.size() == 0) return;
+  typedef typename mf_Policies::ScalarFermionFieldType ScalarFermionFieldType;
+
+  ScalarFermionFieldType tmp;
+  cpsFieldPartIOreader<ScalarFermionFieldType> rd(file_stub);
+  for(int k=0;k<w.size();k++){
+    rd.read(tmp);    
+    w[k]->importField(tmp);
+  }
+  rd.close();
+}

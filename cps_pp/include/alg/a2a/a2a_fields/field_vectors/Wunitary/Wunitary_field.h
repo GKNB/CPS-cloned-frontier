@@ -212,6 +212,10 @@ public:
   void writeParallelWithGrid(const std::string &file_stub) const;
   void readParallelWithGrid(const std::string &file_stub);
 
+  //Read and write to per-node part files. Note: does not deal with endian-ness so files may not be portable
+  void writeParallelByParts(const std::string &file_stub) const;
+  void readParallelByParts(const std::string &file_stub);
+
   inline void free_mem(){
     wl.free();    wh.free();
   }
