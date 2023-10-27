@@ -403,7 +403,7 @@ void A2AvectorW<mf_Policies>::writeParallelByParts(const std::string &file_stub)
   typedef typename mf_Policies::ScalarFermionFieldType ScalarFermionFieldType;
   typedef typename mf_Policies::ScalarComplexFieldType ScalarComplexFieldType;
 
-  {
+  if(wl.size()){
     ScalarFermionFieldType tmp;
     cpsFieldPartIOwriter<ScalarFermionFieldType> wr(file_stub + "_lo");
     for(int k=0;k<wl.size();k++){
@@ -412,7 +412,7 @@ void A2AvectorW<mf_Policies>::writeParallelByParts(const std::string &file_stub)
     }
     wr.close();
   }
-  {
+  if(wh.size()){
     ScalarComplexFieldType tmp;
     cpsFieldPartIOwriter<ScalarComplexFieldType> wr(file_stub + "_hi");
     for(int k=0;k<wh.size();k++){
@@ -429,7 +429,7 @@ void A2AvectorW<mf_Policies>::readParallelByParts(const std::string &file_stub)
   typedef typename mf_Policies::ScalarFermionFieldType ScalarFermionFieldType;
   typedef typename mf_Policies::ScalarComplexFieldType ScalarComplexFieldType;
 
-  {
+  if(wl.size()){
     ScalarFermionFieldType tmp;
     cpsFieldPartIOreader<ScalarFermionFieldType> rd(file_stub + "_lo");
     for(int k=0;k<wl.size();k++){
@@ -438,7 +438,7 @@ void A2AvectorW<mf_Policies>::readParallelByParts(const std::string &file_stub)
     }
     rd.close();
   }
-  {
+  if(wh.size()){
     ScalarComplexFieldType tmp;
     cpsFieldPartIOreader<ScalarComplexFieldType> rd(file_stub + "_hi");
     for(int k=0;k<wh.size();k++){

@@ -217,6 +217,7 @@ void A2AvectorV<mf_Policies>::readParallelWithGrid(const std::string &file_stub)
 template< typename mf_Policies>
 void A2AvectorV<mf_Policies>::writeParallelByParts(const std::string &file_stub) const
 {
+  if(v.size() == 0) return;
   typedef typename mf_Policies::ScalarFermionFieldType ScalarFermionFieldType;
 
   ScalarFermionFieldType tmp;
@@ -231,6 +232,7 @@ void A2AvectorV<mf_Policies>::writeParallelByParts(const std::string &file_stub)
 template<typename mf_Policies>
 void A2AvectorV<mf_Policies>::readParallelByParts(const std::string &file_stub)
 {
+  if(v.size() == 0) return;
   typedef typename mf_Policies::ScalarFermionFieldType ScalarFermionFieldType;
 
   ScalarFermionFieldType tmp;
