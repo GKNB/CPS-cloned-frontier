@@ -395,6 +395,61 @@ void A2AvectorW<mf_Policies>::readParallelWithGrid(const std::string &file_stub)
 #endif
 }
 
+
+
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::writeParallelByParts(const std::string &file_stub) const
+{
+  typedef typename mf_Policies::ScalarFermionFieldType ScalarFermionFieldType;
+  typedef typename mf_Policies::ScalarComplexFieldType ScalarComplexFieldType;
+
+  {
+    ScalarFermionFieldType tmp;
+    cpsFieldPartIOwriter<ScalarFermionFieldType> wr(file_stub + "_lo");
+    for(int k=0;k<wl.size();k++){
+      tmp.importField(*wl[k]);
+      wr.write(tmp);
+    }
+    wr.close();
+  }
+  {
+    ScalarComplexFieldType tmp;
+    cpsFieldPartIOwriter<ScalarComplexFieldType> wr(file_stub + "_hi");
+    for(int k=0;k<wh.size();k++){
+      tmp.importField(*wh[k]);
+      wr.write(tmp);
+    }
+    wr.close();
+  }
+}
+
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::readParallelByParts(const std::string &file_stub)
+{
+  typedef typename mf_Policies::ScalarFermionFieldType ScalarFermionFieldType;
+  typedef typename mf_Policies::ScalarComplexFieldType ScalarComplexFieldType;
+
+  {
+    ScalarFermionFieldType tmp;
+    cpsFieldPartIOreader<ScalarFermionFieldType> rd(file_stub + "_lo");
+    for(int k=0;k<wl.size();k++){
+      rd.read(tmp);
+      wl[k]->importField(tmp);
+    }
+    rd.close();
+  }
+  {
+    ScalarComplexFieldType tmp;
+    cpsFieldPartIOreader<ScalarComplexFieldType> rd(file_stub + "_hi");
+    for(int k=0;k<wh.size();k++){
+      rd.read(tmp);
+      wh[k]->importField(tmp);
+    }
+    rd.close();
+  }
+}
+
+
 #ifdef USE_GRID
 
 //Convert a W field to Grid format

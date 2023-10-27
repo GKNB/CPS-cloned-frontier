@@ -213,6 +213,36 @@ void A2AvectorV<mf_Policies>::readParallelWithGrid(const std::string &file_stub)
 
 
 
+
+template< typename mf_Policies>
+void A2AvectorV<mf_Policies>::writeParallelByParts(const std::string &file_stub) const
+{
+  typedef typename mf_Policies::ScalarFermionFieldType ScalarFermionFieldType;
+
+  ScalarFermionFieldType tmp;
+  cpsFieldPartIOwriter<ScalarFermionFieldType> wr(file_stub);
+  for(int k=0;k<v.size();k++){
+    tmp.importField(*v[k]);
+    wr.write(tmp);
+  }
+  wr.close();
+}
+
+template<typename mf_Policies>
+void A2AvectorV<mf_Policies>::readParallelByParts(const std::string &file_stub)
+{
+  typedef typename mf_Policies::ScalarFermionFieldType ScalarFermionFieldType;
+
+  ScalarFermionFieldType tmp;
+  cpsFieldPartIOreader<ScalarFermionFieldType> rd(file_stub);
+  for(int k=0;k<v.size();k++){
+    rd.read(tmp);    
+    v[k]->importField(tmp);
+  }
+  rd.close();
+}
+
+
 #ifdef USE_GRID
 
 //Convert a V field to Grid format

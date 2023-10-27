@@ -68,8 +68,13 @@ void computeVW(Vtype &V, Wtype &W, const EvecManagerType &eig, double mass, cons
     randomizeVW(V,W);
   }else if(opts.load_vw){
     LOGA2A << "Loading V,W vectors" << std::endl;
+#ifdef A2A_VW_WRITE_BY_PARTS
+    W.readParallelByParts(opts.load_vw_stub + "_w");
+    V.readParallelByParts(opts.load_vw_stub + "_v");
+#else
     W.readParallelWithGrid(opts.load_vw_stub + "_w");
     V.readParallelWithGrid(opts.load_vw_stub + "_v");
+#endif
   }else{
     LOGA2A << "Creating interface and running VW calculation" << std::endl;
     auto ei = eig.createInterface();
@@ -78,8 +83,13 @@ void computeVW(Vtype &V, Wtype &W, const EvecManagerType &eig, double mass, cons
 
   if(opts.save_vw){
     LOGA2A << "Saving V,W vectors" << std::endl;
+#ifdef A2A_VW_WRITE_BY_PARTS
+    W.writeParallelByParts(opts.save_vw_stub + "_w");
+    V.writeParallelByParts(opts.save_vw_stub + "_v");
+#else
     W.writeParallelWithGrid(opts.save_vw_stub + "_w");
     V.writeParallelWithGrid(opts.save_vw_stub + "_v");
+#endif
   }
 }
 template<typename Vtype, typename Wtype>
