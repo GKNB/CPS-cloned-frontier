@@ -274,9 +274,25 @@ public:
     }
     file = _file;
   }
-  
+  bool isOpen() const{ return fd != -1; }
+
   cpsBinaryWriter(): fd(-1){}
   cpsBinaryWriter(const std::string &_file, bool immediate = false): fd(-1){ open(_file, immediate); }
+
+  cpsBinaryWriter(const cpsBinaryWriter &r) = delete;
+  
+  cpsBinaryWriter(cpsBinaryWriter &&r): file(std::move(r.file)), fd(r.fd){
+    r.fd = -1;
+  }
+  
+  cpsBinaryWriter & operator=(const cpsBinaryWriter &r) = delete;
+  
+  cpsBinaryWriter & operator=(cpsBinaryWriter &&r){
+    file=std::move(r.file);
+    fd = r.fd;
+    r.fd = -1;
+    return *this;
+  }
 
   void write(void* data, size_t len, bool checksum = true) const{
     if(fd == -1) ERR.General("cpsBinaryWriter","write","No file is open");
@@ -326,9 +342,25 @@ public:
     }
     file = _file;
   }
+  bool isOpen() const{ return fd != -1; }
   
   cpsBinaryReader(): fd(-1){}
   cpsBinaryReader(const std::string &_file): fd(-1){ open(_file); }
+
+  cpsBinaryReader(const cpsBinaryReader &r) = delete;
+
+  cpsBinaryReader(cpsBinaryReader &&r): file(std::move(r.file)), fd(r.fd){
+    r.fd = -1;
+  }
+
+  cpsBinaryReader & operator=(const cpsBinaryReader &r) = delete;
+
+  cpsBinaryReader & operator=(cpsBinaryReader &&r){
+    file=std::move(r.file);
+    fd = r.fd;
+    r.fd = -1;
+    return *this;
+  }
 
   void read(void* data, size_t len, bool checksum = true) const{
     if(fd == -1) ERR.General("cpsBinaryReader","read","No file is open");
@@ -365,7 +397,9 @@ public:
       fd=-1;
     }
   }
-  ~cpsBinaryReader(){ close(); }
+  ~cpsBinaryReader(){ 
+    close(); 
+  }
 };
 
 

@@ -513,8 +513,8 @@ void testCPSfieldWriteParts(bool write){
     CPSfield_checksumType cksumtype = checksumCRC32;
     FP_FORMAT fileformat = FP_IEEE64BIG;
   
-    CPSfermion4D<cps::ComplexD> a;
-    a.testRandom();    
+    CPSfermion4D<cps::ComplexD> a, b;
+    a.testRandom(); b.testRandom();   
 
     Grid::GridCartesian *UGrid = FgridBase::getUGrid();
     Grid::emptyUserRecord record;
@@ -523,11 +523,16 @@ void testCPSfieldWriteParts(bool write){
     typename A2Apolicies::GridFermionField grid_rep(UGrid);
     a.exportGridField(grid_rep);
     WR.writeScidacFieldRecord(grid_rep,record);	  
+    b.exportGridField(grid_rep);
+    WR.writeScidacFieldRecord(grid_rep,record);	  
     WR.close();
 
-    write_parallel_parts(a, "field_parts");
+    cpsFieldPartIOwriter< CPSfermion4D<cps::ComplexD> > cWR("field_parts");
+    cWR.write(a);
+    cWR.write(b);
+    cWR.close();
   }else{
-    CPSfermion4D<cps::ComplexD> a_true;
+    CPSfermion4D<cps::ComplexD> a_true, b_true;
 
     Grid::GridCartesian *UGrid = FgridBase::getUGrid();
     Grid::emptyUserRecord record;
@@ -535,13 +540,19 @@ void testCPSfieldWriteParts(bool write){
     RD.open("field");
     typename A2Apolicies::GridFermionField grid_rep(UGrid);
     RD.readScidacFieldRecord(grid_rep,record);    
-    RD.close();
     a_true.importGridField(grid_rep);
+    RD.readScidacFieldRecord(grid_rep,record);    
+    b_true.importGridField(grid_rep);
+    RD.close();
     
-    CPSfermion4D<cps::ComplexD> a_got;
-    read_parallel_parts(a_got, "field_parts");
+    CPSfermion4D<cps::ComplexD> a_got, b_got;
+    cpsFieldPartIOreader<CPSfermion4D<cps::ComplexD> > cRD("field_parts");
+    cRD.read(a_got);
+    cRD.read(b_got);
+    cRD.close();
     
     assert( a_got.equals(a_true, 0., true));
+    assert( b_got.equals(b_true, 0., true));
   }
 }
 
