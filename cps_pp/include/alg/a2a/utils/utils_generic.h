@@ -261,7 +261,7 @@ inline void disk_read(const std::string &file, void* data, size_t len){
 
 class cpsBinaryWriter{
   int fd;
-  const std::string file;
+  std::string file;
 public:
   void open(const std::string &_file, bool immediate = false){
     int flags =  O_WRONLY | O_CREAT  | O_TRUNC;
@@ -298,7 +298,7 @@ public:
     if(fd == -1) ERR.General("cpsBinaryWriter","write","No file is open");
 
     if(checksum){
-      uint32_t crc = crc32(0L, data, len);
+      uint32_t crc = crc32(0L, (const Bytef*)data, len);
       ssize_t f = ::write(fd, &crc, sizeof(uint32_t));
       if(f==-1){
 	perror("Write failed");
@@ -332,7 +332,7 @@ public:
 
 class cpsBinaryReader{
   int fd;
-  const std::string file;
+  std::string file;
 public:
   void open(const std::string &_file){
     fd = ::open(_file.c_str(), O_RDONLY);
@@ -383,7 +383,7 @@ public:
       ERR.General("cpsBinaryReader","read","Read did not read expected number of bytes, wrote %lu requested %lu", f, len);
     }
 
-    uint32_t crc_got = crc32(0L, data, len);
+    uint32_t crc_got = crc32(0L, (const Bytef*)data, len);
     if(crc_got != crc) ERR.General("cpsBinaryReader","read","CRC checksum failed");
   }
 

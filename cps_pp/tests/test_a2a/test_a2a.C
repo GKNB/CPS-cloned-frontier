@@ -88,10 +88,12 @@ struct Options{
   double gfix_alpha;
   bool do_init_gauge_fix;
   bool write;
+  std::string io_dir;
   Options(){
     gfix_alpha = 0.01;
     do_init_gauge_fix = false;
     write = false;
+    io_dir = ".";
   }
 };
 
@@ -395,7 +397,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   //test_disk_reduce();
 
-  testCPSfieldWriteParts<A2Apolicies_grid>(opt.write);
+  testCPSfieldWriteParts<A2Apolicies_grid>(opt.write, opt.io_dir);
 }
 
 
@@ -624,10 +626,24 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss  << argv[i+1]; ss >> opt.gfix_alpha;
       if(!UniqueID()) printf("Set alpha to %f\n", opt.gfix_alpha);
       i+=2;
-    }else if( cmd == "-mempool_verbose"){
-      HolisticMemoryPoolManager::globalPool().setVerbose(true);
+    }else if( cmd == "-gpu_pool_max_mem" ){
+      std::stringstream ss; ss << argv[i+1];
+      size_t v; ss >> v;
+      DeviceMemoryPoolManager::globalPool().setPoolMaxSize(v);
+      HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::DevicePool);	
+      i+=2;
+    }else if( cmd == "-host_pool_max_mem" ){
+      std::stringstream ss; ss << argv[i+1];
+      size_t v; ss >> v;
+      HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::HostPool);	
+      i+=2;
+    }else if( cmd == "-mempool_verbose" ){
       DeviceMemoryPoolManager::globalPool().setVerbose(true);
-      i++;
+      HolisticMemoryPoolManager::globalPool().setVerbose(true);
+      i+=1;
+    }else if( cmd == "-mempool_scratchdir" ){
+      HolisticMemoryPoolManager::globalPool().setDiskRoot(argv[i+1]);
+      i+=2;	     
     }else if( cmd == "-do_init_gauge_fix"){
       opt.do_init_gauge_fix = true;
       std::cout << "Doing initial gauge fixing" << std::endl;
@@ -635,6 +651,9 @@ int main(int argc,char *argv[])
     }else if( cmd == "-write"){
       opt.write =true;
       i++;
+    }else if( cmd == "-io_dir"){
+      opt.io_dir =argv[i+1];
+      i+=2;
     }else{
       bool is_grid_arg = false;
       for(int ii=0;ii<ngrid_arg;ii++){

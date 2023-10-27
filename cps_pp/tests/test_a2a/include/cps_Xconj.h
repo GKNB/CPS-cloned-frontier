@@ -97,7 +97,7 @@ void testXconjDiagRecon(typename A2Apolicies::FgridGFclass &lattice){
   typedef typename A2Apolicies::GridDirac GridDiracGP;
 
   typedef iMatrix<iMatrix<iMatrix<vComplexD, Nc>, Ns>, Ngp> vSCFmatrixD;
-  typedef iMatrix<iMatrix<iMatrix<ComplexD, Nc>, Ns>, Ngp> SCFmatrixD;
+  typedef iMatrix<iMatrix<iMatrix<Grid::ComplexD, Nc>, Ns>, Ngp> SCFmatrixD;
   typedef Grid::Lattice<vSCFmatrixD> PropagatorField2f;
 
   if(!lattice.getGridFullyInitted()) ERR.General("","gridLanczosXconj","Grid/Grids are not initialized!");
