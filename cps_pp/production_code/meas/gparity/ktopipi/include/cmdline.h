@@ -24,7 +24,9 @@ struct computeVWopts{
   bool load_vw;
   std::string load_vw_stub;
 
-  computeVWopts(): randomize_vw(false), save_vw(false), load_vw(false), skip_vw(false)
+  bool convert_vw_grid_parts;
+
+  computeVWopts(): randomize_vw(false), save_vw(false), load_vw(false), skip_vw(false), convert_vw_grid_parts(false)
   {}
 
   bool needEvecs() const{ return !randomize_vw && !skip_vw && !load_vw; }
@@ -227,6 +229,25 @@ struct CommandLineArgs{
 	vw_opts_h.save_vw_stub = argv[arg+1];
 	LOGA2A << "Saving heavy VW fields with stub " << vw_opts_h.save_vw_stub << std::endl;
 	arg += 2;
+
+
+
+      }else if( cmdstr == "-convert_light_vw_grid_parts"){
+	assert(arg < argc-2);
+	vw_opts_l.convert_vw_grid_parts = true;
+	vw_opts_l.load_vw_stub = argv[arg+1];
+	vw_opts_l.save_vw_stub = argv[arg+2];
+	LOGA2A << "Converting light VW fields with stub " << vw_opts_l.load_vw_stub << " to stub " << vw_opts_l.save_vw_stub  << std::endl;
+	arg += 3;
+      }else if( cmdstr == "-convert_heavy_vw_grid_parts"){
+	assert(arg < argc-2);
+	vw_opts_h.convert_vw_grid_parts = true;
+	vw_opts_h.load_vw_stub = argv[arg+1];
+	vw_opts_h.save_vw_stub = argv[arg+2];
+	LOGA2A << "Converting light VW fields with stub " << vw_opts_h.load_vw_stub << " to stub " << vw_opts_h.save_vw_stub  << std::endl;
+	arg += 3;
+      
+
 
 
       }else if( cmdstr == "-skip_light_vw"){

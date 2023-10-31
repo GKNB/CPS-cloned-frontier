@@ -112,4 +112,24 @@ void computeVW(Vtype &V, Wtype &W, const LightHeavy lh, const Parameters &params
   a2a_print_time("main",os.str().c_str(),time);
 }
 
+void convertVWdataGridToParts(const computeVWopts &opts, const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams, const A2AArg &a2a_arg){
+  A2AvectorV<A2Apolicies> V(a2a_arg, field4dparams);
+#ifdef KTOPIPI_USE_WUNITARY
+  A2AvectorWunitary<A2Apolicies> W(a2a_arg, field4dparams);
+#elif defined(KTOPIPI_USE_WTIMEPACKED)
+  A2AvectorWtimePacked<A2Apolicies> W(a2a_arg, field4dparams);
+#else
+  A2AvectorW<A2Apolicies> W(a2a_arg, field4dparams);
+#endif
+#ifdef USE_DESTRUCTIVE_FFT
+  V.allocModes(); W.allocModes();
+#endif
+
+  W.readParallelWithGrid(opts.load_vw_stub + "_w");
+  V.readParallelWithGrid(opts.load_vw_stub + "_v");
+  
+  W.writeParallelByParts(opts.save_vw_stub + "_w");
+  V.writeParallelByParts(opts.save_vw_stub + "_v");
+}
+
 #endif

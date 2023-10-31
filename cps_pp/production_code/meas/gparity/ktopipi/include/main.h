@@ -26,8 +26,6 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 		     const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams){
   params.meas_arg.TrajCur = conf;
 
-  std::string dir(params.meas_arg.WorkDirectory);
-
   //-------------------- Read gauge field --------------------//
   readGaugeRNG(params,cmdline);
   printMem("Memory after gauge and RNG read");
@@ -110,8 +108,6 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
 			  const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams){
   checkWriteable(cmdline.checkpoint_dir,conf);
   params.meas_arg.TrajCur = conf;
-
-  std::string dir(params.meas_arg.WorkDirectory);
 
   //-------------------- Read gauge field --------------------//
   readGaugeRNG(params,cmdline);
@@ -235,8 +231,6 @@ void doConfigurationLLprops(const int conf, Parameters &params, const CommandLin
 
   params.meas_arg.TrajCur = conf;
 
-  std::string dir(params.meas_arg.WorkDirectory);
-
   //-------------------- Read gauge field --------------------//
   readGaugeRNG(params,cmdline);
     
@@ -285,8 +279,6 @@ void doConfigurationLLpropsSplit(const int conf, Parameters &params, const Comma
 		     const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams){
 
   params.meas_arg.TrajCur = conf;
-
-  std::string dir(params.meas_arg.WorkDirectory);
 
   //-------------------- Read gauge field --------------------//
   readGaugeRNG(params,cmdline);

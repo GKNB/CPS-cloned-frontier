@@ -45,6 +45,14 @@ int main (int argc,char **argv )
   Field4DparamType field4dparams; setupFieldParams<typename A2Apolicies::FermionFieldType>(field4dparams);
   Field3DparamType field3dparams; setupFieldParams<SourceFieldType>(field3dparams);
   
+  //Generic actions
+  FgridBase::initializeGrid(&argc, &argv);  FgridBase::initializeGridLayouts();  //force Grid initialization with CPS
+
+  //Conversion between Grid MPI-IO and Parts formats for VW data
+  if(cmdline.vw_opts_l.convert_vw_grid_parts) convertVWdataGridToParts(cmdline.vw_opts_l, field4dparams, params.a2a_arg);
+  if(cmdline.vw_opts_h.convert_vw_grid_parts) convertVWdataGridToParts(cmdline.vw_opts_h, field4dparams, params.a2a_arg_s);
+  if(cmdline.vw_opts_l.convert_vw_grid_parts || cmdline.vw_opts_h.convert_vw_grid_parts){ End(); return 0; } //exit
+
   //-------------------- Main Loop Begin! -------------------- //
   for(int conf = TrajStart; conf < LessThanLimit; conf += params.meas_arg.TrajIncrement) {
     double conf_time = -dclock();
