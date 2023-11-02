@@ -344,6 +344,11 @@ inline std::ostream & operator<<(std::ostream &os , const std::vector<int> &v){
 
 class cpsFieldPartIObase{
 protected:
+  static inline std::string rateStr(size_t bytes, double time){
+    if(time == 0) return "inf";
+    else return std::to_string(byte_to_MB(bytes) / time);
+  }    
+  
   static inline void lexRankToNodeCoor(int rcoor[4], int rank, const std::vector<int> &mpi){
     for(int i=0;i<4;i++){
       rcoor[i] = rank % mpi[i]; rank /= mpi[i];   //r = rx + Nx*( ry + Ny * (rz + Nz * rt))
@@ -387,7 +392,7 @@ class cpsFieldPartIOwriter: public cpsFieldPartIObase{
   enum { SiteSize = CPSfieldType::FieldSiteSize };
   typedef typename CPSfieldType::FieldSiteType SiteType;
 
-public:
+public: 
   void open(const std::string &file_stub){
     t_total = -dclock();
     t_write = 0;
@@ -442,7 +447,7 @@ public:
     if(wr_data.isOpen()){
       t_total -= dclock();;
       wr_data.close();
-      LOGA2A << "cpsFieldPartIOwriter: Write bandwidth " << byte_to_MB(bytes_written) / t_write << " MB/s" << std::endl;
+      LOGA2A << "cpsFieldPartIOwriter: Write bandwidth " << rateStr(bytes_written, t_write) << " MB/s" << std::endl;
       
       t_total += dclock();
       LOGA2A << "cpsFieldPartIOwriter timings - write:" << t_write << "s  total: " << t_total << "s" << std::endl;
@@ -647,7 +652,7 @@ public:
   cpsFieldPartIOreader(const std::string &file_stub): verbose(false){ open(file_stub); }
 
   inline void setVerbose(bool to){ verbose = to; }
-
+ 
   void read(CPSfieldType &into){
     t_read -= dclock(); t_total -= dclock();
     double t_rd_data = -dclock();
@@ -664,8 +669,7 @@ public:
     t_rd_data += dclock();
     t_read += dclock();
     bytes_read += node_data.size()*orig_nodebytes;
-    double rate = byte_to_MB(node_data.size()*orig_nodebytes) / t_rd_data;
-    LOGA2A << "cpsFieldPartIOreader: Field part read bandwidth " << rate << " MB/s" << std::endl;
+    LOGA2A << "cpsFieldPartIOreader: Field part read bandwidth " << rateStr(node_data.size()*orig_nodebytes, t_rd_data) << " MB/s" << std::endl;
 
     t_comms -= dclock();
 
@@ -724,7 +728,7 @@ public:
       rd_data.clear();
       sends.clear();
 
-      LOGA2A << "cpsFieldPartIOreader: Read bandwidth " << byte_to_MB(bytes_read) / t_read << " MB/s" << std::endl;
+      LOGA2A << "cpsFieldPartIOreader: Read bandwidth " << rateStr(bytes_read, t_read) << " MB/s" << std::endl;
       
       t_total += dclock();
       LOGA2A << "cpsFieldPartIOreader timings - setup:" << t_setup << "s  read:" << t_read << "s  comms:" << t_comms << "s  total: " << t_total << "s" << std::endl;
