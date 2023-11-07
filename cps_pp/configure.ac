@@ -197,15 +197,7 @@ if test "$enable_sse" != "no"; then
    DFLAGS="${DFLAGS} -DUSE_SSE"
 fi
 
-dnl Are we using DPC++/Sycl? If so we need to prevent it from specifying c++11 as this compiler only supports c++17 or higher
-AC_ARG_ENABLE(dpcpp, 
-	AC_HELP_STRING([--enable-dpcpp], 
-	[Compile using DPC++/Sycl. (default=no)]), 
-	,[enable_dpcpp="no"])
-AC_MSG_CHECKING([if compiling with DPC++/Sycl])
-AC_MSG_RESULT($enable_dpcpp)
-
-dnl Are we compiling with C11?
+dnl Are we compiling with C11+?
 AC_ARG_ENABLE(c11, 
 	AC_HELP_STRING([--enable-c11], 
 	[Compile with C11 features. (default=yes)]), 
@@ -213,9 +205,8 @@ AC_ARG_ENABLE(c11,
 AC_MSG_CHECKING([if compile with c++11 ])
 AC_MSG_RESULT($enable_c11)
 if test "$enable_c11" != "no"; then
-   if test "$enable_dpcpp" == "no"; then
-      CXXFLAGS="${CXXFLAGS} -std=c++11"
-   fi					
+   #CK: Grid now requires c++17
+   CXXFLAGS="${CXXFLAGS} -std=c++17"
    DFLAGS="${DFLAGS} -DUSE_C11 " 
 fi
 
@@ -594,9 +585,7 @@ if test "$enable_grid" != "no"; then
 	else
    		LDFLAGS="${LDFLAGS} -lGrid"
 	fi
-	if test "$enable_dpcpp" == "no"; then
-	   	CXXFLAGS="${CXXFLAGS} -std=c++11"
-	fi
+	CXXFLAGS="${CXXFLAGS} -std=c++17"	
    	DFLAGS="${DFLAGS} -DUSE_GRID"
 fi
 	

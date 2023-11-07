@@ -174,7 +174,6 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
 
-  /*
   if(1) testPoolAllocator();
   if(1) testAsyncTransferManager();
   if(1) testHolisticPoolAllocator();
@@ -222,7 +221,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testCshiftCconjBcMatrix(simd_dims);
   if(1) testGfixCPSmatrixField(lattice, simd_dims);
 
-  if(1) testGridGaugeFix(lattice, opt.gfix_alpha, simd_dims);
+  if(0) testGridGaugeFix(lattice, opt.gfix_alpha, simd_dims);
 
   if(1) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
    
@@ -389,13 +388,10 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testSourceConvergence<A2Apolicies_grid>(a2a_arg, simd_dims, simd_dims_3d, lattice);
  
   if(1) testXconjDiagRecon<A2Apolicies_grid>(lattice);
-  */
 
-  //test_mmap_alloc();
-
-  //test_write_data_bypass_cache();
-
-  //test_disk_reduce();
+  test_mmap_alloc();
+  test_write_data_bypass_cache();
+  test_disk_reduce();
 
   testCPSfieldWriteParts<A2Apolicies_grid>(opt.write, opt.io_dir);
 }

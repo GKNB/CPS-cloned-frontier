@@ -753,7 +753,7 @@ public:
 	memcpy_time -= dclock();
 	memcpy(pmem,e.from,e.bytes);
 	memcpy_time += dclock();
-	if(vrb) std::cout << "asyncTransferManager: prefetch " << e.bytes << " " << e.from << ". memcpy " << time << "s,  rate " << e.bytes/1024./1024./time << "MB/s" << std::endl;
+	if(vrb) std::cout << "asyncTransferManager: prefetch " << e.bytes << " " << e.from << ". memcpy " << memcpy_time << "s,  rate " << e.bytes/1024./1024./memcpy_time << "MB/s" << std::endl;
 																			       
 	devcpy_time -= dclock();
 	copy_host_to_device_async(e.to,pmem,e.bytes);
@@ -775,7 +775,7 @@ public:
 	}
 #endif
 	devcpy_time += dclock();
-	if(vrb) std::cout << "asyncTransferManager: prefetch " << e.bytes << " " << e.from << ". devicecpy " << time << "s,  rate " << e.bytes/1024./1024./time << "MB/s" << std::endl;
+	if(vrb) std::cout << "asyncTransferManager: prefetch " << e.bytes << " " << e.from << ". devicecpy " << devcpy_time << "s,  rate " << e.bytes/1024./1024./devcpy_time << "MB/s" << std::endl;
 
 	
 #ifdef PIN_IN_PLACE

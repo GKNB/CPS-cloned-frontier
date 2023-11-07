@@ -60,17 +60,7 @@ public:
 					 fsize(r.fsize), lindexdilution(r.lindexdilution), rindexdilution(r.rindexdilution),
 					 tl(r.tl), tr(r.tr), MesonFieldDistributedStorageType(r){ }
 
-
   class View{
-    int nmodes_l, nmodes_r;
-    int tl, tr;
-
-    A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> const* parent; //for use in host-side calls only!
-   
-    int fsize; //in units of ScalarComplexType
-    ScalarComplexType *data;
-    typename mf_Policies::MesonFieldDistributedStorageType::View alloc_view;
-    
   public:
     typedef mf_Policies Policies;
     typedef typename A2AfieldL<mf_Policies>::DilutionType LeftInputDilutionType;
@@ -79,6 +69,16 @@ public:
     typedef typename SpinColorFlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
     typedef typename SpinColorFlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+  private:
+    int nmodes_l, nmodes_r;
+    int tl, tr;
+
+    A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> const* parent; //for use in host-side calls only!
+   
+    int fsize; //in units of ScalarComplexType
+    ScalarComplexType *data;
+    typename mf_Policies::MesonFieldDistributedStorageType::View alloc_view;
+  public:
 
     //Size in complex
     accelerator_inline int size() const{ return fsize; }
