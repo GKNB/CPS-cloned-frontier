@@ -1184,6 +1184,7 @@ struct vml_enum_map A2ACGalgorithm_map[] = {
 	{"A2ACGalgorithm","AlgorithmMixedPrecisionReliableUpdateCG",AlgorithmMixedPrecisionReliableUpdateCG},
 	{"A2ACGalgorithm","AlgorithmMixedPrecisionReliableUpdateSplitCG",AlgorithmMixedPrecisionReliableUpdateSplitCG},
 	{"A2ACGalgorithm","AlgorithmMixedPrecisionMADWF",AlgorithmMixedPrecisionMADWF},
+	{"A2ACGalgorithm","AlgorithmXconjMixedPrecisionReliableUpdateSplitCG",AlgorithmXconjMixedPrecisionReliableUpdateSplitCG},
 	{NULL,NULL,0}
 };
 

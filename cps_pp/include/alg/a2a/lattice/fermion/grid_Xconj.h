@@ -261,10 +261,11 @@ void XconjugateBoost(TwoFlavorField &into, const OneFlavorField &from){
 }
 
 template<typename TwoFlavorField>
-bool XconjugateCheck(const TwoFlavorField &v, const double tol = 1e-10, bool verbose=true){
+bool XconjugateCheck(const TwoFlavorField &v, const double tol = 1e-10, bool verbose=true, const std::string &descr = ""){
   decltype( Grid::PeekIndex<GparityFlavourIndex>(v,0) ) tmp(v.Grid());
   tmp = -(Xmatrix()*conjugate(Grid::PeekIndex<GparityFlavourIndex>(v,0))) - Grid::PeekIndex<GparityFlavourIndex>(v,1);
   double n = norm2(tmp);
+  if(verbose) LOGA2A << "X-conjugate check " << descr << ": " << n << " (expect 0)" << std::endl;
   if(n > tol){
     LOGA2A << "Failed Xconj check, got " << n << " (expect 0)" << std::endl;
     return false;

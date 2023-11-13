@@ -812,6 +812,7 @@ enum A2ACGalgorithm {
 	AlgorithmMixedPrecisionReliableUpdateCG = 2,
 	AlgorithmMixedPrecisionReliableUpdateSplitCG = 3,
 	AlgorithmMixedPrecisionMADWF = 4,
+	AlgorithmXconjMixedPrecisionReliableUpdateSplitCG = 5,
 };
 typedef enum A2ACGalgorithm A2ACGalgorithm;
 extern struct vml_enum_map A2ACGalgorithm_map[];

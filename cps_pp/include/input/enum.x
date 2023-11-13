@@ -907,7 +907,8 @@ enum A2ACGalgorithm {
  AlgorithmMixedPrecisionRestartedCG,
  AlgorithmMixedPrecisionReliableUpdateCG,
  AlgorithmMixedPrecisionReliableUpdateSplitCG,
- AlgorithmMixedPrecisionMADWF
+ AlgorithmMixedPrecisionMADWF,
+ AlgorithmXconjMixedPrecisionReliableUpdateSplitCG
 };
 
 enum A2A_ZMobiusGammaSource{	
