@@ -100,11 +100,11 @@ private:
 
 
 public:
-
+  //for t in tset (ordered) we assign an index  map_idx that corresponds to a specific t,  and an inverse map of t to map_idx
   inline void idx_t_map(std::vector<int> &map, std::vector<int> &inv_map, const std::set<int> &tset){
     int ntuse = tset.size();
-    map.resize(ntuse);
-    inv_map.resize(Lt);
+    map.resize(ntuse); for(int i=0;i<ntuse;i++) map[i]=-1;
+    inv_map.resize(Lt); for(int i=0;i<Lt;i++) inv_map[i]=-1;
 
     int map_idx = 0;
     for(int t=0;t<Lt;t++) 

@@ -468,6 +468,13 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
       std::vector<bool> modes_used(r.getNmodes(),false);
       for(size_t jprime=jprimestart_nxt; jprime<njprime_block_nxt+jprimestart_nxt;jprime++) modes_used[jl_jr_pairs[jprime].second] = true;
+
+      //Ensure we do not prefetch data that will actually be needed on this iteration, leading to nasty race conditions
+      size_t jprimestart = jprimeblock * blocksize;
+      size_t jprimelessthan = std::min(jprimestart + blocksize, njprime);
+      size_t njprime_block = jprimelessthan - jprimestart;
+      for(size_t jprime=jprimestart; jprime<njprime_block+jprimestart;jprime++) modes_used[jl_jr_pairs[jprime].second] = false;
+
       r.enqueuePrefetch(DeviceRead, modes_used);
       rA2AfieldType::startPrefetches(); //non-blocking
     }

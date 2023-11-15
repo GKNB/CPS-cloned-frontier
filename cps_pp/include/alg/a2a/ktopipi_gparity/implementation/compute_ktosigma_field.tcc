@@ -61,13 +61,12 @@ void ComputeKtoSigma<Vtype,Wtype>::type12_field_SIMD(std::vector<ResultsContaine
 
   double time;
 
-  //Compute which tS and tK we need
-  std::set<int> tS_use, tK_use;
+  //Compute which tS we need
+  std::set<int> tS_use;
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
     for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
       int tK_glb = modLt(top_glb - tdis, Lt);
-      tK_use.insert(tK_glb);
       for(int i=0;i<ntsep_k_sigma;i++){
 	if(tdis > tsep_k_sigma[i]) continue;
 	int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
@@ -76,11 +75,10 @@ void ComputeKtoSigma<Vtype,Wtype>::type12_field_SIMD(std::vector<ResultsContaine
     }
   }   
 
-  //Map an index to tS and tK
-  int ntS = tS_use.size(), ntK = tK_use.size();
-  std::vector<int> tS_subset_map, tS_subset_inv_map, tK_subset_map, tK_subset_inv_map;
+  //Map an index to tS
+  int ntS = tS_use.size();
+  std::vector<int> tS_subset_map, tS_subset_inv_map;  //tS_idx -> tS,  tS->tS_idx   (global times)
   idx_t_map(tS_subset_map, tS_subset_inv_map, tS_use);
-  idx_t_map(tK_subset_map, tK_subset_inv_map, tK_use);
 
   //Gather
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
@@ -127,7 +125,8 @@ void ComputeKtoSigma<Vtype,Wtype>::type12_field_SIMD(std::vector<ResultsContaine
       if(!onNodeTimeslicesInRange(tK_glb, tsep_k_sigma[i])) continue; //no point computing outside of range between kaon and sigma operator
       int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
       
-      const SCFmatrixField &pt2 = pt2_store[tS_subset_inv_map[tS_glb]];
+      int tS_idx = tS_subset_inv_map[tS_glb]; if(tS_idx == -1) ERR.General("","","K->sigma type12 inv map fail %d %d %d %d", tK_glb,i,tS_glb,tS_idx);
+      const SCFmatrixField &pt2 = pt2_store[tS_idx];
 
       LOGA2A << "Contract t_K=" << tK_glb << " t_sigma=" << tS_glb << std::endl;
       contract_time -= dclock();
@@ -293,12 +292,11 @@ void ComputeKtoSigma<Vtype,Wtype>::type3_field_SIMD(std::vector<ResultsContainer
     
   //Determine tK,tS pairings needed for node, and also tS values
   std::set<std::pair<int,int> > tK_tS_use;
-  std::set<int> tS_use, tK_use;
+  std::set<int> tS_use;
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
     for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
       int tK_glb = modLt(top_glb - tdis, Lt);
-      tK_use.insert(tK_glb);
       for(int i=0;i<ntsep_k_sigma;i++){
 	if(tdis > tsep_k_sigma[i]) continue;
 	int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);

@@ -38,7 +38,7 @@ public:
     return ncontract * 8 * Lt * Lt * nthread * sizeof(ComplexType);
   }
 
-  void resize(const int _ncontract, const int _nthread=1){
+  void resize(const int _ncontract, const int _nthread=1){ //zero's data
     Lt = GJP.Tnodes()*GJP.TnodeSites();
     ncontract = _ncontract;
 
@@ -71,22 +71,24 @@ public:
   void write(const std::string &filename, const bool hexfloat = false) const{
     const char* fmt = hexfloat ? "%a %a " : "%.16e %.16e ";
     
-    FILE *p;
-    if((p = Fopen(filename.c_str(),"w")) == NULL)
-      ERR.FileA("KtoPiPiGparityResultsContainer","write",filename.c_str());
-    for(int tk=0;tk<Lt;tk++){
-      for(int tdis=0;tdis<Lt;tdis++){
-	Fprintf(p,"%d %d ", tk, tdis);
-	for(int cidx=0; cidx<ncontract; cidx++){
-	  for(int gcombidx=0;gcombidx<8;gcombidx++){
-	    std::complex<Float> dp = convertComplexD((*this)(tk,tdis,cidx,gcombidx));
-	    Fprintf(p,fmt,std::real(dp),std::imag(dp));
+    if(!UniqueID()){
+      FILE *p = NULL;
+      if((p = fopen(filename.c_str(),"w")) == NULL)
+	ERR.FileA("KtoPiPiGparityResultsContainer","write",filename.c_str());
+      for(int tk=0;tk<Lt;tk++){
+	for(int tdis=0;tdis<Lt;tdis++){
+	  fprintf(p,"%d %d ", tk, tdis);
+	  for(int cidx=0; cidx<ncontract; cidx++){
+	    for(int gcombidx=0;gcombidx<8;gcombidx++){
+	      std::complex<Float> dp = convertComplexD((*this)(tk,tdis,cidx,gcombidx));
+	      fprintf(p,fmt,std::real(dp),std::imag(dp));
+	    }
 	  }
+	  fprintf(p,"\n");
 	}
-	Fprintf(p,"\n");
-      }
-    }	
-    Fclose(p);
+      }	
+      fclose(p);
+    }
   }
 };
 
@@ -136,21 +138,23 @@ public:
   //hexfloat option: For reproducibility testing, write the output in hexfloat format rather than truncating the precision
   void write(const std::string &filename, const bool hexfloat = false) const{
     const char* fmt = hexfloat ? "%a %a " : "%.16e %.16e ";
-
-    FILE *p;
-    if((p = Fopen(filename.c_str(),"w")) == NULL)
-      ERR.FileA("KtoPiPiGparityResultsContainer","write",filename.c_str());
-    for(int tk=0;tk<Lt;tk++){
-      for(int tdis=0;tdis<Lt;tdis++){
-	Fprintf(p,"%d %d ", tk, tdis);
-	for(int fidx=0;fidx<2;fidx++){
-	  std::complex<Float> dp = convertComplexD((*this)(tk,tdis,fidx));
-	  Fprintf(p,fmt,std::real(dp),std::imag(dp));
+    
+    if(!UniqueID()){
+      FILE *p = NULL;
+      if((p = fopen(filename.c_str(),"w")) == NULL)
+	ERR.FileA("KtoPiPiGparityResultsContainer","write",filename.c_str());
+      for(int tk=0;tk<Lt;tk++){
+	for(int tdis=0;tdis<Lt;tdis++){
+	  fprintf(p,"%d %d ", tk, tdis);
+	  for(int fidx=0;fidx<2;fidx++){
+	    std::complex<Float> dp = convertComplexD((*this)(tk,tdis,fidx));
+	    fprintf(p,fmt,std::real(dp),std::imag(dp));
+	  }
+	  fprintf(p,"\n");
 	}
-	Fprintf(p,"\n");
-      }
-    }	
-    Fclose(p);
+      }	
+      fclose(p);
+    }
   }
 
 
@@ -163,26 +167,30 @@ inline static void write(const std::string &filename, const KtoPiPiGparityResult
   const char* fmt = hexfloat ? "%a %a " : "%.16e %.16e ";
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   int n_contract = con.getNcontract();
-  FILE *p;
-  if((p = Fopen(filename.c_str(),"w")) == NULL)
-    ERR.FileA("KtoPiPiGparityResultsContainer","write",filename.c_str());
-  for(int tk=0;tk<Lt;tk++){
-    for(int tdis=0;tdis<Lt;tdis++){
-      Fprintf(p,"%d %d ", tk, tdis);
-      for(int cidx=0; cidx<n_contract; cidx++){
-	for(int gcombidx=0;gcombidx<8;gcombidx++){
-	  std::complex<Float> dp = convertComplexD(con(tk,tdis,cidx,gcombidx));
-	  Fprintf(p,fmt,std::real(dp),std::imag(dp));
+  
+  if(!UniqueID()){
+    FILE *p = NULL;
+    if((p = fopen(filename.c_str(),"w")) == NULL)
+      ERR.FileA("KtoPiPiGparityResultsContainer","write",filename.c_str());
+    for(int tk=0;tk<Lt;tk++){
+      for(int tdis=0;tdis<Lt;tdis++){
+	fprintf(p,"%d %d ", tk, tdis);
+	for(int cidx=0; cidx<n_contract; cidx++){
+	  for(int gcombidx=0;gcombidx<8;gcombidx++){
+	    std::complex<Float> dp = convertComplexD(con(tk,tdis,cidx,gcombidx));
+	    fprintf(p,fmt,std::real(dp),std::imag(dp));
+	  }
 	}
+	for(int fidx=0;fidx<2;fidx++){
+	  std::complex<Float> dp = convertComplexD(mix(tk,tdis,fidx));
+	  fprintf(p,fmt,std::real(dp),std::imag(dp));
+	}
+	fprintf(p,"\n");
       }
-      for(int fidx=0;fidx<2;fidx++){
-	std::complex<Float> dp = convertComplexD(mix(tk,tdis,fidx));
-	Fprintf(p,fmt,std::real(dp),std::imag(dp));
-      }
-      Fprintf(p,"\n");
-    }
-  }	
-  Fclose(p);
+    }	
+    fclose(p);
+  }
+
 }
 
 

@@ -1172,6 +1172,8 @@ public:
     bool disk_in_sync;
     std::string disk_file;
 
+    bool device_prefetch_underway; //allow for error checking if try to open device read view with a pending prefetch
+
     bool initialized; //keep track of whether the data has had a write
   };
 
@@ -1484,6 +1486,8 @@ protected:
 	//Allow copies from uninitialized data, eg in copy constructor called during initialization of vector of fields
       }
     }else{ //DevicePool
+      if(handle.device_prefetch_underway) ERR.General("HolisticMemoryPoolManager","syncForRead (DeviceRead)","Attempting to open a device read view while a prefetch is still underway!");
+
       if(!handle.device_in_sync){	      
 	if(handle.host_in_sync) syncHostToDevice(handle);
 	else if(handle.disk_in_sync){
@@ -1503,6 +1507,8 @@ protected:
       handle.disk_in_sync = false;
       handle.initialized = true;
     }else{ //DevicePool
+      if(handle.device_prefetch_underway) ERR.General("HolisticMemoryPoolManager","markForWrite (DeviceWrite)","Attempting to open a device write view while a prefetch is still underway!");
+
       handle.host_in_sync = false;
       handle.device_in_sync = true;
       handle.disk_in_sync = false;
@@ -1680,7 +1686,8 @@ public:
     h.bytes = bytes;
     h.disk_file = "";
     h.initialized = false;
-    attachEntry(h,pool);
+    h.device_prefetch_underway = false;
+    attachEntry(h,pool);    
     return it;
   }
 
@@ -1727,6 +1734,7 @@ public:
 	asyncTransferManager::globalInstance().enqueue(h->device_entry->ptr,h->host_entry->ptr,h->bytes);
 	h->device_in_sync = true; //technically true only if the prefetch is complete; make sure to wait!!
 	++h->lock_entry; //use this flag also for prefetches to ensure the memory region is not evicted while the async copy is happening
+	h->device_prefetch_underway = true; //mark for error checking
 	device_queued_prefetches.push_back(h);
       }
     }
@@ -1745,7 +1753,9 @@ public:
     asyncTransferManager::globalInstance().wait();
     for(auto h : device_queued_prefetches){
       if(h->lock_entry == 0) ERR.General("HolisticMemoryPoolManager","waitPrefetches","lock_entry has already been decremented to 0; this should not happen");
+      if(!h->device_prefetch_underway) ERR.General("HolisticMemoryPoolManager","waitPrefetches","device_prefetch_underway has already been decremented to 0; this should not happen");
       --h->lock_entry; //unlock
+      h->device_prefetch_underway = false;
     }
     device_queued_prefetches.clear();
   }
