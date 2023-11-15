@@ -5,6 +5,7 @@
 #include<Grid/Grid.h>
 #include "evec_interface.h"
 #include "schur_operator.h"
+#include "grid_MADWF.h"
 
 CPS_START_NAMESPACE
 
@@ -401,7 +402,7 @@ struct A2AinverterData{
   static void benchmark(Operator &op, int is_gparity, const std::string &descr){
     LOGA2A << "Benchmarking operator " << descr << std::endl;
     std::vector<int> seeds5({5,6,7,8});    
-    Grid::GridCartesian* grid = op.FermionGrid();
+    Grid::GridCartesian* grid = (Grid::GridCartesian*)op.FermionGrid();
     Grid::GridParallelRNG RNG5(grid);  RNG5.SeedFixedIntegers(seeds5);
   
     typedef typename Operator::FermionField FermionField;

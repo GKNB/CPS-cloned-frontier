@@ -23,7 +23,7 @@ struct computeVW_impl{
     data.setupGparityOperators(); //needed for everything
 
     if(cg.CGalgorithm == AlgorithmMixedPrecisionMADWF){
-      data.setupGparityZMobiusOperators(evecs.getEvecGridD(), cg);
+      data.setupGparityZMobiusOperators((Grid::GridRedBlackCartesian *)evecs.getEvecGridD(), cg);
 
       A2AlowModeComputeSchurPreconditioned<GridDiracZMobiusD> vwlowimpl_inner(*data.SchurOpD_inner);
       computeVWlow(V,W,evecs,vwlowimpl_inner);
