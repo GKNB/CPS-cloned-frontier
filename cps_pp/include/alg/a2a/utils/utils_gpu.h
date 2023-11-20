@@ -1319,8 +1319,9 @@ protected:
     //First check if we have an entry of the right size in the pool
     auto fit = free_pool.find(bytes);
     if(fit != free_pool.end()){
-      auto &entry_list = fit->second;      
-      assert(entry_list.size() > 0);
+      auto &entry_list = fit->second;
+      if(entry_list.size() == 0) ERR.General("HolisticMemoryPoolManager","getEntry","Free pool for size %lu bytes has size 0; this pool should have been deleted!", bytes);
+
       if(entry_list.back().bytes != bytes){
 	std::ostringstream os; os << "In pool of size " << bytes << "(check key " << fit->first << ") found entry of size " << entry_list.back().bytes << "! List has size " << entry_list.size() << " and full set of sizes: ";
 	for(auto e=entry_list.begin();e!=entry_list.end();e++) os << e->bytes <<  " ";
@@ -1391,12 +1392,12 @@ protected:
   void attachEntry(Handle &handle, Pool pool){
     sanityCheck();
     if(pool == DevicePool){
-      assert(!handle.device_valid);
+      if(handle.device_valid) ERR.General("HolisticMemoryPoolManager","attachEntry","Expect !handle.device_valid");
       handle.device_entry = getEntry(handle.bytes, DevicePool);
       handle.device_valid = true;
       handle.device_entry->owned_by = &handle;
     }else{
-      assert(!handle.host_valid);
+      if(handle.host_valid) ERR.General("HolisticMemoryPoolManager","attachEntry","Expect !handle.host_valid");
       handle.host_entry = getEntry(handle.bytes, HostPool);
       handle.host_valid = true;
       handle.host_entry->owned_by = &handle;
@@ -1413,9 +1414,9 @@ protected:
   
   void syncDeviceToHost(Handle &handle){
     sanityCheck();
-    assert(handle.initialized);
+    if(!handle.initialized) ERR.General("HolisticMemoryPoolManager","syncDeviceToHost","Attempting to sync an uninitialized data region!");
     if(!handle.host_in_sync){
-      assert(handle.device_in_sync && handle.device_valid);
+      if(!handle.device_in_sync || !handle.device_valid) ERR.General("HolisticMemoryPoolManager","syncDeviceToHost","Device copy is either not in sync or invalid");
       if(!handle.host_valid) attachEntry(handle, HostPool);
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing device " << handle.device_entry->ptr << " to host " << handle.host_entry->ptr << std::endl;
       copy_device_to_host(handle.host_entry->ptr, handle.device_entry->ptr, handle.bytes);
@@ -1424,9 +1425,9 @@ protected:
   }
   void syncHostToDevice(Handle &handle){
     sanityCheck();
-    assert(handle.initialized);
+    if(!handle.initialized) ERR.General("HolisticMemoryPoolManager","synHostToDevice","Attempting to sync an uninitialized data region!");
     if(!handle.device_in_sync){
-      assert(handle.host_in_sync && handle.host_valid);
+      if(!handle.host_in_sync || !handle.host_valid) ERR.General("HolisticMemoryPoolManager","syncHostToDevice","Host copy is either not in sync or invalid");
       if(!handle.device_valid) attachEntry(handle, DevicePool);
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing host " << handle.host_entry->ptr << " to device " << handle.device_entry->ptr << std::endl;
       copy_host_to_device(handle.device_entry->ptr, handle.host_entry->ptr, handle.bytes);
@@ -1435,9 +1436,9 @@ protected:
   }  
   void syncHostToDisk(Handle &handle){
     sanityCheck();
-    assert(handle.initialized);
+    if(!handle.initialized) ERR.General("HolisticMemoryPoolManager","syncHostToDisk","Attempting to sync an uninitialized data region!");
     if(!handle.disk_in_sync){
-      assert(handle.host_in_sync && handle.host_valid);
+      if(!handle.host_in_sync || !handle.host_valid) ERR.General("HolisticMemoryPoolManager","syncHostToDisk","Host copy is either not in sync or invalid");
       static size_t idx = 0;
       if(handle.disk_file == ""){
 	handle.disk_file = disk_root + "/mempool." + std::to_string(UniqueID()) + "." + std::to_string(idx++);
@@ -1458,9 +1459,9 @@ protected:
   }
   void syncDiskToHost(Handle &handle){
     sanityCheck();
-    assert(handle.initialized);
+    if(!handle.initialized) ERR.General("HolisticMemoryPoolManager","syncDiskToHost","Attempting to sync an uninitialized data region!");
     if(!handle.host_in_sync){
-      assert(handle.disk_in_sync && handle.disk_file != "");
+      if(!handle.disk_in_sync || handle.disk_file == "") ERR.General("HolisticMemoryPoolManager","syncDiskToHost","Disk copy is either not in sync or invalid");     
       if(!handle.host_valid) attachEntry(handle, HostPool);     
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing disk " << handle.disk_file << " to host " << handle.host_entry->ptr << std::endl;
 #ifdef A2A_MEMPOOL_BYPASS_CACHE
