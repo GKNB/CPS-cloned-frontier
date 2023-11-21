@@ -831,6 +831,7 @@ public:
     //Normalize either main or tmp mf. As main mf is only normalized once, just after generation, it will not yet have been distributed, 
     //hence we can skip the gather/dist
     std::vector<normInfo> &tonrm = norm_queue[opt_cidx];
+    LOGA2A << "GparityFlavorProjectedShiftSourceSumStorage::postContractAction  normalizing " << tonrm.size() << " meson fields" << std::endl;
     for(int i=0;i<tonrm.size();i++){
       storageType &to = *tonrm[i].to;
       double nrm = tonrm[i].nrm;
@@ -845,6 +846,7 @@ public:
     
     //For temp mf sum into the main mf
     std::vector<sumInfo> &tosum = sum_queue[opt_cidx];
+    LOGA2A << "GparityFlavorProjectedShiftSourceSumStorage::postContractAction  summing " << tosum.size() << " meson fields" << std::endl;
     for(int i=0;i<tosum.size();i++){
       storageType &to = *tosum[i].to;
       storageType &from = *tosum[i].from;
@@ -863,6 +865,7 @@ public:
       nodeDistributeMany(1, &to);
     }
     tosum.clear();
+    LOGA2A << "GparityFlavorProjectedShiftSourceSumStorage::postContractAction complete" << std::endl;
   }
 
   const InnerProductType & getInnerProduct(const int opt_cidx){

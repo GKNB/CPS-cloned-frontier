@@ -169,10 +169,9 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) benchmarkvMvGridOrig<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 
   if(1) benchmarkvMvGridOffload<A2ApoliciesSIMDdoubleAutoAllocGparityUVM,A2AvectorVfftw,A2AvectorWfftw>(a2a_args, ntests, nthreads); //UVM version
-  */
-  if(1) benchmarkvMvGridOffload<GridA2ApoliciesType,A2AvectorVfftw,A2AvectorWfftw>(a2a_args, ntests, nthreads);
-  /*
   
+  if(1) benchmarkvMvGridOffload<GridA2ApoliciesType,A2AvectorVfftw,A2AvectorWfftw>(a2a_args, ntests, nthreads);
+    
   if(0) benchmarkvMvPartialTimeGridOffload<GridA2ApoliciesType>(a2a_args, ntests, opt.vMv_partial_timestart, opt.vMv_partial_timeend, opt.vMv_partial_compare_full);
 
   if(1) benchmarkVVgridOffload<A2ApoliciesSIMDdoubleAutoAllocGparityUVM>(a2a_args, ntests, nthreads);
@@ -204,6 +203,9 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
   benchmarkPackGridFieldIO<GridA2ApoliciesType>(lattice);
   */
+
+  benchmarkMfPlusEquals<GridA2ApoliciesType>(a2a_args, ntests);
+  benchmarkMfTimesEquals<GridA2ApoliciesType>(a2a_args, ntests);
 }
 
 int main(int argc,char *argv[])

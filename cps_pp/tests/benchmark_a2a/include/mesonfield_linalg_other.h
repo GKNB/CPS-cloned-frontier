@@ -145,6 +145,139 @@ void benchmarkMfVectorTraceProd(const A2AArg &a2a_args, const int ntests){
 
   std::cout << "Hot trace time avg for " << ntests << " tests " << time << "s" << std::endl;
 }
+template<typename GridA2Apolicies>
+void mf_plus_equals_gpu(A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> &into, const A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> &from){
+  using namespace Grid;
+  CPSautoView(into_v,into,DeviceReadWrite);
+  CPSautoView(from_v,from,DeviceRead);
+  accelerator_for(i, into_v.size(), 1, {
+      into_v.ptr()[i] = into_v.ptr()[i] + from_v.ptr()[i];
+    });  
+}
+
+template<typename GridA2Apolicies>
+void benchmarkMfPlusEquals(const A2AArg &a2a_args, const int ntests){
+  std::cout << "Starting benchmarkMfPlusEquals\n";
+
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  A2Aparams params(a2a_args);
+
+  A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf,mf2;
+  mf.setup(params,params,0,0);     
+  mf2.setup(params,params,0,0);
+
+  mf.testRandom();
+  mf2.testRandom();
+
+  std::cout << "Benchmarking CPU hot plus_equals" << std::endl;
+  mf.plus_equals(mf2);
+
+  double time = 0;
+  for(int test=0;test<ntests;test++){
+    time -= dclock();
+    mf.plus_equals(mf2);
+    time += dclock();
+  }
+  std::cout << "Performed " << ntests << " operations in " << time << "s, avg " << time / ntests << "s" << std::endl;
+
+  time = 0;
+  std::cout << "Benchmarking GPU hot plus_equals" << std::endl;
+  mf_plus_equals_gpu(mf,mf2);
+  time = 0;
+  for(int test=0;test<ntests;test++){
+    time -= dclock();
+    mf_plus_equals_gpu(mf,mf2);
+    time += dclock();
+  }
+  std::cout << "Performed " << ntests << " operations in " << time << "s, avg " << time / ntests << "s" << std::endl;
+
+  time = 0;
+  std::cout << "Benchmarking GPU cold plus_equals" << std::endl;
+  time = 0;
+  double copy_back = 0;
+  for(int test=0;test<ntests;test++){
+    mf.testRandom(); //force host location
+    mf2.testRandom();
+  
+    time -= dclock();
+    mf_plus_equals_gpu(mf,mf2);
+    time += dclock();
+
+    copy_back -= dclock();
+    {      
+      CPSautoView(mf_v,mf,HostRead);
+    }
+    copy_back += dclock();
+  }
+  std::cout << "Performed " << ntests << " operations in " << time << "s, avg " << time / ntests << "s" << std::endl;
+  std::cout << "Copy-back for output MF an additional " << copy_back / ntests << "s per iteration" << std::endl;
+}
+
+template<typename GridA2Apolicies>
+void mf_times_equals_gpu(A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> &into, const typename GridA2Apolicies::ScalarComplexType nrm){
+  using namespace Grid;
+  CPSautoView(into_v,into,DeviceReadWrite);
+  accelerator_for(i, into_v.size(), 1, {
+      into_v.ptr()[i] = into_v.ptr()[i] * nrm;
+    });  
+}
+
+template<typename GridA2Apolicies>
+void benchmarkMfTimesEquals(const A2AArg &a2a_args, const int ntests){
+  std::cout << "Starting benchmarkMfTimesEquals\n";
+
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  A2Aparams params(a2a_args);
+
+  A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
+  mf.setup(params,params,0,0);     
+
+  mf.testRandom();
+
+  typename GridA2Apolicies::ScalarComplexType nrm(1.0001,1.0002);
+
+  std::cout << "Benchmarking CPU hot times_equals" << std::endl;
+  mf.times_equals(nrm);
+
+  double time = 0;
+  for(int test=0;test<ntests;test++){
+    time -= dclock();
+    mf.times_equals(nrm);
+    time += dclock();
+  }
+  std::cout << "Performed " << ntests << " operations in " << time << "s, avg " << time / ntests << "s" << std::endl;
+
+  time = 0;
+  std::cout << "Benchmarking GPU hot times_equals" << std::endl;
+  mf_times_equals_gpu(mf,nrm);
+  time = 0;
+  for(int test=0;test<ntests;test++){
+    time -= dclock();
+    mf_times_equals_gpu(mf,nrm);
+    time += dclock();
+  }
+  std::cout << "Performed " << ntests << " operations in " << time << "s, avg " << time / ntests << "s" << std::endl;
+
+  time = 0;
+  std::cout << "Benchmarking GPU cold times_equals" << std::endl;
+  time = 0;
+  double copy_back = 0;
+  for(int test=0;test<ntests;test++){
+    mf.testRandom(); //force host location
+  
+    time -= dclock();
+    mf_times_equals_gpu(mf,nrm);
+    time += dclock();
+
+    copy_back -= dclock();
+    {      
+      CPSautoView(mf_v,mf,HostRead);
+    }
+    copy_back += dclock();
+  }
+  std::cout << "Performed " << ntests << " operations in " << time << "s, avg " << time / ntests << "s" << std::endl;
+  std::cout << "Copy-back for output MF an additional " << copy_back / ntests << "s per iteration" << std::endl;
+}
 
 
 
