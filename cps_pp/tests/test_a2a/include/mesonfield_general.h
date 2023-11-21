@@ -793,5 +793,38 @@ void testMesonFieldViews(const A2AArg &params){
 };
 
 
+template<typename A2Apolicies>
+void testMesonFieldNodeSumPartialAsync(const A2AArg &params){
+  std::cout << "Starting testMesonFieldNodeSumPartialAsync" << std::endl;
+  typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> MFtype;
+
+  MFtype mf_base;
+  mf_base.setup(params,params,0,0);
+  mf_base.testRandom();
+
+  MFtype mf_cp1(mf_base), mf_cp2(mf_base);
+  
+  mf_cp1.nodeSum();
+
+  int iblocksz = mf_base.getNrows()/10;
+  int jblocksz = mf_base.getNcols()/10;
+  
+  std::vector<nodeSumPartialAsyncHandle> handles;
+  for(int i0=0; i0<mf_base.getNrows(); i0+=iblocksz){
+    int iblocksz_true = std::min(iblocksz, mf_base.getNrows()-i0);
+    for(int j0=0; j0<mf_base.getNcols(); j0+=jblocksz){
+      int jblocksz_true = std::min(jblocksz, mf_base.getNcols()-j0);
+  
+      handles.push_back( mf_cp2.nodeSumPartialAsync(i0,iblocksz_true,j0,jblocksz_true) );
+    }
+  }
+  for(int i=0;i<handles.size();i++) mf_cp2.nodeSumPartialComplete(handles[i]);
+  if(! mf_cp1.equals(mf_cp2,1e-10,true)){
+    std::cout << "testMesonFieldNodeSumPartialAsync FAILED" << std::endl;
+    exit(1);
+  }
+  std::cout << "testMesonFieldNodeSumPartialAsync passed" << std::endl;
+}
+  
 
 CPS_END_NAMESPACE

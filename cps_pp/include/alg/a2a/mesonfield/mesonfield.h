@@ -23,7 +23,7 @@ CPS_START_NAMESPACE
 //We allow for the timeslices associated with the left and right vectors of the outer product to differ
 //In the majority of cases the timeslice of the right-hand vector is equal to that of the left-hand, but in some cases we might desire it to be different,
 //for example when taking the product of [[W(t1)*V(t1)]] [[W(t2)*W(t2)]] -> [[W(t1)*W(t2)]]
-
+struct nodeSumPartialAsyncHandle;
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 class A2AmesonField: public mf_Policies::MesonFieldDistributedStorageType{
@@ -372,6 +372,10 @@ public:
     CPSautoView(t_v,(*this),HostReadWrite);
     globalSum( (typename ScalarComplexType::value_type*)t_v.ptr(),2*fsize);
   }
+  
+  //Global sum  istart <= i < istart+ni,  jstart <= j < jstart+nj
+  nodeSumPartialAsyncHandle nodeSumPartialAsync(const int istart, const int ni, const int jstart, const int nj) const;
+  void nodeSumPartialComplete(nodeSumPartialAsyncHandle &handle);
 };
 
 //Get the meson field type associated with two (non-FFT) A2A vectors

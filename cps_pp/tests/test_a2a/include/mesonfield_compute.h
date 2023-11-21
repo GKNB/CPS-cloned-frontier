@@ -357,7 +357,7 @@ void testGridMesonFieldCompute(const A2AArg &a2a_args, const int nthreads, const
   Wgrid.importFields(W);
   Vgrid.importFields(V);
   
-#ifndef GPU_VEC
+#if !defined(GPU_VEC) && !defined(FORCE_A2A_OFFLOAD)
   //Original Grid implementation
   {
     if(!UniqueID()){ printf("Grid non-GPU version\n"); fflush(stdout); }
