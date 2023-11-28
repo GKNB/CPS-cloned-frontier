@@ -133,7 +133,11 @@ public:
       oneMKLmatrix<ScalarComplexType> rreord(nj,bk);
       oneMKLmatrix<ScalarComplexType> lr(bi, bk);
       getTimers().t_alloc += dclock();	
-          
+
+      CPSautoView(l_v,l,HostRead);
+      CPSautoView(r_v,r,HostRead);
+      CPSautoView(out_v,out,HostWrite);
+      
       //Compute which iblock,kblock index this node is responsible for
       //Some nodes might have to do >1 block depending on geometry
       for(int i0k0 = node_off; i0k0 < node_off + node_work; ++i0k0){
@@ -153,7 +157,7 @@ public:
 	    int sz = jlmap_blocks[b].second;
 
 	    ScalarComplexType *p = &lreord(i-i0,j_start);
-	    const ScalarComplexType & el = l(i, j_start_actual);
+	    const ScalarComplexType & el = l_v(i, j_start_actual);
 	    memcpy(p, &el, sz*sizeof(ScalarComplexType));
 	  }
 	}
@@ -161,7 +165,7 @@ public:
 #pragma omp parallel for
 	for(int j=0;j<nj;j++){
 	  int j_actual = jrmap[j];
-	  ScalarComplexType const* e = &r(j_actual, k0);	  
+	  ScalarComplexType const* e = &r_v(j_actual, k0);	  
 	  ScalarComplexType *p = &rreord(j,0);
 	  memcpy(p, e, bk*sizeof(ScalarComplexType));
 	}
@@ -178,7 +182,7 @@ public:
 
 #pragma omp parallel for
 	for(int i=i0;i<i0+bi;i++){
-	  ScalarComplexType *p = &out(i,k0);
+	  ScalarComplexType *p = &out_v(i,k0);
 	  ScalarComplexType const* e = &lr(i-i0,0);
 	  memcpy(p, e, bk*sizeof(ScalarComplexType));
 	}

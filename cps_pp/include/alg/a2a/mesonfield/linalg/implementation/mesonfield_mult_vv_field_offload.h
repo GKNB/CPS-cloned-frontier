@@ -454,7 +454,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 
     assert(into.nodeSites(3) == GJP.TnodeSites()); //cannot be SIMD packed in t-direction
     int nf = GJP.Gparity() + 1;
-    int nsimd = VectorComplexType::Nsimd();
+    size_t nsimd = VectorComplexType::Nsimd();
     size_t vol4d = into.size();
     int t_off = GJP.TnodeSites() * GJP.TnodeCoor();
     size_t blocksize = BlockedvMvOffloadArgs::b;

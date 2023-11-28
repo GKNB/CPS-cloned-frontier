@@ -340,7 +340,7 @@ void testCPSfieldDeviceCopy(){
   assert( Reduce(expect == *into) );
 
   //Test the wrapper allowing a view to be passed to the device through managed memory
-  ViewPointerWrapper<typename FermionFieldType::View> wrp(DeviceRead,field.view(DeviceRead));
+  ViewPointerWrapper<FermionFieldType> wrp(DeviceRead,field);
   
   memset(into, 0, sizeof(ComplexType));
 

@@ -74,8 +74,7 @@ public:
   class View: public AllocPolicy::AllocView{
     size_t sz;
   public:
-    accelerator_inline T & operator[](const size_t i){ return *( (T*)this->operator()() + i ); }
-    accelerator_inline const T & operator[](const size_t i) const{ return *( (T const*)this->operator()() + i ); }
+    accelerator_inline T & operator[](const size_t i) const{ return *( (T*) this->operator()() + i ); }
     accelerator_inline size_t size() const{ return sz; }
     accelerator_inline T* data() const{ return (T*)this->operator()(); }
 
