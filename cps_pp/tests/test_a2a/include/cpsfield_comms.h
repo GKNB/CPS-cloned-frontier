@@ -230,7 +230,7 @@ void testCyclicPermute(){
 } 
 
 
-void testCshiftCconjBc(){
+void testCshiftCconjBc(const SIMDdims<4> &simd_dims){
   std::cout << "Starting testCshiftCconjBc" << std::endl;
   size_t glb_size[4];
   for(int i=0;i<4;i++) glb_size[i] = GJP.Nodes(i)*GJP.NodeSites(i);
@@ -260,7 +260,7 @@ void testCshiftCconjBc(){
   }
 
   {
-    //Test periodic
+    std::cout << "Test periodic" << std::endl;
     std::vector<int> cconj_dirs(4,0);
     bool fail = false;
     for(int mu=0;mu<4;mu++){
@@ -304,7 +304,7 @@ void testCshiftCconjBc(){
 
 
   {
-    //Test cconj
+    std::cout << "Test cconj" << std::endl;
     std::vector<int> cconj_dirs(4,1);
     bool fail = false;
     for(int mu=0;mu<4;mu++){
@@ -353,9 +353,75 @@ void testCshiftCconjBc(){
   }
 
 
+  {
+    std::cout << "Test cconj with SIMD field" << std::endl;
+    std::vector<int> cconj_dirs(4,1);
+    bool fail = false;
+    CPSfield<Grid::vComplexD,9,FourDSIMDPolicy<DynamicFlavorPolicy> > field_v(simd_dims);
+    field_v.importField(field);
+
+    CPSfield<cps::ComplexD,9,FourDpolicy<DynamicFlavorPolicy> > result(null_obj);
+    
+    for(int mu=0;mu<4;mu++){
+      for(int pmi=0;pmi<2;pmi++){
+	int pm = pmi == 0 ? -1 : +1; //direction of data movement     
+	auto result_simd = CshiftCconjBc(field_v,mu,pm,cconj_dirs);
+	result.importField(result_simd);
+	{
+	  CPSautoView(result_v,result,HostRead);
+	  for(size_t s=0;s<GJP.VolNodeSites();s++){
+	    int x[4];
+	    result_v.siteUnmap(s,x);
+	    for(int i=0;i<4;i++)
+	      x[i] += GJP.NodeCoor(i)*GJP.NodeSites(i);
+	    
+	    //Is this a boundary site in mu?
+	    bool bnd = false;
+	    if( (pm == +1 && x[mu] == 0) ||
+		(pm == -1 && x[mu] == glb_size[mu]-1) )
+	      bnd = true;
+
+	    if(pm == +1){ //from site x[mu]-1
+	      x[mu] = (x[mu] - 1 + glb_size[mu]) % glb_size[mu];
+	    }else{ //from site x[mu] + 1
+	      x[mu] = (x[mu] + 1) % glb_size[mu];
+	    }
+	    size_t glb_s = x[0] + glb_size[0]*(x[1] + glb_size[1]*(x[2] + glb_size[2]*x[3]));
+      
+	    for(int f=0;f<nf;f++){
+	      cps::ComplexD const* p = result_v.site_ptr(s,f);
+	      size_t pv = f + nf*glb_s;
+	      for(int i=0;i<9;i++){
+		size_t ipv = i + 9*pv;
+		cps::ComplexD expect(ipv, (bnd ? -double(ipv) : ipv) );
+		cps::ComplexD got = p[i];
+		if(got.real() != expect.real() || got.imag() != expect.imag()){
+		  std::cout << "FAIL " << mu << " " << pm << " " << s << " " << f << " " << i << " got " << got << " expect " << expect << std::endl;
+		  fail = true;
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
+    if(fail) ERR.General("","testCshiftCconjBc","cconj SIMD test failed");
+  }
+
+
   std::cout << "testCshiftCconjBc passed" << std::endl;
 }
 
+inline void testCshiftCconjBcMatrixconvV(int x[4], int &i,  double v, size_t glb_size[4]){
+  size_t vv(fabs(v));
+  i =  vv % 9;
+  vv /= 9;
+  for(int j=0;j<4;j++){
+    x[j] = vv % glb_size[j];
+    vv /= glb_size[j];
+  }
+}
+  
 
 void testCshiftCconjBcMatrix(const SIMDdims<4> &simd_dims){
   std::cout << "Starting testCshiftCconjBcMatrix" << std::endl;
@@ -403,7 +469,7 @@ void testCshiftCconjBcMatrix(const SIMDdims<4> &simd_dims){
 	CPSautoView(result_s_v,result_s,HostRead);
 	for(size_t s=0;s<GJP.VolNodeSites();s++){
 	  int x[4];
-	  result_v.siteUnmap(s,x);
+	  result_s.siteUnmap(s,x);
 	  for(int i=0;i<4;i++)
 	    x[i] += GJP.NodeCoor(i)*GJP.NodeSites(i);
 	    
@@ -428,7 +494,16 @@ void testCshiftCconjBcMatrix(const SIMDdims<4> &simd_dims){
 	    cps::ComplexD expect(ipv, (bnd ? -double(ipv) : ipv) );
 	    cps::ComplexD got = p[i];
 	    if(got.real() != expect.real() || got.imag() != expect.imag()){
+	      int got_r_x[4], got_r_i, got_i_x[4], got_i_i, expect_x[4], expect_i;
+	      testCshiftCconjBcMatrixconvV(got_r_x, got_r_i, got.real(), glb_size);
+	      testCshiftCconjBcMatrixconvV(got_i_x, got_i_i, got.imag(), glb_size);
+	      testCshiftCconjBcMatrixconvV(expect_x, expect_i, double(ipv), glb_size);
+	      int cur_x[4]; result_s.siteUnmap(s,cur_x);
+	      for(int j=0;j<4;j++)
+		cur_x[j] += GJP.NodeCoor(j)*GJP.NodeSites(j);
+	      
 	      std::cout << "FAIL " << mu << " " << pm << " " << s << " " << i << " got " << got << " expect " << expect << std::endl;
+	      std::cout << "Cur site " << printCoord(cur_x) << " off " << i << " got real origin site " << printCoord(got_r_x) << " and off " << got_r_i << ", imag origin site " << printCoord(got_i_x) << " and off " << got_i_i << " expect origin site " << printCoord(expect_x) << " off " << expect_i << std::endl;
 	      fail = true;
 	    }
 	  }

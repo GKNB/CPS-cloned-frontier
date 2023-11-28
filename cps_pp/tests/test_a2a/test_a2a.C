@@ -169,10 +169,11 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
       exit(1);
     }
   }
-
+  
   
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
+
   /*
 
   if(1) testPoolAllocator();
@@ -200,6 +201,16 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
 
+  if(1) testCPSfieldImpex();
+
+  if(1) testGridFieldImpex<A2Apolicies_grid>(lattice);
+
+  if(1) testSCFmat();
+  
+  if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
+
+  if(1) testCyclicPermute();
+
 #ifdef USE_GRID
 #ifdef GRID_SYCL
   if(1) testOneMKLwrapper();
@@ -218,8 +229,12 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testMFmultTblock<A2Apolicies_grid>(a2a_arg,tol);
 #endif
 
-  if(1) testCshiftCconjBc();
+
+  if(1) testCshiftCconjBc(simd_dims);
+  */
+
   if(1) testCshiftCconjBcMatrix(simd_dims);
+  /*  
   if(1) testGfixCPSmatrixField(lattice, simd_dims);
 
   if(0) testGridGaugeFix(lattice, opt.gfix_alpha, simd_dims);
@@ -243,9 +258,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   
   if(1) testMesonFieldComputePackedReferenceSIMD<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, tol, simd_dims);
 
-  */
   if(1) testGridMesonFieldCompute<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  /*
 
   if(1) testGridMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testGridShiftMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
@@ -294,8 +307,6 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
  
-  if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
-
   if(1) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
   
   if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
@@ -321,7 +332,6 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
 #endif
   
-  if(1) testCyclicPermute();
   if(1) demonstrateFFTreln<A2Apolicies_std>(a2a_arg);
   if(1) testA2AvectorFFTrelnGparity<A2Apolicies_grid>(a2a_arg, lattice);
   if(1) testMultiSource<A2Apolicies_grid>(a2a_arg, lattice);
@@ -339,12 +349,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testMesonFieldTraceProduct<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testMesonFieldTraceProductTblock<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testMesonFieldTraceProductAllTimes<A2Apolicies_grid>(a2a_arg,tol);  
-  if(1) testCPSfieldImpex();
-  if(1) testGridFieldImpex<A2Apolicies_grid>(lattice);
   if(1) testCPSfieldIO();
   if(1) testA2AvectorIO<A2Apolicies_grid>(a2a_arg);
   if(1) testLanczosIO<A2Apolicies_grid>(lattice);
-  if(1) testSCFmat();
   if(1) testMesonFieldUnpackPack<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testMesonFieldUnpackPackTblock<A2Apolicies_grid>(a2a_arg,tol);
   
@@ -479,12 +486,13 @@ void testPeriodic(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
 
-
-  if(1) testCshiftCconjBc();
+  /*
+  if(1) testCshiftCconjBc(simd_dims);
   if(1) testCshiftCconjBcMatrix(simd_dims);
   if(1) testGfixCPSmatrixField(lattice, simd_dims);
 
   if(1) testGridGaugeFix(lattice, opt.gfix_alpha, simd_dims);
+  */
 
   ///   if(1) testCPSspinColorMatrix();
 // #ifdef USE_GRID

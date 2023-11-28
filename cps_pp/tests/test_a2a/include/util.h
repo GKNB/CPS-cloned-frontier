@@ -52,6 +52,11 @@ void printvType(const T& v){
   printit(to,Nsimd);
 }
 
+inline std::string printCoord(int x[4]){
+  std::stringstream ss; ss << '(' << x[0] << " " << x[1] << " " << x[2] << " " << x[3] << ')';
+  return ss.str();
+}
+
 
 //Random Grid vector type
 template<typename T>
