@@ -56,21 +56,19 @@ public:
 
 
 
-template<typename mf_Policies>
+template<typename Vtype, typename Wtype>
 class ComputeKaon{
  public:
+  typedef typename Vtype::Policies mf_Policies;
   typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::MappingPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
-#ifdef USE_DESTRUCTIVE_FFT
-  typedef A2AvectorW<mf_Policies> Wtype;
-  typedef A2AvectorV<mf_Policies> Vtype;
-#else
-  typedef const A2AvectorW<mf_Policies> Wtype;
-  typedef const A2AvectorV<mf_Policies> Vtype;
-#endif
+
+  typedef typename Wtype::FFTvectorType WfftType;
+  typedef typename Vtype::FFTvectorType VfftType;
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldType;
 
   template<typename KaonMomentumPolicy>
-  static void computeMesonFields(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_ls,
-				 std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sl,				 
+  static void computeMesonFields(std::vector<MesonFieldType> &mf_ls,
+				 std::vector<MesonFieldType> &mf_sl,				 
 				 Wtype &W, Vtype &V, 
 				 Wtype &W_s, Vtype &V_s,
 				 const KaonMomentumPolicy &kaon_momentum,
@@ -92,7 +90,7 @@ class ComputeKaon{
     
       typedef A2AexpSource<SourcePolicies> SourceType;
       typedef SCspinInnerProduct<15,ComplexType, SourceType> InnerType;
-      typedef BasicSourceStorage<mf_Policies,InnerType> StorageType;
+      typedef BasicSourceStorage<Vtype,Wtype,InnerType> StorageType;
       
       SourceType src(rad,src_setup_params);
       InnerType g5_inner(src);
@@ -101,14 +99,14 @@ class ComputeKaon{
       mf_store.addCompute(0,1, kaon_momentum.LightHeavy.getWmom(0), kaon_momentum.LightHeavy.getVmom(0));
       mf_store.addCompute(1,0, kaon_momentum.HeavyLight.getWmom(0), kaon_momentum.HeavyLight.getVmom(0));
 
-      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
+      ComputeMesonFields<Vtype,Wtype,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
       mf_ls = mf_store[0];
       mf_sl = mf_store[1];
       
     }else{ //For GPBC we need a different smearing function for source and sink because the flavor structure depends on the momentum of the V field, which is opposite between source and sink
       typedef A2AflavorProjectedExpSource<SourcePolicies> SourceType;
       typedef SCFspinflavorInnerProduct<15, ComplexType, SourceType > InnerType;
-      typedef GparityFlavorProjectedBasicSourceStorage<mf_Policies,InnerType> StorageType;
+      typedef GparityFlavorProjectedBasicSourceStorage<Vtype,Wtype,InnerType> StorageType;
 
       int pbase[3]; //we reset the momentum for each computation so we technically don't need this - however the code demands a valid momentum
       GparityBaseMomentum(pbase,+1);
@@ -123,7 +121,7 @@ class ComputeKaon{
 	mf_store.addCompute(1,0, kaon_momentum.HeavyLight.getWmom(0,a), kaon_momentum.HeavyLight.getVmom(0,a));
       }
       
-      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
+      ComputeMesonFields<Vtype,Wtype,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
 							   ,true
 #endif
@@ -149,8 +147,8 @@ class ComputeKaon{
 
 
   static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into,
-		      const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_ls,
-		      const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sl){
+		      const std::vector<MesonFieldType > &mf_ls,
+		      const std::vector<MesonFieldType > &mf_sl){
     //Compute the two-point function
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     into.resize(Lt,Lt);

@@ -376,6 +376,68 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack_device(typename mf_Pol
   device_free(stage);
 #endif
 }
+
+struct nodeSumPartialAsyncHandle{
+  int istart;
+  int ni;
+  int jstart;
+  int nj;
+  std::vector<double> data;
+  MPI_Request req;
+  bool init;
+
+  nodeSumPartialAsyncHandle(): init(false){}
+  nodeSumPartialAsyncHandle(const nodeSumPartialAsyncHandle &r) = delete;
+  nodeSumPartialAsyncHandle(nodeSumPartialAsyncHandle &&r) = default;
+
+  template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+  void start(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf, const int _istart, const int _ni, const int _jstart, const int _nj){
+    assert( sizeof(typename mf_Policies::ScalarComplexType) == 2*sizeof(double) );
+    istart = _istart;
+    ni = _ni;
+    jstart = _jstart;
+    nj = _nj;
+
+    data.resize(2*ni*nj);
+    CPSautoView(mf_v, mf, HostRead);
+#pragma omp parallel for
+    for(int i=0;i<ni;i++){
+      double* to = data.data() + 2*i*nj;
+      double const* from = (double const*)( mf_v.ptr() + jstart + mf_v.getNcols()*( i + istart ) );
+      memcpy(to,from,2*nj*sizeof(double));
+    }
+    assert( MPI_Iallreduce(MPI_IN_PLACE, data.data(), data.size(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, &req) == MPI_SUCCESS );
+    init = true;
+  }
+  template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+  void complete(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf){
+    if(init){
+      assert( MPI_Wait(&req, MPI_STATUS_IGNORE) == MPI_SUCCESS );
+      CPSautoView(mf_v, mf, HostWrite);
+#pragma omp parallel for
+      for(int i=0;i<ni;i++){
+	double* to = (double*)( mf_v.ptr() + jstart + mf_v.getNcols()*( i + istart ) );
+	double* from = data.data() + 2*i*nj;
+	memcpy(to,from,2*nj*sizeof(double));
+      }
+      data.clear();
+      init = false;
+    }
+  }
+};
+
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+nodeSumPartialAsyncHandle A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeSumPartialAsync(const int istart, const int ni, const int jstart, const int nj) const{
+  nodeSumPartialAsyncHandle h;
+  h.start(*this,istart,ni,jstart,nj);
+  return h;
+}
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeSumPartialComplete(nodeSumPartialAsyncHandle &handle){
+  handle.complete(*this);
+}
   
 
 #endif

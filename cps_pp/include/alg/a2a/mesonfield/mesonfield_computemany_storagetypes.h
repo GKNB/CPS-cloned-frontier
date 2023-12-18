@@ -117,11 +117,11 @@ public:
 };
 
 //Storage with source that remains constant for all computations
-template<typename mf_Policies, typename InnerProduct, typename my_enable_if<!has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
+template<typename Vtype, typename Wtype, typename InnerProduct, typename my_enable_if<!has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
 class BasicSourceStorage: public MesonFieldStorageBase{
 public:
   typedef InnerProduct InnerProductType;
-  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef std::vector<getMesonFieldType<Wtype,Vtype> > storageType;
   typedef storageType& mfComputeInputFormat;
   
 private:
@@ -147,12 +147,12 @@ public:
 };
 
 //Flavor projected operator needs to be fed the momentum of the second quark field in the bilinear
-template<typename mf_Policies, typename InnerProduct, typename my_enable_if<!has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
+template<typename Vtype, typename Wtype, typename InnerProduct, typename my_enable_if<!has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
 class GparityFlavorProjectedBasicSourceStorage: public MesonFieldStorageBase{
 public:
   typedef typename InnerProduct::InnerProductSourceType SourceType;
   typedef InnerProduct InnerProductType;
-  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef std::vector<getMesonFieldType<Wtype,Vtype> > storageType;
   typedef storageType& mfComputeInputFormat;
 
 private:
@@ -184,12 +184,12 @@ public:
 
 
 //This version sums alternate momenta on the fly
-template<typename mf_Policies, typename InnerProduct, typename my_enable_if<!has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
+template<typename Vtype, typename Wtype, typename InnerProduct, typename my_enable_if<!has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
 class GparityFlavorProjectedSumSourceStorage: public MesonFieldStorageBase{
 public:
   typedef typename InnerProduct::InnerProductSourceType SourceType;
   typedef InnerProduct InnerProductType;
-  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef std::vector<getMesonFieldType<Wtype,Vtype> > storageType;
   typedef storageType& mfComputeInputFormat;
 
 private:
@@ -283,14 +283,14 @@ public:
 
 
 //Storage for a multi-source type requires different output meson fields for each source in the compound type
-template<typename mf_Policies, typename InnerProduct, typename my_enable_if<has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
+template<typename Vtype, typename Wtype, typename InnerProduct, typename my_enable_if<has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
 class MultiSourceStorage: public MesonFieldStorageBase{
 public:
   typedef InnerProduct InnerProductType;
   typedef typename InnerProductType::InnerProductSourceType MultiSourceType;
   enum {nSources = MultiSourceType::nSources };
   
-  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef std::vector<getMesonFieldType<Wtype,Vtype> > storageType;
   typedef std::vector<storageType* > mfComputeInputFormat;
 
 private:
@@ -330,7 +330,7 @@ struct _multiSrcRecurse<MultiSrc,0,I>{
   static inline void setMomentum(MultiSrc &src, const int p[3]){}
 };
 
-template<typename mf_Policies, typename InnerProduct, typename my_enable_if<has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
+template<typename Vtype, typename Wtype, typename InnerProduct, typename my_enable_if<has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
 class GparityFlavorProjectedMultiSourceStorage: public MesonFieldStorageBase{
 public:
   typedef typename InnerProduct::InnerProductSourceType SourceType;
@@ -338,7 +338,7 @@ public:
   typedef typename InnerProductType::InnerProductSourceType MultiSourceType;
   enum {nSources = MultiSourceType::nSources };
   
-  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef std::vector<getMesonFieldType<Wtype,Vtype> > storageType;
   typedef std::vector<storageType* > mfComputeInputFormat;
 
 private:
@@ -532,18 +532,18 @@ public:
 
 };
 
-template<typename mf_Policies, typename InnerProduct>
+template<typename Vtype, typename Wtype, typename InnerProduct>
 class GparityFlavorProjectedShiftSourceStorage;
 
-template<typename mf_Policies, typename InnerProduct, bool isMultiSrc>
+template<typename Vtype, typename Wtype, typename InnerProduct, bool isMultiSrc>
 class _GparityFlavorProjectedShiftSourceStorageAccessors{};
 
 //Single source
-template<typename mf_Policies, typename InnerProduct>
-class _GparityFlavorProjectedShiftSourceStorageAccessors<mf_Policies,InnerProduct,false>{
+template<typename Vtype, typename Wtype, typename InnerProduct>
+class _GparityFlavorProjectedShiftSourceStorageAccessors<Vtype,Wtype,InnerProduct,false>{
   typedef typename InnerProduct::InnerProductSourceType SourceType;
-  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
-  typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies,InnerProduct> Derived;
+  typedef std::vector<getMesonFieldType<Wtype,Vtype> > storageType;
+  typedef GparityFlavorProjectedShiftSourceStorage<Vtype,Wtype,InnerProduct> Derived;
 public:
   storageType & operator[](const int orig_cidx){ 
     const std::pair<int,int> opt_loc = static_cast<Derived*>(this)->clist_opt_map[orig_cidx];
@@ -559,11 +559,11 @@ public:
   typedef int accessorIdxType;
 };
 //Multi source
-template<typename mf_Policies, typename InnerProduct>
-class _GparityFlavorProjectedShiftSourceStorageAccessors<mf_Policies,InnerProduct,true>{
+template<typename Vtype, typename Wtype, typename InnerProduct>
+class _GparityFlavorProjectedShiftSourceStorageAccessors<Vtype,Wtype,InnerProduct,true>{
   typedef typename InnerProduct::InnerProductSourceType SourceType;
-  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
-  typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies,InnerProduct> Derived;
+  typedef std::vector<getMesonFieldType<Wtype,Vtype> > storageType;
+  typedef GparityFlavorProjectedShiftSourceStorage<Vtype,Wtype,InnerProduct> Derived;
 public:
   storageType & operator()(const int src_idx, const int orig_cidx){
     const std::pair<int,int> opt_loc = static_cast<Derived*>(this)->clist_opt_map[orig_cidx];
@@ -582,16 +582,16 @@ public:
   
 
   
-template<typename mf_Policies, typename InnerProduct>
+template<typename Vtype, typename Wtype, typename InnerProduct>
 class GparityFlavorProjectedShiftSourceStorage: public MesonFieldShiftSourceStorageBase,
-						public _GparityFlavorProjectedShiftSourceStorageAccessors<mf_Policies,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>{
+						public _GparityFlavorProjectedShiftSourceStorageAccessors<Vtype,Wtype,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>{
 public:
   typedef typename InnerProduct::InnerProductSourceType SourceType;
   typedef InnerProduct InnerProductType;
-  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef std::vector<getMesonFieldType<Wtype,Vtype> > storageType;
   typedef std::vector< storageType* > mfComputeInputFormat;
-  typedef typename _GparityFlavorProjectedShiftSourceStorageAccessors<mf_Policies,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>::accessorIdxType accessorIdxType;
-  friend class _GparityFlavorProjectedShiftSourceStorageAccessors<mf_Policies,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>;
+  typedef typename _GparityFlavorProjectedShiftSourceStorageAccessors<Vtype,Wtype,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>::accessorIdxType accessorIdxType;
+  friend class _GparityFlavorProjectedShiftSourceStorageAccessors<Vtype,Wtype,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>;
 private:
 
   InnerProductType& inner;
@@ -644,18 +644,18 @@ public:
 
 
 //Version of the above that sums alternate momenta on the fly
-template<typename mf_Policies, typename InnerProduct>
+template<typename Vtype, typename Wtype, typename InnerProduct>
 class GparityFlavorProjectedShiftSourceSumStorage;
 
-template<typename mf_Policies, typename InnerProduct, bool isMultiSrc>
+template<typename Vtype, typename Wtype, typename InnerProduct, bool isMultiSrc>
 class _GparityFlavorProjectedShiftSourceSumStorageAccessors{};
 
 //Single source
-template<typename mf_Policies, typename InnerProduct>
-class _GparityFlavorProjectedShiftSourceSumStorageAccessors<mf_Policies,InnerProduct,false>{
+template<typename Vtype, typename Wtype, typename InnerProduct>
+class _GparityFlavorProjectedShiftSourceSumStorageAccessors<Vtype,Wtype,InnerProduct,false>{
   typedef typename InnerProduct::InnerProductSourceType SourceType;
-  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
-  typedef GparityFlavorProjectedShiftSourceSumStorage<mf_Policies,InnerProduct> Derived;
+  typedef std::vector<getMesonFieldType<Wtype,Vtype> > storageType;
+  typedef GparityFlavorProjectedShiftSourceSumStorage<Vtype,Wtype,InnerProduct> Derived;
 public:
   storageType & operator[](const int set_idx){ 
     return static_cast<Derived*>(this)->mf_sum[set_idx][0];
@@ -669,11 +669,11 @@ public:
   typedef int accessorIdxType;
 };
 //Multi source
-template<typename mf_Policies, typename InnerProduct>
-class _GparityFlavorProjectedShiftSourceSumStorageAccessors<mf_Policies,InnerProduct,true>{
+template<typename Vtype, typename Wtype, typename InnerProduct>
+class _GparityFlavorProjectedShiftSourceSumStorageAccessors<Vtype,Wtype,InnerProduct,true>{
   typedef typename InnerProduct::InnerProductSourceType SourceType;
-  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
-  typedef GparityFlavorProjectedShiftSourceSumStorage<mf_Policies,InnerProduct> Derived;
+  typedef std::vector<getMesonFieldType<Wtype,Vtype> > storageType;
+  typedef GparityFlavorProjectedShiftSourceSumStorage<Vtype,Wtype,InnerProduct> Derived;
 public:
   storageType & operator()(const int src_idx, const int set_idx){
     return static_cast<Derived*>(this)->mf_sum[set_idx][src_idx];
@@ -689,16 +689,16 @@ public:
 };
   
 
-template<typename mf_Policies, typename InnerProduct>
+template<typename Vtype, typename Wtype, typename InnerProduct>
 class GparityFlavorProjectedShiftSourceSumStorage: public MesonFieldShiftSourceStorageBase,
-						   public _GparityFlavorProjectedShiftSourceSumStorageAccessors<mf_Policies,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>{
+						   public _GparityFlavorProjectedShiftSourceSumStorageAccessors<Vtype,Wtype,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>{
 public:
   typedef typename InnerProduct::InnerProductSourceType SourceType;
   typedef InnerProduct InnerProductType;
-  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef std::vector<getMesonFieldType<Wtype,Vtype> > storageType;
   typedef std::vector< storageType* > mfComputeInputFormat;
-  typedef typename _GparityFlavorProjectedShiftSourceSumStorageAccessors<mf_Policies,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>::accessorIdxType accessorIdxType;
-  friend class _GparityFlavorProjectedShiftSourceSumStorageAccessors<mf_Policies,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>;
+  typedef typename _GparityFlavorProjectedShiftSourceSumStorageAccessors<Vtype,Wtype,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>::accessorIdxType accessorIdxType;
+  friend class _GparityFlavorProjectedShiftSourceSumStorageAccessors<Vtype,Wtype,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>;
 private:
 
   InnerProductType& inner;
@@ -831,6 +831,7 @@ public:
     //Normalize either main or tmp mf. As main mf is only normalized once, just after generation, it will not yet have been distributed, 
     //hence we can skip the gather/dist
     std::vector<normInfo> &tonrm = norm_queue[opt_cidx];
+    LOGA2A << "GparityFlavorProjectedShiftSourceSumStorage::postContractAction  normalizing " << tonrm.size() << " meson fields" << std::endl;
     for(int i=0;i<tonrm.size();i++){
       storageType &to = *tonrm[i].to;
       double nrm = tonrm[i].nrm;
@@ -845,6 +846,7 @@ public:
     
     //For temp mf sum into the main mf
     std::vector<sumInfo> &tosum = sum_queue[opt_cidx];
+    LOGA2A << "GparityFlavorProjectedShiftSourceSumStorage::postContractAction  summing " << tosum.size() << " meson fields" << std::endl;
     for(int i=0;i<tosum.size();i++){
       storageType &to = *tosum[i].to;
       storageType &from = *tosum[i].from;
@@ -863,6 +865,7 @@ public:
       nodeDistributeMany(1, &to);
     }
     tosum.clear();
+    LOGA2A << "GparityFlavorProjectedShiftSourceSumStorage::postContractAction complete" << std::endl;
   }
 
   const InnerProductType & getInnerProduct(const int opt_cidx){

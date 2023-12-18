@@ -57,8 +57,6 @@ void testMesonFieldComputeReference(const A2AArg &a2a_args, double tol){
   std::cout << "Passed testMesonFieldComputeReference tests" << std::endl;
 }
 
-
-
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void compute_test_g5s3(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int t){
   into.setup(l,r,t,t);
@@ -158,7 +156,69 @@ void testMesonFieldComputePackedReference(const A2AArg &a2a_args, double tol){
 
   std::cout << "Passed testMesonFieldComputePackedReference tests" << std::endl;
 }
+//This test will ensure the SIMD implementation gives the same result as the reference implementation
+template<typename A2Apolicies_std, typename A2Apolicies_grid>
+void testMesonFieldComputePackedReferenceSIMD(const A2AArg &a2a_args, double tol, const typename SIMDpolicyBase<4>::ParamType &simd_dims){
 
+  std::cout << "Starting testMesonFieldComputeReferenceSIMD test of reference implementation " << std::endl;
+  typedef flavorMatrixSpinColorContract<15,true,false> SCconPol;
+  typedef GparityNoSourceInnerProduct<typename A2Apolicies_std::ComplexType, SCconPol> InnerProductTypeU;
+  InnerProductTypeU inner_u(sigma3);
+
+  typedef GparityNoSourceInnerProduct<typename A2Apolicies_grid::ComplexType, SCconPol> InnerProductTypeS;
+  InnerProductTypeS inner_s(sigma3);
+
+  A2AvectorWfftw<A2Apolicies_std> Wf_p(a2a_args);
+  A2AvectorVfftw<A2Apolicies_std> Vf_p(a2a_args);
+  Wf_p.testRandom();
+  Vf_p.testRandom();
+
+  //Get SIMD versions
+  A2AvectorWfftw<A2Apolicies_grid> Wf_s(a2a_args,simd_dims);
+  A2AvectorVfftw<A2Apolicies_grid> Vf_s(a2a_args,simd_dims);
+  for(int i=0;i<Wf_s.getNmodes();i++) Wf_s.getMode(i).importField(Wf_p.getMode(i));
+  for(int i=0;i<Vf_s.getNmodes();i++) Vf_s.getMode(i).importField(Vf_p.getMode(i));
+  
+  //Build Wf and Vf as unpacked fields
+  typedef typename A2Apolicies_std::FermionFieldType FermionFieldType;
+  int nv = Wf_p.getNv();
+  std::vector<FermionFieldType> Wf_u(nv), Vf_u(nv);
+  for(int i=0;i<nv;i++){
+    Wf_p.unpackMode(Wf_u[i],i);
+    Vf_p.unpackMode(Vf_u[i],i);
+  }
+
+  typedef typename A2Apolicies_std::ScalarComplexType ScalarComplexType;
+
+  std::cout << "Computing MF using unpacked reference implementation" << std::endl;
+  fMatrix<ScalarComplexType> mf_u;
+  compute_simple(mf_u,Wf_u,inner_u,Vf_u,0);
+
+  typedef A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorVfftw> MFtype;    
+  MFtype mf_s;
+  std::cout << "Computing MF using packed reference implementation" << std::endl;
+  mf_s.compute(Wf_s,inner_s,Vf_s,0);
+  CPSautoView(mf_s_v,mf_s,HostRead);
+  
+  bool err = false;
+  for(int i=0;i<nv;i++){
+    for(int j=0;j<nv;j++){
+      const ScalarComplexType &elem_u = mf_u(i,j);
+      const ScalarComplexType &elem_p = mf_s_v.elem(i,j);
+      if( fabs(elem_u.real() - elem_p.real()) > tol || fabs(elem_u.imag() - elem_p.imag()) > tol){
+	std::cout << "Fail " << i << " " << j << " unpacked (" << elem_u.real() << "," << elem_u.imag() << ") packed (" << elem_p.real() << "," << elem_p.imag() << ") diff ("
+		  << elem_u.real()-elem_p.real() << "," << elem_u.imag()-elem_p.imag() << ")" << std::endl;
+	err = true;
+      }else{
+	//std::cout << "Success " << i << " " << j << " unpacked (" << elem_u.real() << "," << elem_u.imag() << ") packed (" << elem_p.real() << "," << elem_p.imag() << ") diff ("
+	//	  << elem_u.real()-elem_p.real() << "," << elem_u.imag()-elem_p.imag() << ")" << std::endl;
+      }	
+    }
+  }  
+  assert(err == false);
+
+  std::cout << "Passed testMesonFieldComputePackedReferenceSIMD tests" << std::endl;
+}
 
 
 
@@ -190,6 +250,13 @@ void testMesonFieldComputeSingleReference(const A2AArg &a2a_args, double tol){
 
   std::cout << "Passed testMesonFieldComputeSingleReference tests" << std::endl;
 }
+
+
+
+
+
+
+
 
 //This test will ensure the scalar version of the general (multi-timeslice) optimized MF compute gives the same result as the basic, single timeslice CPU implementation
 template<typename A2Apolicies_std>
@@ -290,7 +357,7 @@ void testGridMesonFieldCompute(const A2AArg &a2a_args, const int nthreads, const
   Wgrid.importFields(W);
   Vgrid.importFields(V);
   
-#ifndef GPU_VEC
+#if !defined(GPU_VEC) && !defined(FORCE_A2A_OFFLOAD)
   //Original Grid implementation
   {
     if(!UniqueID()){ printf("Grid non-GPU version\n"); fflush(stdout); }
@@ -507,7 +574,9 @@ void testGridMesonFieldComputeManySimple(A2AvectorV<GridA2Apolicies> &V, A2Avect
   InnerProductType inner(sigma3, src);
   
   //Define the storage type for ComputeMany
-  typedef GparityFlavorProjectedBasicSourceStorage<GridA2Apolicies, InnerProductType> StorageType;
+  typedef A2AvectorV<GridA2Apolicies> Vtype;
+  typedef A2AvectorW<GridA2Apolicies> Wtype;
+  typedef GparityFlavorProjectedBasicSourceStorage<Vtype,Wtype, InnerProductType> StorageType;
   StorageType storage(inner);
   
   //We want a pion with momentum +2 in each G-parity direction
@@ -535,7 +604,7 @@ void testGridMesonFieldComputeManySimple(A2AvectorV<GridA2Apolicies> &V, A2Avect
  
   //Use computemany
   std::cout << "Starting ComputeMany computation" << std::endl;
-  typedef ComputeMesonFields<GridA2Apolicies,StorageType> ComputeType;
+  typedef ComputeMesonFields<Vtype,Wtype,StorageType> ComputeType;
   typename ComputeType::WspeciesVector Wv = {&W};
   typename ComputeType::VspeciesVector Vv = {&V};
   ComputeType::compute(storage, Wv,Vv, lattice);
@@ -577,9 +646,13 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   typedef typename A2Apolicies::ComplexType mf_Complex;
   typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
+
+  typedef A2AvectorV<A2Apolicies> Vtype;
+  typedef A2AvectorW<A2Apolicies> Wtype;
   
-  A2AvectorW<A2Apolicies> W(a2a_args,fp);
-  A2AvectorV<A2Apolicies> V(a2a_args,fp);
+  Wtype W(a2a_args,fp);
+  Vtype V(a2a_args,fp);
+
   W.testRandom();
   V.testRandom();
 
@@ -618,16 +691,16 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
     std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_std_1s_pp_pp;
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_std_1s_pp_pp, Wfftw_pp, _1s_inner, Vfftw_pp);
 
-    typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, ExpInnerType> ExpStorageType;
+    typedef GparityFlavorProjectedBasicSourceStorage<Vtype,Wtype, ExpInnerType> ExpStorageType;
   
     ExpStorageType exp_store_1s_pp_pp(_1s_inner);
     exp_store_1s_pp_pp.addCompute(0,0,pp,pp);
 
-    typename ComputeMesonFields<A2Apolicies,ExpStorageType>::WspeciesVector Wspecies(1, &W);
-    typename ComputeMesonFields<A2Apolicies,ExpStorageType>::VspeciesVector Vspecies(1, &V);
+    typename ComputeMesonFields<Vtype,Wtype,ExpStorageType>::WspeciesVector Wspecies(1, &W);
+    typename ComputeMesonFields<Vtype,Wtype,ExpStorageType>::VspeciesVector Vspecies(1, &V);
 
     std::cout << "Start 1s ExpStorage compute\n";
-    ComputeMesonFields<A2Apolicies,ExpStorageType>::compute(exp_store_1s_pp_pp,Wspecies,Vspecies,lat);
+    ComputeMesonFields<Vtype,Wtype,ExpStorageType>::compute(exp_store_1s_pp_pp,Wspecies,Vspecies,lat);
 
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     for(int t=0;t<Lt;t++){
@@ -646,22 +719,22 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   
     ExpHydMultiInnerType exp_hyd_multi_inner(sigma3,exp_hyd_multi_src);
 
-    typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, HydInnerType> HydStorageType;
+    typedef GparityFlavorProjectedBasicSourceStorage<Vtype,Wtype, HydInnerType> HydStorageType;
     HydStorageType exp_store_2s_pp_pp(_2s_inner);
     exp_store_2s_pp_pp.addCompute(0,0,pp,pp);
     exp_store_2s_pp_pp.addCompute(0,0,pm,pp);
     exp_store_2s_pp_pp.addCompute(0,0,pp3,pp);
 
   
-    ComputeMesonFields<A2Apolicies,HydStorageType>::compute(exp_store_2s_pp_pp,Wspecies,Vspecies,lat);
+    ComputeMesonFields<Vtype,Wtype,HydStorageType>::compute(exp_store_2s_pp_pp,Wspecies,Vspecies,lat);
 
   
-    typedef GparityFlavorProjectedMultiSourceStorage<A2Apolicies, ExpHydMultiInnerType> ExpHydMultiStorageType;
+    typedef GparityFlavorProjectedMultiSourceStorage<Vtype,Wtype, ExpHydMultiInnerType> ExpHydMultiStorageType;
     ExpHydMultiStorageType exp_store_1s_2s_pp_pp(exp_hyd_multi_inner, exp_hyd_multi_src);
     exp_store_1s_2s_pp_pp.addCompute(0,0,pp,pp);
 
     std::cout << "Start 1s/2s ExpHydMultiStorage compute\n";
-    ComputeMesonFields<A2Apolicies,ExpHydMultiStorageType>::compute(exp_store_1s_2s_pp_pp,Wspecies,Vspecies,lat);
+    ComputeMesonFields<Vtype,Wtype,ExpHydMultiStorageType>::compute(exp_store_1s_2s_pp_pp,Wspecies,Vspecies,lat);
   
     for(int t=0;t<Lt;t++){
       if(!UniqueID()) printf("Comparing test 2 t=%d\n",t);
@@ -740,15 +813,15 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
       
       MultiInnerType multi_inner(sigma3,multi_src);
       
-      typedef GparityFlavorProjectedMultiSourceStorage<A2Apolicies, MultiInnerType> MultiStorageType;
+      typedef GparityFlavorProjectedMultiSourceStorage<Vtype,Wtype, MultiInnerType> MultiStorageType;
       MultiStorageType store(multi_inner, multi_src);
       store.addCompute(0,0,pp,pp3);
 
       std::cout << "Start 1s/point MultiStorage compute\n";
-      typename ComputeMesonFields<A2Apolicies,MultiStorageType>::WspeciesVector Wspecies(1, &W);
-      typename ComputeMesonFields<A2Apolicies,MultiStorageType>::VspeciesVector Vspecies(1, &V);
+      typename ComputeMesonFields<Vtype,Wtype,MultiStorageType>::WspeciesVector Wspecies(1, &W);
+      typename ComputeMesonFields<Vtype,Wtype,MultiStorageType>::VspeciesVector Vspecies(1, &V);
 
-      ComputeMesonFields<A2Apolicies,MultiStorageType>::compute(store,Wspecies,Vspecies,lat);
+      ComputeMesonFields<Vtype,Wtype,MultiStorageType>::compute(store,Wspecies,Vspecies,lat);
   
       //Test 1s
       for(int t=0;t<Lt;t++){
@@ -775,15 +848,15 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
       
       MultiInnerType multi_inner(sigma3,multi_src);
       
-      typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies, MultiInnerType> MultiStorageType;
+      typedef GparityFlavorProjectedShiftSourceStorage<Vtype,Wtype, MultiInnerType> MultiStorageType;
       MultiStorageType store(multi_inner, multi_src);
       store.addCompute(0,0,pp,pp3);
 
       if(!UniqueID()){ printf("Start 1s/point shift multiStorage compute\n"); fflush(stdout); }
-      typename ComputeMesonFields<A2Apolicies,MultiStorageType>::WspeciesVector Wspecies(1, &W);
-      typename ComputeMesonFields<A2Apolicies,MultiStorageType>::VspeciesVector Vspecies(1, &V);
+      typename ComputeMesonFields<Vtype,Wtype,MultiStorageType>::WspeciesVector Wspecies(1, &W);
+      typename ComputeMesonFields<Vtype,Wtype,MultiStorageType>::VspeciesVector Vspecies(1, &V);
 
-      ComputeMesonFields<A2Apolicies,MultiStorageType>::compute(store,Wspecies,Vspecies,lat);
+      ComputeMesonFields<Vtype,Wtype,MultiStorageType>::compute(store,Wspecies,Vspecies,lat);
   
       //Test 1s
       for(int t=0;t<Lt;t++){
@@ -870,6 +943,8 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
       }
     }
   }
+  typedef A2AvectorV<A2Apolicies> Vtype;
+  typedef A2AvectorW<A2Apolicies> Wtype;
   
   typedef A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies> ExpSrcType;
   typedef typename ExpSrcType::FieldParamType SrcFieldParamType;
@@ -881,17 +956,17 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
   ExpSrcType src(2.0, p_v[0].ptr(), sfp); //momentum is not relevant as it is shifted internally
   ExpInnerType inner(sigma3, src);
 
-  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, ExpInnerType> BasicStorageType;
+  typedef GparityFlavorProjectedBasicSourceStorage<Vtype,Wtype, ExpInnerType> BasicStorageType;
 
-  typename ComputeMesonFields<A2Apolicies,BasicStorageType>::WspeciesVector Wspecies(1, &W);
-  typename ComputeMesonFields<A2Apolicies,BasicStorageType>::VspeciesVector Vspecies(1, &V);
+  typename ComputeMesonFields<Vtype,Wtype,BasicStorageType>::WspeciesVector Wspecies(1, &W);
+  typename ComputeMesonFields<Vtype,Wtype,BasicStorageType>::VspeciesVector Vspecies(1, &V);
 
   BasicStorageType store_basic(inner);
   for(int p=0;p<nmom;p++){
     store_basic.addCompute(0,0,-p_wdag[p],p_v[p]);
   }
 
-  ComputeMesonFields<A2Apolicies,BasicStorageType>::compute(store_basic,Wspecies,Vspecies,lat);
+  ComputeMesonFields<Vtype,Wtype,BasicStorageType>::compute(store_basic,Wspecies,Vspecies,lat);
 
   typedef std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > MFvectorType;
   
@@ -910,12 +985,12 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
   for(int p=0;p<nmom;p++)
     set_mom.push_back( std::pair<ThreeMomentum,ThreeMomentum>(-p_wdag[p],p_v[p]) );
   
-  typedef GparityFlavorProjectedSumSourceStorage<A2Apolicies, ExpInnerType> SumStorageType;
+  typedef GparityFlavorProjectedSumSourceStorage<Vtype,Wtype, ExpInnerType> SumStorageType;
 
   SumStorageType store_sum(inner);
   store_sum.addComputeSet(0,0, set_mom);
   
-  ComputeMesonFields<A2Apolicies,SumStorageType>::compute(store_sum,Wspecies,Vspecies,lat);
+  ComputeMesonFields<Vtype,Wtype,SumStorageType>::compute(store_sum,Wspecies,Vspecies,lat);
 
   store_sum.sumToAverage();
 
@@ -930,14 +1005,14 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
   typedef typename A2Apolicies::ComplexType VectorComplexType;
   
   typedef GparitySourceShiftInnerProduct<VectorComplexType,ExpSrcType, flavorMatrixSpinColorContract<15,true,false> > ShiftInnerType;
-  typedef GparityFlavorProjectedShiftSourceSumStorage<A2Apolicies, ShiftInnerType> ShiftSumStorageType;
+  typedef GparityFlavorProjectedShiftSourceSumStorage<Vtype,Wtype, ShiftInnerType> ShiftSumStorageType;
   
   ShiftInnerType shift_inner(sigma3, src);
 
   ShiftSumStorageType shift_store_sum(shift_inner,src);
   shift_store_sum.addComputeSet(0,0, set_mom, true);
   
-  ComputeMesonFields<A2Apolicies,ShiftSumStorageType>::compute(shift_store_sum,Wspecies,Vspecies,lat);
+  ComputeMesonFields<Vtype,Wtype,ShiftSumStorageType>::compute(shift_store_sum,Wspecies,Vspecies,lat);
 
   typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfVector;
   const mfVector &avgd = shift_store_sum(0);

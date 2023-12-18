@@ -335,5 +335,407 @@ inline void gaugeFixCPSlattice(Lattice &lat){
   }
 }
 
+inline std::ostream & operator<<(std::ostream &os , const std::vector<int> &v){
+  os << "("; 
+  for(int const e : v) os << e << " ";
+  os << ")";
+  return os;
+}
+
+class cpsFieldPartIObase{
+protected:
+  static inline std::string rateStr(size_t bytes, double time){
+    if(time == 0) return "inf";
+    else return std::to_string(byte_to_MB(bytes) / time);
+  }    
+  
+  static inline void lexRankToNodeCoor(int rcoor[4], int rank, const std::vector<int> &mpi){
+    for(int i=0;i<4;i++){
+      rcoor[i] = rank % mpi[i]; rank /= mpi[i];   //r = rx + Nx*( ry + Ny * (rz + Nz * rt))
+    }
+  }
+  static inline int nodeCoorToLexRank(const int rcoor[4], const std::vector<int> &mpi){
+    return rcoor[0] + mpi[0]*( rcoor[1] + mpi[1] * ( rcoor[2] + mpi[2] * rcoor[3] ) );
+  }
+
+  static inline void offsetToLocalSiteCoor(int lcoor[4], int off, const std::vector<int> &nodesites){
+    for(int i=0;i<4;i++){
+      lcoor[i] = off % nodesites[i]; off /= nodesites[i];
+    }
+  }
+  static inline int localSiteCoorToOffset(const int lcoor[4], const std::vector<int> &nodesites){
+    return lcoor[0] + nodesites[0]*( lcoor[1] + nodesites[1] * ( lcoor[2] + nodesites[2] * lcoor[3] ) );
+  }
+
+  //Rank mappings,  4 integers offset by 4*rank
+  static std::vector<int> determineRankMapping(int rank, int nrank){
+    std::vector<int> nodecoors(4*nrank, 0);
+    int* base = nodecoors.data() + 4*rank;
+    for(int i=0;i<4;i++) base[i] = GJP.NodeCoor(i);
+
+    // printf("Rank %d node coord %d %d %d %d\n", rank, base[0],base[1],base[2],base[3]);
+    assert( MPI_Allreduce(MPI_IN_PLACE, nodecoors.data(), 4*nrank, MPI_INT, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
+    return nodecoors;
+  }
+};
+
+template<typename CPSfieldType, 
+	 typename std::enable_if<std::is_same<typename CPSfieldType::FieldMappingPolicy,  FourDpolicy<typename CPSfieldType::FieldMappingPolicy::FieldFlavorPolicy> >::value, int>::type = 0>
+class cpsFieldPartIOwriter: public cpsFieldPartIObase{
+  cpsBinaryWriter wr_data;
+  cpsBinaryWriter wr_meta;
+  size_t bytes_written;
+
+  double t_total;
+  double t_write;
+
+  enum { SiteSize = CPSfieldType::FieldSiteSize };
+  typedef typename CPSfieldType::FieldSiteType SiteType;
+
+public: 
+  void open(const std::string &file_stub){
+    t_total = -dclock();
+    t_write = 0;
+
+    //Write metadata
+    int rank;
+    assert( MPI_Comm_rank(MPI_COMM_WORLD, &rank) == MPI_SUCCESS );
+    int nrank = 1;
+    for(int i=0;i<4;i++)
+      nrank *= GJP.Nodes(i);
+    
+    std::vector<int> nodecoors = determineRankMapping(rank, nrank);
+    if(!UniqueID()){
+      std::vector<int> mpi_orig(4);
+      for(int i=0;i<4;i++) mpi_orig[i] = GJP.Nodes(i);
+      
+      wr_meta.open(file_stub+".meta");
+      wr_meta.write(mpi_orig.data(), 4*sizeof(int), true);
+      wr_meta.write(nodecoors.data(), nodecoors.size()*sizeof(int), true);
+    }
+
+    bytes_written = 0;
+
+    //Open data filed
+    std::stringstream fn; fn << file_stub << '.' << GJP.NodeCoor(0) << '.' << GJP.NodeCoor(1) << '.' << GJP.NodeCoor(2) << '.' << GJP.NodeCoor(3) << ".dat"; 
+    wr_data.open(fn.str());
+    t_total += dclock();
+  }
+  cpsFieldPartIOwriter(): bytes_written(0){}
+  cpsFieldPartIOwriter(const std::string &file_stub){ open(file_stub); }
+  
+  void write(const CPSfieldType &field){
+    t_total -= dclock();
+
+    double nrm = field.norm2();
+
+    t_write -= dclock(); 
+
+    if(!UniqueID()) wr_meta.write(&nrm, sizeof(double),true);
+
+    size_t field_bytes = field.nfsites() * SiteSize * sizeof(SiteType);
+    CPSautoView(from_v,field,HostRead);
+    wr_data.write(from_v.ptr(),field_bytes,true);
+   
+    bytes_written += field_bytes;
+    
+    t_write += dclock(); t_total += dclock();
+  }
+  
+  void close(){
+    wr_meta.close();
+    if(wr_data.isOpen()){
+      t_total -= dclock();;
+      wr_data.close();
+      LOGA2A << "cpsFieldPartIOwriter: Write bandwidth " << rateStr(bytes_written, t_write) << " MB/s" << std::endl;
+      
+      t_total += dclock();
+      LOGA2A << "cpsFieldPartIOwriter timings - write:" << t_write << "s  total: " << t_total << "s" << std::endl;
+    }
+  }
+  ~cpsFieldPartIOwriter(){ close(); }
+};
+
+template<typename CPSfieldType, 
+	 typename std::enable_if<std::is_same<typename CPSfieldType::FieldMappingPolicy,  FourDpolicy<typename CPSfieldType::FieldMappingPolicy::FieldFlavorPolicy> >::value, int>::type = 0>
+class cpsFieldPartIOreader: public cpsFieldPartIObase{
+  std::vector<cpsBinaryReader> rd_data;
+  cpsBinaryReader rd_meta;
+
+  int rank;
+  int nrank_new;
+  int nf;
+  size_t new_foff;
+  size_t orig_foff;
+  
+  size_t bytes_read;
+
+  struct CommInfo{
+    int rank_from;
+    int rank_to;
+    size_t src_off;
+    size_t dest_off;
+    size_t size;
+    int src_blockidx; //which of the blocks of data on the source rank should it send? (potentially > 1)
+    int tag; //unique tag for each communication event
+  };
+
+  std::vector<CommInfo> sends; //MPI sends from this rank
+  std::vector<CommInfo> recvs; //MPI recvs to this rank
+  std::vector<CommInfo> copies; //internal copies
+  
+  size_t orig_nodebytes;
+  size_t site_bytes;
+
+  double t_total;
+  double t_read;
+  double t_comms;
+  double t_setup;
+
+  bool verbose;
+
+  enum { SiteSize = CPSfieldType::FieldSiteSize };
+  typedef typename CPSfieldType::FieldSiteType SiteType;
+  typedef typename CPSfieldType::FieldMappingPolicy::FieldFlavorPolicy FlavorPolicy;
+
+public:
+  void open(const std::string &file_stub){
+    t_setup = -dclock(); t_total = -dclock(); t_read = t_comms = 0;
+
+    assert( MPI_Comm_rank(MPI_COMM_WORLD, &rank) == MPI_SUCCESS );
+   
+    rd_meta.open(file_stub+".meta");
+    std::vector<int> mpi_orig(4);
+    rd_meta.read(mpi_orig.data(),4*sizeof(int), true);
+    
+    int nrank_orig = 1;
+    for(int i=0;i<4;i++) nrank_orig *= mpi_orig[i];
+    
+    std::vector<int> orig_rank_nodecoors(4*nrank_orig);
+    rd_meta.read(orig_rank_nodecoors.data(),4*nrank_orig*sizeof(int), true);
+
+    //lexrank is the lexicographic rank built from the node coordinate in the usual fashion
+    std::vector<int> lexrank_to_origrank_map(nrank_orig);
+    for(int r=0;r<nrank_orig;r++){
+      int const* n = orig_rank_nodecoors.data() + 4*r;
+      int lexrank = nodeCoorToLexRank(n, mpi_orig);
+      lexrank_to_origrank_map[lexrank] = r;
+    }
+
+    nrank_new = 1;
+    std::vector<int> mpi_new(4);
+    size_t orig_nodevol = 1, new_nodevol = 1;
+
+    std::vector<int> nodesites_orig(4), nodesites_new(4);
+    std::vector<int> sites(4);
+
+    for(int i=0;i<4;i++){
+      nrank_new *= GJP.Nodes(i);
+
+      mpi_new[i] = GJP.Nodes(i);
+
+      int isites = GJP.NodeSites(i) * GJP.Nodes(i);
+      nodesites_new[i] = GJP.NodeSites(i);
+      nodesites_orig[i] = isites/mpi_orig[i];
+    
+      orig_nodevol *= nodesites_orig[i];
+      new_nodevol *= nodesites_new[i];
+    }
+
+    FlavorPolicy flavpol;
+    nf = flavpol.nflavors();
+    new_foff = new_nodevol;
+    orig_foff  = orig_nodevol;
+
+    if(verbose){
+      std::cout << "Ranks orig: " << nrank_orig << ", new " << nrank_new << std::endl;
+      std::cout << "MPI geometry orig: " << mpi_orig << ",  new: " << mpi_new << std::endl;
+    }    
+
+    //Get the mapping of MPI rank to node coordinate in this job
+    std::vector<int> new_rank_nodecoors = determineRankMapping(rank, nrank_new);
+    
+    if(verbose){
+      std::cout << "New rank mapping:" << std::endl;
+      for(int r=0;r<nrank_new;r++){
+	int* base = new_rank_nodecoors.data() + 4*r;
+	std::cout << r << ":" << base[0] << " " << base[1] << " " << base[2] << " " << base[3] << std::endl;
+      }
+      std::cout << "Orig rank mapping:" << std::endl;
+      for(int r=0;r<nrank_orig;r++){
+	int* base = orig_rank_nodecoors.data() + 4*r;
+	std::cout << r << ":" << base[0] << " " << base[1] << " " << base[2] << " " << base[3] << std::endl;
+      }
+    }
+  
+    //Generate the mapping information for the MPI IO cross-communication
+    std::vector<std::vector<CommInfo> > all_comms(nrank_new);
+
+#pragma omp parallel for
+    for(int rank_new = 0 ; rank_new < nrank_new; rank_new++){ //dest rank
+      for(size_t s = 0 ; s< new_nodevol; s++){ //dest site
+	int xloc[4];
+	offsetToLocalSiteCoor(xloc, s, nodesites_new);
+
+	int const* nodecoor_new = new_rank_nodecoors.data() + 4*rank_new;
+
+	int nodecoor_orig[4];     
+	int xloc_orig[4];
+	for(int i=0;i<4;i++){
+	  int xi_full = xloc[i] + nodesites_new[i] * nodecoor_new[i];
+	  nodecoor_orig[i] = xi_full / nodesites_orig[i];
+	  xloc_orig[i] = xi_full - nodecoor_orig[i] * nodesites_orig[i];
+	}
+   
+	int orig_lexrank = nodeCoorToLexRank(nodecoor_orig, mpi_orig);
+	int orig_rank = lexrank_to_origrank_map[orig_lexrank];
+
+	int orig_off = localSiteCoorToOffset(xloc_orig, nodesites_orig);
+
+	int orig_rank_data_owner = orig_rank % nrank_new; //which MPI rank in this job currently owns this data block
+	int orig_rank_data_block = orig_rank / nrank_new;
+      
+	//Merge consecutive sends
+	CommInfo *bck = s > 0 ? &all_comms[rank_new].back() : nullptr;
+
+	if(bck && 
+	   bck->rank_from == orig_rank_data_owner && bck->src_blockidx == orig_rank_data_block &&
+	   bck->src_off + bck->size == orig_off && bck->dest_off + bck->size == s){
+	  bck->size += 1;
+	}else{
+	  CommInfo snd;
+	  snd.rank_from = orig_rank_data_owner;
+	  snd.rank_to = rank_new;
+	  snd.src_off = orig_off;
+	  snd.dest_off = s;
+	  snd.size = 1;
+	  snd.src_blockidx = orig_rank_data_block;
+	  snd.tag = rank_new + nrank_new * all_comms[rank_new].size(); //every node will agree with this tag
+	  all_comms[rank_new].push_back(snd);
+	}
+      }//s
+    }//rank_new
+
+    //Break out those comms that this node takes part in
+    for(int r=0;r< nrank_new; r++){
+      for(int s=0;s<all_comms[r].size();s++){
+    	auto const &ss = all_comms[r][s];
+	if(ss.rank_from == rank && ss.rank_to == rank) copies.push_back(ss);
+	else if(ss.rank_from == rank) sends.push_back(ss);
+	else if(ss.rank_to == rank) recvs.push_back(ss);
+      }
+    }
+
+    rd_data.clear();
+    //Load the original data blocks with a particular order defined as follows:
+    //We choose a lexicographic mapping of original node coordinates to original "ranks" (doesn't matter if this is the same as the original, actual MPI rank mapping)
+    //The MPI ranks of this job load the data from the original ranks round-robin (so some ranks may have more data than others)
+    //The data blocks are stored originally with a filename corresponding to their original node offset, so the original mapping of this to MPI rank is unimportant
+    for(int rank_orig=0;rank_orig<nrank_orig;rank_orig++){ 
+      if(rank_orig % nrank_new == rank){ //this rank loads data from original "ranks" according to a known mapping
+	int const* node_coor_orig = orig_rank_nodecoors.data() + 4*rank_orig;
+	
+	//Open file  file_stub + .nx.ny.nz.nt -> d
+	std::stringstream fn; fn << file_stub << '.' << node_coor_orig[0] << '.' << node_coor_orig[1] << '.' << node_coor_orig[2] << '.' << node_coor_orig[3] << ".dat"; 
+	if(verbose) printf("Rank %d reading file %s\n", rank, fn.str().c_str());
+	rd_data.push_back(cpsBinaryReader(fn.str()));
+      }
+    }
+    site_bytes = SiteSize*sizeof(SiteType);
+    orig_nodebytes = nf * orig_nodevol * site_bytes;
+    bytes_read=0;
+    
+    t_setup += dclock(); t_total += dclock();
+  }
+
+  cpsFieldPartIOreader(): bytes_read(0), verbose(false){}
+  cpsFieldPartIOreader(const std::string &file_stub): verbose(false){ open(file_stub); }
+
+  inline void setVerbose(bool to){ verbose = to; }
+ 
+  void read(CPSfieldType &into){
+    t_read -= dclock(); t_total -= dclock();
+    double t_rd_data = -dclock();
+    
+    double nrm_in;
+    rd_meta.read(&nrm_in, sizeof(double), true); //every node reads
+
+    std::vector<char*> node_data(rd_data.size());
+    for(int d=0;d<rd_data.size();d++){
+      node_data[d]=(char*)memalign_check(32,orig_nodebytes);
+      rd_data[d].read(node_data[d],orig_nodebytes,true);
+    }
+
+    t_rd_data += dclock();
+    t_read += dclock();
+    bytes_read += node_data.size()*orig_nodebytes;
+    LOGA2A << "cpsFieldPartIOreader: Field part read bandwidth " << rateStr(node_data.size()*orig_nodebytes, t_rd_data) << " MB/s" << std::endl;
+
+    t_comms -= dclock();
+
+    {
+      CPSautoView(into_v, into, HostWrite);
+      char* into_p = (char*)into_v.ptr();
+
+      int nsend=nf*sends.size(), nrecv=nf*recvs.size(), ncp=nf*copies.size();    
+
+      std::vector<MPI_Request> comms(nsend+nrecv);
+
+      //Start sends
+      MPI_Request *sbase = comms.data();
+#pragma omp parallel for
+      for(int s=0; s < sends.size(); s++){
+	auto const &ss = sends[s];
+	for(int f=0;f<nf;f++)
+	  assert( MPI_Isend(node_data[ss.src_blockidx] + (ss.src_off + orig_foff*f)*site_bytes , ss.size*site_bytes, MPI_CHAR, ss.rank_to, f+nf*ss.tag, MPI_COMM_WORLD, sbase + f + nf*s) == MPI_SUCCESS );
+      }
+      //Start recvs
+      MPI_Request *rbase = comms.data() + nsend;
+#pragma omp parallel for
+      for(int s=0; s < recvs.size(); s++){
+	auto const &ss = recvs[s];
+	for(int f=0;f<nf;f++)
+	  assert( MPI_Irecv(into_p + (ss.dest_off + new_foff*f)*site_bytes, ss.size*site_bytes, MPI_CHAR, ss.rank_from, f+nf*ss.tag, MPI_COMM_WORLD, rbase + f + nf*s) == MPI_SUCCESS );
+      }
+      //Do copies while waiting for MPI
+#pragma omp parallel for
+      for(int s=0; s < copies.size(); s++){
+	auto const &ss = copies[s];
+	for(int f=0;f<nf;f++)
+	  memcpy(into_p + (ss.dest_off + new_foff*f)*site_bytes, node_data[ss.src_blockidx] + (ss.src_off + orig_foff*f)*site_bytes, ss.size*site_bytes);
+      }
+      if(verbose) printf("Rank %d comm events %d : sends %d recvs %d copies %d\n", rank, comms.size(), nsend, nrecv, ncp);
+
+      assert(MPI_Waitall(comms.size(), comms.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS );
+    }
+    t_comms += dclock();
+  
+    for(int b=0;b<node_data.size();b++) free(node_data[b]);
+    
+    double nrm_got = into.norm2();
+    double rdiff = fabs((nrm_in - nrm_got)/nrm_in);
+    LOGA2A << "cpsFieldPartIOreader: Field norm " << nrm_got << " expect " << nrm_in << " rel-diff " << rdiff << std::endl; 
+    if(rdiff > 1e-8) ERR.General("cpsFieldPartIOreader","read","norm check failed");
+
+    t_total += dclock();
+  }
+
+  void close(){
+    rd_meta.close();
+    if(rd_data.size()){
+      t_total -= dclock();;
+      for(int d=0;d<rd_data.size();d++) rd_data[d].close();
+      rd_data.clear();
+      sends.clear();
+
+      LOGA2A << "cpsFieldPartIOreader: Read bandwidth " << rateStr(bytes_read, t_read) << " MB/s" << std::endl;
+      
+      t_total += dclock();
+      LOGA2A << "cpsFieldPartIOreader timings - setup:" << t_setup << "s  read:" << t_read << "s  comms:" << t_comms << "s  total: " << t_total << "s" << std::endl;
+    }
+  }
+  ~cpsFieldPartIOreader(){ close(); }
+};
+
 CPS_END_NAMESPACE
 #endif

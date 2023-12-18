@@ -104,7 +104,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   IRL.calc(eval,evec,
 	   src,
 	   Nconv
-	   , true
+	   , false
 	   );
   
   a2a_print_time("gridLanczos","Algorithm",time+dclock());
@@ -270,13 +270,13 @@ void gridBlockLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionFie
   const int Nu = Nsplit; //number of parallel Lanczos' = nsplit
 
   const int Nstop = lanc_arg.N_true_get;
-  const int Nk = lanc_arg.N_get;
+  const int Nk = lanc_arg.N_get; //Must be divisible by Nsplit
   const int Np = lanc_arg.N_use - lanc_arg.N_get; //NOTE: for block Lanczos, this should be divisible by Nu=Nsplit
 
   const int MaxIt= lanc_arg.maxits;  //NOTE: For block Lanczos, this is the max number of restarts; it should be small because the number of vectors scales like maxits!
   if(MaxIt > 50) ERR.General("::","gridBlockLanczos","Maxiters much too large! This will use up a tonne of RAM. You should expect only a small number of restarts");
 
-  const int Nm = lanc_arg.N_use + Np * MaxIt;
+  const int Nm = lanc_arg.N_use + Np * MaxIt; //NOTE: Must be divisible by Nsplit
 
   Grid::RealD resid = lanc_arg.stop_rsd; //NOTE: For block Lanczos, this should be larger than the normal residual by a factor of the largest eval of the op (obtainable eg using power method)
 
@@ -374,7 +374,10 @@ void gridBlockLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionFie
   
   int Nconv; //ignore this, the evecs will be resized to Nstop  
   IRL.calc(eval,evec,src,Nconv,Grid::LanczosType::rbl);
- 
+  //Block Lanczos sorts the output in descending order, we want ascending
+  std::reverse(eval.begin(),eval.end());
+  std::reverse(evec.begin(),evec.end());
+
   a2a_print_time("gridLanczos","Algorithm",time+dclock());
 #endif
   delete HermOp;

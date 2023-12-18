@@ -18,21 +18,24 @@ void testPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A
   ThreeMomentum p_pi_plus = p_plus * 2;
   
   StandardPionMomentaPolicy momenta;
-  MesonFieldMomentumContainer<A2Apolicies_std> mf_ll_con_std;
-  MesonFieldMomentumContainer<A2Apolicies_grid> mf_ll_con_grid;
+  typedef getMesonFieldType<A2AvectorW<A2Apolicies_std>, A2AvectorV<A2Apolicies_std>> mf_WV_std;
+  typedef getMesonFieldType<A2AvectorW<A2Apolicies_grid>, A2AvectorV<A2Apolicies_std>> mf_WV_grid;
   
-  computeGparityLLmesonFields1s<A2Apolicies_std,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con_std,momenta,W_std,V_std,2.0,lattice);
-  computeGparityLLmesonFields1s<A2Apolicies_grid,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con_grid,momenta,W_grid,V_grid,2.0,lattice,simd_dims_3d);
+  MesonFieldMomentumContainer<mf_WV_std> mf_ll_con_std;
+  MesonFieldMomentumContainer<mf_WV_grid> mf_ll_con_grid;
+  
+  computeGparityLLmesonFields1s<A2AvectorV<A2Apolicies_std>, A2AvectorW<A2Apolicies_std>,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con_std,momenta,W_std,V_std,2.0,lattice);
+  computeGparityLLmesonFields1s<A2AvectorV<A2Apolicies_grid>, A2AvectorW<A2Apolicies_grid>,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con_grid,momenta,W_grid,V_grid,2.0,lattice,simd_dims_3d);
 
   char diags[] = {'C','D','R'};
   for(int d=0;d<3;d++){
     fMatrix<typename A2Apolicies_std::ScalarComplexType> fmat_std;
-    MesonFieldProductStore<A2Apolicies_std> products_std;
-    ComputePiPiGparity<A2Apolicies_std>::compute(fmat_std, diags[d], p_pi_plus, p_pi_plus, 2, 1, mf_ll_con_std, products_std);
+    MesonFieldProductStore<mf_WV_std> products_std;
+    ComputePiPiGparity<A2AvectorV<A2Apolicies_std>, A2AvectorW<A2Apolicies_std>>::compute(fmat_std, diags[d], p_pi_plus, p_pi_plus, 2, 1, mf_ll_con_std, products_std);
 
     fMatrix<typename A2Apolicies_grid::ScalarComplexType> fmat_grid;
-    MesonFieldProductStore<A2Apolicies_grid> products_grid;
-    ComputePiPiGparity<A2Apolicies_grid>::compute(fmat_grid, diags[d], p_pi_plus, p_pi_plus, 2, 1, mf_ll_con_grid, products_grid);
+    MesonFieldProductStore<mf_WV_grid> products_grid;
+    ComputePiPiGparity<A2AvectorV<A2Apolicies_grid>, A2AvectorW<A2Apolicies_grid>>::compute(fmat_grid, diags[d], p_pi_plus, p_pi_plus, 2, 1, mf_ll_con_grid, products_grid);
 
     bool fail = false;
     for(int r=0;r<fmat_std.nRows();r++){
@@ -54,8 +57,8 @@ void testPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A
     fVector<typename A2Apolicies_std::ScalarComplexType> pipi_figV_std;
     fVector<typename A2Apolicies_grid::ScalarComplexType> pipi_figV_grid;
     
-    ComputePiPiGparity<A2Apolicies_std>::computeFigureVdis(pipi_figV_std, p_pi_plus, 1, mf_ll_con_std);
-    ComputePiPiGparity<A2Apolicies_grid>::computeFigureVdis(pipi_figV_grid, p_pi_plus, 1, mf_ll_con_grid);
+    ComputePiPiGparity<A2AvectorV<A2Apolicies_std>, A2AvectorW<A2Apolicies_std>>::computeFigureVdis(pipi_figV_std, p_pi_plus, 1, mf_ll_con_std);
+    ComputePiPiGparity<A2AvectorV<A2Apolicies_grid>, A2AvectorW<A2Apolicies_grid>>::computeFigureVdis(pipi_figV_grid, p_pi_plus, 1, mf_ll_con_grid);
 
     bool fail = false;
     for(int r=0;r<pipi_figV_std.size();r++){

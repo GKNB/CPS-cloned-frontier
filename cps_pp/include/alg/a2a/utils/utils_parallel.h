@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <limits>
 
+#include "utils_logging.h"
 #include "utils_malloc.h"
 #include "utils_parallel_globalsum.h"
 
@@ -168,26 +169,6 @@ struct getMPIdataType<float>{
 #endif //USE_MPI
 
 
-#ifdef USE_GRID
-#define LOGA2A std::cout << Grid::GridLogMessage
-#define LOGA2ANT std::cout
-#else
-#define LOGA2A if(!UniqueID()) std::cout
-#define LOGA2ANT std::cout
-#endif
-
-//printf only to head node through LOGA2A stream
-void a2a_printf(const char* format, ...);
-//printf only to head node through LOGA2ANT stream (no timing)
-void a2a_printfnt(const char* format, ...);
-
-
-//print_time only to head node through LOGA2A stream
-inline void a2a_print_time(const char *cname, const char *fname, Float time){
-  a2a_printf("%s::%s: %e seconds\n",cname,fname,time);
-}
-
-
 //Check each node can write to disk
 inline void checkWriteable(const std::string &dir,const int conf){
   std::string file;
@@ -227,6 +208,10 @@ inline bool checkDirExists(const std::string& dir){
   return false; //never reached
 }
 
+inline bool checkFileExists(const std::string& name) {
+  struct stat buffer;   
+  return (stat (name.c_str(), &buffer) == 0); 
+}
 
 inline void makedir(const std::string& dir, const mode_t mode = 0775){
   if(!UniqueID()){

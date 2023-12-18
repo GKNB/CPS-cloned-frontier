@@ -36,9 +36,14 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
   mf.setup(W,V,0,0);
   mf_grid.setup(Wgrid,Vgrid,0,0);     
   mf.testRandom();
-  for(int i=0;i<mf.getNrows();i++)
-    for(int j=0;j<mf.getNcols();j++)
-      mf_grid(i,j) = mf(i,j); //both are scalar complex
+  {
+    CPSautoView(mf_grid_v,mf_grid,HostWrite);
+    CPSautoView(mf_v,mf,HostRead);
+    
+    for(int i=0;i<mf.getNrows();i++)
+      for(int j=0;j<mf.getNcols();j++)
+	mf_grid_v(i,j) = mf_v(i,j); //both are scalar complex
+  }
   
   typedef typename GridA2Apolicies::ComplexType grid_Complex;
   typedef typename ScalarA2Apolicies::ComplexType mf_Complex;
@@ -158,31 +163,47 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
       orig_sum[i].zero(); grid_sum[i].zero();
       grid_sum_split_lite[i].zero();
     }
-	
-    for(int top = 0; top < GJP.TnodeSites(); top++){
+
+    {
+      CPSautoView(V_v,V,HostRead);
+      CPSautoView(W_v,W,HostRead);    
+      CPSautoView(mf_v,mf,HostRead);
+      CPSautoView(Vgrid_v,Vgrid,HostRead);
+      CPSautoView(Wgrid_v,Wgrid,HostRead);    
+      CPSautoView(mf_grid_v,mf_grid,HostRead);
+
+      for(int top = 0; top < GJP.TnodeSites(); top++){
 #ifdef CPS_VMV
-      //ORIG VMV
-      total_time_orig -= dclock();	  
+	//ORIG VMV
+	total_time_orig -= dclock();	  
 #pragma omp parallel for
-      for(int xop=0;xop<orig_3vol;xop++){
-	int me = omp_get_thread_num();
-	mult(orig_tmp[me], V, mf, W, xop, top, false, true);
-	orig_sum[me] += orig_tmp[me];
-      }
-      total_time_orig += dclock();
+	for(int xop=0;xop<orig_3vol;xop++){
+	  int me = omp_get_thread_num();
+	  mult(orig_tmp[me], V_v, mf_v, W_v, xop, top, false, true);
+	  orig_sum[me] += orig_tmp[me];
+	}
+	total_time_orig += dclock();
 #endif
 #ifdef GRID_VMV
-      //GRID VMV
-      total_time -= dclock();
+	//GRID VMV
+	total_time -= dclock();
 #pragma omp parallel for
-      for(int xop=0;xop<grid_3vol;xop++){
-	int me = omp_get_thread_num();
-	mult(grid_tmp[me], Vgrid, mf_grid, Wgrid, xop, top, false, true);
-	grid_sum[me] += grid_tmp[me];
-      }
-      total_time += dclock();
+	for(int xop=0;xop<grid_3vol;xop++){
+	  int me = omp_get_thread_num();
+	  mult(grid_tmp[me], Vgrid_v, mf_grid_v, Wgrid_v, xop, top, false, true);
+	  grid_sum[me] += grid_tmp[me];
+	}
+	total_time += dclock();
 #endif
+      }//end top loop
+      for(int i=1;i<nthreads;i++){
+	orig_sum[0] += orig_sum[i];
+	grid_sum[0] += grid_sum[i];
+	grid_sum_split_lite[0] += grid_sum_split_lite[i];  
+      }
+    }
 
+    for(int top = 0; top < GJP.TnodeSites(); top++){
 #ifdef GRID_SPLIT_LITE_VMV
       //SPLIT LITE VMV GRID
       total_time_split_lite_grid -= dclock();	  
@@ -196,13 +217,11 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
       }
       total_time_split_lite_grid += dclock();
 #endif
-
-    }//end top loop
+    }
     for(int i=1;i<nthreads;i++){
-      orig_sum[0] += orig_sum[i];
-      grid_sum[0] += grid_sum[i];
       grid_sum_split_lite[0] += grid_sum_split_lite[i];  
     }
+
 
     //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
     total_time_field_offload -= dclock();
@@ -214,9 +233,13 @@ void benchmarkvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nt
 
     CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
     vmv_offload_sum4.zero();
-    for(size_t i=0;i<pfield.size();i++){
-      vmv_offload_sum4 += *pfield.fsite_ptr(i);
+    {
+      CPSautoView(pfield_v,pfield,HostRead);
+      for(size_t i=0;i<pfield.size();i++){
+        vmv_offload_sum4 += *pfield_v.fsite_ptr(i);
+      }
     }
+    
   } //tests loop
 #ifdef CPS_VMV
   printf("vMv: Avg time vMv (non-SIMD) %d iters: %g secs/iter  %g Mflops\n",ntests,total_time_orig/ntests,  MFlops/(total_time_orig/ntests) );

@@ -1,6 +1,7 @@
 #ifndef CK_A2A_UTILS
 #define CK_A2A_UTILS
 
+#include "utils/utils_logging.h"
 #include "utils/utils_generic.h"
 #include "utils/utils_array.h"
 #include "utils/utils_floatingpt.h"
@@ -26,5 +27,7 @@
 #include "utils/onemkl_wrapper.h"
 #include "utils/ptr_wrapper.h"
 #include "utils/utils_gpu.h"
+#include "utils/alloc_policies.h"
+#include "utils/vector_with_a_view.h"
 
 #endif

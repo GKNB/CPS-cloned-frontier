@@ -87,9 +87,13 @@ void setupDoArg(DoArg &do_arg, int size[5], int ngp, bool verbose = true){
 struct Options{
   double gfix_alpha;
   bool do_init_gauge_fix;
+  bool write;
+  std::string io_dir;
   Options(){
     gfix_alpha = 0.01;
     do_init_gauge_fix = false;
+    write = false;
+    io_dir = ".";
   }
 };
 
@@ -97,6 +101,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   //Setup types
   typedef A2ApoliciesSIMDdoubleAutoAllocGparity A2Apolicies_grid;
   typedef A2ApoliciesDoubleAutoAllocGparity A2Apolicies_std; 
+
+  typedef A2ApoliciesSIMDdoubleManualAllocGparity A2Apolicies_grid_destructive;
 
   typedef A2Apolicies_std::ComplexType mf_Complex;
   typedef A2Apolicies_grid::ComplexType grid_Complex;
@@ -128,15 +134,15 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   A2AvectorW<A2Apolicies_grid> W_grid(a2a_arg,simd_dims), Wh_grid(a2a_arg,simd_dims);
 
   LatRanGen lrg_bak = LRG;
-  randomizeVW<A2Apolicies_grid>(V_grid,W_grid);
-  randomizeVW<A2Apolicies_grid>(Vh_grid,Wh_grid);
+  randomizeVW(V_grid,W_grid);
+  randomizeVW(Vh_grid,Wh_grid);
 
   A2AvectorV<A2Apolicies_std> V_std(a2a_arg), Vh_std(a2a_arg);
   A2AvectorW<A2Apolicies_std> W_std(a2a_arg), Wh_std(a2a_arg);
 
   LRG = lrg_bak;
-  randomizeVW<A2Apolicies_std>(V_std,W_std);
-  randomizeVW<A2Apolicies_std>(Vh_std,Wh_std);
+  randomizeVW(V_std,W_std);
+  randomizeVW(Vh_std,Wh_std);
 
 
   //Sanity check to ensure Grid and non-Grid V,W are the same
@@ -167,8 +173,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
   std::cout << "Starting tests" << std::endl;
-
   /*
+
   if(1) testPoolAllocator();
   if(1) testAsyncTransferManager();
   if(1) testHolisticPoolAllocator();
@@ -201,7 +207,6 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 #endif
 
   if(1) testFlavorProjectedSourceView<A2Apolicies_grid>();
-  
   if(1) testMFmult<A2Apolicies_std>(a2a_arg,tol);
 #ifdef USE_GRID
   if(1) testMFmult<A2Apolicies_grid>(a2a_arg,tol);
@@ -212,13 +217,13 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 #ifdef USE_GRID
   if(1) testMFmultTblock<A2Apolicies_grid>(a2a_arg,tol);
 #endif
-  */
-  //if(1) testCshiftCconjBc();
-  //if(1) testCshiftCconjBcMatrix(simd_dims);
-  //if(1) testGfixCPSmatrixField(lattice, simd_dims);
 
-  if(1) testGridGaugeFix(lattice, opt.gfix_alpha, simd_dims);
-  /*
+  if(1) testCshiftCconjBc();
+  if(1) testCshiftCconjBcMatrix(simd_dims);
+  if(1) testGfixCPSmatrixField(lattice, simd_dims);
+
+  if(0) testGridGaugeFix(lattice, opt.gfix_alpha, simd_dims);
+
   if(1) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
    
   if(1) testFlavorMatrixSCcontractStd<A2Apolicies_std>(tol);
@@ -235,8 +240,13 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testMesonFieldComputeSingleReference<A2Apolicies_std>(a2a_arg, tol);
   
   if(1) testMesonFieldComputeSingleMulti<A2Apolicies_std>(a2a_arg, tol);
+  
+  if(1) testMesonFieldComputePackedReferenceSIMD<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, tol, simd_dims);
 
+  */
   if(1) testGridMesonFieldCompute<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  /*
+
   if(1) testGridMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testGridShiftMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
 
@@ -281,11 +291,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
   if(1) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
 
-
   if(1) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-
-  
+ 
   if(1) testCPSmatrixField<A2Apolicies_grid>(tol);
 
   if(1) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
@@ -303,8 +311,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
   									 V_grid, W_grid,
   									 lattice, simd_dims_3d, tol);
-
-  if(1) testModeMappingTranspose(a2a_arg);
+									 
 
 #ifdef USE_GRID
   if(1) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
@@ -326,12 +333,12 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testGridg5Contract<grid_Complex>();
   if(1) testGaugeFixInvertible<A2Apolicies_grid>(lattice);
   if(1) testDestructiveFFT<A2ApoliciesSIMDdoubleManualAllocGparity>(a2a_arg, lattice);
-  if(1) testMesonFieldReadWrite<A2Apolicies_std>(a2a_arg);
+  if(1) testMesonFieldReadWrite<A2Apolicies_std>(a2a_arg);  
   if(1) testMesonFieldTraceSingle<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testMesonFieldTraceSingleTblock<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testMesonFieldTraceProduct<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testMesonFieldTraceProductTblock<A2Apolicies_grid>(a2a_arg,tol);
-  if(1) testMesonFieldTraceProductAllTimes<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testMesonFieldTraceProductAllTimes<A2Apolicies_grid>(a2a_arg,tol);  
   if(1) testCPSfieldImpex();
   if(1) testGridFieldImpex<A2Apolicies_grid>(lattice);
   if(1) testCPSfieldIO();
@@ -350,7 +357,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
 
-  //if(1) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);  Current compilation issues on Intel
+  if(1) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);  //Current compilation issues on Intel
 
   if(1) testA2AvectorWnorm<A2Apolicies_grid>(a2a_arg);
 
@@ -358,7 +365,6 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) test_gamma_CPS_vs_Grid();
 
-    /*
   if(1) testXconjWsrc<A2Apolicies_grid>(lattice);
   if(1) testXconjWsrcPostOp<A2Apolicies_grid>(lattice);
   if(1) testXconjWsrcInverse<A2Apolicies_grid>(lattice);
@@ -366,9 +372,33 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testXconjWsrcCConjRelnV<A2Apolicies_grid>(lattice);
   if(1) testXconjWsrcCConjReln<A2Apolicies_grid>(lattice);
 
+  if(1) testModeContractionIndices(a2a_arg);
+  if(1) testWunitaryBasic<A2Apolicies_grid,A2Apolicies_grid_destructive>(a2a_arg, simd_dims, lattice);
+  if(1) testWunitaryUnitaryRandomSrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
+  if(1) testWunitaryRotYRandomSrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
 
+  if(1) testWtimePackedBasic<A2Apolicies_grid,A2Apolicies_grid_destructive>(a2a_arg, simd_dims, lattice);
+
+  if(1) testWtimePackedU1Xsrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
+
+  if(1) testWtimePackedU1g0src<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
+
+  if(1) testWtimePackedU1Hsrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
+  
+  if(1) testVectorWithAview();
+
+  if(1) testSourceConvergence<A2Apolicies_grid>(a2a_arg, simd_dims, simd_dims_3d, lattice);
+ 
+  if(1) testXconjDiagRecon<A2Apolicies_grid>(lattice);
+
+  test_mmap_alloc();
+  test_write_data_bypass_cache();
+  test_disk_reduce();
+
+  testCPSfieldWriteParts<A2Apolicies_grid>(opt.write, opt.io_dir);
+
+  testMesonFieldNodeSumPartialAsync<A2Apolicies_grid>(a2a_arg);
   */
-
 }
 
 
@@ -409,15 +439,15 @@ void testPeriodic(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge
   A2AvectorW<A2Apolicies_grid> W_grid(a2a_arg,simd_dims), Wh_grid(a2a_arg,simd_dims);
 
   LatRanGen lrg_bak = LRG;
-  randomizeVW<A2Apolicies_grid>(V_grid,W_grid);
-  randomizeVW<A2Apolicies_grid>(Vh_grid,Wh_grid);
+  randomizeVW(V_grid,W_grid);
+  randomizeVW(Vh_grid,Wh_grid);
 
   A2AvectorV<A2Apolicies_std> V_std(a2a_arg), Vh_std(a2a_arg);
   A2AvectorW<A2Apolicies_std> W_std(a2a_arg), Wh_std(a2a_arg);
 
   LRG = lrg_bak;
-  randomizeVW<A2Apolicies_std>(V_std,W_std);
-  randomizeVW<A2Apolicies_std>(Vh_std,Wh_std);
+  randomizeVW(V_std,W_std);
+  randomizeVW(Vh_std,Wh_std);
 
 
   //Sanity check to ensure Grid and non-Grid V,W are the same
@@ -597,14 +627,34 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss  << argv[i+1]; ss >> opt.gfix_alpha;
       if(!UniqueID()) printf("Set alpha to %f\n", opt.gfix_alpha);
       i+=2;
-    }else if( cmd == "-mempool_verbose"){
-      HolisticMemoryPoolManager::globalPool().setVerbose(true);
+    }else if( cmd == "-gpu_pool_max_mem" ){
+      std::stringstream ss; ss << argv[i+1];
+      size_t v; ss >> v;
+      DeviceMemoryPoolManager::globalPool().setPoolMaxSize(v);
+      HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::DevicePool);	
+      i+=2;
+    }else if( cmd == "-host_pool_max_mem" ){
+      std::stringstream ss; ss << argv[i+1];
+      size_t v; ss >> v;
+      HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::HostPool);	
+      i+=2;
+    }else if( cmd == "-mempool_verbose" ){
       DeviceMemoryPoolManager::globalPool().setVerbose(true);
-      i++;
+      HolisticMemoryPoolManager::globalPool().setVerbose(true);
+      i+=1;
+    }else if( cmd == "-mempool_scratchdir" ){
+      HolisticMemoryPoolManager::globalPool().setDiskRoot(argv[i+1]);
+      i+=2;	     
     }else if( cmd == "-do_init_gauge_fix"){
       opt.do_init_gauge_fix = true;
       std::cout << "Doing initial gauge fixing" << std::endl;
       i++;
+    }else if( cmd == "-write"){
+      opt.write =true;
+      i++;
+    }else if( cmd == "-io_dir"){
+      opt.io_dir =argv[i+1];
+      i+=2;
     }else{
       bool is_grid_arg = false;
       for(int ii=0;ii<ngrid_arg;ii++){

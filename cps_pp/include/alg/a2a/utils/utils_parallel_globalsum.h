@@ -10,11 +10,25 @@
 #endif
 
 #include "utils_parallel.h"
+#include "utils_logging.h"
 
 CPS_START_NAMESPACE
 
 inline void globalSum(double *result, size_t len = 1){
-#ifdef USE_QMP
+#ifdef A2A_GLOBALSUM_DISK
+  LOGA2A << "Performing reduction of " << byte_to_MB(len*sizeof(double)) << " MB through disk" << std::endl;
+  disk_reduce(result,len);
+#elif defined(A2A_GLOBALSUM_MAX_ELEM) //if this is defined, the global sum will be broken up into many of this size
+  size_t b = A2A_GLOBALSUM_MAX_ELEM;
+  LOGA2A << "Performing reduction of " << len << " doubles in " << (len+b-1) / b << " blocks of size " << b << std::endl;
+  size_t lencp = len;
+  for(size_t off = 0; off < lencp; off += b){
+    size_t rlen = std::min(len, b);
+    MPI_Allreduce(MPI_IN_PLACE, result, rlen, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    len -= rlen;
+    result += rlen;
+  }
+#elif defined(USE_QMP)
   QMP_sum_double_array(result, len);
 #elif defined(USE_MPI)
   MPI_Allreduce(MPI_IN_PLACE, result, len, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -24,7 +38,20 @@ inline void globalSum(double *result, size_t len = 1){
 }
 
 inline void globalSum(float *result, size_t len = 1){
-#ifdef USE_QMP
+#ifdef A2A_GLOBALSUM_DISK
+  LOGA2A << "Performing reduction of " << byte_to_MB(len*sizeof(float)) << " MB through disk" << std::endl;
+  disk_reduce(result,len);
+#elif defined(A2A_GLOBALSUM_MAX_ELEM) //if this is defined, the global sum will be broken up into many of this size
+  size_t b = A2A_GLOBALSUM_MAX_ELEM;
+  LOGA2A << "Performing reduction of " << len << " floats in " << (len+b-1) / b << " blocks of size " << b << std::endl;
+  size_t lencp = len;
+  for(size_t off = 0; off < lencp; off += b){
+    size_t rlen = std::min(len, b);
+    MPI_Allreduce(MPI_IN_PLACE, result, rlen, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+    len -= rlen;
+    result += rlen;
+  }
+#elif defined(USE_QMP)
   QMP_sum_float_array(result, len);
 #elif defined(USE_MPI)
   MPI_Allreduce(MPI_IN_PLACE, result, len, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);

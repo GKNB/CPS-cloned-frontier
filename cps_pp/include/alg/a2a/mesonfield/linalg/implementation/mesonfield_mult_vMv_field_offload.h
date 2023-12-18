@@ -115,6 +115,10 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
   typedef typename mf_Policies::ComplexType VectorComplexType;
   typedef typename SIMT<VectorComplexType>::value_type ScalarComplexType;
+  typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
+
+  typedef VectorWithAview<VectorComplexType,typename mf_Policies::AllocPolicy> VprimeType;
+  typedef VectorWithAview<MFcomplexType,typename mf_Policies::AllocPolicy> MprimeType; 
 
   //A slow but simple implementation ignoring the index compression
   static void simple(PropagatorField &into,
@@ -271,7 +275,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   }  
   
   //Create va'
-  static void create_vaprime(VectorComplexType* vaprime, typename PropagatorField::View &into_v, const lA2AfieldType &l,
+  static void create_vaprime(VprimeType &vaprime, typename PropagatorField::View &into_v, const lA2AfieldType &l,
 			     ManagedVector<uint8_t>::View &alpha_v, ManagedVector< std::pair<int,int> >::View &il_ir_pairs_v,
 			     int t_off, int src_width, size_t iprimestart, int nf, int ntblocks, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices, size_t niprime_block, size_t nsimd, bool conj_l){
     size_t nt = local_timeslices.size();
@@ -280,7 +284,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     std::vector<bool> modes_used(l.getNmodes(),false);
     for(size_t iprime=iprimestart;iprime<niprime_block+iprimestart;iprime++) modes_used[il_ir_pairs_v[iprime].first] = true;
     auto l_v = l.view(DeviceRead,modes_used);
-    
+    CPSautoView(vaprime_v, vaprime, DeviceWrite);
+
     typedef SIMT<VectorComplexType> ACC;
     using namespace Grid;
     accelerator_for2d(xx, nsites4d, iprimeb, niprime_block, nsimd,
@@ -293,12 +298,12 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			size_t iprime = iprimeb + iprimestart;
 			for(int f=0;f<nf;f++){
 			  for(int sc=0;sc<12;sc++){
-			    VectorComplexType *into = vaprime +  iprimeb + niprime_block*( xx + nsites4d*(sc + 12*f) ); //contiguous in summed index
+			    VectorComplexType &into = vaprime_v[iprimeb + niprime_block*( xx + nsites4d*(sc + 12*f) )]; //contiguous in summed index
 			    
 			    auto val = ACC::read(l_v.nativeElem(il_ir_pairs_v[iprime].first, x4d, sc, f));
 			    val = conj_l ? Grid::conjugate(val) : val;
 			    val = val * double(alpha_v[sc + 12*(f+ nf*(t_glob_block + ntblocks*iprime))]);
-			    ACC::write(*into, val);
+			    ACC::write(into, val);
 			  }
 			}
 		      });
@@ -309,12 +314,13 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
   
   //Create Mprime
-  static void create_Mprime(typename MesonFieldType::ScalarComplexType *Mprime, const MesonFieldType &M,
+  static void create_Mprime(MprimeType &Mprime, const MesonFieldType &M,
 			    size_t iprimestart, size_t iprimelessthan, size_t jprimestart, size_t jprimelessthan,
 			    ManagedVector< std::pair<int,int> > &il_ir_pairs, ManagedVector< std::pair<int,int> > &jl_jr_pairs){
-    typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
     CPSautoView(M_v,M,HostRead);
-    MFcomplexType *Mptr = Mprime;
+    CPSautoView(Mprime_v,Mprime,HostWrite);
+
+    MFcomplexType *Mptr = Mprime_v.data();
     for(size_t iprime = iprimestart; iprime < iprimelessthan; iprime++){
       size_t iprimeb = iprime - iprimestart;
       size_t ir = il_ir_pairs[iprime].second;
@@ -326,7 +332,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     }
   }    
 
-  static void create_vbprime(VectorComplexType* vbprime, const rA2AfieldType &r,
+  static void create_vbprime(VprimeType &vbprime, const rA2AfieldType &r,
 			     ManagedVector<uint8_t>::View &beta_v, ManagedVector< std::pair<int,int> >::View &jl_jr_pairs_v,
 			     int t_off, int src_width, size_t jprimestart, int nf, int ntblocks, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices,
 			     size_t njprime_block, size_t nsimd, bool conj_r,
@@ -337,7 +343,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     std::vector<bool> modes_used(r.getNmodes(),false);
     for(size_t jprime=jprimestart;jprime<njprime_block+jprimestart;jprime++) modes_used[jl_jr_pairs_v[jprime].second] = true;
     auto r_v = r.view(DeviceRead,modes_used);
-    
+    CPSautoView(vbprime_v,vbprime,DeviceWrite);
     typedef SIMT<VectorComplexType> ACC;
     using namespace Grid;
     accelerator_for2d(xx, nsites4d, jprimeb, njprime_block, nsimd,
@@ -349,11 +355,11 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			  int t_glob = top + t_off;
 			  int t_glob_block = t_glob / src_width; //tblock for a2a index
 			  
-			  VectorComplexType *into = vbprime + jprimeb + njprime_block*xx;  //contiguous in summed index
+			  VectorComplexType &into = vbprime_v[jprimeb + njprime_block*xx];  //contiguous in summed index
 			  auto val = ACC::read(r_v.nativeElem(jl_jr_pairs_v[jprime].second, x4d, scr, fr));
 			  val = conj_r ? Grid::conjugate(val) : val;
 			  val = val * double(beta_v[scr + 12*(fr+ nf*(t_glob_block + ntblocks*jprime))]);
-			  ACC::write(*into, val);
+			  ACC::write(into, val);
 			});
     r_v.free();
   }
@@ -362,10 +368,9 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
   
   //Mprime * vbprime
-  static void Mprime_vbprime(VectorComplexType* Mvbprime, typename MesonFieldType::ScalarComplexType *Mprime, VectorComplexType* vbprime, 
+  static void Mprime_vbprime(VprimeType &Mvbprime, const MprimeType &Mprime, const VprimeType &vbprime, 
 			     size_t vol4d_node, size_t niprime_block, size_t njprime_block, size_t nsimd, int fourd_block_count, bool verbose = false){
     typedef SIMT<VectorComplexType> ACC;
-    typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
     using namespace Grid;
 #if defined(GRID_CUDA) || defined(GRID_HIP)
     uint32_t orig_t = Grid::acceleratorThreads();
@@ -380,23 +385,27 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     double Mprime_size_MB = double(niprime_block*njprime_block*sizeof(MFcomplexType))/1024./1024.;
     if(verbose) LOGA2A << "Solving M'* vb' with nxblocks=" << nxblocks << ": block volume " << xblocksz << " = " << block_size_MB << " MB and M' size " << niprime_block << "*" << njprime_block << " = " << Mprime_size_MB << " MB" << std::endl;
 
+    CPSautoView(vbprime_v,vbprime,DeviceRead);
+    CPSautoView(Mprime_v, Mprime,DeviceRead);
+    CPSautoView(Mvbprime_v,Mvbprime,DeviceWrite);
+
     accelerator_for2d(x4d_block, xblocksz, iprimeb_xb, niprime_block*nxblocks, nsimd,
 			{
 			  size_t iprimeb = iprimeb_xb % niprime_block;
 			  int xblock_idx = iprimeb_xb / niprime_block;
 			  size_t x4d = x4d_block + xblocksz*xblock_idx;		  
-			  VectorComplexType *into = Mvbprime + iprimeb + niprime_block*x4d;
+			  VectorComplexType &into = Mvbprime_v[iprimeb + niprime_block*x4d];
 			  
 			  typename ACC::value_type sum(0);
-			  VectorComplexType *rptr = vbprime + njprime_block*x4d; //jprimeb=0
-			  MFcomplexType *Mptr = Mprime + njprime_block * iprimeb; //jprimeb=0
+			  VectorComplexType const* rptr = vbprime_v.data() + njprime_block*x4d; //jprimeb=0
+			  MFcomplexType const* Mptr = Mprime_v.data() + njprime_block * iprimeb; //jprimeb=0
 			  
 			  for(int jprimeb=0;jprimeb<njprime_block; jprimeb++){
 			    auto rval = ACC::read(*rptr++);
 			    auto Mval = *Mptr++; //not vectorized
 			    sum = sum + Mval * rval;
 			  }
-			  ACC::write(*into, sum);				      
+			  ACC::write(into, sum);				      
 			});
     
 #if defined(GRID_CUDA) || defined(GRID_HIP) 
@@ -406,12 +415,14 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   }
   
   //va' (M' vb')
-  static void vaprime_Mprime_vbprime(typename PropagatorField::View &into_v, VectorComplexType* vaprime, VectorComplexType* Mvbprime, int sr, int cr, int fr, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices, size_t niprime_block, int nf, size_t nsimd){
+  static void vaprime_Mprime_vbprime(typename PropagatorField::View &into_v, const VprimeType &vaprime, const VprimeType & Mvbprime, int sr, int cr, int fr, size_t vol3d_node, hostDeviceMirroredContainer<int> &local_timeslices, size_t niprime_block, int nf, size_t nsimd){
     size_t nt = local_timeslices.size();
     size_t nsites4d = vol3d_node * nt;
     int const* local_timeslices_v = local_timeslices.getDeviceReadPtr();
     typedef SIMT<VectorComplexType> ACC;
     using namespace Grid;
+    CPSautoView(vaprime_v,vaprime,DeviceRead);
+    CPSautoView(Mvbprime_v,Mvbprime,DeviceRead);
     accelerator_for2d(xx, nsites4d, scfl, 12*nf, nsimd,
 			{
 			  size_t xop = xx % vol3d_node;
@@ -427,8 +438,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			  VectorComplexType &out = fdef::access(sl,cl,fl, sr,cr,fr, vsite_mat);
 			  auto sum = ACC::read(out);
 			  
-			  VectorComplexType *lptr = vaprime + niprime_block*( xx + nsites4d*scfl );		  
-			  VectorComplexType *Mrptr = Mvbprime + niprime_block*xx;
+			  VectorComplexType const* lptr = vaprime_v.data() + niprime_block*( xx + nsites4d*scfl );		  
+			  VectorComplexType const* Mrptr = Mvbprime_v.data() + niprime_block*xx;
 			  
 			  for(size_t iprimeb=0; iprimeb < niprime_block; iprimeb++){
 			    auto lval = ACC::read(*lptr++); 
@@ -457,6 +468,13 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
       std::vector<bool> modes_used(r.getNmodes(),false);
       for(size_t jprime=jprimestart_nxt; jprime<njprime_block_nxt+jprimestart_nxt;jprime++) modes_used[jl_jr_pairs[jprime].second] = true;
+
+      //Ensure we do not prefetch data that will actually be needed on this iteration, leading to nasty race conditions
+      size_t jprimestart = jprimeblock * blocksize;
+      size_t jprimelessthan = std::min(jprimestart + blocksize, njprime);
+      size_t njprime_block = jprimelessthan - jprimestart;
+      for(size_t jprime=jprimestart; jprime<njprime_block+jprimestart;jprime++) modes_used[jl_jr_pairs[jprime].second] = false;
+
       r.enqueuePrefetch(DeviceRead, modes_used);
       rA2AfieldType::startPrefetches(); //non-blocking
     }
@@ -578,7 +596,6 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     }
     
     typedef SIMT<VectorComplexType> ACC;
-    typedef typename MesonFieldType::ScalarComplexType MFcomplexType;
 
     //Need to compute \sum_i\sum_j v(il)_{scl,fl}(x)  M(ir, jl) * v(jr)_{scr,fr}(x)
     
@@ -623,12 +640,12 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	   << "vbprime " << double(blocked_cmplxfields_bytes)/1024./1024. << " MB" << std::endl
 	   << "Mprime " << double(Mprime_bytes)/1024./1024. << " MB" << std::endl
 	   << "Mvbprime " << double(blocked_cmplxfields_bytes)/1024./1024. << " MB" << std::endl;
-        
-    VectorComplexType* vaprime = (VectorComplexType*)device_alloc_check(blocked_fermfields_bytes);
-    VectorComplexType* vbprime = (VectorComplexType*)device_alloc_check(blocked_cmplxfields_bytes); //only one spin,color,flavor    
-    MFcomplexType* Mprime = (MFcomplexType*)managed_alloc_check(Mprime_bytes);
-    VectorComplexType* Mvbprime = (VectorComplexType*)device_alloc_check(blocked_cmplxfields_bytes);
-    
+
+    VprimeType vaprime(field_size * blocksize, AllocLocationPref::Device);
+    VprimeType vbprime(vol4d_node_do * blocksize, AllocLocationPref::Device); //only one spin,color,flavor 
+    MprimeType Mprime(blocksize * blocksize, AllocLocationPref::Host);
+    VprimeType Mvbprime(vol4d_node_do * blocksize, AllocLocationPref::Device);
+   
     //Do in blocks over i',j' to avoid taking too much space
     size_t niprime_blocks = (niprime + blocksize-1)/blocksize;
     size_t njprime_blocks = (njprime + blocksize-1)/blocksize;
@@ -698,11 +715,6 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
       }//jprimeblock
 
     }//iprimeblock
-
-    device_free(vaprime);
-    device_free(vbprime);
-    managed_free(Mprime);
-    device_free(Mvbprime);
 
 #if defined(GRID_CUDA)
     assert(cudaDeviceSetCacheConfig(cache_default) == cudaSuccess );

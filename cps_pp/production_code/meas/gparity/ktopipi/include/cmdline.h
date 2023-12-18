@@ -14,14 +14,35 @@ struct computeEvecsOpts{
   {}
 };
 
+struct computeVWopts{
+  bool randomize_vw; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
+  bool skip_vw; //don't compute this V,W pair at all. Contractions will not be possible if this is enabled for either light or heavy quarks
+
+  bool save_vw;
+  std::string save_vw_stub;
+
+  bool load_vw;
+  std::string load_vw_stub;
+
+  bool convert_vw_grid_parts;
+
+  computeVWopts(): randomize_vw(false), save_vw(false), load_vw(false), skip_vw(false), convert_vw_grid_parts(false)
+  {}
+
+  bool needEvecs() const{ return !randomize_vw && !skip_vw && !load_vw; }
+};
+
+
 //Command line argument store/parse
 struct CommandLineArgs{
   int nthreads;
   int nthread_contractions;
-  bool randomize_vw; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
 
   computeEvecsOpts evec_opts_l;
   computeEvecsOpts evec_opts_h;
+
+  computeVWopts vw_opts_l;
+  computeVWopts vw_opts_h;
 
   bool randomize_evecs; 
   bool randomize_mf; //use random meson fields
@@ -31,6 +52,8 @@ struct CommandLineArgs{
   bool skip_gauge_fix;
   bool tune_gauge_fix;
   bool double_latt; //most ancient 8^4 quenched lattices stored both U and U*. Enable this to read those configs
+
+  bool do_contractions;
   bool do_kaon2pt;
   bool do_pion2pt;
   bool do_pipi;
@@ -73,7 +96,6 @@ struct CommandLineArgs{
     nthreads = 64;
 #endif
     nthread_contractions = -1;
-    randomize_vw = false;
     randomize_mf = false;
     force_evec_compute = false; //randomize_evecs causes Lanczos to be skipped unless this option is used
     tune_lanczos_light = false; //just run the light lanczos on first config then exit
@@ -81,6 +103,8 @@ struct CommandLineArgs{
     skip_gauge_fix = false;
     tune_gauge_fix = false;
     double_latt = false; //most ancient 8^4 quenched lattices stored both U and U*. Enable this to read those configs
+
+    do_contractions = true; //globally disable contractions
     do_kaon2pt = true;
     do_pion2pt = true;
     do_pipi = true;
@@ -146,13 +170,15 @@ struct CommandLineArgs{
 	LOGA2A << "Setting number of threads in contractions to " << nthread_contractions << std::endl;
 	arg+=2;
       }else if( strncmp(cmd,"-randomize_vw",15) == 0){
-	randomize_vw = true;
+	vw_opts_l.randomize_vw = vw_opts_h.randomize_vw = true;
 	LOGA2A << "Using random vectors for V and W, skipping Lanczos and inversion stages" << std::endl;
 	arg++;
       }else if( strncmp(cmd,"-randomize_evecs",15) == 0){
 	evec_opts_l.randomize_evecs = evec_opts_h.randomize_evecs = true;
 	LOGA2A << "Using random eigenvectors" << std::endl;
 	arg++;      
+
+
       }else if( cmdstr == "-load_light_evecs"){
 	assert(arg < argc-1);
 	evec_opts_l.load_evecs = true;
@@ -177,6 +203,64 @@ struct CommandLineArgs{
 	evec_opts_h.save_evecs_stub = argv[arg+1];
 	LOGA2A << "Saving heavy eigenvectors with stub " << evec_opts_h.save_evecs_stub << std::endl;
 	arg += 2;
+
+
+      }else if( cmdstr == "-load_light_vw"){
+	assert(arg < argc-1);
+	vw_opts_l.load_vw = true;
+	vw_opts_l.load_vw_stub = argv[arg+1];
+	LOGA2A << "Loading light VW fields with stub " << vw_opts_l.load_vw_stub << std::endl;
+	arg += 2;
+      }else if( cmdstr == "-save_light_vw"){
+	assert(arg < argc-1);
+	vw_opts_l.save_vw = true;
+	vw_opts_l.save_vw_stub = argv[arg+1];
+	LOGA2A << "Saving light VW fields with stub " << vw_opts_l.save_vw_stub << std::endl;
+	arg += 2;
+      }else if( cmdstr == "-load_heavy_vw"){
+	assert(arg < argc-1);
+	vw_opts_h.load_vw = true;
+	vw_opts_h.load_vw_stub = argv[arg+1];
+	LOGA2A << "Loading heavy VW fields with stub " << vw_opts_h.load_vw_stub << std::endl;
+	arg += 2;
+      }else if( cmdstr == "-save_heavy_vw"){
+	assert(arg < argc-1);
+	vw_opts_h.save_vw = true;
+	vw_opts_h.save_vw_stub = argv[arg+1];
+	LOGA2A << "Saving heavy VW fields with stub " << vw_opts_h.save_vw_stub << std::endl;
+	arg += 2;
+
+
+
+      }else if( cmdstr == "-convert_light_vw_grid_parts"){
+	assert(arg < argc-2);
+	vw_opts_l.convert_vw_grid_parts = true;
+	vw_opts_l.load_vw_stub = argv[arg+1];
+	vw_opts_l.save_vw_stub = argv[arg+2];
+	LOGA2A << "Converting light VW fields with stub " << vw_opts_l.load_vw_stub << " to stub " << vw_opts_l.save_vw_stub  << std::endl;
+	arg += 3;
+      }else if( cmdstr == "-convert_heavy_vw_grid_parts"){
+	assert(arg < argc-2);
+	vw_opts_h.convert_vw_grid_parts = true;
+	vw_opts_h.load_vw_stub = argv[arg+1];
+	vw_opts_h.save_vw_stub = argv[arg+2];
+	LOGA2A << "Converting light VW fields with stub " << vw_opts_h.load_vw_stub << " to stub " << vw_opts_h.save_vw_stub  << std::endl;
+	arg += 3;
+      
+
+
+
+      }else if( cmdstr == "-skip_light_vw"){
+	vw_opts_l.skip_vw = true;
+	LOGA2A << "Skipping light VW fields" << std::endl;
+	arg++;
+      }else if( cmdstr == "-skip_heavy_vw"){
+	vw_opts_h.skip_vw = true;
+	LOGA2A << "Skipping heavy VW fields" << std::endl;
+	arg++;
+      
+
+
       }else if( strncmp(cmd,"-randomize_mf",15) == 0){
 	randomize_mf = true;
 	LOGA2A << "Using random meson fields" << std::endl;
@@ -231,6 +315,10 @@ struct CommandLineArgs{
 	checkpoint_dir = argv[arg+1];
 	LOGA2A << "Doing LL props only with checkpoint directory "<< checkpoint_dir << std::endl;
 	arg+=2;
+      }else if( cmdstr == "-skip_contractions" ){
+	LOGA2A << "Disabling contractions" << std::endl;
+	do_contractions = false;
+	arg++;
       }else if( strncmp(cmd,"-skip_kaon2pt",30) == 0){
 	do_kaon2pt = false;
 	arg++;
@@ -310,13 +398,13 @@ struct CommandLineArgs{
 	arg+=2;
 #endif
 
-      }else if( cmdstr == "-gpu_pool_max_mem" ){
+      }else if( cmdstr == "-gpu_pool_max_mem" ){ //bytes
 	std::stringstream ss; ss << argv[arg+1];
 	size_t v; ss >> v;
 	DeviceMemoryPoolManager::globalPool().setPoolMaxSize(v);
 	HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::DevicePool);	
 	arg+=2;
-      }else if( cmdstr == "-host_pool_max_mem" ){
+      }else if( cmdstr == "-host_pool_max_mem" ){ //bytes
 	std::stringstream ss; ss << argv[arg+1];
 	size_t v; ss >> v;
 	HolisticMemoryPoolManager::globalPool().setPoolMaxSize(v, HolisticMemoryPoolManager::HostPool);	

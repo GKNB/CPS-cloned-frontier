@@ -41,6 +41,7 @@ private:
   void initialize(const FieldInputParamType &field_setup_params);
 public:
   typedef TimeFlavorPackedIndexDilution DilutionType;
+  template<typename P> using VectorTemplate = A2AvectorWfftw<P>;
 
   A2AvectorWfftw(const A2AArg &_args);
   A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params);
@@ -135,6 +136,8 @@ public:
     accelerator_inline FermionFieldView & getWh(const int hit, const int spin_color) const{ return awh[spin_color + 12*hit]; }
 
     accelerator_inline FermionFieldView & getMode(const int i) const{ return i < nl ? awl[i] : awh[i-nl]; }
+    accelerator_inline FermionFieldView & getLowMode(const int i) const{ return awl[i]; }
+    accelerator_inline FermionFieldView & getHighMode(const int i) const{ return awh[i]; }
 
     //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices: for i>=nl the modeIndexSet is used to obtain the appropriate mode 
     accelerator_inline FermionFieldView & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }

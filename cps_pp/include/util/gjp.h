@@ -522,6 +522,10 @@ public:
   /*!<
     \return The type of the initial RNG seed.
   */
+  StartSeedType SetSeedKind(StartSeedType to){
+    doarg_int.start_seed_kind = to;
+    return doarg_int.start_seed_kind;
+  }
 
   int StartSeedValue() const
       {return doarg_int.start_seed_value;}

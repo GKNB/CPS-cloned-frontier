@@ -106,6 +106,24 @@ inline void copy_device_to_host(void* to, void const* from, size_t bytes){
 #endif
 }
 
+inline void copy_device_to_device(void* to, void const* from, size_t bytes){
+#ifdef GPU_VEC
+
+#  if defined(GRID_CUDA)
+  assert( cudaMemcpy(to,from,bytes, cudaMemcpyDeviceToDevice) == cudaSuccess );
+#  elif defined(GRID_HIP)
+  assert( hipMemcpy(to,from,bytes, hipMemcpyHostToDevice) == hipSuccess );
+#  else
+  assert(0);
+#  endif
+
+#else
+  //no GPU
+  memcpy(to, from, bytes);
+#endif
+}
+
+
 //memset for device memory
 inline void device_memset(void *ptr, int value, size_t count){
 #ifdef GPU_VEC
@@ -220,10 +238,12 @@ inline void device_unpin_memory(void const* ptr){
 #endif
 }
 
- 
-	 
-
-
+//Free device memory held onto by the GPU for stack
+inline void reset_device_stack_memory(){
+#ifdef GRID_CUDA
+  cudaDeviceSetLimit(cudaLimitStackSize, 0);
+#endif
+}	 
 
 inline void device_profile_start(){
 #ifdef CPS_ENABLE_DEVICE_PROFILING
@@ -286,7 +306,7 @@ public:
     //Evict all the device-side copies
 #ifndef GRID_UVM
     LOGA2A << "Evicting all of Grid's device-side copies" << std::endl;
-    MemoryManager::EvictVictims(MemoryManager::DeviceMaxBytes);
+    MemoryManager::EvictVictims(MemoryManager::DeviceMaxBytes-1); //FIXME: Grid asserts bytes < Max  rather than bytes <= Max, this needs to be fixed in Grid; for now just subtract 1
 #endif
     LOGA2A << "Grid's memory manager final status" << std::endl;
     MemoryManager::PrintBytes();
@@ -733,7 +753,7 @@ public:
 	memcpy_time -= dclock();
 	memcpy(pmem,e.from,e.bytes);
 	memcpy_time += dclock();
-	if(vrb) std::cout << "asyncTransferManager: prefetch " << e.bytes << " " << e.from << ". memcpy " << time << "s,  rate " << e.bytes/1024./1024./time << "MB/s" << std::endl;
+	if(vrb) std::cout << "asyncTransferManager: prefetch " << e.bytes << " " << e.from << ". memcpy " << memcpy_time << "s,  rate " << e.bytes/1024./1024./memcpy_time << "MB/s" << std::endl;
 																			       
 	devcpy_time -= dclock();
 	copy_host_to_device_async(e.to,pmem,e.bytes);
@@ -755,7 +775,7 @@ public:
 	}
 #endif
 	devcpy_time += dclock();
-	if(vrb) std::cout << "asyncTransferManager: prefetch " << e.bytes << " " << e.from << ". devicecpy " << time << "s,  rate " << e.bytes/1024./1024./time << "MB/s" << std::endl;
+	if(vrb) std::cout << "asyncTransferManager: prefetch " << e.bytes << " " << e.from << ". devicecpy " << devcpy_time << "s,  rate " << e.bytes/1024./1024./devcpy_time << "MB/s" << std::endl;
 
 	
 #ifdef PIN_IN_PLACE
@@ -1120,8 +1140,9 @@ public:
 };
 
 
-
-
+#ifndef A2A_MEMPOOL_ALIGNMENT
+#define A2A_MEMPOOL_ALIGNMENT 32
+#endif
 
 //3-level memory pool manager with device,host,disk storage locations with eviction possible from device, host
 class HolisticMemoryPoolManager{
@@ -1150,6 +1171,8 @@ public:
     bool host_in_sync;
     bool disk_in_sync;
     std::string disk_file;
+
+    bool device_prefetch_underway; //allow for error checking if try to open device read view with a pending prefetch
 
     bool initialized; //keep track of whether the data has had a write
   };
@@ -1188,11 +1211,12 @@ protected:
     e.bytes = bytes;
     e.owned_by = nullptr;
     if(pool == DevicePool){
-      e.ptr = device_alloc_check(128,bytes);
+      e.ptr = device_alloc_check(A2A_MEMPOOL_ALIGNMENT,bytes);
       device_allocated += bytes;
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Allocated device entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
     }else{ //HostPool
-      e.ptr = memalign_check(128,bytes);
+      //e.ptr = memalign_check(A2A_MEMPOOL_ALIGNMENT,bytes);
+      e.ptr = mmap_alloc_check(A2A_MEMPOOL_ALIGNMENT,bytes);
       host_allocated += bytes;
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Allocated host entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;
     }
@@ -1244,8 +1268,10 @@ protected:
     if(pool == DevicePool){
       device_free(it->ptr); device_allocated -= it->bytes;
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Freed device memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
-    }else{ //DevicePool
-      ::free(it->ptr); host_allocated -= it->bytes;
+    }else{ //HostPool
+      //::free(it->ptr); 
+      mmap_free(it->ptr);
+      host_allocated -= it->bytes;
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Freed host memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;	
     }
   }
@@ -1293,8 +1319,9 @@ protected:
     //First check if we have an entry of the right size in the pool
     auto fit = free_pool.find(bytes);
     if(fit != free_pool.end()){
-      auto &entry_list = fit->second;      
-      assert(entry_list.size() > 0);
+      auto &entry_list = fit->second;
+      if(entry_list.size() == 0) ERR.General("HolisticMemoryPoolManager","getEntry","Free pool for size %lu bytes has size 0; this pool should have been deleted!", bytes);
+
       if(entry_list.back().bytes != bytes){
 	std::ostringstream os; os << "In pool of size " << bytes << "(check key " << fit->first << ") found entry of size " << entry_list.back().bytes << "! List has size " << entry_list.size() << " and full set of sizes: ";
 	for(auto e=entry_list.begin();e!=entry_list.end();e++) os << e->bytes <<  " ";
@@ -1365,12 +1392,12 @@ protected:
   void attachEntry(Handle &handle, Pool pool){
     sanityCheck();
     if(pool == DevicePool){
-      assert(!handle.device_valid);
+      if(handle.device_valid) ERR.General("HolisticMemoryPoolManager","attachEntry","Expect !handle.device_valid");
       handle.device_entry = getEntry(handle.bytes, DevicePool);
       handle.device_valid = true;
       handle.device_entry->owned_by = &handle;
     }else{
-      assert(!handle.host_valid);
+      if(handle.host_valid) ERR.General("HolisticMemoryPoolManager","attachEntry","Expect !handle.host_valid");
       handle.host_entry = getEntry(handle.bytes, HostPool);
       handle.host_valid = true;
       handle.host_entry->owned_by = &handle;
@@ -1387,9 +1414,9 @@ protected:
   
   void syncDeviceToHost(Handle &handle){
     sanityCheck();
-    assert(handle.initialized);
+    if(!handle.initialized) ERR.General("HolisticMemoryPoolManager","syncDeviceToHost","Attempting to sync an uninitialized data region!");
     if(!handle.host_in_sync){
-      assert(handle.device_in_sync && handle.device_valid);
+      if(!handle.device_in_sync || !handle.device_valid) ERR.General("HolisticMemoryPoolManager","syncDeviceToHost","Device copy is either not in sync or invalid");
       if(!handle.host_valid) attachEntry(handle, HostPool);
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing device " << handle.device_entry->ptr << " to host " << handle.host_entry->ptr << std::endl;
       copy_device_to_host(handle.host_entry->ptr, handle.device_entry->ptr, handle.bytes);
@@ -1398,9 +1425,9 @@ protected:
   }
   void syncHostToDevice(Handle &handle){
     sanityCheck();
-    assert(handle.initialized);
+    if(!handle.initialized) ERR.General("HolisticMemoryPoolManager","synHostToDevice","Attempting to sync an uninitialized data region!");
     if(!handle.device_in_sync){
-      assert(handle.host_in_sync && handle.host_valid);
+      if(!handle.host_in_sync || !handle.host_valid) ERR.General("HolisticMemoryPoolManager","syncHostToDevice","Host copy is either not in sync or invalid");
       if(!handle.device_valid) attachEntry(handle, DevicePool);
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing host " << handle.host_entry->ptr << " to device " << handle.device_entry->ptr << std::endl;
       copy_host_to_device(handle.device_entry->ptr, handle.host_entry->ptr, handle.bytes);
@@ -1409,34 +1436,43 @@ protected:
   }  
   void syncHostToDisk(Handle &handle){
     sanityCheck();
-    assert(handle.initialized);
+    if(!handle.initialized) ERR.General("HolisticMemoryPoolManager","syncHostToDisk","Attempting to sync an uninitialized data region!");
     if(!handle.disk_in_sync){
-      assert(handle.host_in_sync && handle.host_valid);
+      if(!handle.host_in_sync || !handle.host_valid) ERR.General("HolisticMemoryPoolManager","syncHostToDisk","Host copy is either not in sync or invalid");
       static size_t idx = 0;
       if(handle.disk_file == ""){
 	handle.disk_file = disk_root + "/mempool." + std::to_string(UniqueID()) + "." + std::to_string(idx++);
       }
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing host " << handle.host_entry->ptr << " to disk " << handle.disk_file << std::endl;
+#ifdef A2A_MEMPOOL_BYPASS_CACHE
+      write_data_bypass_cache(handle.disk_file, (char*)handle.host_entry->ptr, handle.bytes);
+#else
       std::fstream f(handle.disk_file.c_str(), std::ios::out | std::ios::binary);
       if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncHostToDisk","Failed to open file %s for write\n",handle.disk_file.c_str());
       f.write((char*)handle.host_entry->ptr, handle.bytes);
       if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncHostToDisk","Write error in file %s\n",handle.disk_file.c_str());
       f.flush(); //should ensure data is written to disk immediately and not kept around in some memory buffer, but may slow things down
+#endif
 
       handle.disk_in_sync = true;
     }
   }
   void syncDiskToHost(Handle &handle){
     sanityCheck();
-    assert(handle.initialized);
+    if(!handle.initialized) ERR.General("HolisticMemoryPoolManager","syncDiskToHost","Attempting to sync an uninitialized data region!");
     if(!handle.host_in_sync){
-      assert(handle.disk_in_sync && handle.disk_file != "");
-      if(!handle.host_valid) attachEntry(handle, HostPool);      
+      if(!handle.disk_in_sync || handle.disk_file == "") ERR.General("HolisticMemoryPoolManager","syncDiskToHost","Disk copy is either not in sync or invalid");     
+      if(!handle.host_valid) attachEntry(handle, HostPool);     
       if(verbose) LOGA2A << "HolisticMemoryPoolManager: Synchronizing disk " << handle.disk_file << " to host " << handle.host_entry->ptr << std::endl;
+#ifdef A2A_MEMPOOL_BYPASS_CACHE
+      read_data_bypass_cache(handle.disk_file, (char*)handle.host_entry->ptr, handle.bytes);
+#else
       std::fstream f(handle.disk_file.c_str(), std::ios::in | std::ios::binary);
       if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncDiskToHost","Failed to open file %s for write\n",handle.disk_file.c_str());
       f.read((char*)handle.host_entry->ptr, handle.bytes);
       if(!f.good()) ERR.General("HolisticMemoryPoolManager","syncDiskToHost","Write error in file %s\n",handle.disk_file.c_str());
+#endif
+
       handle.host_in_sync = true;
     }
   }
@@ -1451,6 +1487,8 @@ protected:
 	//Allow copies from uninitialized data, eg in copy constructor called during initialization of vector of fields
       }
     }else{ //DevicePool
+      if(handle.device_prefetch_underway) ERR.General("HolisticMemoryPoolManager","syncForRead (DeviceRead)","Attempting to open a device read view while a prefetch is still underway!");
+
       if(!handle.device_in_sync){	      
 	if(handle.host_in_sync) syncHostToDevice(handle);
 	else if(handle.disk_in_sync){
@@ -1470,6 +1508,8 @@ protected:
       handle.disk_in_sync = false;
       handle.initialized = true;
     }else{ //DevicePool
+      if(handle.device_prefetch_underway) ERR.General("HolisticMemoryPoolManager","markForWrite (DeviceWrite)","Attempting to open a device write view while a prefetch is still underway!");
+
       handle.host_in_sync = false;
       handle.device_in_sync = true;
       handle.disk_in_sync = false;
@@ -1518,6 +1558,28 @@ protected:
     return getLRUpool(pool).erase(entry); //remove from list
   }
 
+  static void summarizePoolStatus(std::ostream &os, const std::string &descr, const std::map<size_t,std::list<Entry>, std::greater<size_t> > &pool_stat){
+    os << descr << " (size_MB,count,total_MB):";
+    double tot = 0;
+    for(auto const &e : pool_stat){
+      double MB = byte_to_MB(e.first);
+      os << " (" << MB << "," << e.second.size() << "," << e.second.size() * MB << ")";
+      tot += e.second.size() * MB;
+    }
+    os << " : TOTAL " << tot << std::endl;
+  }
+  static void summarizePoolStatus(std::ostream &os, const std::string &descr, const std::map<size_t,int, std::greater<size_t> > &pool_stat){
+    os << descr << " (size_MB,count,total_MB):";
+    double tot = 0;
+    for(auto const &e : pool_stat){
+      double MB = byte_to_MB(e.first);
+      os << " (" << MB << "," << e.second << "," << e.second * MB << ")";
+      tot += e.second * MB;
+    }
+    os << " : TOTAL " << tot << std::endl;
+  }
+
+
 public:
 
   HolisticMemoryPoolManager(): device_allocated(0), device_pool_max_size(1024*1024*1024), host_allocated(0), host_pool_max_size(1024*1024*1024), verbose(false), disk_root("."){}
@@ -1546,7 +1608,7 @@ public:
 
   void setDiskRoot(const std::string &to){ disk_root = to; }
   
-  //Set the pool max size. When the next eviction cycle happens the extra memory will be deallocated
+  //Set the pool max size in bytes. When the next eviction cycle happens the extra memory will be deallocated
   void setPoolMaxSize(size_t to, Pool pool){
     auto &m = (pool == DevicePool ? device_pool_max_size : host_pool_max_size );
     m = to;
@@ -1571,12 +1633,40 @@ public:
     return out;
   }
 
-  std::string report() const{
+  std::string report(bool detailed = false) const{
     std::ostringstream os;
     os << "HolisticMemoryPoolManager consumption - device: " << double(device_allocated)/1024./1024.
        << " MB, host: " << double(host_allocated)/1024./1024.
        << " MB, disk (cached): " << double(getDiskCachedBytes())/1024./1024.
        << " MB, disk (total): " << double(getDiskUsedBytes())/1024/1024. << " MB";
+
+    if(detailed){
+      os << std::endl;
+
+      summarizePoolStatus(os, "DeviceFreePool", device_free_pool);
+      std::map<size_t, int, std::greater<size_t> > in_use;
+      for(auto const &e : device_in_use_pool){
+	auto it = in_use.find(e.bytes);
+	if(it == in_use.end()){
+	  in_use[e.bytes] = 1;
+	}else{
+	  ++(it->second);
+	}
+      }
+      summarizePoolStatus(os, "DeviceInUsePool", in_use);
+      in_use.clear();
+      summarizePoolStatus(os, "HostFreePool", host_free_pool);
+      for(auto const &e : host_in_use_pool){
+	auto it = in_use.find(e.bytes);
+	if(it == in_use.end()){
+	  in_use[e.bytes] = 1;
+	}else{
+	  ++(it->second);
+	}
+      }
+      summarizePoolStatus(os, "HostInUsePool", in_use);
+    }
+
     return os.str();
   }
   
@@ -1597,7 +1687,8 @@ public:
     h.bytes = bytes;
     h.disk_file = "";
     h.initialized = false;
-    attachEntry(h,pool);
+    h.device_prefetch_underway = false;
+    attachEntry(h,pool);    
     return it;
   }
 
@@ -1644,6 +1735,7 @@ public:
 	asyncTransferManager::globalInstance().enqueue(h->device_entry->ptr,h->host_entry->ptr,h->bytes);
 	h->device_in_sync = true; //technically true only if the prefetch is complete; make sure to wait!!
 	++h->lock_entry; //use this flag also for prefetches to ensure the memory region is not evicted while the async copy is happening
+	h->device_prefetch_underway = true; //mark for error checking
 	device_queued_prefetches.push_back(h);
       }
     }
@@ -1662,7 +1754,9 @@ public:
     asyncTransferManager::globalInstance().wait();
     for(auto h : device_queued_prefetches){
       if(h->lock_entry == 0) ERR.General("HolisticMemoryPoolManager","waitPrefetches","lock_entry has already been decremented to 0; this should not happen");
+      if(!h->device_prefetch_underway) ERR.General("HolisticMemoryPoolManager","waitPrefetches","device_prefetch_underway has already been decremented to 0; this should not happen");
       --h->lock_entry; //unlock
+      h->device_prefetch_underway = false;
     }
     device_queued_prefetches.clear();
   }
@@ -1688,8 +1782,8 @@ public:
 
 };
 
-inline std::string memPoolManagerReport(){
-  return HolisticMemoryPoolManager::globalPool().report();
+inline std::string memPoolManagerReport(bool detailed = false){
+  return HolisticMemoryPoolManager::globalPool().report(detailed);
 }
 
 

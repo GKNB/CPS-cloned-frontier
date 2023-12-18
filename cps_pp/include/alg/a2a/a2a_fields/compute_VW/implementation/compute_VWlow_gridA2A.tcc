@@ -1,6 +1,7 @@
-template<typename A2Apolicies, typename GridFermionFieldD>
-void computeVWlow(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const EvecInterface<GridFermionFieldD> &evecs,  
-		  const A2AlowModeCompute<GridFermionFieldD> &impl){  
+template<typename GridFermionFieldD, typename Vtype, typename Wtype>
+void computeVWlow(Vtype &V, Wtype &W, const EvecInterface<GridFermionFieldD> &evecs,  
+		  const A2AlowModeCompute<GridFermionFieldD> &impl){
+  LOGA2A << "Computing V,W low modes" << std::endl;
   int nl = V.getNl();
   if(nl == 0) return;
   assert(nl <= evecs.nEvecs());
@@ -16,14 +17,21 @@ void computeVWlow(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const 
 #ifndef MEMTEST_MODE
   for(size_t i = 0; i < nl; i++) {
     //Step 1) Compute Vl
+    printMem("getEvecD");
     Float eval = evecs.getEvecD(evec,i);
+    printMem("computeVl");
     impl.computeVl(tmp_full_4d, evec, eval);
+    printMem("importVl");
     V.getVl(i).importGridField(tmp_full_4d);
         
     //Step 2) Compute Wl
+    printMem("computeWl");
     impl.computeWl(tmp_full_4d, evec);
+    printMem("importWl");
     W.getWl(i).importGridField(tmp_full_4d);
   }
+  printMem("Completed V,W low modes");
 #endif
+  LOGA2A << "Finished V,W low modes" << std::endl;
 }
 

@@ -39,7 +39,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
     
 #pragma omp parallel for
     for(int i = 0; i < nmodes_l; i++){
-      typename mf_Policies::ComplexType mf_accum;
+      typename mf_Policies::ScalarComplexType mf_accum;
 
       modeIndexSet i_high_unmapped; if(i>=nl_l) lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
 
@@ -54,7 +54,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 
 	  M_v(mf_accum,lscf,rscf,p_3d,t);
 	}
-	t_v(i,j) = mf_accum; //downcast after accumulate      
+	t_v(i,j) = mf_accum;
       }
     }
   }
@@ -71,6 +71,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 
 
 //A reference implementation of the single timeslice meson field computation using unpacked data structures for testing
+//assumes non-SIMD complex type
 template<typename ComplexType, typename FermionFieldType, typename InnerProduct>
 void compute_simple(fMatrix<ComplexType> &into, const std::vector<FermionFieldType> &l, const InnerProduct &M, const std::vector<FermionFieldType> &r, const int t){
   int nv = l.size(); assert(r.size() == nv);

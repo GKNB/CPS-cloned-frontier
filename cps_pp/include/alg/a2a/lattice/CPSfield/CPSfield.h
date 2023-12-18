@@ -32,7 +32,7 @@ protected:
   size_t fsize; //number of SiteType in the array = SiteSize * fsites
 
   void alloc(){
-    this->_alloc(fsize*sizeof(SiteType));
+    this->_alloc(fsize*sizeof(SiteType), AllocLocationPref::Host); //default host allocate for now in order to avoid CPS and Grid competing for device mem during the stage when CPS is employing Grid
   }
   void freemem(){
     this->_free();
@@ -153,6 +153,9 @@ public:
     return *this;
   }
 
+  //Set all sites equal to 'with'. It should be an array of size SiteSize
+  void fill(SiteType *with);
+  
   static std::size_t byte_size(const InputParamType &params){
     CPSfield<SiteType,SiteSize,MappingPolicy,NullAllocPolicy> tmp(params); //doesn't allocate
     std::size_t out = SiteSize * sizeof(SiteType);
@@ -231,6 +234,8 @@ public:
     SiteType const* tf = t_v.ptr();
     SiteType const* rf = r_v.ptr();
     
+    bool result = true;
+
     for(size_t i=0;i<fsize;i++){
       if( fabs(tf[i].real() - rf[i].real()) > tolerance || fabs(tf[i].imag() - rf[i].imag()) > tolerance ){
 	if(verbose && !UniqueID()){
@@ -246,10 +251,11 @@ public:
 		 tf[i].real(),tf[i].imag(),rf[i].real(),rf[i].imag(),fabs(tf[i].real()-rf[i].real()), fabs(tf[i].imag()-rf[i].imag()) );
 	  fflush(stdout);
 	}
-	return false;
+	result = false;
+	if(!verbose) return result; //allow printing of all elements that differ if using verbose
       }
     }
-    return true;
+    return result;
   }
 #undef CONDITION
 

@@ -11,8 +11,8 @@
 //   = vL(x_op) wL^dag(x_op)   or  vH(x_op) wH^dag(x_op)
 
 //This disconnected 'bubble' is computed during the pipi calculation and therefore there is no need to recompute
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type4_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
 						     const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H){
 #ifndef MEMTEST_MODE
   static const int con_off = 23; //index of first contraction in set
@@ -64,10 +64,10 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &re
 #endif
 }
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type4_mult_vMv_setup(std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type4_mult_vMv_setup(std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
 							   const std::vector<mf_WW > &mf_kaon,
-							   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
+							   const Vtype & vL, const Vtype & vH,
 							   const int top_loc, const int tstep, const int Lt){
   Type4timings::timer().type4_mult_vMv_setup -= dclock();
   mult_vMv_split_part1.resize(Lt/tstep); //[tKidx]
@@ -78,8 +78,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_mult_vMv_setup(std::vector<vMv_sp
   Type4timings::timer().type4_mult_vMv_setup += dclock();
 }
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type4_precompute_part1(std::vector<SCFmatVector> &mult_vMv_contracted_part1,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type4_precompute_part1(std::vector<SCFmatVector> &mult_vMv_contracted_part1,
 							     std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
 							     const int top_loc, const int tstep, const int Lt){
   Type4timings::timer().type4_precompute_part1 -= dclock();
@@ -96,12 +96,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_precompute_part1(std::vector<SCFm
 
 
 
-template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type4_omp(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
+template<typename Vtype, typename Wtype>
+void ComputeKtoPiPiGparity<Vtype,Wtype>::type4_omp(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
 					    const int tstep,
 					    const std::vector<mf_WW > &mf_kaon,
-					    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-					    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+					    const Vtype & vL, const Vtype & vH, 
+					    const Wtype & wL, const Wtype & wH){
   
   Type4timings::timer().reset();
   Type4timings::timer().total -= dclock();

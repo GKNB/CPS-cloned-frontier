@@ -144,13 +144,19 @@ struct modeIndexSet{
   int flavor;
   int time; //actually this is the *tblock*, not the time itself (differ is src_width>1)   TODO: Change name!
   modeIndexSet(): hit(-1),spin_color(-1),flavor(-1),time(-1){}
+
 };
+inline std::ostream & operator<<(std::ostream &o, const modeIndexSet &m){
+  o << "(h=" << m.hit << ",sc=" << m.spin_color << ",f=" << m.flavor << ",t=" << m.time << ")";
+  return o;
+}
 
 //Various stages of high-mode dilution. Undiluted indices are referred to as 'packed'
 //For vectors V_{sc, f, t, h}  = v_{sc, f, t, h}
 class StandardIndexDilution: public A2Aparams{
 public:
-  enum { UndilutedIndices = 0 };
+  //time=0  flavor=1  spin_color=2
+  static inline bool isPacked(int typeidx){ return false; }
 
   StandardIndexDilution(): A2Aparams(){}
   StandardIndexDilution(const A2AArg &_args): A2Aparams(_args){}
@@ -193,7 +199,8 @@ public:
 class TimePackedIndexDilution: public A2Aparams{
 
 public:
-  enum { UndilutedIndices = 1 };
+  //time=0  flavor=1  spin_color=2
+  static inline bool isPacked(int typeidx){ return typeidx == 0; }
 
   TimePackedIndexDilution(): A2Aparams(){}
   TimePackedIndexDilution(const A2AArg &_args): A2Aparams(_args){}
@@ -250,7 +257,8 @@ public:
 class TimeFlavorPackedIndexDilution: public A2Aparams{
 
 public:
-  enum { UndilutedIndices = 2 };
+  //time=0  flavor=1  spin_color=2
+  static inline bool isPacked(int typeidx){ return typeidx == 0 || typeidx == 1; }
 
   TimeFlavorPackedIndexDilution(): A2Aparams(){}
   TimeFlavorPackedIndexDilution(const A2AArg &_args): A2Aparams(_args){}
@@ -303,11 +311,73 @@ public:
 };
 
 
+
+//An index containing only the hit and spin-color indices
+//For vectors   V_{sc, f, t, h} = v_{f, h} \delta_{sc,sc_delta}\delta_{t, t_delta}    [sc_delta,t_delta stored separately]
+class TimeSpinColorPackedIndexDilution: public A2Aparams{
+
+public:
+  //time=0  flavor=1  spin_color=2
+  static inline bool isPacked(int typeidx){ return typeidx == 0 || typeidx == 2; }
+
+  TimeSpinColorPackedIndexDilution(): A2Aparams(){}
+  TimeSpinColorPackedIndexDilution(const A2AArg &_args): A2Aparams(_args){}
+  TimeSpinColorPackedIndexDilution(const A2Aparams &_p): A2Aparams(_p){}
+
+  //Mapping used by W_fftw for high 'modes', where only the spin/color index has been diluted out
+  inline int indexMap(const int hit, const int flavor) const{
+    return flavor + nflavors * hit;
+  }
+  inline void indexUnmap(int idx, int &hit, int &flavor) const{
+    flavor = idx % nflavors; idx/=nflavors;
+    hit = idx;
+  }
+  inline int indexMap(const modeIndexSet &mset) const{
+    return indexMap(mset.hit, mset.flavor);
+  }
+  inline void indexUnmap(int idx,modeIndexSet &mset) const{
+    return indexUnmap(idx,mset.hit, mset.flavor);
+  }
+  inline int getNmodes() const{ return nl + nhits*nflavors; }
+
+  inline int getNlowModes() const{ return nl; }
+  inline int getNhighModes() const{ return nhits*nflavors; }
+  
+  //Compute the mapping between a full (unpacked) index and the packed index. Only the elements map[i] for which non_zeroes[i]==true are meaningful
+  //sc_delta, t_delta are defined above
+  void getIndexMapping(std::vector<int> &map, std::vector<bool> &non_zeroes, const int sc_delta, const int t_delta) const{
+    non_zeroes.resize(nv,false); map.resize(nv);
+    for(int i=0;i<nl;i++){ non_zeroes[i] = true; map[i] = i; } //low modes mapping trivial
+    
+    const StandardIndexDilution &unpacked = static_cast< const StandardIndexDilution &>(*this);
+
+    //Loop over packed modes and fill gaps
+    for(int p = 0; p < nhits*nflavors; p++){
+      modeIndexSet pparams;  indexUnmap(p, pparams); pparams.time = t_delta; pparams.spin_color = sc_delta; 
+      int idx_packed = nl + p;
+      int idx_unpacked = nl + unpacked.indexMap(pparams);
+      non_zeroes[idx_unpacked] = true;
+      map[idx_unpacked] = idx_packed;
+    }
+  }
+
+  //Compute the mapping between a full (unpacked) index and the packed index. Only the elements map[i] for which non_zeroes[i]==true are meaningful
+  //sc_delta, t_delta is passed in as the .spin_color and .time elements of the modeIndexSet coord_delta  (other indices ignored)
+  inline void getIndexMapping(std::vector<int> &map, std::vector<bool> &non_zeroes, const modeIndexSet &coord_delta) const{
+    assert(coord_delta.time != -1 && coord_delta.spin_color != -1);
+    getIndexMapping(map, non_zeroes, coord_delta.spin_color, coord_delta.time);
+  }
+  static std::string name(){ return "TimeSpinColorPackedIndexDilution"; }
+};
+
+
+
 //An index containing only the hit index
 //For vectors   V_{sc, f, t, h} = v_{h} \delta_{sc,sc_delta}\delta_{f,f_delta}\delta_{t, t_delta}    [sc_delta,f_delta,t_delta stored separately]
 class FullyPackedIndexDilution: public A2Aparams{
 public:
-  enum { UndilutedIndices = 3 };
+  //time=0  flavor=1  spin_color=2
+  static inline bool isPacked(int typeidx){ return true; }
 
   FullyPackedIndexDilution(): A2Aparams(){}
   FullyPackedIndexDilution(const A2AArg &_args): A2Aparams(_args){}
@@ -366,14 +436,22 @@ public:
 
 
 template<typename Dilution>
-struct FlavorUnpacked{};
+struct SpinColorFlavorUnpacked{};
 
 template<>
-struct FlavorUnpacked<TimeFlavorPackedIndexDilution>{
+struct SpinColorFlavorUnpacked<TimeFlavorPackedIndexDilution>{ //already unpacked in spin/color
   typedef TimePackedIndexDilution UnpackedType;
 };
 template<>
-struct FlavorUnpacked<StandardIndexDilution>{
+struct SpinColorFlavorUnpacked<TimeSpinColorPackedIndexDilution>{ //already unpacked in flavor
+  typedef TimePackedIndexDilution UnpackedType;
+};
+template<>
+struct SpinColorFlavorUnpacked<TimePackedIndexDilution>{ //already unpacked in spin/color/flavor
+  typedef TimePackedIndexDilution UnpackedType;
+};
+template<>
+struct SpinColorFlavorUnpacked<StandardIndexDilution>{ //already fully unpacked
   typedef StandardIndexDilution UnpackedType;
 };
 

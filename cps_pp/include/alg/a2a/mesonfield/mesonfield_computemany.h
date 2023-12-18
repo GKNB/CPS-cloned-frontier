@@ -9,23 +9,23 @@ CPS_START_NAMESPACE
 //It loops over some number of computations, performs the appropriate FFTs of the V and W vectors including gauge fixing
 //and momentum twist, then calls the meson field computation
 //It optionally optimizes the ordering of the FFTs to speed up the calculation
-template<typename mf_Policies, typename StorageType>
+template<typename Vtype, typename Wtype, typename StorageType>
 class ComputeMesonFields{  
  public:
-#ifdef USE_DESTRUCTIVE_FFT
-  typedef const std::vector< A2AvectorW<mf_Policies>*> WspeciesVector;
-  typedef const std::vector< A2AvectorV<mf_Policies>*> VspeciesVector;
-#else
-  typedef const std::vector< A2AvectorW<mf_Policies> const*> WspeciesVector;
-  typedef const std::vector< A2AvectorV<mf_Policies> const*> VspeciesVector;
-#endif
-  
+  typedef typename Vtype::Policies mf_Policies;
+  typedef const std::vector< Wtype*> WspeciesVector;
+  typedef const std::vector< Vtype*> VspeciesVector;
+  typedef typename Wtype::FFTvectorType WfftType;
+  typedef typename Vtype::FFTvectorType VfftType;
+
   typedef typename mf_Policies::ComplexType ComplexType;
   typedef typename mf_Policies::SourcePolicies SourcePolicies;
   typedef typename mf_Policies::FermionFieldType::InputParamType VWfieldInputParams;
   
-  typedef typename A2AvectorVfftw<mf_Policies>::FieldInputParamType Field4DInputParamTypeV;
-  typedef typename A2AvectorWfftw<mf_Policies>::FieldInputParamType Field4DInputParamTypeW;
+  typedef typename VfftType::FieldInputParamType Field4DInputParamTypeV;
+  typedef typename WfftType::FieldInputParamType Field4DInputParamTypeW;
+
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldType;
 
   template<typename FFTvector, typename BaseVector>
   static void gaugeFixTwist(FFTvector &out, BaseVector &in, const ThreeMomentum &p, Lattice &lattice){
@@ -50,16 +50,17 @@ class ComputeMesonFields{
 #endif
   }
 
-  template< template<typename> class FFTtype, template<typename> class BaseType>
-  static void printAllocMessage(const BaseType<mf_Policies> &base_field, const std::string &descr){
+  template<typename BaseType>
+  static void printAllocMessage(const BaseType &base_field, const std::string &descr){
+    typedef typename BaseType::FFTvectorType FFTtype;
 #ifdef USE_DESTRUCTIVE_FFT
     a2a_printf("ComputeMesonFields::compute Allocating %s FFT of size %f MB dynamically as %s of size %f MB is deallocated\n",
 	       descr.c_str(),
-	       FFTtype<mf_Policies>::Mbyte_size(base_field.getArgs(),base_field.getFieldInputParams()),
+	       FFTtype::Mbyte_size(base_field.getArgs(),base_field.getFieldInputParams()),
 	       descr.c_str(),
-	       BaseType<mf_Policies>::Mbyte_size(base_field.getArgs(),base_field.getFieldInputParams()) );
+	       BaseType::Mbyte_size(base_field.getArgs(),base_field.getFieldInputParams()) );
 #else
-    a2a_printf("ComputeMesonFields::compute Allocating a %s FFT of size %f MB\n", descr.c_str(), FFTtype<mf_Policies>::Mbyte_size(base_field.getArgs(), base_field.getFieldInputParams()));
+    a2a_printf("ComputeMesonFields::compute Allocating a %s FFT of size %f MB\n", descr.c_str(), FFTtype::Mbyte_size(base_field.getArgs(), base_field.getFieldInputParams()));
 #endif
   }
   
@@ -77,16 +78,16 @@ class ComputeMesonFields{
       typename StorageType::mfComputeInputFormat cdest = into.getMf(c);
       const typename StorageType::InnerProductType &M = into.getInnerProduct(c);
 
-      printAllocMessage<A2AvectorWfftw, A2AvectorW>(*W[qidx_w],"W");
-      A2AvectorWfftw<mf_Policies> fftw_W(W[qidx_w]->getArgs(), W_fieldparams );
+      printAllocMessage(*W[qidx_w],"W");
+      WfftType fftw_W(W[qidx_w]->getArgs(), W_fieldparams );
       
-      printAllocMessage<A2AvectorVfftw, A2AvectorV>(*V[qidx_v],"V");
-      A2AvectorVfftw<mf_Policies> fftw_V(V[qidx_v]->getArgs(), V_fieldparams );
+      printAllocMessage(*V[qidx_v],"V");
+      VfftType fftw_V(V[qidx_v]->getArgs(), V_fieldparams );
 
       gaugeFixTwist(fftw_W,*W[qidx_w], p_w.ptr(),lattice);
       gaugeFixTwist(fftw_V,*V[qidx_v], p_v.ptr(),lattice);
       
-      A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(cdest,fftw_W, M, fftw_V);
+      MesonFieldType::compute(cdest,fftw_W, M, fftw_V);
       
       into.postContractAction(c);
 
@@ -160,16 +161,16 @@ class ComputeMesonFields{
   //Given the base FFTs, get the C-shifted FFTs and compute the meson field
   static void shiftBaseAndComputeMF(typename StorageType::mfComputeInputFormat cdest,
 				  const A2AArg &W_args, const Field4DInputParamTypeW &W_fieldparams,
-				  const A2AArg &V_args, const Field4DInputParamTypeW &V_fieldparams,
+				  const A2AArg &V_args, const Field4DInputParamTypeV &V_fieldparams,
 				  const ThreeMomentum &p_w, const ThreeMomentum &p_v,
-				  A2AvectorWfftw<mf_Policies> * Wfftw_base[2], A2AvectorVfftw<mf_Policies> * Vfftw_base[2],
+				  WfftType * Wfftw_base[2], VfftType * Vfftw_base[2],
 				  const typename StorageType::InnerProductType &M){
 
-    a2a_printf("ComputeMesonFields::shiftBaseAndComputeMF Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W_args, W_fieldparams)); fflush(stdout);
-    A2AvectorWfftw<mf_Policies> fftw_W(W_args, W_fieldparams );
+    a2a_printf("ComputeMesonFields::shiftBaseAndComputeMF Allocating a W FFT of size %f MB\n", WfftType::Mbyte_size(W_args, W_fieldparams)); fflush(stdout);
+    WfftType fftw_W(W_args, W_fieldparams );
 
-    a2a_printf("ComputeMesonFields::shiftBaseAndComputeMF Allocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V_args, V_fieldparams)); fflush(stdout);
-    A2AvectorVfftw<mf_Policies> fftw_V(V_args, V_fieldparams );
+    a2a_printf("ComputeMesonFields::shiftBaseAndComputeMF Allocating a V FFT of size %f MB\n", VfftType::Mbyte_size(V_args, V_fieldparams)); fflush(stdout);
+    VfftType fftw_V(V_args, V_fieldparams );
 	      
 #ifdef USE_DESTRUCTIVE_FFT
     fftw_W.allocModes();
@@ -178,7 +179,7 @@ class ComputeMesonFields{
     
     fftw_W.getTwistedFFT(p_w.ptr(), Wfftw_base[0], Wfftw_base[1]);
     fftw_V.getTwistedFFT(p_v.ptr(), Vfftw_base[0], Vfftw_base[1]);
-    A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(cdest,fftw_W, M, fftw_V);
+    MesonFieldType::compute(cdest,fftw_W, M, fftw_V);
 
 #ifdef USE_DESTRUCTIVE_FFT
     fftw_W.freeModes();
@@ -191,19 +192,19 @@ class ComputeMesonFields{
 					   const A2AArg &W_args, const Field4DInputParamTypeW &W_fieldparams,
 					   const A2AArg &V_args, const Field4DInputParamTypeW &V_fieldparams,
 					   const ThreeMomentum &p_w, const ThreeMomentum &p_v,
-					   A2AvectorWfftw<mf_Policies> * Wfftw_base[2], A2AvectorVfftw<mf_Policies> * Vfftw_base[2],
+					   WfftType * Wfftw_base[2], VfftType * Vfftw_base[2],
 					   const typename StorageType::InnerProductType &M, 
 					   bool is_last){
 
     a2a_printf("ComputeMesonFields::shiftBaseInPlaceAndComputeMF Shifting base Wfftw in place\n");
-    std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> > inplace_w = A2AvectorWfftw<mf_Policies>::inPlaceTwistedFFT(p_w.ptr(), Wfftw_base[0], Wfftw_base[1]);
-    const A2AvectorWfftw<mf_Policies> &fftw_W = *inplace_w.first;
+    std::pair< WfftType*, std::vector<int> > inplace_w = WfftType::inPlaceTwistedFFT(p_w.ptr(), Wfftw_base[0], Wfftw_base[1]);
+    const WfftType &fftw_W = *inplace_w.first;
 
     a2a_printf("ComputeMesonFields::shiftBaseInPlaceAndComputeMF Shifting base Vfftw in place\n");
-    std::pair< A2AvectorVfftw<mf_Policies>*, std::vector<int> > inplace_v = A2AvectorVfftw<mf_Policies>::inPlaceTwistedFFT(p_v.ptr(), Vfftw_base[0], Vfftw_base[1]);
-    const A2AvectorVfftw<mf_Policies> &fftw_V = *inplace_v.first;
+    std::pair< VfftType*, std::vector<int> > inplace_v = VfftType::inPlaceTwistedFFT(p_v.ptr(), Vfftw_base[0], Vfftw_base[1]);
+    const VfftType &fftw_V = *inplace_v.first;
 
-    A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(cdest,fftw_W, M, fftw_V);
+    MesonFieldType::compute(cdest,fftw_W, M, fftw_V);
 
     bool do_restore = !is_last; //we can save a shift by not restoring on the last use of this base FFT, as we will be throwing it away anyway
 #ifdef USE_DESTRUCTIVE_FFT
@@ -246,11 +247,11 @@ class ComputeMesonFields{
 	A2AArg V_args = V[sv]->getArgs();
 
 	//Do the FFT of the base V vector
-	printAllocMessage<A2AvectorVfftw, A2AvectorV>(*V[sv],"V");
-	A2AvectorVfftw<mf_Policies> fftw_V_base(V_args, V_fieldparams);
+	printAllocMessage(*V[sv],"V");
+	VfftType fftw_V_base(V_args, V_fieldparams);
 	gaugeFixTwist(fftw_V_base, *V[sv], pvb, lattice);
 	
-	A2AvectorVfftw<mf_Policies> * Vfftw_base[2] = {NULL,NULL};
+	VfftType * Vfftw_base[2] = {NULL,NULL};
 	Vfftw_base[bv] = &fftw_V_base;
 
 	printMem("ComputeMesonFields::compute Memory after V FFT");
@@ -264,11 +265,11 @@ class ComputeMesonFields{
 	    A2AArg W_args = W[sw]->getArgs();
 
 	    //Do the FFT of the base W vector
-	    printAllocMessage<A2AvectorWfftw, A2AvectorW>(*W[sw],"W");
-	    A2AvectorWfftw<mf_Policies> fftw_W_base(W_args, W_fieldparams);
+	    printAllocMessage(*W[sw],"W");
+	    WfftType fftw_W_base(W_args, W_fieldparams);
 	    gaugeFixTwist(fftw_W_base, *W[sw], pwb, lattice);
 
-	    A2AvectorWfftw<mf_Policies> * Wfftw_base[2] = {NULL,NULL};
+	    WfftType * Wfftw_base[2] = {NULL,NULL};
 	    Wfftw_base[bw] = &fftw_W_base;
 
 	    printMem("ComputeMesonFields::compute Memory after W FFT");

@@ -1184,6 +1184,7 @@ struct vml_enum_map A2ACGalgorithm_map[] = {
 	{"A2ACGalgorithm","AlgorithmMixedPrecisionReliableUpdateCG",AlgorithmMixedPrecisionReliableUpdateCG},
 	{"A2ACGalgorithm","AlgorithmMixedPrecisionReliableUpdateSplitCG",AlgorithmMixedPrecisionReliableUpdateSplitCG},
 	{"A2ACGalgorithm","AlgorithmMixedPrecisionMADWF",AlgorithmMixedPrecisionMADWF},
+	{"A2ACGalgorithm","AlgorithmXconjMixedPrecisionReliableUpdateSplitCG",AlgorithmXconjMixedPrecisionReliableUpdateSplitCG},
 	{NULL,NULL,0}
 };
 
@@ -1212,6 +1213,11 @@ struct vml_enum_map A2AhighModeSourceType_map[] = {
 	{"A2AhighModeSourceType","A2AhighModeSourceTypeXconj",A2AhighModeSourceTypeXconj},
 	{"A2AhighModeSourceType","A2AhighModeSourceTypeFlavorUnit",A2AhighModeSourceTypeFlavorUnit},
 	{"A2AhighModeSourceType","A2AhighModeSourceTypeFlavorCConj",A2AhighModeSourceTypeFlavorCConj},
+	{"A2AhighModeSourceType","A2AhighModeSourceTypeFlavorUnitary",A2AhighModeSourceTypeFlavorUnitary},
+	{"A2AhighModeSourceType","A2AhighModeSourceTypeFlavorRotY",A2AhighModeSourceTypeFlavorRotY},
+	{"A2AhighModeSourceType","A2AhighModeSourceTypeU1X",A2AhighModeSourceTypeU1X},
+	{"A2AhighModeSourceType","A2AhighModeSourceTypeU1g0",A2AhighModeSourceTypeU1g0},
+	{"A2AhighModeSourceType","A2AhighModeSourceTypeU1H",A2AhighModeSourceTypeU1H},
 	{NULL,NULL,0}
 };
 

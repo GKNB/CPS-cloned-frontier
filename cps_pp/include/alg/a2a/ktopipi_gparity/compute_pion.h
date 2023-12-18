@@ -5,15 +5,17 @@
 
 CPS_START_NAMESPACE
 
-template<typename mf_Policies>
+template<typename Vtype, typename Wtype>
 class ComputePion{
 public:
-  
+  typedef typename Vtype::Policies mf_Policies;
+  typedef getMesonFieldType<Wtype,Vtype> mf_WV;
+
   //Compute the two-point function using the pre-generated meson fields.
   //The pion is given the momentum associated with index 'pidx' in the RequiredMomentum
   //result is indexed by (tsrc, tsep)  where tsep is the source-sink separation
   template<typename PionMomentumPolicy>
-  static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, MesonFieldMomentumContainer<mf_Policies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int pidx){
+  static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, MesonFieldMomentumContainer<mf_WV> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int pidx){
     typedef typename mf_Policies::ComplexType ComplexType;
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     
@@ -27,8 +29,8 @@ public:
     assert(mf_ll_con.contains(p_pi_snk));
 	   
     //Construct the meson fields
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_ll_src = mf_ll_con.get(p_pi_src);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_ll_snk = mf_ll_con.get(p_pi_snk);
+    std::vector<mf_WV> &mf_ll_src = mf_ll_con.get(p_pi_src);
+    std::vector<mf_WV> &mf_ll_snk = mf_ll_con.get(p_pi_snk);
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     LOGA2A << "Gathering meson fields" << std::endl;
     nodeGetMany(2,&mf_ll_src,&mf_ll_snk);

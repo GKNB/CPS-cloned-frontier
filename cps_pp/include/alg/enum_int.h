@@ -812,6 +812,7 @@ enum A2ACGalgorithm {
 	AlgorithmMixedPrecisionReliableUpdateCG = 2,
 	AlgorithmMixedPrecisionReliableUpdateSplitCG = 3,
 	AlgorithmMixedPrecisionMADWF = 4,
+	AlgorithmXconjMixedPrecisionReliableUpdateSplitCG = 5,
 };
 typedef enum A2ACGalgorithm A2ACGalgorithm;
 extern struct vml_enum_map A2ACGalgorithm_map[];
@@ -828,6 +829,11 @@ enum A2AhighModeSourceType {
 	A2AhighModeSourceTypeXconj = 1,
 	A2AhighModeSourceTypeFlavorUnit = 2,
 	A2AhighModeSourceTypeFlavorCConj = 3,
+	A2AhighModeSourceTypeFlavorUnitary = 4,
+	A2AhighModeSourceTypeFlavorRotY = 5,
+	A2AhighModeSourceTypeU1X = 6,
+	A2AhighModeSourceTypeU1g0 = 7,
+	A2AhighModeSourceTypeU1H = 8,
 };
 typedef enum A2AhighModeSourceType A2AhighModeSourceType;
 extern struct vml_enum_map A2AhighModeSourceType_map[];

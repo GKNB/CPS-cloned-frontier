@@ -32,15 +32,22 @@ CPS_START_NAMESPACE
 #define SET_A2AVECTOR_AUTOMATIC_ALLOC(PolicyType) \
   typedef A2AvectorV_autoAllocPolicies<PolicyType> A2AvectorVpolicies; \
   typedef A2AvectorW_autoAllocPolicies<PolicyType> A2AvectorWpolicies; \
+  typedef A2AvectorWunitary_autoAllocPolicies<PolicyType> A2AvectorWunitarypolicies; \
+  typedef A2AvectorWtimePacked_autoAllocPolicies<PolicyType> A2AvectorWtimePackedPolicies; \
   typedef A2AvectorVfftw_autoAllocPolicies<PolicyType> A2AvectorVfftwPolicies; \
-  typedef A2AvectorWfftw_autoAllocPolicies<PolicyType> A2AvectorWfftwPolicies
+  typedef A2AvectorWfftw_autoAllocPolicies<PolicyType> A2AvectorWfftwPolicies; \
+  typedef A2AvectorWunitaryfftw_autoAllocPolicies<PolicyType> A2AvectorWunitaryfftwPolicies
+
 
 
 #define SET_A2AVECTOR_MANUAL_ALLOC(PolicyType) \
   typedef A2AvectorV_manualAllocPolicies<PolicyType> A2AvectorVpolicies; \
   typedef A2AvectorW_manualAllocPolicies<PolicyType> A2AvectorWpolicies; \
+  typedef A2AvectorWunitary_manualAllocPolicies<PolicyType> A2AvectorWunitarypolicies; \
+  typedef A2AvectorWtimePacked_manualAllocPolicies<PolicyType> A2AvectorWtimePackedPolicies; \
   typedef A2AvectorVfftw_manualAllocPolicies<PolicyType> A2AvectorVfftwPolicies; \
-  typedef A2AvectorWfftw_manualAllocPolicies<PolicyType> A2AvectorWfftwPolicies
+  typedef A2AvectorWfftw_manualAllocPolicies<PolicyType> A2AvectorWfftwPolicies; \
+  typedef A2AvectorWunitaryfftw_manualAllocPolicies<PolicyType> A2AvectorWunitaryfftwPolicies
 
 
 //Type policies needed for sources

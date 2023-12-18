@@ -16,9 +16,9 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
   NullObject n;
   CPSfield<GCtype,12,FourDpolicy<OneFlavorPolicy> > a(n); a.testRandom();
   CPSfield<GCtype,12,FourDpolicy<OneFlavorPolicy> > b(n); b.testRandom();
-  CPSfield<GVtype,12,FourDSIMDPolicy<OneFlavorPolicy>,Aligned128AllocPolicy> aa(simd_dims); aa.importField(a);
-  CPSfield<GVtype,12,FourDSIMDPolicy<OneFlavorPolicy>,Aligned128AllocPolicy> bb(simd_dims); bb.importField(b);
-  CPSfield<GVtype,1,FourDSIMDPolicy<OneFlavorPolicy>,Aligned128AllocPolicy> cc(simd_dims);
+  CPSfield<GVtype,12,FourDSIMDPolicy<OneFlavorPolicy> > aa(simd_dims); aa.importField(a);
+  CPSfield<GVtype,12,FourDSIMDPolicy<OneFlavorPolicy> > bb(simd_dims); bb.importField(b);
+  CPSfield<GVtype,1,FourDSIMDPolicy<OneFlavorPolicy> > cc(simd_dims);
 
 #ifdef TIMERS_OFF
   printf("Timers are OFF\n"); fflush(stdout);
@@ -30,30 +30,33 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
 
 #ifndef GPU_VEC
   printf("Max threads %d\n",omp_get_max_threads());
-  
-#pragma omp parallel //avoid thread creation overheads
-  {
-    int me = omp_get_thread_num();
-    size_t work, off;
-    thread_work(work, off, aa.nfsites(), me, omp_get_num_threads());
-	
-    GVtype *abase = aa.fsite_ptr(off);
-    GVtype *bbase = bb.fsite_ptr(off);
-    GVtype *cbase = cc.fsite_ptr(off);
+  {   
+    CPSautoView(aa_v,aa,HostRead);
+    CPSautoView(bb_v,bb,HostRead);
+    CPSautoView(cc_v,cc,HostWrite);
 
-    for(int test=0;test<ntests+1;test++){
-      if(test == 1) t0 = Grid::usecond(); //ignore first iteration
-      GVtype *ai = abase;
-      GVtype *bi = bbase;
-      GVtype *ci = cbase;
-      __SSC_MARK(0x1);
-      for(size_t i=0;i<work;i++){
-	*ci = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ai,bi);
-	ai += 12;
-	bi += 12;
-	ci += 1;
+#pragma omp parallel //avoid thread creation overheads
+    {
+      int me = omp_get_thread_num();
+      size_t work, off;
+      thread_work(work, off, aa.nfsites(), me, omp_get_num_threads());
+	
+      GVtype *abase = aa_v.fsite_ptr(off);
+      GVtype *bbase = bb_v.fsite_ptr(off);
+      GVtype *cbase = cc_v.fsite_ptr(off);
+
+      for(int test=0;test<ntests+1;test++){
+	if(test == 1) t0 = Grid::usecond(); //ignore first iteration
+	GVtype *ai = abase;
+	GVtype *bi = bbase;
+	GVtype *ci = cbase;
+	for(size_t i=0;i<work;i++){
+	  *ci = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ai,bi);
+	  ai += 12;
+	  bi += 12;
+	  ci += 1;
+	}
       }
-      __SSC_MARK(0x2);
     }
   }
 
@@ -65,33 +68,38 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
 
   size_t site_size_ab = aa.siteSize();
   size_t site_size_c = cc.siteSize();
-    
-  GVtype const* adata = aa.ptr();
-  GVtype const* bdata = bb.ptr();
-  GVtype * cdata = cc.ptr();
+   
+  {
+    CPSautoView(aa_v,aa,HostRead);
+    CPSautoView(bb_v,bb,HostRead);
+    CPSautoView(cc_v,cc,HostWrite);
 
-  for(int test=0;test<ntests+1;test++){   
-   {
-      using namespace Grid;
-      if(test == 1) t0 = Grid::usecond(); //ignore first iteration
+    GVtype const* adata = aa_v.ptr();
+    GVtype const* bdata = bb_v.ptr();
+    GVtype * cdata = cc_v.ptr();
 
-      if(test == ntests -1) cudaProfilerStart();
+    for(int test=0;test<ntests+1;test++){   
+      {
+	using namespace Grid;
+	if(test == 1) t0 = Grid::usecond(); //ignore first iteration
 
-      accelerator_for(item, work, Nsimd, 
-		      {
-			size_t x = item;
-			GVtype const* ax = adata + site_size_ab*x;
-			GVtype const* bx = bdata + site_size_ab*x;
-			GVtype *cx = cdata + site_size_c*x;
+	if(test == ntests -1) cudaProfilerStart();
+
+	accelerator_for(item, work, Nsimd, 
+			{
+			  size_t x = item;
+			  GVtype const* ax = adata + site_size_ab*x;
+			  GVtype const* bx = bdata + site_size_ab*x;
+			  GVtype *cx = cdata + site_size_c*x;
 			
-			typename SIMT<GVtype>::value_type v = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ax,bx);
+			  typename SIMT<GVtype>::value_type v = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ax,bx);
 
-			SIMT<GVtype>::write(*cx, v);			  
-		      });
-      if(test == ntests -1) cudaProfilerStop();
-    }   
-  }    
-
+			  SIMT<GVtype>::write(*cx, v);			  
+			});
+	if(test == ntests -1) cudaProfilerStop();
+      }   
+    }    
+  }
 #endif
 
   double t1 = Grid::usecond();
@@ -373,28 +381,34 @@ void benchmarkMultiSrcMFcontract(const A2AArg &a2a_args, const int ntests, const
   int reduce_FLOPs = 0; // (nsimd - 1)*2; //nsimd-1 cadd
 
   double FLOPs_per_site = 0.;
-  for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
-    const int nl_l = mf_exp[t].getRowParams().getNl();
-    const int nl_r = mf_exp[t].getColParams().getNl();
+  {
+    CPSautoView(Wgrid_v,Wgrid,HostRead);
+    CPSautoView(Vgrid_v,Vgrid,HostRead);
 
-    int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+    for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
+      const int nl_l = mf_exp[t].getRowParams().getNl();
+      const int nl_r = mf_exp[t].getColParams().getNl();
 
-    for(int i = 0; i < mf_exp[t].getNrows(); i++){
-      modeIndexSet i_high_unmapped; if(i>=nl_l) mf_exp[t].getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
-      SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> lscf = Wgrid.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already \
+      int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+
+      for(int i = 0; i < mf_exp[t].getNrows(); i++){
+	modeIndexSet i_high_unmapped; if(i>=nl_l) mf_exp[t].getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
+	SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> lscf = Wgrid_v.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already \
                                                                                                                                                                                                            
-      for(int j = 0; j < mf_exp[t].getNcols(); j++) {
-	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_exp[t].getColParams().indexUnmap(j-nl_r,j_high_unmapped);
-	SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> rscf = Vgrid.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+	for(int j = 0; j < mf_exp[t].getNcols(); j++) {
+	  modeIndexSet j_high_unmapped; if(j>=nl_r) mf_exp[t].getColParams().indexUnmap(j-nl_r,j_high_unmapped);
+	  SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> rscf = Vgrid_v.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
 
-	for(int a=0;a<2;a++)
-	  for(int b=0;b<2;b++)
-	    if(!lscf.isZero(a) && !rscf.isZero(b))
-	      FLOPs_per_site += g5_FLOPs;
-	FLOPs_per_site += siteFmat_FLOPs + s3_FLOPs + TransLeftTrace_FLOPs + reduce_FLOPs;
+	  for(int a=0;a<2;a++)
+	    for(int b=0;b<2;b++)
+	      if(!lscf.isZero(a) && !rscf.isZero(b))
+		FLOPs_per_site += g5_FLOPs;
+	  FLOPs_per_site += siteFmat_FLOPs + s3_FLOPs + TransLeftTrace_FLOPs + reduce_FLOPs;
+	}
       }
     }
   }
+
   const typename GridA2Apolicies::FermionFieldType &mode0 = Wgrid.getMode(0);
   const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
   double total_FLOPs = double(FLOPs_per_site) * double(size_3d) * double(ntests);
@@ -470,26 +484,32 @@ void benchmarkMultiShiftMFcontract(const A2AArg &a2a_args, const int nshift){
   int reduce_FLOPs = 0; // (nsimd - 1)*2; //nsimd-1 cadd
   
   double FLOPs_per_site = 0.;
-  for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
-    const A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> &mf_shift0 = mf[0][t];
-    const int nl_l = mf_shift0.getRowParams().getNl();
-    const int nl_r = mf_shift0.getColParams().getNl();
-
-    int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+  {
+    CPSautoView(Wgrid_v,Wgrid,HostRead);
+    CPSautoView(Vgrid_v,Vgrid,HostRead);
     
-    for(int i = 0; i < mf_shift0.getNrows(); i++){
-      modeIndexSet i_high_unmapped; if(i>=nl_l) mf_shift0.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
-      SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> lscf = Wgrid.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already \
+  
+    for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
+      const A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> &mf_shift0 = mf[0][t];
+      const int nl_l = mf_shift0.getRowParams().getNl();
+      const int nl_r = mf_shift0.getColParams().getNl();
+
+      int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+    
+      for(int i = 0; i < mf_shift0.getNrows(); i++){
+	modeIndexSet i_high_unmapped; if(i>=nl_l) mf_shift0.getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
+	SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> lscf = Wgrid_v.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already \
 																	    
-      for(int j = 0; j < mf_shift0.getNcols(); j++) {
-	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_shift0.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
-	SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> rscf = Vgrid.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+	for(int j = 0; j < mf_shift0.getNcols(); j++) {
+	  modeIndexSet j_high_unmapped; if(j>=nl_r) mf_shift0.getColParams().indexUnmap(j-nl_r,j_high_unmapped);
+	  SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> rscf = Vgrid_v.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
 	
-	for(int a=0;a<2;a++)
-	  for(int b=0;b<2;b++)
-	    if(!lscf.isZero(a) && !rscf.isZero(b))
-	      FLOPs_per_site += g5_FLOPs;
-	FLOPs_per_site += siteFmat_FLOPs + s3_FLOPs + TransLeftTrace_FLOPs + reduce_FLOPs;
+	  for(int a=0;a<2;a++)
+	    for(int b=0;b<2;b++)
+	      if(!lscf.isZero(a) && !rscf.isZero(b))
+		FLOPs_per_site += g5_FLOPs;
+	  FLOPs_per_site += siteFmat_FLOPs + s3_FLOPs + TransLeftTrace_FLOPs + reduce_FLOPs;
+	}
       }
     }
   }

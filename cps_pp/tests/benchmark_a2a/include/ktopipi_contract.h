@@ -14,10 +14,15 @@ template<typename A2Apolicies>
 struct _benchmarkKtoPiPiOffload<A2Apolicies, 1>{
   typedef typename A2Apolicies::ComplexType mf_Complex;
   typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;    
-  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_WV;
-  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > mf_WW;
-  typedef typename ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
-  typedef typename ComputeKtoPiPiGparity<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+  typedef A2AvectorV<A2Apolicies> Vtype;
+  typedef A2AvectorW<A2Apolicies> Wtype;
+  typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
+  typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> mf_WW;
+  typedef std::vector<mf_WV> mf_WV_vec;
+  typedef std::vector<mf_WW> mf_WW_vec;
+  typedef ComputeKtoPiPiGparity<Vtype,Wtype> Compute;
+  typedef typename Compute::ResultsContainerType ResultsContainerType;
+  typedef typename Compute::MixDiagResultsContainerType MixDiagResultsContainerType;
 
   Lattice &lat;
   const A2AArg &a2a_args;
@@ -27,15 +32,15 @@ struct _benchmarkKtoPiPiOffload<A2Apolicies, 1>{
   int Lt;
 
   FieldInputParamType fp;
-  A2AvectorW<A2Apolicies> *W;
-  A2AvectorV<A2Apolicies> *V;
-  A2AvectorW<A2Apolicies> *Wh;
-  A2AvectorV<A2Apolicies> *Vh;
+  Wtype *W;
+  Vtype *V;
+  Wtype *Wh;
+  Vtype *Vh;
 
-  MesonFieldMomentumContainer<A2Apolicies> mf_pions;
+  MesonFieldMomentumContainer<mf_WV> mf_pions;
 
-  mf_WV tmp_WV;
-  mf_WW tmp_WW;
+  mf_WV_vec tmp_WV;
+  mf_WW_vec tmp_WW;
     
   ThreeMomentum pp;
   ThreeMomentum pm;
@@ -63,14 +68,14 @@ struct _benchmarkKtoPiPiOffload<A2Apolicies, 1>{
     
     defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
   
-    W = new A2AvectorW<A2Apolicies>(a2a_args,fp);
-    V = new A2AvectorV<A2Apolicies>(a2a_args,fp);
+    W = new Wtype(a2a_args,fp);
+    V = new Vtype(a2a_args,fp);
     W->testRandom();
     V->testRandom();
     printMem("benchmarkKtoPiPiOffload W,V setup");
 
-    Wh = new A2AvectorW<A2Apolicies>(a2a_args_s,fp);
-    Vh = new A2AvectorV<A2Apolicies>(a2a_args_s,fp);
+    Wh = new Wtype(a2a_args_s,fp);
+    Vh = new Vtype(a2a_args_s,fp);
     Wh->testRandom();
     Vh->testRandom();
     printMem("benchmarkKtoPiPiOffload Wh,Vh setup");
@@ -97,7 +102,7 @@ struct _benchmarkKtoPiPiOffload<A2Apolicies, 1>{
   void type1(){
     if(!UniqueID()){ printf("Timing K->pipi type 1 field version\n"); fflush(stdout); }
     std::vector<ResultsContainerType> result(tsep_k_pi.size());
-    ComputeKtoPiPiGparity<A2Apolicies>::type1_field(result.data(), tsep_k_pi, pipi_sep, tstep, pp, tmp_WW, mf_pions, *V, *Vh, *W, *Wh);
+    Compute::type1_field(result.data(), tsep_k_pi, pipi_sep, tstep, pp, tmp_WW, mf_pions, *V, *Vh, *W, *Wh);
     if(!UniqueID()){ printf("End of timing of K->pipi type 1 field version\n"); fflush(stdout); }
   }
 
@@ -107,7 +112,7 @@ struct _benchmarkKtoPiPiOffload<A2Apolicies, 1>{
     ResultsContainerType result;
     MixDiagResultsContainerType mix;
 
-    ComputeKtoPiPiGparity<A2Apolicies>::type4_field(result, mix, 1, tmp_WW, *V, *Vh, *W, *Wh);
+    Compute::type4_field(result, mix, 1, tmp_WW, *V, *Vh, *W, *Wh);
     if(!UniqueID()){ printf("End of timing of K->pipi type 4 field version\n"); fflush(stdout); }
   }
 };

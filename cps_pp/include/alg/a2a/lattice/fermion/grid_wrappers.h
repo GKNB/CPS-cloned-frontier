@@ -26,7 +26,7 @@ LatticeType* createFgridLattice(const JobParams &jp){
 }
 
 template<typename GridDirac, typename GridFermionFieldD, typename FgridGFclass>
-void testEigenvectors(const EvecInterface<GridFermionFieldD> &evecs, const double mass, FgridGFclass &lattice, A2Apreconditioning precon_type = SchurOriginal){ 
+int testEigenvectors(const EvecInterface<GridFermionFieldD> &evecs, const double mass, FgridGFclass &lattice, double tol, A2Apreconditioning precon_type = SchurOriginal){ 
   a2a_printf("Testing eigenvectors with mass %f\n",mass); 
   Grid::GridCartesian *UGrid = lattice.getUGrid();
   Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
@@ -48,9 +48,36 @@ void testEigenvectors(const EvecInterface<GridFermionFieldD> &evecs, const doubl
   
   conformable(FrbGrid, evecs.getEvecGridD());
   GridFermionFieldD tmp1(FrbGrid), tmp2(FrbGrid), tmp3(FrbGrid), evec(FrbGrid);
+  
+  //Grid normalizes the residual with respect to the largest eigenvalue
+  Grid::RealD evalMaxApprox = 0.0;
+  {  
+    Grid::GridParallelRNG RNG(FGrid);
+    RNG.SeedFixedIntegers({1,2,3,4});
+    GridFermionFieldD gauss(FGrid);   
+    gaussian(RNG, gauss); 
+    pickCheckerboard(Odd, tmp1, gauss);
+
+    for (int i=0;i<50;i++) {
+      //normalize
+      double nn = norm2(tmp1);
+      tmp1 = tmp1 * (1.0/std::sqrt(nn));
+      
+      HermOp->HermOp(tmp1,tmp2);
+      double vnum = Grid::real(innerProduct(tmp1,tmp2)); // HermOp.
+      double vden = norm2(tmp1);
+      double na = vnum/vden;
+      if (fabs(evalMaxApprox/na - 1.0) < 0.0001)
+	i=50;
+      evalMaxApprox = na;
+      LOGA2A << " Approximation of largest eigenvalue: " << evalMaxApprox << std::endl;
+      tmp1 = tmp2;
+    }
+  }
 
   int N = evecs.nEvecs();
-  
+  int Nconv = 0;
+
   for(int i=0;i<N;i++){
     double eval = evecs.getEvecD(evec, i);
 
@@ -59,10 +86,14 @@ void testEigenvectors(const EvecInterface<GridFermionFieldD> &evecs, const doubl
 
     tmp3 = eval * evec; //tmp3 = lambda v
 
-    double nrm = sqrt(axpy_norm(tmp1, -1., tmp2, tmp3)); //tmp1 = tmp3 - tmp2
+    double nrm = sqrt(axpy_norm(tmp1, -1., tmp2, tmp3)) / evalMaxApprox; //tmp1 = tmp3 - tmp2
     
-    a2a_printf("Idx %d Eval %g Resid %g #Evecs %d #Evals %d\n",i,eval,nrm,N,N);
+    int conv = nrm < tol;
+    a2a_printf("Idx %d Eval %g Resid %g #Evecs %d #Evals %d %s\n",i,eval,nrm,N,N, conv ? "converged" : "NOT converged");
+    Nconv += conv;
   }
+  LOGA2A << "Converged " << Nconv << " eigenvectors" << std::endl;
+  return Nconv;
 }
 
 template<typename GridFermionField>
@@ -156,7 +187,9 @@ public:
     //Test the evecs
     if(nev > 0){
       EvecInterfaceDoublePrec<GridFermionFieldD> ei(evec,eval,evec[0].Grid());
-      testEigenvectors<typename GridPolicies::GridDirac>(ei,lanc_arg.mass,lat,precon_type);
+      int Nconv = testEigenvectors<typename GridPolicies::GridDirac>(ei,lanc_arg.mass,lat,lanc_arg.stop_rsd,precon_type);
+      if(Nconv < lanc_arg.N_true_get)
+	ERR.General("GridLanczosDoubleConvSingle","compute","Only converged %d eigenvectors, require at least %d",Nconv,lanc_arg.N_true_get);
     }
 
     //Convert to single precision
@@ -253,7 +286,9 @@ public:
     //Test the evecs
     if(nev > 0){
       EvecInterfaceXconjDoublePrec<GridFermionFieldD,GridXconjFermionFieldD> ei(evec,eval,evec[0].Grid());
-      testEigenvectors<typename GridPolicies::GridDirac>(ei,lanc_arg.mass,lat,precon_type); //tests with 2-flavor Dirac operator :)
+      int Nconv = testEigenvectors<typename GridPolicies::GridDirac>(ei,lanc_arg.mass,lat,lanc_arg.stop_rsd,precon_type); //tests with 2-flavor Dirac operator :)
+      if(Nconv < lanc_arg.N_true_get)
+	ERR.General("GridXconjLanczosDoubleConvSingle","compute","Only converged %d eigenvectors, require at least %d",Nconv,lanc_arg.N_true_get);
     }
 
     //Convert to single precision
@@ -354,7 +389,9 @@ public:
     //Test the evecs
     if(nev > 0){
       EvecInterfaceXconjDoublePrec<GridFermionFieldD,GridXconjFermionFieldD> ei(evec,eval,evec[0].Grid());
-      testEigenvectors<typename GridPolicies::GridDirac>(ei,lanc_arg.mass,lat,precon_type); //tests with 2-flavor Dirac operator :)
+      int Nconv = testEigenvectors<typename GridPolicies::GridDirac>(ei,lanc_arg.mass,lat,lanc_arg.stop_rsd,precon_type); //tests with 2-flavor Dirac operator :)
+      if(Nconv < lanc_arg.N_true_get)
+	ERR.General("GridXconjBlockLanczosDoubleConvSingle","compute","Only converged %d eigenvectors, require at least %d",Nconv,lanc_arg.N_true_get);
     }
 
     //Convert to single precision
@@ -456,7 +493,9 @@ public:
     if(nev > 0){
       EvecInterfaceXconjSinglePrec<GridFermionFieldD,GridXconjFermionFieldD,
 				   GridFermionFieldF,GridXconjFermionFieldF> ei(evec_f,eval,lat.getFrbGrid(),lat.getFrbGridF()); //enable retrieval of double prec fields
-      testEigenvectors<typename GridPolicies::GridDirac>(ei,lanc_arg.mass,lat,precon_type); //tests with 2-flavor Dirac operator, double precision :)
+      int Nconv = testEigenvectors<typename GridPolicies::GridDirac>(ei,lanc_arg.mass,lat,lanc_arg.stop_rsd,precon_type); //tests with 2-flavor Dirac operator :)
+      if(Nconv < lanc_arg.N_true_get)
+	ERR.General("GridXconjBlockLanczosSingle","compute","Only converged %d eigenvectors, require at least %d",Nconv,lanc_arg.N_true_get);
     }
 
     LOGA2A << "GridXconjBlockLanczosSingle: completed eigenvector calculation" << std::endl;

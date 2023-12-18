@@ -26,8 +26,6 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 		     const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams){
   params.meas_arg.TrajCur = conf;
 
-  std::string dir(params.meas_arg.WorkDirectory);
-
   //-------------------- Read gauge field --------------------//
   readGaugeRNG(params,cmdline);
   printMem("Memory after gauge and RNG read");
@@ -47,14 +45,23 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
     delete lat;
     return;
   }
+  
+  bool need_light_evecs = cmdline.vw_opts_l.needEvecs() || cmdline.force_evec_compute;
+  bool need_heavy_evecs = cmdline.vw_opts_h.needEvecs() || cmdline.force_evec_compute;
 
   //-------------------- Light quark Lanczos ---------------------//
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(*eig, Light, params, cmdline.evec_opts_l);
+  if(need_light_evecs) computeEvecs(*eig, Light, params, cmdline.evec_opts_l);
 
   //-------------------- Light quark v and w --------------------//
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
+#ifdef KTOPIPI_USE_WUNITARY
+  A2AvectorWunitary<A2Apolicies> W(params.a2a_arg, field4dparams);
+#elif defined(KTOPIPI_USE_WTIMEPACKED)
+  A2AvectorWtimePacked<A2Apolicies> W(params.a2a_arg, field4dparams);
+#else
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
-  computeVW(V, W, Light, params, *eig, cmdline.randomize_vw);
+#endif
+  computeVW(V, W, Light, params, *eig, cmdline.vw_opts_l);
 
   LOGA2A << "Freeing light evecs" << std::endl;
   printMem("Memory before light evec free");
@@ -62,16 +69,25 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   printMem("Memory after light evec free");
     
   //-------------------- Strange quark Lanczos ---------------------//
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(*eig_s, Heavy, params, cmdline.evec_opts_h);
+  if(need_heavy_evecs) computeEvecs(*eig_s, Heavy, params, cmdline.evec_opts_h);
 
   //-------------------- Strange quark v and w --------------------//
   A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
+#ifdef KTOPIPI_USE_WUNITARY
+  A2AvectorWunitary<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
+#elif defined(KTOPIPI_USE_WTIMEPACKED)
+  A2AvectorWtimePacked<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
+#else
   A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
-  computeVW(V_s, W_s, Heavy, params, *eig_s, cmdline.randomize_vw);
+#endif
+  computeVW(V_s, W_s, Heavy, params, *eig_s, cmdline.vw_opts_h);
 
   printMem("Memory before heavy evec free");
   eig_s->freeEvecs();
   printMem("Memory after heavy evec free");
+
+  //End the configuration here if we are not doing contractions or if W,V are not available for either light or heavy quarks
+  if(!cmdline.do_contractions || cmdline.vw_opts_l.skip_vw ||  cmdline.vw_opts_h.skip_vw) return;
 
   //The rest of the code passes the pointer to the lattice around rather than recreating on-the-fly
   Lattice* lat = (Lattice*)createFgridLattice<LatticeType>(params.jp);
@@ -92,8 +108,6 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
 			  const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams){
   checkWriteable(cmdline.checkpoint_dir,conf);
   params.meas_arg.TrajCur = conf;
-
-  std::string dir(params.meas_arg.WorkDirectory);
 
   //-------------------- Read gauge field --------------------//
   readGaugeRNG(params,cmdline);
@@ -134,7 +148,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
     A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
 
-    computeVW(V_s, W_s, Heavy, params, eig_s, cmdline.randomize_vw);
+    computeVW(V_s, W_s, Heavy, params, eig_s, cmdline.vw_opts_h);
     
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.V_s.cfg" << conf;
@@ -169,7 +183,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     //-------------------- Light quark v and w --------------------//
     A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
     A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
-    computeVW(V, W, Light, params, eig, cmdline.randomize_vw);
+    computeVW(V, W, Light, params, eig, cmdline.vw_opts_l);
     
     eig.freeEvecs();
     printMem("Memory after light evec free");    
@@ -217,8 +231,6 @@ void doConfigurationLLprops(const int conf, Parameters &params, const CommandLin
 
   params.meas_arg.TrajCur = conf;
 
-  std::string dir(params.meas_arg.WorkDirectory);
-
   //-------------------- Read gauge field --------------------//
   readGaugeRNG(params,cmdline);
     
@@ -226,13 +238,15 @@ void doConfigurationLLprops(const int conf, Parameters &params, const CommandLin
   
   //-------------------- Light quark Lanczos ---------------------//
   GridLanczosDoubleConvSingle<A2Apolicies> eig;
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute || cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
+  bool need_light_evecs = (!cmdline.vw_opts_l.randomize_vw && !cmdline.vw_opts_l.load_vw) || cmdline.force_evec_compute;
+
+  if(need_light_evecs || cmdline.tune_lanczos_light) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
   if(cmdline.tune_lanczos_light) return;
   
   //-------------------- Light quark v and w --------------------//
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
-  computeVW(V, W, Light, params, eig, cmdline.randomize_vw);
+  computeVW(V, W, Light, params, eig, cmdline.vw_opts_l);
   
   size_t nodes = GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes();
   {
@@ -266,8 +280,6 @@ void doConfigurationLLpropsSplit(const int conf, Parameters &params, const Comma
 
   params.meas_arg.TrajCur = conf;
 
-  std::string dir(params.meas_arg.WorkDirectory);
-
   //-------------------- Read gauge field --------------------//
   readGaugeRNG(params,cmdline);
     
@@ -278,8 +290,8 @@ void doConfigurationLLpropsSplit(const int conf, Parameters &params, const Comma
 
   if(cmdline.split_job_part == 0){
     //-------------------- Light quark Lanczos ---------------------//
-    
-    if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
+    bool need_light_evecs = (!cmdline.vw_opts_l.randomize_vw && !cmdline.vw_opts_l.load_vw) || cmdline.force_evec_compute;    
+    if(need_light_evecs) computeEvecs(eig, Light, params, cmdline.evec_opts_l);
 
     //Write to disk
     {
@@ -303,7 +315,7 @@ void doConfigurationLLpropsSplit(const int conf, Parameters &params, const Comma
     //-------------------- Light quark v and w --------------------//
     A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
     A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
-    computeVW(V, W, Light, params, eig, cmdline.randomize_vw);
+    computeVW(V, W, Light, params, eig, cmdline.vw_opts_l);
 
     size_t nodes = GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes();
     {

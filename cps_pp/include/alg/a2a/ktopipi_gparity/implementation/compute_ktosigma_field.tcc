@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////   TYPE 1/2   ///////////////////////////////////////////////////////////////////////
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type12_contract(ResultsContainerType &result, const int tK_glb, const SCFmatrixField &part1, const SCFmatrixField &part2){
+template<typename Vtype, typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type12_contract(ResultsContainerType &result, const int tK_glb, const SCFmatrixField &part1, const SCFmatrixField &part2){
 #ifndef MEMTEST_MODE
 
   //D1   = Tr( [pt1] G5 M1 [pt2] M2 )
@@ -52,8 +52,8 @@ void ComputeKtoSigma<mf_Policies>::type12_contract(ResultsContainerType &result,
 
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){  
+template<typename Vtype, typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type12_field_SIMD(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){  
   LOGA2A << "Starting type 1/2 K->sigma contractions (field version)" << std::endl;
   double total_time = dclock();
        
@@ -61,13 +61,12 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
 
   double time;
 
-  //Compute which tS and tK we need
-  std::set<int> tS_use, tK_use;
+  //Compute which tS we need
+  std::set<int> tS_use;
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
     for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
       int tK_glb = modLt(top_glb - tdis, Lt);
-      tK_use.insert(tK_glb);
       for(int i=0;i<ntsep_k_sigma;i++){
 	if(tdis > tsep_k_sigma[i]) continue;
 	int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
@@ -76,11 +75,10 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
     }
   }   
 
-  //Map an index to tS and tK
-  int ntS = tS_use.size(), ntK = tK_use.size();
-  std::vector<int> tS_subset_map, tS_subset_inv_map, tK_subset_map, tK_subset_inv_map;
+  //Map an index to tS
+  int ntS = tS_use.size();
+  std::vector<int> tS_subset_map, tS_subset_inv_map;  //tS_idx -> tS,  tS->tS_idx   (global times)
   idx_t_map(tS_subset_map, tS_subset_inv_map, tS_use);
-  idx_t_map(tK_subset_map, tK_subset_inv_map, tK_use);
 
   //Gather
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
@@ -127,7 +125,8 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
       if(!onNodeTimeslicesInRange(tK_glb, tsep_k_sigma[i])) continue; //no point computing outside of range between kaon and sigma operator
       int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
       
-      const SCFmatrixField &pt2 = pt2_store[tS_subset_inv_map[tS_glb]];
+      int tS_idx = tS_subset_inv_map[tS_glb]; if(tS_idx == -1) ERR.General("","","K->sigma type12 inv map fail %d %d %d %d", tK_glb,i,tS_glb,tS_idx);
+      const SCFmatrixField &pt2 = pt2_store[tS_idx];
 
       LOGA2A << "Contract t_K=" << tK_glb << " t_sigma=" << tS_glb << std::endl;
       contract_time -= dclock();
@@ -178,34 +177,32 @@ void ComputeKtoSigma<mf_Policies>::type12_field_SIMD(std::vector<ResultsContaine
 }
 
 //Field version only applicable to SIMD data. For non SIMD data we should fall back to CPU version
-template<typename mf_Policies, typename complexClass>
+template<typename Vtype, typename Wtype, typename complexClass>
 struct _ktosigma_type12_field_wrap{};
 
-template<typename mf_Policies>
-struct _ktosigma_type12_field_wrap<mf_Policies, grid_vector_complex_mark>{
-  typedef typename ComputeKtoSigma<mf_Policies>::ResultsContainerType ResultsContainerType;  
-  typedef typename ComputeKtoSigma<mf_Policies>::SigmaMesonFieldType SigmaMesonFieldType;
+template<typename Vtype, typename Wtype>
+struct _ktosigma_type12_field_wrap<Vtype,Wtype, grid_vector_complex_mark>{
+  typedef ComputeKtoSigma<Vtype,Wtype> Compute;
 
-  static void calc(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S, ComputeKtoSigma<mf_Policies> &compute){  
+  static void calc(std::vector<typename Compute::ResultsContainerType> &result, std::vector<typename Compute::SigmaMesonFieldType> &mf_S, Compute &compute){  
     compute.type12_field_SIMD(result, mf_S);
   }
 };
 
-template<typename mf_Policies>
-struct _ktosigma_type12_field_wrap<mf_Policies, complex_double_or_float_mark>{
-  typedef typename ComputeKtoSigma<mf_Policies>::ResultsContainerType ResultsContainerType;  
-  typedef typename ComputeKtoSigma<mf_Policies>::SigmaMesonFieldType SigmaMesonFieldType;
+template<typename Vtype, typename Wtype>
+struct _ktosigma_type12_field_wrap<Vtype,Wtype, complex_double_or_float_mark>{
+  typedef ComputeKtoSigma<Vtype,Wtype> Compute;
 
-  static void calc(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S, ComputeKtoSigma<mf_Policies> &compute){  
+  static void calc(std::vector<typename Compute::ResultsContainerType> &result, std::vector<typename Compute::SigmaMesonFieldType> &mf_S, Compute &compute){  
     LOGA2A << "K->sigma type1/2 field implementation falling back to OMP implementation due to non-SIMD data" << std::endl;
     compute.type12_omp(result, mf_S);
   }
 };
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type12_field(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){  
-  _ktosigma_type12_field_wrap<mf_Policies, typename ComplexClassify<ComplexType>::type>::calc(result, mf_S, *this);
+template<typename Vtype, typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type12_field(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){  
+  _ktosigma_type12_field_wrap<Vtype,Wtype, typename ComplexClassify<ComplexType>::type>::calc(result, mf_S, *this);
 }
 
 
@@ -213,9 +210,8 @@ void ComputeKtoSigma<mf_Policies>::type12_field(std::vector<ResultsContainerType
 ///////////////////////////////////////////////   TYPE 3   ///////////////////////////////////////////////////////////////////////
 
 
-
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type3_contract(ResultsContainerType &result, const int tK_glb, const SCFmatrixField &part1, 
+template<typename Vtype, typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type3_contract(ResultsContainerType &result, const int tK_glb, const SCFmatrixField &part1, 
 						  const SCFmatrixField &part2_L, const SCFmatrixField &part2_H){
 #ifndef MEMTEST_MODE
 
@@ -286,8 +282,8 @@ void ComputeKtoSigma<mf_Policies>::type3_contract(ResultsContainerType &result, 
 
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){   
+template<typename Vtype, typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type3_field_SIMD(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){   
   LOGA2A << "Starting type 3 K->sigma contractions (field implementation)" << std::endl;
   double total_time = dclock();
   double time;
@@ -296,12 +292,11 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
     
   //Determine tK,tS pairings needed for node, and also tS values
   std::set<std::pair<int,int> > tK_tS_use;
-  std::set<int> tS_use, tK_use;
+  std::set<int> tS_use;
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
     for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
       int tK_glb = modLt(top_glb - tdis, Lt);
-      tK_use.insert(tK_glb);
       for(int i=0;i<ntsep_k_sigma;i++){
 	if(tdis > tsep_k_sigma[i]) continue;
 	int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
@@ -428,46 +423,42 @@ void ComputeKtoSigma<mf_Policies>::type3_field_SIMD(std::vector<ResultsContainer
 
 
 //Field version only applicable to SIMD data. For non SIMD data we should fall back to CPU version
-template<typename mf_Policies, typename complexClass>
+template<typename Vtype,typename Wtype, typename complexClass>
 struct _ktosigma_type3_field_wrap{};
 
-template<typename mf_Policies>
-struct _ktosigma_type3_field_wrap<mf_Policies, grid_vector_complex_mark>{
-  typedef typename ComputeKtoSigma<mf_Policies>::ResultsContainerType ResultsContainerType;  
-  typedef typename ComputeKtoSigma<mf_Policies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
-  typedef typename ComputeKtoSigma<mf_Policies>::SigmaMesonFieldType SigmaMesonFieldType;
+template<typename Vtype,typename Wtype>
+struct _ktosigma_type3_field_wrap<Vtype,Wtype, grid_vector_complex_mark>{
+  typedef ComputeKtoSigma<Vtype,Wtype> Compute;
 
-  static void calc(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3,
-		   std::vector<SigmaMesonFieldType> &mf_S, ComputeKtoSigma<mf_Policies> &compute){  
+  static void calc(std::vector<typename Compute::ResultsContainerType> &result, std::vector<typename Compute::MixDiagResultsContainerType> &mix3,
+		   std::vector<typename Compute::SigmaMesonFieldType> &mf_S, Compute &compute){  
     compute.type3_field_SIMD(result, mix3, mf_S);
   }
 };
 
-template<typename mf_Policies>
-struct _ktosigma_type3_field_wrap<mf_Policies, complex_double_or_float_mark>{
-  typedef typename ComputeKtoSigma<mf_Policies>::ResultsContainerType ResultsContainerType;  
-  typedef typename ComputeKtoSigma<mf_Policies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
-  typedef typename ComputeKtoSigma<mf_Policies>::SigmaMesonFieldType SigmaMesonFieldType;
+template<typename Vtype,typename Wtype>
+struct _ktosigma_type3_field_wrap<Vtype,Wtype, complex_double_or_float_mark>{
+  typedef ComputeKtoSigma<Vtype,Wtype> Compute;
 
-  static void calc(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3,
-		   std::vector<SigmaMesonFieldType> &mf_S, ComputeKtoSigma<mf_Policies> &compute){  
+  static void calc(std::vector<typename Compute::ResultsContainerType> &result, std::vector<typename Compute::MixDiagResultsContainerType> &mix3,
+		   std::vector<typename Compute::SigmaMesonFieldType> &mf_S, Compute &compute){  
     LOGA2A << "K->sigma type3 field implementation falling back to OMP implementation due to non-SIMD data" << std::endl;
     compute.type3_omp(result, mix3, mf_S);
   }
 };
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type3_field(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){  
-  _ktosigma_type3_field_wrap<mf_Policies, typename ComplexClassify<ComplexType>::type>::calc(result, mix3, mf_S, *this);
+template<typename Vtype,typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type3_field(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){  
+  _ktosigma_type3_field_wrap<Vtype,Wtype, typename ComplexClassify<ComplexType>::type>::calc(result, mix3, mf_S, *this);
 }
 
 
 ///////////////////////////////////////////////   TYPE 4   ///////////////////////////////////////////////////////////////////////
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type4_contract(ResultsContainerType &result, const int tK_glb, const SCFmatrixField &part1, const SCFmatrixField &part2_L, const SCFmatrixField &part2_H){
+template<typename Vtype,typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type4_contract(ResultsContainerType &result, const int tK_glb, const SCFmatrixField &part1, const SCFmatrixField &part2_L, const SCFmatrixField &part2_H){
 #ifndef MEMTEST_MODE
 
   //D4   = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 V_O W^dag_O M2 ) Tr( [V_S W^dag_S] )
@@ -546,8 +537,8 @@ void ComputeKtoSigma<mf_Policies>::type4_contract(ResultsContainerType &result, 
 
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type4_field_SIMD(ResultsContainerType &result, MixDiagResultsContainerType &mix4){
+template<typename Vtype,typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type4_field_SIMD(ResultsContainerType &result, MixDiagResultsContainerType &mix4){
   LOGA2A << "Starting type 4 K->sigma contractions (field implementation)" << std::endl;
   double total_time = dclock();
        
@@ -649,34 +640,32 @@ void ComputeKtoSigma<mf_Policies>::type4_field_SIMD(ResultsContainerType &result
 }
 
 //Field version only applicable to SIMD data. For non SIMD data we should fall back to CPU version
-template<typename mf_Policies, typename complexClass>
+template<typename Vtype, typename Wtype, typename complexClass>
 struct _ktosigma_type4_field_wrap{};
 
-template<typename mf_Policies>
-struct _ktosigma_type4_field_wrap<mf_Policies, grid_vector_complex_mark>{
-  typedef typename ComputeKtoSigma<mf_Policies>::ResultsContainerType ResultsContainerType;  
-  typedef typename ComputeKtoSigma<mf_Policies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
+template<typename Vtype, typename Wtype>
+struct _ktosigma_type4_field_wrap<Vtype,Wtype, grid_vector_complex_mark>{
+  typedef ComputeKtoSigma<Vtype,Wtype> Compute;
 
-  static void calc(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
-		   ComputeKtoSigma<mf_Policies> &compute){  
+  static void calc(typename Compute::ResultsContainerType &result, typename Compute::MixDiagResultsContainerType &mix4,
+		   Compute &compute){  
     compute.type4_field_SIMD(result, mix4);
   }
 };
 
-template<typename mf_Policies>
-struct _ktosigma_type4_field_wrap<mf_Policies, complex_double_or_float_mark>{
-  typedef typename ComputeKtoSigma<mf_Policies>::ResultsContainerType ResultsContainerType;  
-  typedef typename ComputeKtoSigma<mf_Policies>::MixDiagResultsContainerType MixDiagResultsContainerType;  
+template<typename Vtype, typename Wtype>
+struct _ktosigma_type4_field_wrap<Vtype,Wtype, complex_double_or_float_mark>{
+  typedef ComputeKtoSigma<Vtype,Wtype> Compute;
 
-  static void calc(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
-		   ComputeKtoSigma<mf_Policies> &compute){  
+  static void calc(typename Compute::ResultsContainerType &result, typename Compute::MixDiagResultsContainerType &mix4,
+		   Compute &compute){  
     LOGA2A << "K->sigma type4 field implementation falling back to OMP implementation due to non-SIMD data" << std::endl;
     compute.type4_omp(result, mix4);
   }
 };
 
 
-template<typename mf_Policies>
-void ComputeKtoSigma<mf_Policies>::type4_field(ResultsContainerType &result, MixDiagResultsContainerType &mix4){  
-  _ktosigma_type4_field_wrap<mf_Policies, typename ComplexClassify<ComplexType>::type>::calc(result, mix4, *this);
+template<typename Vtype, typename Wtype>
+void ComputeKtoSigma<Vtype,Wtype>::type4_field(ResultsContainerType &result, MixDiagResultsContainerType &mix4){  
+  _ktosigma_type4_field_wrap<Vtype,Wtype, typename ComplexClassify<ComplexType>::type>::calc(result, mix4, *this);
 }

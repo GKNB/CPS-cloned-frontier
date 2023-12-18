@@ -23,7 +23,7 @@ CPS_START_NAMESPACE
 //We allow for the timeslices associated with the left and right vectors of the outer product to differ
 //In the majority of cases the timeslice of the right-hand vector is equal to that of the left-hand, but in some cases we might desire it to be different,
 //for example when taking the product of [[W(t1)*V(t1)]] [[W(t2)*W(t2)]] -> [[W(t1)*W(t2)]]
-
+struct nodeSumPartialAsyncHandle;
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 class A2AmesonField: public mf_Policies::MesonFieldDistributedStorageType{
@@ -32,8 +32,8 @@ public:
   typedef typename A2AfieldL<mf_Policies>::DilutionType LeftInputDilutionType;
   typedef typename A2AfieldR<mf_Policies>::DilutionType RightInputDilutionType;
 
-  typedef typename FlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
-  typedef typename FlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
+  typedef typename SpinColorFlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
+  typedef typename SpinColorFlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
   typedef typename mf_Policies::MesonFieldDistributedStorageType MesonFieldDistributedStorageType;
  private:
@@ -60,8 +60,16 @@ public:
 					 fsize(r.fsize), lindexdilution(r.lindexdilution), rindexdilution(r.rindexdilution),
 					 tl(r.tl), tr(r.tr), MesonFieldDistributedStorageType(r){ }
 
-
   class View{
+  public:
+    typedef mf_Policies Policies;
+    typedef typename A2AfieldL<mf_Policies>::DilutionType LeftInputDilutionType;
+    typedef typename A2AfieldR<mf_Policies>::DilutionType RightInputDilutionType;
+    
+    typedef typename SpinColorFlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
+    typedef typename SpinColorFlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
+    typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+  private:
     int nmodes_l, nmodes_r;
     int tl, tr;
 
@@ -70,15 +78,7 @@ public:
     int fsize; //in units of ScalarComplexType
     ScalarComplexType *data;
     typename mf_Policies::MesonFieldDistributedStorageType::View alloc_view;
-    
   public:
-    typedef mf_Policies Policies;
-    typedef typename A2AfieldL<mf_Policies>::DilutionType LeftInputDilutionType;
-    typedef typename A2AfieldR<mf_Policies>::DilutionType RightInputDilutionType;
-    
-    typedef typename FlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
-    typedef typename FlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
-    typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
 
     //Size in complex
     accelerator_inline int size() const{ return fsize; }
@@ -372,8 +372,18 @@ public:
     CPSautoView(t_v,(*this),HostReadWrite);
     globalSum( (typename ScalarComplexType::value_type*)t_v.ptr(),2*fsize);
   }
+  
+  //Global sum  istart <= i < istart+ni,  jstart <= j < jstart+nj
+  nodeSumPartialAsyncHandle nodeSumPartialAsync(const int istart, const int ni, const int jstart, const int nj) const;
+  void nodeSumPartialComplete(nodeSumPartialAsyncHandle &handle);
 };
 
+//Get the meson field type associated with two (non-FFT) A2A vectors
+template<class LvectorType, class RvectorType>
+using getMesonFieldType = A2AmesonField<typename LvectorType::Policies, LvectorType::template FFTvectorTemplate, RvectorType::template FFTvectorTemplate>;
+
+template<typename Policies, template<typename> class LvectorTemplate, template<typename> class RvectorTemplate>
+using getMesonFieldTypeT = A2AmesonField<Policies, LvectorTemplate<Policies>::template FFTvectorTemplate, RvectorTemplate<Policies>::template FFTvectorTemplate >;
 
 
 #include "implementation/mesonfield_io.tcc"

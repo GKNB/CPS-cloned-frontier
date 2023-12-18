@@ -32,11 +32,12 @@ CPS_START_NAMESPACE
 
 //[1] = https://rbc.phys.columbia.edu/rbc_ukqcd/individual_postings/ckelly/Gparity/contractions_v1.pdf
 
-template<typename mf_Policies>
+template<typename Vtype, typename Wtype>
 class ComputePiPiGparity{
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MfType; 
-
 public:
+  typedef typename Vtype::Policies mf_Policies;
+  typedef getMesonFieldType<Wtype,Vtype> MfType; 
+
   struct Timings{
     char diag;
     double trace;
@@ -97,7 +98,7 @@ private:
 			     const std::vector<MfType >& mf_pi2_src,
 			     const std::vector<MfType >& mf_pi1_snk,
 			     const std::vector<MfType >& mf_pi2_snk,
-			     MesonFieldProductStore<mf_Policies> &products,
+			     MesonFieldProductStore<MfType > &products,
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     Timings &timings = timingsC();
     timings.total_compute -= dclock();
@@ -150,7 +151,7 @@ private:
   }
 
   //Store the products we are going to reuse
-  inline static void figureCsetupProductStore(MesonFieldProductStoreComputeReuse<mf_Policies> &products,
+  inline static void figureCsetupProductStore(MesonFieldProductStoreComputeReuse<MfType > &products,
 					      const std::vector<MfType >& mf_pi1_src,
 					      const std::vector<MfType >& mf_pi2_src,
 					      const std::vector<MfType >& mf_pi1_snk,
@@ -210,7 +211,7 @@ private:
 			     const std::vector<MfType >& mf_pi2_src,
 			     const std::vector<MfType >& mf_pi1_snk,
 			     const std::vector<MfType >& mf_pi2_snk,
-			     MesonFieldProductStore<mf_Policies> &products,
+			     MesonFieldProductStore<MfType > &products,
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     Timings &timings = timingsR();
     timings.total_compute -= dclock();
@@ -287,7 +288,7 @@ private:
 
   //R = 0.5 Tr( [[w^dag(r) S_2 v(r)]] [[w^dag(s) S_2 * v(s)]][[w^dag(y) S_2 v(y)]] [[w^dag(x) S_2 v(x)]] )
   //2 different topologies to average over
-  inline static void figureRsetupProductStore(MesonFieldProductStoreComputeReuse<mf_Policies> &products,
+  inline static void figureRsetupProductStore(MesonFieldProductStoreComputeReuse<MfType > &products,
 					      const std::vector<MfType >& mf_pi1_src,
 					      const std::vector<MfType >& mf_pi2_src,
 					      const std::vector<MfType >& mf_pi1_snk,
@@ -337,9 +338,9 @@ public:
 		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi2_src,
 		      const ThreeMomentum &p_pi1_snk, const ThreeMomentum &p_pi2_snk, 
 		      const int tsep, const int tstep_src,
-		      MesonFieldMomentumContainer<mf_Policies> &src_mesonfields,
-		      MesonFieldMomentumContainer<mf_Policies> &snk_mesonfields,
-		      MesonFieldProductStore<mf_Policies> &products,
+		      MesonFieldMomentumContainer<MfType > &src_mesonfields,
+		      MesonFieldMomentumContainer<MfType> &snk_mesonfields,
+		      MesonFieldProductStore<MfType > &products,
 		      const Options &opt = Options()   ){
     Timings &perf = getTimings(diag);
     perf.total -= dclock();
@@ -434,8 +435,8 @@ public:
 		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi2_src,
 		      const ThreeMomentum &p_pi1_snk, const ThreeMomentum &p_pi2_snk, 
 		      const int tsep, const int tstep_src,
-		      MesonFieldMomentumContainer<mf_Policies> &srcsnk_mesonfields,
-		      MesonFieldProductStore<mf_Policies> &products,
+		      MesonFieldMomentumContainer<MfType > &srcsnk_mesonfields,
+		      MesonFieldProductStore<MfType > &products,
 		      const Options &opt = Options()
 		      ){
     compute(into,diag,p_pi1_src,p_pi2_src,p_pi1_snk,p_pi2_snk,tsep,tstep_src,
@@ -447,7 +448,7 @@ public:
   static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, const char diag, 
 		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi1_snk, 
 		      const int tsep, const int tstep_src,
-		      MesonFieldMomentumContainer<mf_Policies> &mesonfields, MesonFieldProductStore<mf_Policies> &products,
+		      MesonFieldMomentumContainer<MfType > &mesonfields, MesonFieldProductStore<MfType > &products,
 		      const Options &opt = Options()
 		      ){
     ThreeMomentum p_pi2_src = -p_pi1_src;
@@ -459,13 +460,13 @@ public:
 
 
   //Setup in advance which products we intend to reuse
-  static void setupProductStore(MesonFieldProductStoreComputeReuse<mf_Policies> &products,
+  static void setupProductStore(MesonFieldProductStoreComputeReuse<MfType > &products,
 				const char diag, 
 				const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi2_src,
 				const ThreeMomentum &p_pi1_snk, const ThreeMomentum &p_pi2_snk, 
 				const int tsep, const int tstep_src,
-				MesonFieldMomentumContainer<mf_Policies> &src_mesonfields,
-				MesonFieldMomentumContainer<mf_Policies> &snk_mesonfields
+				MesonFieldMomentumContainer<MfType > &src_mesonfields,
+				MesonFieldMomentumContainer<MfType > &snk_mesonfields
 				){
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","compute(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
@@ -497,21 +498,21 @@ public:
   }
 
   //Source and sink meson field set is the same
-  static void setupProductStore(MesonFieldProductStoreComputeReuse<mf_Policies> &products, const char diag,
+  static void setupProductStore(MesonFieldProductStoreComputeReuse<MfType> &products, const char diag,
 				const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi2_src,
 				const ThreeMomentum &p_pi1_snk, const ThreeMomentum &p_pi2_snk, 
 				const int tsep, const int tstep_src,
-				MesonFieldMomentumContainer<mf_Policies> &srcsnk_mesonfields
+				MesonFieldMomentumContainer<MfType > &srcsnk_mesonfields
 				){
     setupProductStore(products,diag,p_pi1_src,p_pi2_src,p_pi1_snk,p_pi2_snk,tsep,tstep_src,
 		      srcsnk_mesonfields,srcsnk_mesonfields);
   }
 
   //Calculate for p_cm=(0,0,0)
-  static void setupProductStore(MesonFieldProductStoreComputeReuse<mf_Policies> &products, const char diag, 
+  static void setupProductStore(MesonFieldProductStoreComputeReuse<MfType> &products, const char diag, 
 		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi1_snk, 
 		      const int tsep, const int tstep_src,
-		      MesonFieldMomentumContainer<mf_Policies> &mesonfields
+		      MesonFieldMomentumContainer<MfType > &mesonfields
 		      ){
     ThreeMomentum p_pi2_src = -p_pi1_src;
     ThreeMomentum p_pi2_snk = -p_pi1_snk;
@@ -523,7 +524,8 @@ public:
   //Compute the pion 'bubble'  0.5 tr( mf(t, p_pi) mf(t-tsep, p_pi2) )  [note pi2 at earlier timeslice here]
   //output into vector element  [t]
 
-  static void computeFigureVdis(fVector<typename mf_Policies::ScalarComplexType> &into, const ThreeMomentum &p_pi, const ThreeMomentum &p_pi2, const int tsep, MesonFieldMomentumContainer<mf_Policies> &mesonfields){
+  static void computeFigureVdis(fVector<typename mf_Policies::ScalarComplexType> &into, const ThreeMomentum &p_pi, const ThreeMomentum &p_pi2, const int tsep, 
+				MesonFieldMomentumContainer<MfType> &mesonfields){
     Timings &timings = timingsV();
     timings.total -= dclock();
     
@@ -576,7 +578,7 @@ public:
   }
 
   //p_cm = (0,0,0)
-  static void computeFigureVdis(fVector<typename mf_Policies::ScalarComplexType> &into, const ThreeMomentum &p_pi, const int tsep, MesonFieldMomentumContainer<mf_Policies> &mesonfields){
+  static void computeFigureVdis(fVector<typename mf_Policies::ScalarComplexType> &into, const ThreeMomentum &p_pi, const int tsep, MesonFieldMomentumContainer<MfType > &mesonfields){
     ThreeMomentum p_pi2 = -p_pi;
     computeFigureVdis(into, p_pi, p_pi2, tsep, mesonfields);
   }

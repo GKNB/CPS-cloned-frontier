@@ -33,7 +33,8 @@ private:
   
 public:
   typedef StandardIndexDilution DilutionType;
-  
+  template<typename P> using VectorTemplate = A2AvectorVfftw<P>;
+
   A2AvectorVfftw(const A2AArg &_args): StandardIndexDilution(_args){
     v.resize(nv);
     this->allocInitializeFields(v,NullObject());
@@ -91,6 +92,8 @@ public:
     View(ViewMode mode, const CPSfieldArray<FermionFieldType> &vin, const StandardIndexDilution &d, const std::vector<bool> &modes_used): av(vin.view(mode,modes_used)), StandardIndexDilution(d){}
      
     accelerator_inline FieldView & getMode(const int i) const{ return av[i]; }
+    accelerator_inline FieldView & getLowMode(const int i) const{ return av[i]; }
+    accelerator_inline FieldView & getHighMode(const int i) const{ return av[nl+i]; }
 
     accelerator_inline FieldView & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return av[i]; }
       

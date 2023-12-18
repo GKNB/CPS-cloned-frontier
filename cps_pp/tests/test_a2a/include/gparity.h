@@ -212,10 +212,11 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   //For (2)
   int p2w[3] = {-k, pm[1],pm[1]};
   int p2v[3] = {l, pm[1],pm[1]};
-  
+  typedef A2AvectorV<A2Apolicies> Vtype;
+  typedef A2AvectorW<A2Apolicies> Wtype;
   typedef A2AflavorProjectedExpSource<SourcePolicies> SrcType;
   typedef SCFspinflavorInnerProduct<0,mf_Complex,SrcType,true,false> InnerType; //unit matrix spin structure
-  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, InnerType> StorageType;
+  typedef GparityFlavorProjectedBasicSourceStorage<Vtype,Wtype, InnerType> StorageType;
 
   SrcType src1(2., pp, sp);
   SrcType src2(2., pp, sp);
@@ -231,11 +232,11 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   
   mf_store2.addCompute(0,0, ThreeMomentum(p2w), ThreeMomentum(p2v) );
 
-  typename ComputeMesonFields<A2Apolicies,StorageType>::WspeciesVector Wspecies(1, &W);
-  typename ComputeMesonFields<A2Apolicies,StorageType>::VspeciesVector Vspecies(1, &V);
+  typename ComputeMesonFields<Vtype,Wtype,StorageType>::WspeciesVector Wspecies(1, &W);
+  typename ComputeMesonFields<Vtype,Wtype,StorageType>::VspeciesVector Vspecies(1, &V);
 
-  ComputeMesonFields<A2Apolicies,StorageType>::compute(mf_store1,Wspecies,Vspecies,lat);
-  ComputeMesonFields<A2Apolicies,StorageType>::compute(mf_store2,Wspecies,Vspecies,lat);
+  ComputeMesonFields<Vtype,Wtype,StorageType>::compute(mf_store1,Wspecies,Vspecies,lat);
+  ComputeMesonFields<Vtype,Wtype,StorageType>::compute(mf_store2,Wspecies,Vspecies,lat);
 
   printf("Testing mf relation\n"); fflush(stdout);
   assert( mf_store1[0][0].equals( mf_store2[0][0], 1e-6, true) );
@@ -246,7 +247,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
 #if 1
   
   typedef GparitySourceShiftInnerProduct<mf_Complex,SrcType,flavorMatrixSpinColorContract<0,true,false> > ShiftInnerType;
-  typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies, ShiftInnerType> ShiftStorageType;
+  typedef GparityFlavorProjectedShiftSourceStorage<Vtype,Wtype, ShiftInnerType> ShiftStorageType;
   
   SrcType src3(2., pp, sp);
   ShiftInnerType shift_inner(sigma0,src3);
@@ -256,7 +257,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   int nc = mf_shift_store.nCompute();
   printf("Number of optimized computations: %d\n",nc);
 
-  ComputeMesonFields<A2Apolicies,ShiftStorageType>::compute(mf_shift_store,Wspecies,Vspecies,lat);
+  ComputeMesonFields<Vtype,Wtype,ShiftStorageType>::compute(mf_shift_store,Wspecies,Vspecies,lat);
 
   assert( mf_shift_store[0][0].equals( mf_store1[0][0], 1e-6, true) );
   assert( mf_shift_store[1][0].equals( mf_store1[1][0], 1e-6, true) );
@@ -265,7 +266,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   typedef Elem<SrcType, Elem<SrcType,ListEnd > > SrcList;
   typedef A2AmultiSource<SrcList> MultiSrcType;
   typedef GparitySourceShiftInnerProduct<mf_Complex,MultiSrcType,flavorMatrixSpinColorContract<0,true,false> > ShiftMultiSrcInnerType;
-  typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies, ShiftMultiSrcInnerType> ShiftMultiSrcStorageType;
+  typedef GparityFlavorProjectedShiftSourceStorage<Vtype,Wtype, ShiftMultiSrcInnerType> ShiftMultiSrcStorageType;
 
   MultiSrcType multisrc;
   multisrc.template getSource<0>().setup(3.,pp, sp);
@@ -275,7 +276,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   mf_shift_multisrc_store.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v) );
   mf_shift_multisrc_store.addCompute(0,0, ThreeMomentum(p2w), ThreeMomentum(p2v) );
   
-  ComputeMesonFields<A2Apolicies,ShiftMultiSrcStorageType>::compute(mf_shift_multisrc_store,Wspecies,Vspecies,lat);
+  ComputeMesonFields<Vtype,Wtype,ShiftMultiSrcStorageType>::compute(mf_shift_multisrc_store,Wspecies,Vspecies,lat);
 
   assert( mf_shift_multisrc_store(1,0)[0].equals( mf_store1[0][0], 1e-6, true) );
   assert( mf_shift_multisrc_store(1,1)[0].equals( mf_store1[1][0], 1e-6, true) );

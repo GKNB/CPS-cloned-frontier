@@ -4,8 +4,14 @@
 #include <cstdarg>
 #include <cxxabi.h>
 #include <chrono>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <util/lattice.h>
 #include <alg/fix_gauge_arg.h>
+#include <zlib.h>
+#include "utils_malloc.h"
 
 CPS_START_NAMESPACE
 
@@ -122,6 +128,314 @@ inline double secs_since_first_call(){
     return double(us)/1e6;
   }
 }
+
+inline void write_data_bypass_cache(const std::string &file, char const* data, size_t bytes){
+  int fd = open(file.c_str(), O_WRONLY | O_CREAT | O_DIRECT | O_DSYNC | O_TRUNC, S_IRWXU);
+  if(fd == -1){
+    perror("Failed to open file");
+    ERR.General("","write_data_bypass_cache","Failed to open file %s", file.c_str());
+  }
+
+  /* //Need an aligned memory region */
+
+  //Can't get statx working on qcdserver??
+  /* struct statx st; */
+  /* int e = statx(fd, "", AT_EMPTY_PATH, STATX_DIOALIGN, &st); */
+  /* if(e == -1){ */
+  /*   perror(errno); */
+  /*   ERR.General("","write_data_bypass_cache","Failed to query file alignment");     */
+  /* } */
+  /* if(st.stx_dio_mem_align == 0) ERR.General("","write_data_bypass_cache","Direct IO not supported on this file");     */
+  
+  /* size_t bufsz = (10*1024*1024 + st.stx_dio_offset_align) % st.stx_dio_offset_align;   */
+  /* void* buf = memalign_check(st.stx_dio_mem_align, bufsz); */
+
+  size_t bufsz = 10*1024*1024;
+  void* buf = memalign_check(4096, bufsz);
+  
+  while(bytes > 0){
+    size_t count = std::min(bytes, bufsz);
+    size_t cpcount = count;
+    memcpy(buf, data, cpcount);
+    if(count % 4096 != 0){
+      count = ((count + 4096) / 4096) * 4096; //round up to nearest disk block size to avoid errors. This can only happen for the last snippet of data
+      assert(count <= bufsz); //sanity check! Should always pass because bufsz is a multiple of 4kB
+    }
+
+    ssize_t f = write(fd, buf, count);
+    if(f==-1){
+      perror("Write failed");
+      ERR.General("","write_data_bypass_cache","Write failed for bytes %lu", count);    
+    }else if(f != count){
+      ERR.General("","write_data_bypass_cache","Write did not write expected number of bytes, wrote %lu requested %lu", f, count);    
+    }
+    bytes -= cpcount;
+    data += cpcount;
+  }  
+  int e = close(fd);
+  if(e == -1){
+    perror("File close failed");
+    ERR.General("","write_data_bypass_cache","Failed to close file %s", file.c_str());
+  }
+  free(buf);
+}
+
+
+inline void read_data_bypass_cache(const std::string &file, char * data, size_t bytes){
+  int fd = open(file.c_str(), O_RDONLY | O_DIRECT);
+  if(fd == -1){
+    perror("Failed to open file");
+    ERR.General("","read_data_bypass_cache","Failed to open %s", file.c_str());
+  }
+
+  /* //Need an aligned memory region */
+  size_t bufsz = 10*1024*1024;
+  void* buf = memalign_check(4096, bufsz);
+  
+  while(bytes > 0){
+    size_t count = std::min(bytes, bufsz);
+    size_t cpcount = count;
+    if(count % 4096 != 0){
+      count = ((count + 4096) / 4096) * 4096; //round up to nearest disk block size to avoid errors. This can only happen for the last snippet of data
+      assert(count <= bufsz); //sanity check! Should always pass because bufsz is a multiple of 4kB
+    }
+
+    ssize_t f = read(fd, buf, count);
+    if(f==-1){
+      perror("Read failed");
+      ERR.General("","read_data_bypass_cache","Read failed for bytes %lu", count);
+    }else if(f != count){
+      ERR.General("","read_data_bypass_cache","Read did not read expected number of bytes, got %lu requested %lu", f, count);
+    }
+    memcpy(data, buf, cpcount);
+    bytes -= cpcount;
+    data += cpcount;
+  }  
+  int e = close(fd);
+  if(e == -1){
+    perror("Failed to close file");
+    ERR.General("","read_data_bypass_cache","Failed to close file %s", file.c_str());
+  }
+  free(buf);
+}
+
+inline void disk_write_immediate(const std::string &file, void* data, size_t len){
+  int fd = open(file.c_str(), O_WRONLY | O_CREAT | O_DSYNC | O_TRUNC, S_IRWXU);
+  if(fd == -1){
+    perror("Failed to open file");
+    ERR.General("","disk_write_immediate","Failed to open file %s", file.c_str());
+  }
+  ssize_t f = write(fd, data, len);
+  if(f==-1){
+    perror("Write failed");
+    ERR.General("","disk_write_immediate","Write failed for bytes %lu", len);    
+  }else if(f != len){
+    ERR.General("","disk_write_immediate","Write did not write expected number of bytes, wrote %lu requested %lu", f, len);
+  }
+  int e = close(fd);
+  if(e == -1){
+    perror("Failed to close file");
+    ERR.General("","disk_write_immediate","Failed to close file %s", file.c_str());
+  }
+}
+
+inline void disk_read(const std::string &file, void* data, size_t len){
+  int fd = open(file.c_str(), O_RDONLY);
+  if(fd == -1){
+    perror("Failed to open file");
+    ERR.General("","disk_read","Failed to open file %s", file.c_str());
+  }
+  ssize_t f = read(fd, data, len);
+  if(f==-1){
+    perror("Read failed");
+    ERR.General("","disk_read","Read failed for bytes %lu", len);    
+  }else if(f != len){
+    ERR.General("","disk_read","Write did not write expected number of bytes, wrote %lu requested %lu", f, len);    
+  }
+  int e = close(fd);
+  if(e == -1){
+    perror("Failed to close file");
+    ERR.General("","disk_read","Failed to close file %s", file.c_str());
+  }
+}
+
+class cpsBinaryWriter{
+  int fd;
+  std::string file;
+public:
+  void open(const std::string &_file, bool immediate = false){
+    int flags =  O_WRONLY | O_CREAT  | O_TRUNC;
+    if(immediate) flags = flags | O_DSYNC;
+
+    fd = ::open(_file.c_str(), flags, S_IRWXU);
+    if(fd == -1){
+      perror("Failed to open file");
+      ERR.General("cpsBinaryWriter","open","Failed to open file %s", _file.c_str());
+    }
+    file = _file;
+  }
+  bool isOpen() const{ return fd != -1; }
+
+  cpsBinaryWriter(): fd(-1){}
+  cpsBinaryWriter(const std::string &_file, bool immediate = false): fd(-1){ open(_file, immediate); }
+
+  cpsBinaryWriter(const cpsBinaryWriter &r) = delete;
+  
+  cpsBinaryWriter(cpsBinaryWriter &&r): file(std::move(r.file)), fd(r.fd){
+    r.fd = -1;
+  }
+  
+  cpsBinaryWriter & operator=(const cpsBinaryWriter &r) = delete;
+  
+  cpsBinaryWriter & operator=(cpsBinaryWriter &&r){
+    file=std::move(r.file);
+    fd = r.fd;
+    r.fd = -1;
+    return *this;
+  }
+
+  void write(void* data, size_t len, bool checksum = true) const{
+    if(fd == -1) ERR.General("cpsBinaryWriter","write","No file is open");
+
+    if(checksum){
+      uint32_t crc = crc32(0L, (const Bytef*)data, len);
+      ssize_t f = ::write(fd, &crc, sizeof(uint32_t));
+      if(f==-1){
+	perror("Write failed");
+	ERR.General("cpsBinaryWriter","write","CRC write failed");    
+      }else if(f != sizeof(uint32_t)){
+	ERR.General("cpsBinaryWriter","write","CRC write did not write expected number of bytes, wrote %lu requested %lu", f, sizeof(uint32_t));
+      }
+    }
+    ssize_t f = ::write(fd, data, len);
+    if(f==-1){
+      perror("Write failed");
+      ERR.General("cpsBinaryWriter","write","Write failed for bytes %lu", len);
+    }else if(f != len){
+      ERR.General("cpsBinaryWriter","write","Write did not write expected number of bytes, wrote %lu requested %lu", f, len);
+    }
+  }
+
+  void close(){
+    if(fd!=-1){
+      int e = ::close(fd);
+      if(e == -1){
+	perror("Failed to close file");
+	ERR.General("cpsBinaryWriter","close","Failed to close file %s", file.c_str());
+      }
+      fd=-1;
+    }
+  }
+  ~cpsBinaryWriter(){ close(); }
+};
+
+
+class cpsBinaryReader{
+  int fd;
+  std::string file;
+public:
+  void open(const std::string &_file){
+    fd = ::open(_file.c_str(), O_RDONLY);
+    if(fd == -1){
+      perror("Failed to open file");
+      ERR.General("cpsBinaryReader","open","Failed to open file %s", _file.c_str());
+    }
+    file = _file;
+  }
+  bool isOpen() const{ return fd != -1; }
+  
+  cpsBinaryReader(): fd(-1){}
+  cpsBinaryReader(const std::string &_file): fd(-1){ open(_file); }
+
+  cpsBinaryReader(const cpsBinaryReader &r) = delete;
+
+  cpsBinaryReader(cpsBinaryReader &&r): file(std::move(r.file)), fd(r.fd){
+    r.fd = -1;
+  }
+
+  cpsBinaryReader & operator=(const cpsBinaryReader &r) = delete;
+
+  cpsBinaryReader & operator=(cpsBinaryReader &&r){
+    file=std::move(r.file);
+    fd = r.fd;
+    r.fd = -1;
+    return *this;
+  }
+
+  void read(void* data, size_t len, bool checksum = true) const{
+    if(fd == -1) ERR.General("cpsBinaryReader","read","No file is open");
+
+    uint32_t crc;
+    if(checksum){
+      ssize_t f = ::read(fd, &crc, sizeof(uint32_t));
+      if(f==-1){
+	perror("Read failed");
+	ERR.General("cpsBinaryReader","read","CRC read failed");    
+      }else if(f != sizeof(uint32_t)){
+	ERR.General("cpsBinaryReader","read","CRC read did not read expected number of bytes, wrote %lu requested %lu", f, sizeof(uint32_t));
+      }
+    }
+    ssize_t f = ::read(fd, data, len);
+    if(f==-1){
+      perror("Read failed");
+      ERR.General("cpsBinaryReader","read","Read failed for bytes %lu", len);
+    }else if(f != len){
+      ERR.General("cpsBinaryReader","read","Read did not read expected number of bytes, wrote %lu requested %lu", f, len);
+    }
+
+    uint32_t crc_got = crc32(0L, (const Bytef*)data, len);
+    if(crc_got != crc) ERR.General("cpsBinaryReader","read","CRC checksum failed");
+  }
+
+  void close(){
+    if(fd!=-1){
+      int e = ::close(fd);
+      if(e == -1){
+	perror("Failed to close file");
+	ERR.General("cpsBinaryReader","close","Failed to close file %s", file.c_str());
+      }
+      fd=-1;
+    }
+  }
+  ~cpsBinaryReader(){ 
+    close(); 
+  }
+};
+
+
+
+
+//Perform reduction via the disk rather than MPI
+template<typename T>
+void disk_reduce(T* data, size_t size){
+  static int rc = 0;
+  std::string df = "reddata." + std::to_string(UniqueID()) + "." + std::to_string(rc);
+
+  disk_write_immediate(df,(void*)data,size*sizeof(T));
+  cps::sync(); //Assume MPI barrier is available
+  
+  int nodes = GJP.TotalNodes();
+  
+  memset(data, 0, size*sizeof(T));
+
+  T* buf = (T*)malloc_check(size*sizeof(T));
+  for(int i=0;i<nodes;i++){
+    std::string dfi = "reddata." + std::to_string(i) + "." + std::to_string(rc);
+    disk_read(dfi, (void*)buf, size*sizeof(T));
+    for(int j=0;j<size;j++) data[j] += buf[j];
+  }
+  free(buf);
+
+  cps::sync();
+  remove(df.c_str());
+  ++rc;
+}
+  // std::string ddone = "done." + std::to_string(UniqueID()) + "." + std::to_string(rc);
+  // disk_write_immediate(ddone,(void*)&rc,sizeof(int));  
+  // //Wait for all done files to be written
+  // std::vector<bool> done(GJP.Vol
+  // 			 while(1){    
+  // 	std::this_thread::sleep_for (std::chrono::milliseconds(100));
 
 CPS_END_NAMESPACE
 

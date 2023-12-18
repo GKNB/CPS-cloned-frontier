@@ -47,23 +47,53 @@ void computeEvecs(EvecManagerType &eig, const LightHeavy lh, const Parameters &p
   return computeEvecs(eig, lanc_arg, params.jp, name, opts);
 }
 
-void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const EvecManagerType &eig, double mass, const CGcontrols &cg_controls, 
-	       typename A2Apolicies::FgridGFclass *lat, bool randomize_vw){
+template<typename Vtype, typename Wtype>
+void computeVW(Vtype &V, Wtype &W, const EvecManagerType &eig, double mass, const CGcontrols &cg_controls, 
+	       typename A2Apolicies::FgridGFclass *lat, const computeVWopts &opts = computeVWopts()){
 #ifdef USE_DESTRUCTIVE_FFT
-  LOGA2A << "Allocating V and W vectors" << std::endl;
+  LOGA2A << "Allocating V,W vectors" << std::endl;  
   V.allocModes(); W.allocModes();
+  LOGA2A << "Allocated V (" << V.Mbyte_size(V.getArgs(),V.getFieldInputParams()) << " MB), and W (" << W.Mbyte_size(W.getArgs(),W.getFieldInputParams()) << " MB) vectors " << std::endl;  
+  LOGA2A << "Initializing V,W" << std::endl;
+  V.zero(); W.zero(); //force the memory to be assigned right now (TESTING)
 #endif
-  if(!randomize_vw){
+  if(opts.skip_vw){
+    LOGA2A << "Skipping generation of V,W vectors" << std::endl;
+    //Should still set the W sources to ensure the random numbers are consistent even if V,W is skipped
+    std::unique_ptr<A2AhighModeSource<A2Apolicies> > Wsrc_impl(highModeSourceFactory<A2Apolicies>(cg_controls.highmode_source));
+    Wsrc_impl->setHighModeSources(W);
+    W.free_mem(); V.free_mem();
+  }else if(opts.randomize_vw){
+    LOGA2A << "Creating random VW vectors" << std::endl;
+    randomizeVW(V,W);
+  }else if(opts.load_vw){
+    LOGA2A << "Loading V,W vectors" << std::endl;
+#ifdef A2A_VW_WRITE_BY_PARTS
+    W.readParallelByParts(opts.load_vw_stub + "_w");
+    V.readParallelByParts(opts.load_vw_stub + "_v");
+#else
+    W.readParallelWithGrid(opts.load_vw_stub + "_w");
+    V.readParallelWithGrid(opts.load_vw_stub + "_v");
+#endif
+  }else{
     LOGA2A << "Creating interface and running VW calculation" << std::endl;
     auto ei = eig.createInterface();
     cps::computeVW(V,W,*lat,*ei,mass,cg_controls);
-  }else{
-    LOGA2A << "Creating random VW vectors" << std::endl;
-    randomizeVW<A2Apolicies>(V,W);
+  }
+
+  if(opts.save_vw){
+    LOGA2A << "Saving V,W vectors" << std::endl;
+#ifdef A2A_VW_WRITE_BY_PARTS
+    W.writeParallelByParts(opts.save_vw_stub + "_w");
+    V.writeParallelByParts(opts.save_vw_stub + "_v");
+#else
+    W.writeParallelWithGrid(opts.save_vw_stub + "_w");
+    V.writeParallelWithGrid(opts.save_vw_stub + "_v");
+#endif
   }
 }
-
-void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const LightHeavy lh, const Parameters &params, const EvecManagerType &eig, const bool randomize_vw){
+template<typename Vtype, typename Wtype>
+void computeVW(Vtype &V, Wtype &W, const LightHeavy lh, const Parameters &params, const EvecManagerType &eig, const computeVWopts &opts = computeVWopts()){
   auto lat = createFgridLattice<typename A2Apolicies::FgridGFclass>(params.jp);
 
   const LancArg &lanc_arg = (lh == Light ? params.lanc_arg : params.lanc_arg_s);
@@ -72,7 +102,7 @@ void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const Lig
   LOGA2A << "Computing " << name << " quark A2A vectors" << std::endl;
   double time = -dclock();
 
-  computeVW(V,W,eig,lanc_arg.mass, params.jp.cg_controls,lat,randomize_vw);
+  computeVW(V,W,eig,lanc_arg.mass, params.jp.cg_controls,lat,opts);
   
   printMem(stringize("Memory after %s A2A vector computation", name));
 
@@ -80,6 +110,26 @@ void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const Lig
   time += dclock();
   std::ostringstream os; os << name << " quark A2A vectors";
   a2a_print_time("main",os.str().c_str(),time);
+}
+
+void convertVWdataGridToParts(const computeVWopts &opts, const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams, const A2AArg &a2a_arg){
+  A2AvectorV<A2Apolicies> V(a2a_arg, field4dparams);
+#ifdef KTOPIPI_USE_WUNITARY
+  A2AvectorWunitary<A2Apolicies> W(a2a_arg, field4dparams);
+#elif defined(KTOPIPI_USE_WTIMEPACKED)
+  A2AvectorWtimePacked<A2Apolicies> W(a2a_arg, field4dparams);
+#else
+  A2AvectorW<A2Apolicies> W(a2a_arg, field4dparams);
+#endif
+#ifdef USE_DESTRUCTIVE_FFT
+  V.allocModes(); W.allocModes();
+#endif
+
+  W.readParallelWithGrid(opts.load_vw_stub + "_w");
+  V.readParallelWithGrid(opts.load_vw_stub + "_v");
+  
+  W.writeParallelByParts(opts.save_vw_stub + "_w");
+  V.writeParallelByParts(opts.save_vw_stub + "_v");
 }
 
 #endif

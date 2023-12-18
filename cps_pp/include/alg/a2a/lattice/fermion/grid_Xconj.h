@@ -17,6 +17,238 @@ inline Grid::Gamma Xmatrix(){
   return X;
 }
 
+//From the matrices extract the column with the given flavor, spin and color index
+template<typename GridFermionField2f, typename GridPropagatorField2f>
+void extractColumn(GridFermionField2f &into, const GridPropagatorField2f &from, const int fs, const int ss, const int cs){
+  using namespace Grid;
+  {
+    size_t Nsimd = GridFermionField2f::vector_type::Nsimd();
+    autoView( from_v, from, AcceleratorRead);
+    autoView( into_v, into, AcceleratorWrite);
+    accelerator_for( i, from_v.size(), Nsimd, {
+	auto site_matrix = from_v(i);
+	auto site_into = into_v(i);
+	for(int fr=0;fr<Ngp;fr++)
+	  for(int sr=0;sr<Ns;sr++)
+	    for(int cr=0;cr<Nc;cr++)
+	      site_into(fr)(sr)(cr) = site_matrix(fr,fs)(sr,ss)(cr,cs);
+	coalescedWrite(into_v[i], site_into);
+      });
+  }
+}
+template<typename GridFermionField2f, typename GridPropagatorField2f>
+void insertColumn(GridPropagatorField2f &into, const GridFermionField2f &from, const int fs, const int ss, const int cs){
+  using namespace Grid;
+  size_t Nsimd = GridFermionField2f::vector_type::Nsimd();
+  autoView( from_v, from, AcceleratorRead);
+  autoView( into_v, into, AcceleratorWrite);
+  accelerator_for( i, from_v.size(), Nsimd, {
+      auto site_spinor = from_v(i);
+      auto site_into = into_v(i);
+      for(int fr=0;fr<Ngp;fr++)
+	for(int sr=0;sr<Ns;sr++)
+	  for(int cr=0;cr<Nc;cr++)
+	    site_into(fr,fs)(sr,ss)(cr,cs) = site_spinor(fr)(sr)(cr);
+      coalescedWrite(into_v[i], site_into);
+    });
+}
+
+
+template<typename GridFermionField2f>
+void multU(GridFermionField2f &into, const GridFermionField2f &from){
+  using namespace Grid;
+  GridFermionField2f Xfrom = Xmatrix() * from;
+  autoView(from_v,from,AcceleratorRead);  
+  autoView(Xfrom_v,Xfrom,AcceleratorRead);
+  autoView(into_v,into,AcceleratorWrite);
+
+  accelerator_for(x, from.Grid()->oSites(), GridFermionField2f::vector_object::Nsimd(), {
+      auto fs = from_v(x);
+      auto Xfs = Xfrom_v(x);
+      decltype(fs) out;
+      RealD nrm = 1./sqrt(2.);
+      ComplexD I(0,1);
+
+      //U = 1/sqrt(2) |  -X    i  |
+      //              |  -1    iX |
+      for(int s=0;s<Ns;s++)
+	for(int c=0;c<Nc;c++){
+	  out(0)(s)(c) = -nrm * Xfs(0)(s)(c) + nrm * I * fs(1)(s)(c);
+	  out(1)(s)(c) = -nrm * fs(0)(s)(c) + nrm * I * Xfs(1)(s)(c);
+	}
+      coalescedWrite(into_v[x],out);
+    });
+}
+
+template<typename GridFermionField2f>
+void multUdag(GridFermionField2f &into, const GridFermionField2f &from){
+  using namespace Grid;
+  GridFermionField2f Xfrom = Xmatrix() * from;
+  autoView(from_v,from,AcceleratorRead);  
+  autoView(Xfrom_v,Xfrom,AcceleratorRead);
+  autoView(into_v,into,AcceleratorWrite);
+
+  accelerator_for(x, from.Grid()->oSites(), GridFermionField2f::vector_object::Nsimd(), {
+      auto fs = from_v(x);
+      auto Xfs = Xfrom_v(x);
+      decltype(fs) out;
+      RealD nrm = 1./sqrt(2.);
+      ComplexD I(0,1);
+
+      //U^dag = 1/sqrt(2) |  X    -1  |
+      //                  |  -i    iX |
+      for(int s=0;s<Ns;s++)
+	for(int c=0;c<Nc;c++){
+	  out(0)(s)(c) = nrm * Xfs(0)(s)(c) - nrm * fs(1)(s)(c);
+	  out(1)(s)(c) = -nrm * I * fs(0)(s)(c) + nrm * I * Xfs(1)(s)(c);
+	}
+      coalescedWrite(into_v[x],out);
+    });
+}
+
+
+
+
+
+template<typename GridPropagatorField2f>
+void multUleft(GridPropagatorField2f &into, const GridPropagatorField2f &from){
+  using namespace Grid;
+  autoView(from_v,from,AcceleratorRead);  
+  autoView(into_v,into,AcceleratorWrite);
+
+  accelerator_for(x, from.Grid()->oSites(), GridPropagatorField2f::vector_object::Nsimd(), {
+      auto fs = from_v(x);
+      decltype(fs) out;
+      RealD nrm = 1./sqrt(2.);
+      ComplexD I(0,1);
+      Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
+      Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
+      Gamma X = C*g5;
+      auto Xfs = X * fs;
+
+      //U = 1/sqrt(2) |  -X    i  |
+      //              |  -1    iX |
+      for(int fc=0;fc<Ngp;fc++){
+	for(int sc=0;sc<Ns;sc++){
+	  for(int cc=0;cc<Nc;cc++){
+
+	    for(int sr=0;sr<Ns;sr++)
+	      for(int cr=0;cr<Nc;cr++){	  
+		out(0,fc)(sr,sc)(cr,cc) = -nrm * Xfs(0,fc)(sr,sc)(cr,cc) + nrm * I * fs(1,fc)(sr,sc)(cr,cc);
+		out(1,fc)(sr,sc)(cr,cc) = -nrm * fs(0,fc)(sr,sc)(cr,cc) + nrm * I * Xfs(1,fc)(sr,sc)(cr,cc);
+	      }
+	  }
+	}
+      }
+      coalescedWrite(into_v[x],out);
+    });
+}
+
+template<typename GridPropagatorField2f>
+void multUdagLeft(GridPropagatorField2f &into, const GridPropagatorField2f &from){
+  using namespace Grid;
+  autoView(from_v,from,AcceleratorRead);  
+  autoView(into_v,into,AcceleratorWrite);
+
+  accelerator_for(x, from.Grid()->oSites(), GridPropagatorField2f::vector_object::Nsimd(), {
+      auto fs = from_v(x);
+      decltype(fs) out;
+      RealD nrm = 1./sqrt(2.);
+      ComplexD I(0,1);
+      Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
+      Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
+      Gamma X = C*g5;
+      auto Xfs = X * fs;
+
+      //U^dag = 1/sqrt(2) |  X    -1  |
+      //                  |  -i    iX |
+      for(int fc=0;fc<Ngp;fc++){
+	for(int sc=0;sc<Ns;sc++){
+	  for(int cc=0;cc<Nc;cc++){
+
+	    for(int sr=0;sr<Ns;sr++)
+	      for(int cr=0;cr<Nc;cr++){	  
+		out(0,fc)(sr,sc)(cr,cc) = nrm * Xfs(0,fc)(sr,sc)(cr,cc) - nrm * fs(1,fc)(sr,sc)(cr,cc);
+		out(1,fc)(sr,sc)(cr,cc) = -nrm * I * fs(0,fc)(sr,sc)(cr,cc) + nrm * I * Xfs(1,fc)(sr,sc)(cr,cc);
+	      }
+	  }
+	}
+      }
+      coalescedWrite(into_v[x],out);
+    });
+}
+
+
+template<typename GridPropagatorField2f>
+void multUright(GridPropagatorField2f &into, const GridPropagatorField2f &from){
+  using namespace Grid;
+  autoView(from_v,from,AcceleratorRead);  
+  autoView(into_v,into,AcceleratorWrite);
+
+  accelerator_for(x, from.Grid()->oSites(), GridPropagatorField2f::vector_object::Nsimd(), {
+      auto fs = from_v(x);
+      decltype(fs) out;
+      RealD nrm = 1./sqrt(2.);
+      ComplexD I(0,1);
+      Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
+      Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
+      Gamma X = C*g5;
+      auto fsX = fs * X;
+
+      //U = 1/sqrt(2) |  -X    i  |
+      //              |  -1    iX |
+      for(int fr=0;fr<Ngp;fr++){
+	for(int sr=0;sr<Ns;sr++){
+	  for(int cr=0;cr<Nc;cr++){
+
+	    for(int sc=0;sc<Ns;sc++)
+	      for(int cc=0;cc<Nc;cc++){	  
+		out(fr,0)(sr,sc)(cr,cc) = -nrm * fsX(fr,0)(sr,sc)(cr,cc) - nrm * fs(fr,1)(sr,sc)(cr,cc);
+		out(fr,1)(sr,sc)(cr,cc) = nrm * I * fs(fr,0)(sr,sc)(cr,cc) + nrm * I * fsX(fr,1)(sr,sc)(cr,cc);
+	      }
+	  }
+	}
+      }
+      coalescedWrite(into_v[x],out);
+    });
+}
+
+
+template<typename GridPropagatorField2f>
+void multUdagRight(GridPropagatorField2f &into, const GridPropagatorField2f &from){
+  using namespace Grid;
+  autoView(from_v,from,AcceleratorRead);  
+  autoView(into_v,into,AcceleratorWrite);
+
+  accelerator_for(x, from.Grid()->oSites(), GridPropagatorField2f::vector_object::Nsimd(), {
+      auto fs = from_v(x);
+      decltype(fs) out;
+      RealD nrm = 1./sqrt(2.);
+      ComplexD I(0,1);
+      Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
+      Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
+      Gamma X = C*g5;
+      auto fsX = fs * X;
+
+      //U^dag = 1/sqrt(2) |  X    -1  |
+      //                  |  -i    iX |
+      for(int fr=0;fr<Ngp;fr++){
+	for(int sr=0;sr<Ns;sr++){
+	  for(int cr=0;cr<Nc;cr++){
+
+	    for(int sc=0;sc<Ns;sc++)
+	      for(int cc=0;cc<Nc;cc++){	  
+		out(fr,0)(sr,sc)(cr,cc) = nrm * fsX(fr,0)(sr,sc)(cr,cc) - nrm * I * fs(fr,1)(sr,sc)(cr,cc);
+		out(fr,1)(sr,sc)(cr,cc) = -nrm * fs(fr,0)(sr,sc)(cr,cc) + nrm * I * fsX(fr,1)(sr,sc)(cr,cc);
+	      }
+	  }
+	}
+      }
+      coalescedWrite(into_v[x],out);
+    });
+}
+
+
 template<typename TwoFlavorField, typename OneFlavorField>
 void XconjugateBoost(TwoFlavorField &into, const OneFlavorField &from){  
   using namespace Grid;
@@ -29,10 +261,11 @@ void XconjugateBoost(TwoFlavorField &into, const OneFlavorField &from){
 }
 
 template<typename TwoFlavorField>
-bool XconjugateCheck(const TwoFlavorField &v, const double tol = 1e-10, bool verbose=true){
+bool XconjugateCheck(const TwoFlavorField &v, const double tol = 1e-10, bool verbose=true, const std::string &descr = ""){
   decltype( Grid::PeekIndex<GparityFlavourIndex>(v,0) ) tmp(v.Grid());
   tmp = -(Xmatrix()*conjugate(Grid::PeekIndex<GparityFlavourIndex>(v,0))) - Grid::PeekIndex<GparityFlavourIndex>(v,1);
   double n = norm2(tmp);
+  if(verbose) LOGA2A << "X-conjugate check " << descr << ": " << n << " (expect 0)" << std::endl;
   if(n > tol){
     LOGA2A << "Failed Xconj check, got " << n << " (expect 0)" << std::endl;
     return false;

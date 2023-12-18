@@ -18,6 +18,9 @@
 CPS_START_NAMESPACE
 
 template< typename mf_Policies>
+class A2AvectorVfftw;
+
+template< typename mf_Policies>
 class A2AvectorV: public StandardIndexDilution, public mf_Policies::A2AvectorVpolicies{
 public:
   typedef mf_Policies Policies;
@@ -31,6 +34,9 @@ private:
 
 public:
   typedef StandardIndexDilution DilutionType;
+  typedef A2AvectorVfftw<mf_Policies> FFTvectorType;
+  template<typename P> using FFTvectorTemplate = A2AvectorVfftw<P>;
+  template<typename P> using VectorTemplate = A2AvectorV<P>;
 
   A2AvectorV(const A2AArg &_args): StandardIndexDilution(_args){    
     v.resize(nv);
@@ -101,6 +107,9 @@ public:
     //Get a mode from the high-mode part
     accelerator_inline FieldView & getVh(const int ih) const{ return av[nl+ih]; }
 
+    accelerator_inline FieldView & getLowMode(const int il) const{ return av[il]; }
+    accelerator_inline FieldView & getHighMode(const int ih) const{ return av[nl+ih]; }
+
     //Get a particular site/spin/color element of a given *native* (packed) mode. For V this does the same as the above
     //Note: site is the local 4d site offset
     accelerator_inline const FieldSiteType & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
@@ -169,6 +178,10 @@ public:
   void writeParallelWithGrid(const std::string &file_stub) const;
   void readParallelWithGrid(const std::string &file_stub);
   
+  //Read and write to per-node part files. Note: does not deal with endian-ness so files may not be portable
+  void writeParallelByParts(const std::string &file_stub) const;
+  void readParallelByParts(const std::string &file_stub);
+
   inline void free_mem(){ v.free(); }
 };
 

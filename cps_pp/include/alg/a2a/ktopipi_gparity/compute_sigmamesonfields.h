@@ -33,9 +33,9 @@ public:
 
 
 //Use structs to control how the meson fields are stored (either in memory or to disk)
-template<typename mf_Policies>
+template<typename Vtype, typename Wtype>
 struct WriteSigmaMesonFields{
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MesonFieldType;
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldType;
   typedef std::vector<MesonFieldType> MesonFieldVectorType;
 
   const std::string work_dir;
@@ -59,14 +59,14 @@ struct WriteSigmaMesonFields{
     for(int t=0;t<GJP.Tnodes()*GJP.TnodeSites();t++) mf_q[t].free_mem(); //no longer needed 
   }
 };
-template<typename mf_Policies>
+template<typename Vtype, typename Wtype>
 struct MemStoreSigmaMesonFields{
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MesonFieldType;
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldType;
   typedef std::vector<MesonFieldType> MesonFieldVectorType;
 
-  MesonFieldMomentumPairContainer<mf_Policies> &storage;
+  MesonFieldMomentumPairContainer<MesonFieldType> &storage;
 
-  MemStoreSigmaMesonFields(MesonFieldMomentumPairContainer<mf_Policies> &_storage): storage(_storage){}
+  MemStoreSigmaMesonFields(MesonFieldMomentumPairContainer<MesonFieldType> &_storage): storage(_storage){}
   
   void operator()(const ThreeMomentum &p_wdag, const ThreeMomentum &p_v, MesonFieldVectorType &mf_q) const{
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
@@ -83,23 +83,16 @@ struct MemStoreSigmaMesonFields{
 
 
 //This just computes and optionally writes the sigma meson fields		  
-template<typename mf_Policies>
+template<typename Vtype, typename Wtype>
 class ComputeSigma{
  public:
+  typedef typename Vtype::Policies mf_Policies;
   typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::MappingPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
-
-#ifdef USE_DESTRUCTIVE_FFT
-  typedef A2AvectorW<mf_Policies> Wtype;
-  typedef A2AvectorV<mf_Policies> Vtype;
-#else
-  typedef const A2AvectorW<mf_Policies> Wtype;
-  typedef const A2AvectorV<mf_Policies> Vtype;
-#endif
 
   typedef typename mf_Policies::ComplexType ComplexType;
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
   typedef typename mf_Policies::SourcePolicies SourcePolicies;
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MesonFieldType;
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldType;
   typedef std::vector<MesonFieldType> MesonFieldVectorType;
 
 private:
@@ -109,20 +102,20 @@ private:
 					  const MomentumPolicy &sigma_mom,
 					  Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 					  const FieldParamType &src_setup_params = NullObject()){
-    WriteSigmaMesonFields<mf_Policies> write_1s(work_dir, "hyd1s", traj, rad);
-    WriteSigmaMesonFields<mf_Policies> write_2s(work_dir, "hyd2s", traj, rad);
+    WriteSigmaMesonFields<Vtype,Wtype> write_1s(work_dir, "hyd1s", traj, rad);
+    WriteSigmaMesonFields<Vtype,Wtype> write_2s(work_dir, "hyd2s", traj, rad);
     
     GparitySeparateSources(write_1s, write_2s, sigma_mom, W, V, rad, lattice, src_setup_params);
   }
   template<typename MomentumPolicy>
-  static void GparitySeparateSourcesStore(MesonFieldMomentumPairContainer<mf_Policies> &store_1s,
-					  MesonFieldMomentumPairContainer<mf_Policies> &store_2s,
+  static void GparitySeparateSourcesStore(MesonFieldMomentumPairContainer<MesonFieldType> &store_1s,
+					  MesonFieldMomentumPairContainer<MesonFieldType> &store_2s,
 					  const MomentumPolicy &sigma_mom,
 					  Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 					  const FieldParamType &src_setup_params = NullObject()){
 
-    MemStoreSigmaMesonFields<mf_Policies> storewrp1s(store_1s);
-    MemStoreSigmaMesonFields<mf_Policies> storewrp2s(store_2s);
+    MemStoreSigmaMesonFields<Vtype,Wtype> storewrp1s(store_1s);
+    MemStoreSigmaMesonFields<Vtype,Wtype> storewrp2s(store_2s);
   
     GparitySeparateSources(storewrp1s, storewrp2s, sigma_mom, W, V, rad, lattice, src_setup_params);
   }
@@ -151,10 +144,10 @@ private:
     GparityBaseMomentum(pbase,+1);
 
     typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<0,true,false> > ExpInnerType;
-    typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, ExpInnerType> ExpStorageType;
+    typedef GparityFlavorProjectedShiftSourceStorage<Vtype,Wtype, ExpInnerType> ExpStorageType;
 
     typedef GparitySourceShiftInnerProduct<ComplexType,HydSrcType, flavorMatrixSpinColorContract<0,true,false> > HydInnerType;
-    typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, HydInnerType> HydStorageType;
+    typedef GparityFlavorProjectedShiftSourceStorage<Vtype,Wtype, HydInnerType> HydStorageType;
 
     ExpSrcType exp_src(rad,pbase,src_setup_params); //1s
     HydSrcType hyd_src(2,0,0,rad,pbase,src_setup_params); //2s
@@ -186,7 +179,7 @@ private:
       }
       a2a_printf("Computing sigma meson fields with 1s source for %d <= pidx < %d\n", p_lo,p_hi);
     
-      ComputeMesonFields<mf_Policies,ExpStorageType>::compute(exp_mf_store,Wspecies,Vspecies,lattice
+      ComputeMesonFields<Vtype,Wtype,ExpStorageType>::compute(exp_mf_store,Wspecies,Vspecies,lattice
 #  ifdef NODE_DISTRIBUTE_MESONFIELDS
 							      ,true
 #  endif
@@ -201,7 +194,7 @@ private:
       
       a2a_printf("Computing sigma meson fields with 2s source for %d <= pidx < %d\n", p_lo,p_hi);
     
-      ComputeMesonFields<mf_Policies,HydStorageType>::compute(hyd_mf_store,Wspecies,Vspecies,lattice
+      ComputeMesonFields<Vtype,Wtype,HydStorageType>::compute(hyd_mf_store,Wspecies,Vspecies,lattice
 #  ifdef NODE_DISTRIBUTE_MESONFIELDS
 							      ,true
 #  endif
@@ -225,22 +218,22 @@ private:
   template<typename MomentumPolicy>
   static void GparityAllInOneWrite(const std::string &work_dir, const int traj,
 				   const MomentumPolicy &sigma_mom,
-			      Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
-			      const FieldParamType &src_setup_params = NullObject()){
-    WriteSigmaMesonFields<mf_Policies> write_1s(work_dir, "hyd1s", traj, rad);
-    WriteSigmaMesonFields<mf_Policies> write_2s(work_dir, "hyd2s", traj, rad);
+				   Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
+				   const FieldParamType &src_setup_params = NullObject()){
+    WriteSigmaMesonFields<Vtype,Wtype> write_1s(work_dir, "hyd1s", traj, rad);
+    WriteSigmaMesonFields<Vtype,Wtype> write_2s(work_dir, "hyd2s", traj, rad);
     
     GparityAllInOne(write_1s, write_2s, sigma_mom, W, V, rad, lattice, src_setup_params);
   }
   template<typename MomentumPolicy>
-  static void GparityAllInOneStore(MesonFieldMomentumPairContainer<mf_Policies> &store_1s,
-				   MesonFieldMomentumPairContainer<mf_Policies> &store_2s,
+  static void GparityAllInOneStore(MesonFieldMomentumPairContainer<MesonFieldType> &store_1s,
+				   MesonFieldMomentumPairContainer<MesonFieldType> &store_2s,
 				   const MomentumPolicy &sigma_mom,
 				   Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 				   const FieldParamType &src_setup_params = NullObject()){
 
-    MemStoreSigmaMesonFields<mf_Policies> storewrp1s(store_1s);
-    MemStoreSigmaMesonFields<mf_Policies> storewrp2s(store_2s);
+    MemStoreSigmaMesonFields<Vtype,Wtype> storewrp1s(store_1s);
+    MemStoreSigmaMesonFields<Vtype,Wtype> storewrp2s(store_2s);
   
     GparityAllInOne(storewrp1s, storewrp2s, sigma_mom, W, V, rad, lattice, src_setup_params);
   }
@@ -272,7 +265,7 @@ private:
 
     //Allows for more memory efficient computation algorithm
     typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<0,true,false> > MultiInnerType;
-    typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, MultiInnerType> StorageType;
+    typedef GparityFlavorProjectedShiftSourceStorage<Vtype,Wtype, MultiInnerType> StorageType;
       
     MultiSrcType src;
     src.template getSource<0>().setup(rad,pbase,src_setup_params); //1s
@@ -288,7 +281,7 @@ private:
     }
     LOGA2A << "Computing sigma meson fields with 1s/2s sources" << std::endl;
 
-    ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
+    ComputeMesonFields<Vtype,Wtype,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
 #  ifdef NODE_DISTRIBUTE_MESONFIELDS
 							 ,true
 #  endif
@@ -313,7 +306,7 @@ private:
 			     const MomentumPolicy &sigma_mom,
 			     Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 			     const FieldParamType &src_setup_params = NullObject()){
-    WriteSigmaMesonFields<mf_Policies> write_1s(work_dir, "hyd1s", traj, rad);
+    WriteSigmaMesonFields<Vtype,Wtype> write_1s(work_dir, "hyd1s", traj, rad);
     
     noGparity(write_1s, sigma_mom, W, V, rad, lattice, src_setup_params);
   }
@@ -324,7 +317,7 @@ private:
 			     Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 			     const FieldParamType &src_setup_params = NullObject()){
     
-    MemStoreSigmaMesonFields<mf_Policies> storewrp1s(store_1s);
+    MemStoreSigmaMesonFields<Vtype,Wtype> storewrp1s(store_1s);
   
     noGparity(storewrp1s, sigma_mom, W, V, rad, lattice, src_setup_params);
   }
@@ -343,7 +336,7 @@ private:
 
     typedef A2AexpSource<SourcePolicies> SrcType;
     typedef SCspinInnerProduct<0,ComplexType,SrcType> InnerType;
-    typedef BasicSourceStorage<mf_Policies,InnerType> StorageType;
+    typedef BasicSourceStorage<Vtype,Wtype,InnerType> StorageType;
       
     SrcType src(rad,src_setup_params);
     InnerType gunit_inner(src);
@@ -355,7 +348,7 @@ private:
       ThreeMomentum p_v = sigma_mom.getVmom(pidx,false);
       mf_store.addCompute(0,0, p_w,p_v);	
     }
-    ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
+    ComputeMesonFields<Vtype,Wtype,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
       
     for(int pidx=0;pidx<sigma_mom.nMom();pidx++){
       ThreeMomentum p_wdag = -sigma_mom.getWmom(pidx,false);
@@ -382,8 +375,8 @@ public:
     }
   }
   template<typename MomentumPolicy>
-  static void computeGparityMesonFields(MesonFieldMomentumPairContainer<mf_Policies> &store_1s,
-					MesonFieldMomentumPairContainer<mf_Policies> &store_2s,
+  static void computeGparityMesonFields(MesonFieldMomentumPairContainer<MesonFieldType> &store_1s,
+					MesonFieldMomentumPairContainer<MesonFieldType> &store_2s,
 					const MomentumPolicy &sigma_mom,
 					Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 					const FieldParamType &src_setup_params = NullObject()){
@@ -400,45 +393,37 @@ public:
 
 
 
-template<typename mf_Policies>
+template<typename Vtype, typename Wtype>
 struct computeSigmaMesonFieldsBase{
+  typedef typename Vtype::Policies mf_Policies;
   typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::MappingPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
 
-#ifdef USE_DESTRUCTIVE_FFT
-  typedef A2AvectorW<mf_Policies> Wtype;
-  typedef A2AvectorV<mf_Policies> Vtype;
-#else
-  typedef const A2AvectorW<mf_Policies> Wtype;
-  typedef const A2AvectorV<mf_Policies> Vtype;
-#endif
-
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MesonFieldType;
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldType;
   typedef std::vector<MesonFieldType> MesonFieldVectorType;
   typedef typename mf_Policies::ComplexType ComplexType;
   typedef typename mf_Policies::SourcePolicies SourcePolicies;
 
-#define INHERIT(TYPE,FROM) typedef typename FROM::TYPE TYPE
+#define INHERIT(TYPE) typedef typename computeSigmaMesonFieldsBase<Vtype,Wtype>::TYPE TYPE
 
 #define INHERIT_FROM_BASE \
-  INHERIT(FieldParamType, computeSigmaMesonFieldsBase<mf_Policies>); 	\
-  INHERIT(Wtype, computeSigmaMesonFieldsBase<mf_Policies>); 	\
-  INHERIT(Vtype, computeSigmaMesonFieldsBase<mf_Policies>); 	\
-  INHERIT(MesonFieldType, computeSigmaMesonFieldsBase<mf_Policies>); 	\
-  INHERIT(MesonFieldVectorType, computeSigmaMesonFieldsBase<mf_Policies>); 	\
-  INHERIT(ComplexType, computeSigmaMesonFieldsBase<mf_Policies>); 	\
-  INHERIT(SourcePolicies, computeSigmaMesonFieldsBase<mf_Policies>)
+  INHERIT(mf_Policies);		\
+  INHERIT(FieldParamType); 	\
+  INHERIT(MesonFieldType); 	\
+  INHERIT(MesonFieldVectorType); 	\
+  INHERIT(ComplexType); 	\
+  INHERIT(SourcePolicies)
 
 };
 
 //Note this differs from the computation of the pion meson fields for 2 reasons: the spin/flavor structure and the fact that the resulting meason fields are placed in MesonFieldMomentumPairContainer that keys the meson fields on the combination of both quark momenta rather than the total momentum.
-template<typename mf_Policies, typename SigmaMomentumPolicy>
+template<typename Vtype, typename Wtype, typename SigmaMomentumPolicy>
 class computeSigmaMesonFields1s{
 public:
   INHERIT_FROM_BASE;
-
+  
   typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
   typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<0,true,false> > InnerType;
-  typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, InnerType> StorageType;
+  typedef GparityFlavorProjectedShiftSourceStorage<Vtype,Wtype, InnerType> StorageType;
    
 public:
 
@@ -449,7 +434,7 @@ public:
     Options(): thr_internal(-1), mom_block_size(-1), nshift_combine_max(-1){}
   };
 
-  static void computeMesonFields(MesonFieldMomentumPairContainer<mf_Policies> &mf_con, 
+  static void computeMesonFields(MesonFieldMomentumPairContainer<MesonFieldType> &mf_con, 
 				 const SigmaMomentumPolicy &sigma_mom, //object that tells us what quark momenta to use
 				 Wtype &W, Vtype &V,
 				 const Float rad_1s, //exponential wavefunction radius
@@ -491,7 +476,7 @@ public:
 	mf_store.addCompute(0,0, p_w,p_v);
       }
 
-      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
+      ComputeMesonFields<Vtype,Wtype,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
 							   ,true
 #endif
@@ -503,7 +488,7 @@ public:
     if(opt.thr_internal != -1) omp_set_num_threads(init_thr);
   }
 
-  static void write(MesonFieldMomentumPairContainer<mf_Policies> &mf_con, const SigmaMomentumPolicy &sigma_mom, const std::string &work_dir, const int traj,const Float &rad){
+  static void write(MesonFieldMomentumPairContainer<MesonFieldType> &mf_con, const SigmaMomentumPolicy &sigma_mom, const std::string &work_dir, const int traj,const Float &rad){
     for(int i=0;i<sigma_mom.nMom();i++){
       ThreeMomentum p_wdag = sigma_mom.getWdagMom(i);
       ThreeMomentum p_v = sigma_mom.getVmom(i);
@@ -526,7 +511,7 @@ public:
     }
   }
 
-  static void read(MesonFieldMomentumPairContainer<mf_Policies> &mf_con, const SigmaMomentumPolicy &sigma_mom, const std::string &work_dir, const int traj,const Float &rad){
+  static void read(MesonFieldMomentumPairContainer<MesonFieldType> &mf_con, const SigmaMomentumPolicy &sigma_mom, const std::string &work_dir, const int traj,const Float &rad){
     for(int i=0;i<sigma_mom.nMom();i++){
       ThreeMomentum p_wdag = sigma_mom.getWdagMom(i);
       ThreeMomentum p_v = sigma_mom.getVmom(i);
@@ -546,6 +531,9 @@ public:
   }
 
 };
+
+#undef INHERIT
+#undef INHERIT_FROM_BASE
 
 CPS_END_NAMESPACE
 

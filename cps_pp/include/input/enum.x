@@ -907,7 +907,8 @@ enum A2ACGalgorithm {
  AlgorithmMixedPrecisionRestartedCG,
  AlgorithmMixedPrecisionReliableUpdateCG,
  AlgorithmMixedPrecisionReliableUpdateSplitCG,
- AlgorithmMixedPrecisionMADWF
+ AlgorithmMixedPrecisionMADWF,
+ AlgorithmXconjMixedPrecisionReliableUpdateSplitCG
 };
 
 enum A2A_ZMobiusGammaSource{	
@@ -919,7 +920,12 @@ enum A2AhighModeSourceType{
      A2AhighModeSourceTypeOrig,
      A2AhighModeSourceTypeXconj,
      A2AhighModeSourceTypeFlavorUnit,
-     A2AhighModeSourceTypeFlavorCConj
+     A2AhighModeSourceTypeFlavorCConj,
+     A2AhighModeSourceTypeFlavorUnitary,
+     A2AhighModeSourceTypeFlavorRotY,
+     A2AhighModeSourceTypeU1X,
+     A2AhighModeSourceTypeU1g0,
+     A2AhighModeSourceTypeU1H
 };
 
 enum A2AlanczosType{
