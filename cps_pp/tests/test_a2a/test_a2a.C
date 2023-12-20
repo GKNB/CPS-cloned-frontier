@@ -175,6 +175,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   std::cout << "Starting tests" << std::endl;
 
   /*
+  testMPIAllReduceQueued();
 
   if(1) testPoolAllocator();
   if(1) testAsyncTransferManager();
@@ -303,7 +304,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  */
+  
   if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
   if(1) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
 
@@ -318,7 +319,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
    if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-    /*
+  
   if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
@@ -410,6 +411,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   testCPSfieldWriteParts<A2Apolicies_grid>(opt.write, opt.io_dir);
 
+  */
   testMesonFieldNodeSumPartialAsync<A2Apolicies_grid>(a2a_arg);
   /*
   */

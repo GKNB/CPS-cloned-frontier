@@ -383,7 +383,12 @@ struct nodeSumPartialAsyncHandle{
   int jstart;
   int nj;
   std::vector<double> data;
+
+#ifdef MF_ASYNCREDUCE_THREAD
+  MPIallReduceQueued::handleType req;
+#else
   MPI_Request req;
+#endif
   bool init;
 
   nodeSumPartialAsyncHandle(): init(false){}
@@ -406,13 +411,21 @@ struct nodeSumPartialAsyncHandle{
       double const* from = (double const*)( mf_v.ptr() + jstart + mf_v.getNcols()*( i + istart ) );
       memcpy(to,from,2*nj*sizeof(double));
     }
+#ifdef MF_ASYNCREDUCE_THREAD
+    req = MPIallReduceQueued::globalInstance().enqueue(data.data(),data.size(),MPI_DOUBLE);
+#else
     assert( MPI_Iallreduce(MPI_IN_PLACE, data.data(), data.size(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, &req) == MPI_SUCCESS );
+#endif
     init = true;
   }
   template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
   void complete(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf){
     if(init){
+#ifdef MF_ASYNCREDUCE_THREAD
+      req->wait();
+#else
       assert( MPI_Wait(&req, MPI_STATUS_IGNORE) == MPI_SUCCESS );
+#endif
       CPSautoView(mf_v, mf, HostWrite);
 #pragma omp parallel for
       for(int i=0;i<ni;i++){
@@ -425,7 +438,6 @@ struct nodeSumPartialAsyncHandle{
     }
   }
 };
-
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 nodeSumPartialAsyncHandle A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeSumPartialAsync(const int istart, const int ni, const int jstart, const int nj) const{
