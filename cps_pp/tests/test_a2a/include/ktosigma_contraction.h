@@ -34,7 +34,7 @@ void testKtoSigmaType12FieldFull(const A2AArg &a2a_args, const double tol){
   std::vector<ResultsContainerType> expect_r(2);
   std::vector<ResultsContainerType> got_r(2);
 
-  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_sigma(Lt);
+  std::vector<typename ComputeP::mf_WV> mf_sigma(Lt);
   for(int t=0;t<Lt;t++){
     mf_sigma[t].setup(Wgrid,Vgrid,t,t);
     mf_sigma[t].testRandom();
@@ -110,7 +110,7 @@ void testKtoSigmaType3FieldFull(const A2AArg &a2a_args, const double tol){
   std::vector<MixDiagResultsContainerType> expect_mix_r(2);
   std::vector<MixDiagResultsContainerType> got_mix_r(2);
 
-  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_sigma(Lt);
+  std::vector<typename ComputeP::mf_WV> mf_sigma(Lt);
   for(int t=0;t<Lt;t++){
     mf_sigma[t].setup(Wgrid,Vgrid,t,t);
     mf_sigma[t].testRandom();

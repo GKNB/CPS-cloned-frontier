@@ -597,7 +597,7 @@ void testGridMesonFieldComputeManySimple(A2AvectorV<GridA2Apolicies> &V, A2Avect
   Vfft.gaugeFixTwistFFT(V,p_v.ptr(),lattice);
   inner.getSource()->setMomentum(p_v.ptr());
 
-  typedef A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> MFType;
+  typedef A2AmesonField<GridA2Apolicies, Wtype::template FFTvectorTemplate, Vtype::template FFTvectorTemplate> MFType;
   typedef std::vector<MFType> MFVec;
   MFVec mf_ref;
   MFType::compute(mf_ref, Wfft, inner, Vfft);
@@ -649,6 +649,7 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
 
   typedef A2AvectorV<A2Apolicies> Vtype;
   typedef A2AvectorW<A2Apolicies> Wtype;
+  typedef getMesonFieldType<Wtype,Vtype> MesonFieldType;
   
   Wtype W(a2a_args,fp);
   Vtype V(a2a_args,fp);
@@ -688,8 +689,8 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
     A2AvectorVfftw<A2Apolicies> Vfftw_pp(a2a_args,fp);
     Vfftw_pp.gaugeFixTwistFFT(V,pp.ptr(),lat);
   
-    std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_std_1s_pp_pp;
-    A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_std_1s_pp_pp, Wfftw_pp, _1s_inner, Vfftw_pp);
+    std::vector<MesonFieldType> mf_std_1s_pp_pp;
+    MesonFieldType::compute(mf_std_1s_pp_pp, Wfftw_pp, _1s_inner, Vfftw_pp);
 
     typedef GparityFlavorProjectedBasicSourceStorage<Vtype,Wtype, ExpInnerType> ExpStorageType;
   
@@ -780,18 +781,18 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
 
     //Do the point and 1s by regular means
     if(!UniqueID()){ printf("Computing with point source\n"); fflush(stdout); }       
-    std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_pt_std;
-    A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_pt_std, Wfftw_pp, _pt_inner, Vfftw_pp);
+    std::vector<MesonFieldType> mf_pt_std;
+    MesonFieldType::compute(mf_pt_std, Wfftw_pp, _pt_inner, Vfftw_pp);
 
     if(!UniqueID()){ printf("Computing with 1s source\n"); fflush(stdout); }
-    std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_1s_std;
-    A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_1s_std, Wfftw_pp, _1s_inner, Vfftw_pp);
+    std::vector<MesonFieldType> mf_1s_std;
+    MesonFieldType::compute(mf_1s_std, Wfftw_pp, _1s_inner, Vfftw_pp);
 
     //1) Check flavor projected point and basic point give the same result (no projector for point)
     {
       if(!UniqueID()){ printf("Computing with non-flavor projected point source\n"); fflush(stdout); }
-      std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_basic;
-      A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_basic, Wfftw_pp, _pt_basic_inner, Vfftw_pp);
+      std::vector<MesonFieldType> mf_basic;
+      MesonFieldType::compute(mf_basic, Wfftw_pp, _pt_basic_inner, Vfftw_pp);
       
       for(int t=0;t<Lt;t++){
 	if(!UniqueID()) printf("1) Comparing flavor projected point src to basic point src t=%d\n",t);
@@ -968,7 +969,7 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
 
   ComputeMesonFields<Vtype,Wtype,BasicStorageType>::compute(store_basic,Wspecies,Vspecies,lat);
 
-  typedef std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > MFvectorType;
+  typedef std::vector< getMesonFieldType<Wtype,Vtype> > MFvectorType;
   
   for(int p=0;p<nmom;p++)
     nodeGetMany(1, &store_basic(p));
@@ -1014,7 +1015,7 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
   
   ComputeMesonFields<Vtype,Wtype,ShiftSumStorageType>::compute(shift_store_sum,Wspecies,Vspecies,lat);
 
-  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfVector;
+  typedef std::vector< getMesonFieldType<Wtype,Vtype> > mfVector;
   const mfVector &avgd = shift_store_sum(0);
   printf("Index 0 points to %p\n", &avgd); fflush(stdout);
   

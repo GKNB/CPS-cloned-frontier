@@ -38,68 +38,21 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
 				   double tol){
   std::cout << "Starting testKtoPiPiContractionGridStd" << std::endl;
 
-#if 0
-  ThreeMomentum p_plus( GJP.Bc(0)==BND_CND_GPARITY? 1 : 0,
-			GJP.Bc(1)==BND_CND_GPARITY? 1 : 0,
-			GJP.Bc(2)==BND_CND_GPARITY? 1 : 0 );
-  ThreeMomentum p_minus = -p_plus;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<A2Apolicies_std>, A2AvectorW<A2Apolicies_std>> ComputeStd;
+  typedef ComputeKtoPiPiGparity<A2AvectorV<A2Apolicies_grid>, A2AvectorW<A2Apolicies_grid>> ComputeGrid;
 
-  ThreeMomentum p_pi_plus = p_plus * 2;
-  
-  StandardPionMomentaPolicy momenta;
-  MesonFieldMomentumContainer<A2Apolicies_std> mf_ll_con_std;
-  MesonFieldMomentumContainer<A2Apolicies_grid> mf_ll_con_grid;
+  typedef typename ComputeGrid::mf_WV mf_WV_grid;
+  typedef typename ComputeStd::mf_WV mf_WV_std;
 
-  std::cout << "testKtoPiPiContractionGridStd computing LL meson fields standard calc" << std::endl;
-  computeGparityLLmesonFields1s<A2Apolicies_std,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con_std,momenta,W_std,V_std,2.0,lattice);
-
-  std::cout << "testKtoPiPiContractionGridStd computing LL meson fields Grid calc" << std::endl;
-  computeGparityLLmesonFields1s<A2Apolicies_grid,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con_grid,momenta,W_grid,V_grid,2.0,lattice,simd_dims_3d);
-
-  std::cout << "testKtoPiPiContractionGridStd comparing LL MF momenta" << std::endl;
-  std::vector<ThreeMomentum> mom_std; mf_ll_con_std.getMomenta(mom_std);
-  std::vector<ThreeMomentum> mom_grid; mf_ll_con_grid.getMomenta(mom_grid);
-
-  assert(mom_std.size() == mom_grid.size());
-  for(int pp=0;pp<mom_std.size();pp++)
-    assert(mom_std[pp] == mom_grid[pp]);
-
-  std::cout << "testKtoPiPiContractionGridStd comparison of LL MF momenta passed" << std::endl;
-
-  std::cout << "testKtoPiPiContractionGridStd comparing LL meson fields between standard and Grid implementations" << std::endl;
-  for(int pp=0;pp<mom_std.size();pp++){
-    const auto &MFvec_std = mf_ll_con_std.get(mom_std[pp]);
-    const auto &MFvec_grid = mf_ll_con_grid.get(mom_grid[pp]);
-    std::cout << "Comparing meson fields for momentum " << mom_std[pp] << std::endl;
-    assert(compare(MFvec_std, MFvec_grid, tol));
-  }
-  std::cout << "testKtoPiPiContractionGridStd comparison of LL meson fields between standard and Grid implementations passed" << std::endl;
- 
-  StandardLSWWmomentaPolicy ww_mom;
-
-  std::cout << "testKtoPiPiContractionGridStd computing WW fields standard calc" << std::endl;
-  std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww_std;
-  ComputeKtoPiPiGparity<A2Apolicies_std>::generatelsWWmesonfields(mf_ls_ww_std,W_std,W_std, ww_mom, 2.0,lattice);
-  
-  std::cout << "testKtoPiPiContractionGridStd computing WW fields Grid calc" << std::endl;
-  std::vector<A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww_grid;
-  ComputeKtoPiPiGparity<A2Apolicies_grid>::generatelsWWmesonfields(mf_ls_ww_grid,W_grid,W_grid, ww_mom, 2.0,lattice, simd_dims_3d);
-
-  assert(mf_ls_ww_std.size() == mf_ls_ww_grid.size());
-  
-  std::cout << "testKtoPiPiContractionGridStd comparing WW fields" << std::endl;
-  assert(compare(mf_ls_ww_std, mf_ls_ww_grid, tol));
-  
-  std::cout << "testKtoPiPiContractionGridStd comparison of WW fields passed" << std::endl;
-  
-  mf_ll_con_grid.printMomenta(std::cout);
-#else
+  typedef typename ComputeGrid::mf_WW mf_WW_grid;
+  typedef typename ComputeStd::mf_WW mf_WW_std;
 
   const int nsimd = A2Apolicies_grid::ComplexType::Nsimd();      
  
   int Lt = GJP.TnodeSites()*GJP.Tnodes();
-  std::vector<A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww_grid(Lt);
-  std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww_std(Lt);
+  
+  std::vector<mf_WW_grid> mf_ls_ww_grid(Lt);
+  std::vector<mf_WW_std> mf_ls_ww_std(Lt);
   
   for(int t=0;t<Lt;t++){
     mf_ls_ww_grid[t].setup(W_grid,W_grid,t,t);
@@ -113,11 +66,9 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
   ThreeMomentum p_pi_plus(2,2,2);
   ThreeMomentum p_pi_minus = -p_pi_plus;
 
-  typedef A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorVfftw> mf_WV_grid;
   MesonFieldMomentumContainer<mf_WV_grid> mf_ll_con_grid;
   std::vector<mf_WV_grid> mf_pion_grid_tmp(Lt);
 
-  typedef A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> mf_WV_std;
   MesonFieldMomentumContainer<mf_WV_std> mf_ll_con_std;
   std::vector<mf_WV_std> mf_pion_std_tmp(Lt);
 
@@ -147,11 +98,7 @@ void testKtoPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2Avector
     
   assert(compare(mf_ll_con_grid.get(p_pi_plus), mf_ll_con_std.get(p_pi_plus),1e-12));
   assert(compare(mf_ll_con_grid.get(p_pi_minus), mf_ll_con_std.get(p_pi_minus),1e-12));
-#endif
  
-  typedef ComputeKtoPiPiGparity<A2AvectorV<A2Apolicies_std>, A2AvectorW<A2Apolicies_std>> ComputeStd;
-  typedef ComputeKtoPiPiGparity<A2AvectorV<A2Apolicies_grid>, A2AvectorW<A2Apolicies_grid>> ComputeGrid;
-  
   if(1){
     std::cout << "testKtoPiPiContractionGridStd computing type1 standard calc" << std::endl;
     typename ComputeStd::ResultsContainerType type1_std;
@@ -507,11 +454,11 @@ void testKtoPiPiType1GridOmpStd(const A2AArg &a2a_args,
   ThreeMomentum p_pi1(1,1,1);
   ThreeMomentum p_pi2 = -p_pi1;
 
-  typedef A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV_grid;
+  typedef typename ComputeGrid::mf_WV mf_WV_grid;
   MesonFieldMomentumContainer<mf_WV_grid> mf_pion_grid;
   std::vector<mf_WV_grid> mf_pion_grid_tmp(Lt);
 
-  typedef A2AmesonField<StandardA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV_std;
+  typedef typename ComputeStd::mf_WV mf_WV_std;
   MesonFieldMomentumContainer<mf_WV_std> mf_pion_std;
   std::vector<mf_WV_std> mf_pion_std_tmp(Lt);
 
@@ -606,7 +553,7 @@ void testKtoPiPiType1FieldFull(const A2AArg &a2a_args, const double tol){
   int tsep_pion = 1;
   ThreeMomentum p_pi1(1,1,1);
   ThreeMomentum p_pi2 = -p_pi1;
-  typedef A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
+  typedef typename Compute::mf_WV mf_WV;
   MesonFieldMomentumContainer<mf_WV> mf_pion;
   std::vector<mf_WV> mf_pion_tmp(Lt);
   for(int t=0;t<Lt;t++){
@@ -695,7 +642,7 @@ void testKtoPiPiType2FieldFull(const A2AArg &a2a_args, const double tol){
   ThreeMomentum p_pi1_2(-1,1,1);
   ThreeMomentum p_pi2_2 = -p_pi1_2;
 
-  typedef A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
+  typedef typename Compute::mf_WV mf_WV;
   MesonFieldMomentumContainer<mf_WV> mf_pion;
   std::vector<mf_WV> mf_pion_tmp(Lt);
   for(int t=0;t<Lt;t++){
@@ -797,7 +744,7 @@ void testKtoPiPiType3FieldFull(const A2AArg &a2a_args, const double tol){
   ThreeMomentum p_pi1(1,1,1);
   ThreeMomentum p_pi2 = -p_pi1;
 
-  typedef A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
+  typedef typename Compute::mf_WV mf_WV;
   MesonFieldMomentumContainer<mf_WV> mf_pion;
   std::vector<mf_WV> mf_pion_tmp(Lt);
   for(int t=0;t<Lt;t++){

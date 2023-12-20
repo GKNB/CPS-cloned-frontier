@@ -12,27 +12,35 @@ void testKaonContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A
 
   StationaryKaonMomentaPolicy kaon_mom;
 
-  std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> > mf_ls_std;
-  std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> > mf_sl_std;
-  ComputeKaon<A2AvectorV<A2Apolicies_std>, A2AvectorW<A2Apolicies_std>>::computeMesonFields(mf_ls_std, mf_sl_std,
+  typedef A2AvectorW<A2Apolicies_std> WtypeStd;
+  typedef A2AvectorV<A2Apolicies_std> VtypeStd;
+  typedef A2AmesonField<A2Apolicies_std,WtypeStd::template FFTvectorTemplate, VtypeStd::template FFTvectorTemplate> MesonFieldTypeStd;
+
+  typedef A2AvectorW<A2Apolicies_grid> WtypeGrid;
+  typedef A2AvectorV<A2Apolicies_grid> VtypeGrid;
+  typedef A2AmesonField<A2Apolicies_grid,WtypeGrid::template FFTvectorTemplate, VtypeGrid::template FFTvectorTemplate> MesonFieldTypeGrid;
+  
+  std::vector<MesonFieldTypeStd> mf_ls_std;
+  std::vector<MesonFieldTypeStd> mf_sl_std;
+  ComputeKaon<VtypeStd, WtypeStd>::computeMesonFields(mf_ls_std, mf_sl_std,
 						   W_std, V_std,
 						   W_std, V_std,
 						   kaon_mom,
 						   2.0, lattice);
 
-  std::vector<A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorVfftw> > mf_ls_grid;
-  std::vector<A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorVfftw> > mf_sl_grid;
-  ComputeKaon<A2AvectorV<A2Apolicies_grid>, A2AvectorW<A2Apolicies_grid>>::computeMesonFields(mf_ls_grid, mf_sl_grid,
+  std::vector<MesonFieldTypeGrid> mf_ls_grid;
+  std::vector<MesonFieldTypeGrid> mf_sl_grid;
+  ComputeKaon<VtypeGrid, WtypeGrid>::computeMesonFields(mf_ls_grid, mf_sl_grid,
 						    W_grid, V_grid,
 						    W_grid, V_grid,
 						    kaon_mom,
 						    2.0, lattice, simd_dims_3d);
 
   fMatrix<typename A2Apolicies_std::ScalarComplexType> fmat_std;
-  ComputeKaon<A2AvectorV<A2Apolicies_std>, A2AvectorW<A2Apolicies_std>>::compute(fmat_std, mf_ls_std, mf_sl_std);
+  ComputeKaon<VtypeStd,WtypeStd>::compute(fmat_std, mf_ls_std, mf_sl_std);
 
   fMatrix<typename A2Apolicies_grid::ScalarComplexType> fmat_grid;
-  ComputeKaon<A2AvectorV<A2Apolicies_grid>, A2AvectorW<A2Apolicies_grid>>::compute(fmat_grid, mf_ls_grid, mf_sl_grid);
+  ComputeKaon<VtypeGrid,WtypeGrid>::compute(fmat_grid, mf_ls_grid, mf_sl_grid);
   
   bool fail = false;
   for(int r=0;r<fmat_std.nRows();r++){

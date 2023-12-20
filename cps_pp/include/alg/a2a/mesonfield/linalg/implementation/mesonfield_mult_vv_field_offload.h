@@ -277,7 +277,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 		      SIMTcomplexType *matB = shared_t + 3*shmem_iblock_size;
 
 		      size_t xop; int top;
-		      into.fourToThree(xop, top, x4d);
+		      into_v.fourToThree(xop, top, x4d);
 		      int t_glob = top + t_off;
 		      int t_glob_block = t_glob / src_width;
 
@@ -592,7 +592,8 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 	CPSautoView(il_ir_pairs_v, il_ir_pairs, DeviceRead);
 	CPSautoView(vaprime_v,vaprime,DeviceWrite);
 	CPSautoView(vbprime_v,vbprime,DeviceWrite);
-
+	CPSautoView(into_v,into,DeviceRead);
+	
 	prefetch_start(iprimeblock, niprime_blocks, blocksize, niprime, l, r, il_ir_pairs);
 	
 	using namespace Grid;	
@@ -600,7 +601,7 @@ struct _mult_vv_field_offload_v<mf_Policies,lA2Afield,rA2Afield,PropagatorField,
 			{
 			  typedef SIMT<VectorComplexType> ACC;
 			  size_t xop; int top;
-			  into.fourToThree(xop, top, x4d);
+			  into_v.fourToThree(xop, top, x4d);
 			  int t_glob = top + t_off;
 			  size_t iprime = iprimeb + iprimestart;
 			  

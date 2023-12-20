@@ -19,7 +19,7 @@ void testPiPiContractionGridStd(A2AvectorV<A2Apolicies_std> &V_std, A2AvectorW<A
   
   StandardPionMomentaPolicy momenta;
   typedef getMesonFieldType<A2AvectorW<A2Apolicies_std>, A2AvectorV<A2Apolicies_std>> mf_WV_std;
-  typedef getMesonFieldType<A2AvectorW<A2Apolicies_grid>, A2AvectorV<A2Apolicies_std>> mf_WV_grid;
+  typedef getMesonFieldType<A2AvectorW<A2Apolicies_grid>, A2AvectorV<A2Apolicies_grid>> mf_WV_grid;
   
   MesonFieldMomentumContainer<mf_WV_std> mf_ll_con_std;
   MesonFieldMomentumContainer<mf_WV_grid> mf_ll_con_grid;

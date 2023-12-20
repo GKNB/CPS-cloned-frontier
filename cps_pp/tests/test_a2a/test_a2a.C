@@ -231,10 +231,9 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
 
   if(1) testCshiftCconjBc(simd_dims);
-  */
 
   if(1) testCshiftCconjBcMatrix(simd_dims);
-  /*  
+    
   if(1) testGfixCPSmatrixField(lattice, simd_dims);
 
   if(0) testGridGaugeFix(lattice, opt.gfix_alpha, simd_dims);
@@ -291,16 +290,20 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testConvertComplexD();
 
   if(1) testBasicComplexArray<A2Apolicies_grid>();
+
+  if(1) testhostDeviceMirroredContainer();
+  /*
   
   //Test the openmp Grid vs non-Grid implementation
   if(1) testKtoPiPiType1GridOmpStd<A2Apolicies_std, A2Apolicies_grid>(a2a_arg,
 								      W_grid, V_grid, Wh_grid, Vh_grid,
 								      W_std, V_std, Wh_std, Vh_std,
   								      tol);
-  if(1) testhostDeviceMirroredContainer();
+  
 
   if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
+  */
   if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
   if(1) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
 
@@ -312,9 +315,10 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-  if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+   if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
+    /*
   if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
@@ -364,8 +368,10 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) testA2AvectorTimesliceExtraction<A2Apolicies_grid>(a2a_arg);
 
-  if(1) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);  //Current compilation issues on Intel
-
+#ifndef GRID_SYCL
+  if(1) testCompressedEvecInterface<A2Apolicies_grid>(lattice,tol);  //Current compilation issues on Intel.   11/28/23 STILL compilation issues on Intel
+#endif
+  
   if(1) testA2AvectorWnorm<A2Apolicies_grid>(a2a_arg);
 
   if(1) testXconjAction<A2Apolicies_grid>(lattice, tol);  
@@ -405,6 +411,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   testCPSfieldWriteParts<A2Apolicies_grid>(opt.write, opt.io_dir);
 
   testMesonFieldNodeSumPartialAsync<A2Apolicies_grid>(a2a_arg);
+  /*
   */
 }
 

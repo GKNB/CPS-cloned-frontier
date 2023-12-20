@@ -131,8 +131,9 @@ inline bool equals(const FlavorMatrixGeneral<T> &l, const FlavorMatrixGeneral<T>
 
 //Compare a2a vectors
 //Both should be scalar matrices
-template<typename A2Apolicies_1, typename A2Apolicies_2, template<typename> class L, template<typename> class R>
-bool compare(const std::vector<A2AmesonField<A2Apolicies_1,L,R> > &M1, const std::vector<A2AmesonField<A2Apolicies_2,L,R> > &M2, double tol){
+template<typename A2Apolicies_1, typename A2Apolicies_2, template<typename> class L1, template<typename> class R1, template<typename> class L2, template<typename> class R2,
+	 typename std::enable_if<std::is_same<L1<A2Apolicies_1>,L2<A2Apolicies_1>>::value && std::is_same<R1<A2Apolicies_1>,R2<A2Apolicies_1>>::value, int>::type = 0>
+bool compare(const std::vector<A2AmesonField<A2Apolicies_1,L1,R1> > &M1, const std::vector<A2AmesonField<A2Apolicies_2,L2,R2> > &M2, double tol){
   if(M1.size() != M2.size()){
     std::cout << "Fail: time vector size mismatch" << std::endl;
     return false;
@@ -169,8 +170,9 @@ bool compare(const std::vector<A2AmesonField<A2Apolicies_1,L,R> > &M1, const std
 
 //Copy a2a vector, allow for different policies
 //Both should be scalar matrices
-template<typename A2Apolicies_1, typename A2Apolicies_2, template<typename> class L, template<typename> class R>
-void copy(std::vector<A2AmesonField<A2Apolicies_1,L,R> > &Mout, const std::vector<A2AmesonField<A2Apolicies_2,L,R> > &Min){
+template<typename A2Apolicies_1, typename A2Apolicies_2, template<typename> class L1, template<typename> class R1, template<typename> class L2, template<typename> class R2,
+	 typename std::enable_if<std::is_same<L1<A2Apolicies_1>,L2<A2Apolicies_1>>::value && std::is_same<R1<A2Apolicies_1>,R2<A2Apolicies_1>>::value, int>::type = 0>
+void copy(std::vector<A2AmesonField<A2Apolicies_1,L1,R1> > &Mout, const std::vector<A2AmesonField<A2Apolicies_2,L2,R2> > &Min){
   assert(Mout.size() == Min.size());
   for(int t=0;t<Min.size();t++){
     assert(Mout[t].getNrows() == Min[t].getNrows() && Min[t].getNcols() == Min[t].getNcols());
