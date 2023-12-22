@@ -797,7 +797,10 @@ template<typename A2Apolicies>
 void testMesonFieldNodeSumPartialAsync(const A2AArg &params){
   std::cout << "Starting testMesonFieldNodeSumPartialAsync" << std::endl;
   typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> MFtype;
-
+#ifdef MF_ASYNCREDUCE_THREAD
+  MPIallReduceQueued::globalInstance().setVerbose(true);
+#endif
+  
   MFtype mf_base;
   mf_base.setup(params,params,0,0);
   mf_base.testRandom();
@@ -824,6 +827,10 @@ void testMesonFieldNodeSumPartialAsync(const A2AArg &params){
     exit(1);
   }
   std::cout << "testMesonFieldNodeSumPartialAsync passed" << std::endl;
+#ifdef MF_ASYNCREDUCE_THREAD
+  MPIallReduceQueued::globalInstance().setVerbose(false);
+#endif
+
 }
   
 

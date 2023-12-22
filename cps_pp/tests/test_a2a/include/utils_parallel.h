@@ -5,7 +5,8 @@ CPS_START_NAMESPACE
 void testMPIAllReduceQueued(){
   std::cout << "Starting testMPIAllReduceQueued" << std::endl;
   MPIallReduceQueued &q = MPIallReduceQueued::globalInstance();
-
+  q.setVerbose(true);
+  
   int nodes = GJP.TotalNodes();
   for(int i=0;i<3;i++){
     std::vector<double> v(10),w(10);
@@ -33,6 +34,8 @@ void testMPIAllReduceQueued(){
     for(int i=0;i<10;i++) assert( w[i] == 2.0 * nodes );
     
   }
+
+  q.setVerbose(false);    
   std::cout << "testMPIAllReduceQueued passed" << std::endl;
 }
 

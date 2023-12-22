@@ -157,7 +157,8 @@ private:
   bool m_have_work; //signal if work is available
   std::condition_variable m_work_cv; //condition variable to check for work
   std::list<handleType> m_queue;
-
+  bool m_verbose;
+  
   inline static bool checkStop(bool & stop, std::mutex& mutex){
     std::lock_guard _(mutex); return stop;
   }
@@ -174,22 +175,22 @@ private:
   }
 
 public:
-  MPIallReduceQueued(): m_thr(nullptr), m_stop(false), m_have_work(false){
+  MPIallReduceQueued(): m_thr(nullptr), m_stop(false), m_have_work(false), m_verbose(false){
 
-    m_thr = new std::thread([&m_stop=m_stop,&m_queue=m_queue,&m_mutex=m_mutex, &m_have_work=m_have_work, &m_work_cv=m_work_cv]{
+    m_thr = new std::thread([&m_stop=m_stop,&m_queue=m_queue,&m_mutex=m_mutex, &m_have_work=m_have_work, &m_work_cv=m_work_cv, &m_verbose=m_verbose]{
 	while(!checkStop(m_stop, m_mutex)){ //outer loop
 	  //wait until there is some work to be done
-	  //std::cout << "MPIAllReduceQueued waiting for work" << std::endl;
+	  if(m_verbose) std::cout << "MPIAllReduceQueued waiting for work" << std::endl;
 	  {
 	    std::unique_lock lk(m_mutex);
 	    m_work_cv.wait(lk, [&m_have_work=m_have_work, &m_stop=m_stop]{ return m_have_work || m_stop; }); //allow it to break out if told to stop
 	  }
-	  //std::cout << "MPIAllReduceQueued work is available" << std::endl;
+	  if(m_verbose) std::cout << "MPIAllReduceQueued work is available" << std::endl;
 	  handleType h;
 	  while(getWork(h,m_queue,m_have_work,m_mutex)){
-	    //std::cout << "MPIAllReduceQueued reducing " << h->data << " size " << h->size << std::endl;
+	    if(m_verbose) std::cout << "MPIAllReduceQueued reducing " << h->data << " size " << h->size << std::endl;
 	    assert( MPI_Allreduce(MPI_IN_PLACE, h->data, h->size, h->datatype, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
-	    //std::cout << "MPIAllReduceQueued completed reduction, signaling completion" << std::endl;
+	    if(m_verbose) std::cout << "MPIAllReduceQueued completed reduction, signaling completion" << std::endl;
 	    h->signalComplete();
 	  }
 	}
@@ -197,6 +198,8 @@ public:
     
   }
 
+  void setVerbose(bool to){ m_verbose=to; }
+  
   handleType enqueue(void *data, size_t size, MPI_Datatype type){
     std::unique_lock lk(m_mutex);
     auto h = m_tasks.insert(m_tasks.end(), Request(data,size,type,m_mutex,m_tasks));
