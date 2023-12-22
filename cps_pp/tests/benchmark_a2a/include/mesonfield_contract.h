@@ -273,7 +273,7 @@ void benchmarkMFcontract(const A2Aparams &a2a_params, const int ntests, const in
   a2a_printf("MF contract all t: Avg time new code %d iters: %g secs. Avg flops %g Gflops. Avg bandwidth %g GB/s\n",ntests,t_avg, Gflops, mem_bandwidth_GBps);
 
 #ifdef MF_OFFLOAD_NODESUM_ASYNC
-  nodeSumPartialAsyncHandle::Timings::globalInstance().report();
+  nodeSumPartialAsyncHandle<typename GridA2Apolicies::AllocPolicy>::Timings::globalInstance().report();
 #endif
   
 #endif

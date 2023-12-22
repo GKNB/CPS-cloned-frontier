@@ -23,6 +23,7 @@ CPS_START_NAMESPACE
 //We allow for the timeslices associated with the left and right vectors of the outer product to differ
 //In the majority of cases the timeslice of the right-hand vector is equal to that of the left-hand, but in some cases we might desire it to be different,
 //for example when taking the product of [[W(t1)*V(t1)]] [[W(t2)*W(t2)]] -> [[W(t1)*W(t2)]]
+template<typename AllocPolicy>
 struct nodeSumPartialAsyncHandle;
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
@@ -374,8 +375,11 @@ public:
   }
   
   //Global sum  istart <= i < istart+ni,  jstart <= j < jstart+nj
-  nodeSumPartialAsyncHandle nodeSumPartialAsync(const int istart, const int ni, const int jstart, const int nj) const;
-  void nodeSumPartialComplete(nodeSumPartialAsyncHandle &handle);
+  //AllocPolicy determines how temporary memory allocations are made
+  template<typename AllocPolicy>
+  nodeSumPartialAsyncHandle<AllocPolicy> nodeSumPartialAsync(const int istart, const int ni, const int jstart, const int nj) const;
+  template<typename AllocPolicy>
+  void nodeSumPartialComplete(nodeSumPartialAsyncHandle<AllocPolicy> &handle);
 };
 
 //Get the meson field type associated with two (non-FFT) A2A vectors

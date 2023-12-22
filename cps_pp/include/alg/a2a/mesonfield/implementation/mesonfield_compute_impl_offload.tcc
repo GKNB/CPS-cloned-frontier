@@ -220,15 +220,15 @@ struct SingleSrcVectorPoliciesSIMDoffload{
     for(int t=0; t<Lt; t++) mf_t[t].nodeSum();
   }
 
-  inline void nodeSumPartialAsyncStart(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle> &handles,  mfVectorType &mf_st, 
+  inline void nodeSumPartialAsyncStart(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle<typename mf_Policies::AllocPolicy> > &handles,  mfVectorType &mf_st, 
 				       const int Lt, const int istart, const int ni, const int jstart, const int nj) const{
     for(int t=0; t<Lt; t++){
       MesonFieldType &mf = mf_st[t];
-      hinto.push_back(&mf); handles.push_back(mf.nodeSumPartialAsync(istart,ni,jstart,nj));
+      hinto.push_back(&mf); handles.push_back(mf.template nodeSumPartialAsync<typename mf_Policies::AllocPolicy>(istart,ni,jstart,nj));
     }
   }
-  inline void nodeSumPartialAsyncComplete(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle> &handles) const{
-    for(int i=0;i<handles.size();i++) hinto[i]->nodeSumPartialComplete(handles[i]);
+  inline void nodeSumPartialAsyncComplete(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle<typename mf_Policies::AllocPolicy> > &handles) const{
+    for(int i=0;i<handles.size();i++) hinto[i]->template nodeSumPartialComplete<typename mf_Policies::AllocPolicy>(handles[i]);
   }
 
   //Sum over x and SIMD reduce
@@ -290,16 +290,16 @@ struct MultiSrcVectorPoliciesSIMDoffload{
       for(int t=0; t<Lt; t++) mf_st[s]->operator[](t).nodeSum();
   }
   
-  inline void nodeSumPartialAsyncStart(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle> &handles,  mfVectorType &mf_st, 
+  inline void nodeSumPartialAsyncStart(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle<typename mf_Policies::AllocPolicy> > &handles,  mfVectorType &mf_st, 
 				       const int Lt, const int istart, const int ni, const int jstart, const int nj) const{
     for(int s=0;s<mfPerTimeSlice;s++)
       for(int t=0; t<Lt; t++){
 	MesonFieldType &mf = mf_st[s]->operator[](t);
-	hinto.push_back(&mf); handles.push_back(mf.nodeSumPartialAsync(istart,ni,jstart,nj));
+	hinto.push_back(&mf); handles.push_back(mf.template nodeSumPartialAsync<typename mf_Policies::AllocPolicy>(istart,ni,jstart,nj));
       }
   }
-  inline void nodeSumPartialAsyncComplete(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle> &handles) const{
-    for(int i=0;i<handles.size();i++) hinto[i]->nodeSumPartialComplete(handles[i]);
+  inline void nodeSumPartialAsyncComplete(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle<typename mf_Policies::AllocPolicy> > &handles) const{
+    for(int i=0;i<handles.size();i++) hinto[i]->template nodeSumPartialComplete<typename mf_Policies::AllocPolicy>(handles[i]);
   }
 
   //Sum over x and SIMD reduce
@@ -390,7 +390,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     //Handles for async nodesum
 #ifdef MF_OFFLOAD_NODESUM_ASYNC
     std::vector<MesonFieldType*> nodesum_hinto;
-    std::vector<nodeSumPartialAsyncHandle> nodesum_handles;
+    std::vector<nodeSumPartialAsyncHandle<typename mf_Policies::AllocPolicy> > nodesum_handles;
 #endif
 
     //Types for offset and pointer tables
