@@ -26,6 +26,8 @@ CPS_START_NAMESPACE
 template<typename AllocPolicy>
 struct nodeSumPartialAsyncHandle;
 
+struct nodeSumRowBlockAsyncInPlaceHandle;
+
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 class A2AmesonField: public mf_Policies::MesonFieldDistributedStorageType{
 public:
@@ -375,11 +377,19 @@ public:
   }
   
   //Global sum  istart <= i < istart+ni,  jstart <= j < jstart+nj
+
+  //This version requires a copy out/copy in to/from a temporary memory region
   //AllocPolicy determines how temporary memory allocations are made
   template<typename AllocPolicy>
   nodeSumPartialAsyncHandle<AllocPolicy> nodeSumPartialAsync(const int istart, const int ni, const int jstart, const int nj) const;
   template<typename AllocPolicy>
-  void nodeSumPartialComplete(nodeSumPartialAsyncHandle<AllocPolicy> &handle);
+  void nodeSumPartialAsyncComplete(nodeSumPartialAsyncHandle<AllocPolicy> &handle);
+
+  //When reducing a number of full rows we can exploit the fact that the memory region is contiguous and do a single in-place reduction
+  //This relies on being able to open multiple views on the same object if all memory activity is confined to the one device, in this case the host.
+  nodeSumRowBlockAsyncInPlaceHandle nodeSumRowBlockAsyncInPlace(const int istart, const int ni);
+  void nodeSumRowBlockAsyncInPlaceComplete(nodeSumRowBlockAsyncInPlaceHandle &handle);
+ 
 };
 
 //Get the meson field type associated with two (non-FFT) A2A vectors

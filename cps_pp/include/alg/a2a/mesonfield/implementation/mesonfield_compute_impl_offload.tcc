@@ -228,7 +228,7 @@ struct SingleSrcVectorPoliciesSIMDoffload{
     }
   }
   inline void nodeSumPartialAsyncComplete(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle<typename mf_Policies::AllocPolicy> > &handles) const{
-    for(int i=0;i<handles.size();i++) hinto[i]->template nodeSumPartialComplete<typename mf_Policies::AllocPolicy>(handles[i]);
+    for(int i=0;i<handles.size();i++) hinto[i]->template nodeSumPartialAsyncComplete<typename mf_Policies::AllocPolicy>(handles[i]);
   }
 
   //Sum over x and SIMD reduce
@@ -299,7 +299,7 @@ struct MultiSrcVectorPoliciesSIMDoffload{
       }
   }
   inline void nodeSumPartialAsyncComplete(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle<typename mf_Policies::AllocPolicy> > &handles) const{
-    for(int i=0;i<handles.size();i++) hinto[i]->template nodeSumPartialComplete<typename mf_Policies::AllocPolicy>(handles[i]);
+    for(int i=0;i<handles.size();i++) hinto[i]->template nodeSumPartialAsyncComplete<typename mf_Policies::AllocPolicy>(handles[i]);
   }
 
   //Sum over x and SIMD reduce
@@ -625,14 +625,14 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	  reduce_time -= dclock();
 	  this->reduce(mf_t, accum_v.data(), i0, j0, bi_true, bj_true, bj, t, bx);
 	  reduce_time += dclock();
-
-#ifdef MF_OFFLOAD_NODESUM_ASYNC
-	  async_nodesum_init_time -= dclock();
-	  this->nodeSumPartialAsyncStart(nodesum_hinto,nodesum_handles,mf_t,Lt,i0,bi_true,j0,bj_true);
-	  async_nodesum_init_time += dclock();
-#endif
 	}//t
 
+#ifdef MF_OFFLOAD_NODESUM_ASYNC
+	async_nodesum_init_time -= dclock();
+	this->nodeSumPartialAsyncStart(nodesum_hinto,nodesum_handles,mf_t,Lt,i0,bi_true,j0,bj_true);
+	async_nodesum_init_time += dclock();
+#endif
+	
 	LOGA2A << "Waiting for prefetch completion prior to starting next j-block" << std::endl;
 	prefetch_wait_time -= dclock();
 	A2AfieldR<mf_Policies>::waitPrefetches();
