@@ -220,15 +220,15 @@ struct SingleSrcVectorPoliciesSIMDoffload{
     for(int t=0; t<Lt; t++) mf_t[t].nodeSum();
   }
 
-  inline void nodeSumPartialAsyncStart(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle> &handles,  mfVectorType &mf_st, 
+  inline void nodeSumPartialAsyncStart(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle<typename mf_Policies::AllocPolicy> > &handles,  mfVectorType &mf_st, 
 				       const int Lt, const int istart, const int ni, const int jstart, const int nj) const{
     for(int t=0; t<Lt; t++){
       MesonFieldType &mf = mf_st[t];
-      hinto.push_back(&mf); handles.push_back(mf.nodeSumPartialAsync(istart,ni,jstart,nj));
+      hinto.push_back(&mf); handles.push_back(mf.template nodeSumPartialAsync<typename mf_Policies::AllocPolicy>(istart,ni,jstart,nj));
     }
   }
-  inline void nodeSumPartialAsyncComplete(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle> &handles) const{
-    for(int i=0;i<handles.size();i++) hinto[i]->nodeSumPartialComplete(handles[i]);
+  inline void nodeSumPartialAsyncComplete(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle<typename mf_Policies::AllocPolicy> > &handles) const{
+    for(int i=0;i<handles.size();i++) hinto[i]->template nodeSumPartialAsyncComplete<typename mf_Policies::AllocPolicy>(handles[i]);
   }
 
   //Sum over x and SIMD reduce
@@ -290,16 +290,16 @@ struct MultiSrcVectorPoliciesSIMDoffload{
       for(int t=0; t<Lt; t++) mf_st[s]->operator[](t).nodeSum();
   }
   
-  inline void nodeSumPartialAsyncStart(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle> &handles,  mfVectorType &mf_st, 
+  inline void nodeSumPartialAsyncStart(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle<typename mf_Policies::AllocPolicy> > &handles,  mfVectorType &mf_st, 
 				       const int Lt, const int istart, const int ni, const int jstart, const int nj) const{
     for(int s=0;s<mfPerTimeSlice;s++)
       for(int t=0; t<Lt; t++){
 	MesonFieldType &mf = mf_st[s]->operator[](t);
-	hinto.push_back(&mf); handles.push_back(mf.nodeSumPartialAsync(istart,ni,jstart,nj));
+	hinto.push_back(&mf); handles.push_back(mf.template nodeSumPartialAsync<typename mf_Policies::AllocPolicy>(istart,ni,jstart,nj));
       }
   }
-  inline void nodeSumPartialAsyncComplete(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle> &handles) const{
-    for(int i=0;i<handles.size();i++) hinto[i]->nodeSumPartialComplete(handles[i]);
+  inline void nodeSumPartialAsyncComplete(std::vector<MesonFieldType*> &hinto, std::vector<nodeSumPartialAsyncHandle<typename mf_Policies::AllocPolicy> > &handles) const{
+    for(int i=0;i<handles.size();i++) hinto[i]->template nodeSumPartialAsyncComplete<typename mf_Policies::AllocPolicy>(handles[i]);
   }
 
   //Sum over x and SIMD reduce
@@ -390,7 +390,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     //Handles for async nodesum
 #ifdef MF_OFFLOAD_NODESUM_ASYNC
     std::vector<MesonFieldType*> nodesum_hinto;
-    std::vector<nodeSumPartialAsyncHandle> nodesum_handles;
+    std::vector<nodeSumPartialAsyncHandle<typename mf_Policies::AllocPolicy> > nodesum_handles;
 #endif
 
     //Types for offset and pointer tables
@@ -625,14 +625,14 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	  reduce_time -= dclock();
 	  this->reduce(mf_t, accum_v.data(), i0, j0, bi_true, bj_true, bj, t, bx);
 	  reduce_time += dclock();
-
-#ifdef MF_OFFLOAD_NODESUM_ASYNC
-	  async_nodesum_init_time -= dclock();
-	  this->nodeSumPartialAsyncStart(nodesum_hinto,nodesum_handles,mf_t,Lt,i0,bi_true,j0,bj_true);
-	  async_nodesum_init_time += dclock();
-#endif
 	}//t
 
+#ifdef MF_OFFLOAD_NODESUM_ASYNC
+	async_nodesum_init_time -= dclock();
+	this->nodeSumPartialAsyncStart(nodesum_hinto,nodesum_handles,mf_t,Lt,i0,bi_true,j0,bj_true);
+	async_nodesum_init_time += dclock();
+#endif
+	
 	LOGA2A << "Waiting for prefetch completion prior to starting next j-block" << std::endl;
 	prefetch_wait_time -= dclock();
 	A2AfieldR<mf_Policies>::waitPrefetches();

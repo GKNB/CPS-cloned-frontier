@@ -150,7 +150,9 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
  
 #ifdef USE_GRID
   if(1) benchmarkMFcontract<ScalarA2ApoliciesType,A2ApoliciesSIMDdoubleAutoAllocGparityUVM>(a2a_params, ntests, nthreads); //UVM version
+  */
   if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_params, ntests, nthreads);
+  /*
   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkMultiShiftMFcontract<GridA2ApoliciesType>(a2a_args, opt.nshift);
 
@@ -202,10 +204,11 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
 
   benchmarkPackGridFieldIO<GridA2ApoliciesType>(lattice);
-  */
+
 
   benchmarkMfPlusEquals<GridA2ApoliciesType>(a2a_args, ntests);
   benchmarkMfTimesEquals<GridA2ApoliciesType>(a2a_args, ntests);
+    */
 }
 
 int main(int argc,char *argv[])

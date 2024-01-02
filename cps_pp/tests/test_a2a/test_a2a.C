@@ -175,6 +175,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   std::cout << "Starting tests" << std::endl;
 
   /*
+  testMPIAllReduceQueued();
 
   if(1) testPoolAllocator();
   if(1) testAsyncTransferManager();
@@ -263,7 +264,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) testGridMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testGridShiftMultiSourceMesonFieldCompute<A2Apolicies_grid>(a2a_arg, nthreads, tol);
-
+  
   if(1) testFFTopt<A2Apolicies_std>();
 #ifdef USE_GRID
   if(1) testFFTopt<A2Apolicies_grid>();
@@ -422,6 +423,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   testMesonFieldNodeSumPartialAsync<A2Apolicies_grid>(a2a_arg);
 
+  testMesonFieldNodeSumRowBlockAsyncInPlace<A2Apolicies_grid>(a2a_arg);
   */
 }
 
