@@ -83,7 +83,7 @@ void testWunitaryBasic(const A2AArg &a2a_arg, const typename SIMDpolicyBase<4>::
       }
     }
   }
-  if(fail) ERR.General("","testWscDilutedBasic","elem test failed");
+  if(fail) ERR.General("","testWunitaryBasic","elem test failed");
 
   //Test getDilutedSource
   FermionFieldType dil_w(simd_dims), dil_wu(simd_dims), tmpferm(simd_dims);
@@ -691,7 +691,7 @@ void testWtimePackedBasic(const A2AArg &a2a_arg, const typename SIMDpolicyBase<4
       }
     }
   }
-  if(fail) ERR.General("","testWscDilutedBasic","elem test failed");
+  if(fail) ERR.General("","testWtimePackedBasic","elem test failed");
 
 
 

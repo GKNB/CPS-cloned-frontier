@@ -223,6 +223,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testMFmult<A2Apolicies_grid>(a2a_arg,tol);
 #endif
 
+
  
   if(1) testMFmultTblock<A2Apolicies_std>(a2a_arg,tol);
 #ifdef USE_GRID
@@ -256,6 +257,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testMesonFieldComputeSingleMulti<A2Apolicies_std>(a2a_arg, tol);
   
   if(1) testMesonFieldComputePackedReferenceSIMD<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, tol, simd_dims);
+
 
   if(1) testGridMesonFieldCompute<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
 
@@ -292,7 +294,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testBasicComplexArray<A2Apolicies_grid>();
 
   if(1) testhostDeviceMirroredContainer();
-  /*
+  
+
   
   //Test the openmp Grid vs non-Grid implementation
   if(1) testKtoPiPiType1GridOmpStd<A2Apolicies_std, A2Apolicies_grid>(a2a_arg,
@@ -303,22 +306,24 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) testvMvGridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testvMvGridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
-  */
+  
   if(1) testvMvFieldTimesliceRange<A2Apolicies_grid>(a2a_arg, tol);
+
   if(1) testvMvFieldArbitraryNtblock<A2Apolicies_grid>(a2a_arg, do_arg, tol);
 
   if(1) testVVgridOrigGparity<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
   if(1) testVVgridOrigGparityTblock<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, nthreads, tol);
- 
+
+
   if(1) testKtoPiPiType4FieldContraction<A2Apolicies_grid>(tol);
   
   if(1) testKtoPiPiType1FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType2FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-   if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
+  if(1) testKtoPiPiType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoPiPiType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
 
-    /*
+  
   if(1) testKtoSigmaType12FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoSigmaType3FieldFull<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testKtoSigmaType4FieldFull<A2Apolicies_grid>(a2a_arg,tol);
@@ -335,7 +340,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 #ifdef USE_GRID
   if(1) testMADWFprecon<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
 #endif
-  
+
+
   if(1) demonstrateFFTreln<A2Apolicies_std>(a2a_arg);
   if(1) testA2AvectorFFTrelnGparity<A2Apolicies_grid>(a2a_arg, lattice);
   if(1) testMultiSource<A2Apolicies_grid>(a2a_arg, lattice);
@@ -358,7 +364,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testLanczosIO<A2Apolicies_grid>(lattice);
   if(1) testMesonFieldUnpackPack<A2Apolicies_grid>(a2a_arg,tol);
   if(1) testMesonFieldUnpackPackTblock<A2Apolicies_grid>(a2a_arg,tol);
-  
+
+    
 #ifdef USE_GRID
   if(1) testGaugeFixOrigNew<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
 #endif
@@ -378,6 +385,8 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
 
   if(1) test_gamma_CPS_vs_Grid();
 
+
+
   if(1) testXconjWsrc<A2Apolicies_grid>(lattice);
   if(1) testXconjWsrcPostOp<A2Apolicies_grid>(lattice);
   if(1) testXconjWsrcInverse<A2Apolicies_grid>(lattice);
@@ -386,10 +395,11 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   if(1) testXconjWsrcCConjReln<A2Apolicies_grid>(lattice);
 
   if(1) testModeContractionIndices(a2a_arg);
+  */  
   if(1) testWunitaryBasic<A2Apolicies_grid,A2Apolicies_grid_destructive>(a2a_arg, simd_dims, lattice);
   if(1) testWunitaryUnitaryRandomSrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
   if(1) testWunitaryRotYRandomSrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
-
+    /*
   if(1) testWtimePackedBasic<A2Apolicies_grid,A2Apolicies_grid_destructive>(a2a_arg, simd_dims, lattice);
 
   if(1) testWtimePackedU1Xsrc<A2Apolicies_grid>(a2a_arg, simd_dims, lattice);
@@ -411,7 +421,7 @@ void testGparity(CommonArg &common_arg, A2AArg &a2a_arg, FixGaugeArg &fix_gauge_
   testCPSfieldWriteParts<A2Apolicies_grid>(opt.write, opt.io_dir);
 
   testMesonFieldNodeSumPartialAsync<A2Apolicies_grid>(a2a_arg);
-  /*
+
   */
 }
 
