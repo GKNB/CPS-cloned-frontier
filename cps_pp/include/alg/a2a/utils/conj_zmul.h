@@ -64,7 +64,7 @@ struct MconjGrid<vComplexType,false,true>{
   static accelerator_inline typename SIMT<vComplexType>::value_type doit(const vComplexType *const l, const vComplexType *const r){
     auto ll = SIMT<vComplexType>::read(*l);
     auto rr = SIMT<vComplexType>::read(*r);  
-    return ll * conjugate(rr);
+    return ll * Grid::conjugate(rr);
   }
 };
 template<typename vComplexType>
@@ -72,7 +72,7 @@ struct MconjGrid<vComplexType,true,true>{
   static accelerator_inline typename SIMT<vComplexType>::value_type doit(const vComplexType *const l, const vComplexType *const r){
     auto ll = SIMT<vComplexType>::read(*l);
     auto rr = SIMT<vComplexType>::read(*r);  
-    return conjugate(ll)*conjugate(rr);
+    return Grid::conjugate(ll)*Grid::conjugate(rr);
   }
 };
 

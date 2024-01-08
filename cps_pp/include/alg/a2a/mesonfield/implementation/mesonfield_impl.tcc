@@ -377,68 +377,255 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::pack_device(typename mf_Pol
 #endif
 }
 
+template<typename Allocator>
 struct nodeSumPartialAsyncHandle{
+  struct Timings{   
+    double t_alloc;
+    double t_copy_out;
+    double t_enqueue;
+    int start_count;
+    
+    double t_wait;
+    double t_copy_in;
+    double t_clear;
+    int complete_count;
+    
+    void clear(){
+      t_alloc= t_copy_out= t_enqueue= t_wait= t_copy_out= t_clear = 0.;
+      start_count = complete_count = 0;
+    }
+    static Timings &globalInstance(){ static Timings t; return t; }
+
+    void report() const{
+#define rep(nm, v, c) nm << "=" << v << "s(" << v/c << "s)"
+      std::cout << "nodeSumPartialAsyncHandle report total(avg)\n      start:  calls=" << start_count
+		<< " " << rep("alloc",t_alloc,start_count)
+		<< " " << rep("copy", t_copy_out,start_count)
+		<< " " << rep("enqueue", t_enqueue,start_count)
+		<< "\n      complete:  calls=" << complete_count
+		<< " " << rep("wait", t_wait, complete_count)
+		<< " " << rep("copy", t_copy_in, complete_count)
+		<< " " << rep("clear", t_clear, complete_count) << std::endl;
+#undef rep
+    }
+  };     
+    
   int istart;
   int ni;
   int jstart;
   int nj;
-  std::vector<double> data;
+
+  typedef VectorWithAview<double,Allocator> VectorType;
+  std::unique_ptr<VectorType> data;  
+  std::unique_ptr<typename VectorType::View> data_v;
+  
+#ifdef MF_ASYNCREDUCE_THREAD
+  MPIallReduceQueued::handleType req;
+#else
   MPI_Request req;
+#endif
   bool init;
 
   nodeSumPartialAsyncHandle(): init(false){}
   nodeSumPartialAsyncHandle(const nodeSumPartialAsyncHandle &r) = delete;
   nodeSumPartialAsyncHandle(nodeSumPartialAsyncHandle &&r) = default;
-
+ 
   template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
   void start(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf, const int _istart, const int _ni, const int _jstart, const int _nj){
+    Timings &tt = Timings::globalInstance();
+    tt.start_count++;
+    
+    tt.t_alloc -= dclock();
     assert( sizeof(typename mf_Policies::ScalarComplexType) == 2*sizeof(double) );
     istart = _istart;
     ni = _ni;
     jstart = _jstart;
     nj = _nj;
 
-    data.resize(2*ni*nj);
-    CPSautoView(mf_v, mf, HostRead);
+    data.reset(new VectorType(2*ni*nj));
+    data_v.reset(new typename VectorType::View(data->view(HostReadWrite)));
+    
+    tt.t_alloc += dclock();
+
+    tt.t_copy_out -= dclock();
+    CPSautoView(mf_v, mf, HostRead);   
 #pragma omp parallel for
     for(int i=0;i<ni;i++){
-      double* to = data.data() + 2*i*nj;
+      double* to = data_v->data() + 2*i*nj;
       double const* from = (double const*)( mf_v.ptr() + jstart + mf_v.getNcols()*( i + istart ) );
       memcpy(to,from,2*nj*sizeof(double));
     }
-    assert( MPI_Iallreduce(MPI_IN_PLACE, data.data(), data.size(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, &req) == MPI_SUCCESS );
+    tt.t_copy_out += dclock();
+
+    tt.t_enqueue -= dclock();
+#ifdef MF_ASYNCREDUCE_THREAD
+    req = MPIallReduceQueued::globalInstance().enqueue(data_v->data(),data_v->size(),MPI_DOUBLE);
+#else
+    assert( MPI_Iallreduce(MPI_IN_PLACE, data_v->data(), data_v->size(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, &req) == MPI_SUCCESS );
+#endif
+    tt.t_enqueue += dclock();    
     init = true;
   }
   template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
   void complete(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf){
     if(init){
+      Timings &tt = Timings::globalInstance();
+      tt.complete_count++;
+    
+      tt.t_wait -= dclock();
+#ifdef MF_ASYNCREDUCE_THREAD
+      req->wait();
+#else
       assert( MPI_Wait(&req, MPI_STATUS_IGNORE) == MPI_SUCCESS );
+#endif
+      tt.t_wait += dclock();
+
+      tt.t_copy_in -= dclock();     
       CPSautoView(mf_v, mf, HostWrite);
 #pragma omp parallel for
       for(int i=0;i<ni;i++){
 	double* to = (double*)( mf_v.ptr() + jstart + mf_v.getNcols()*( i + istart ) );
-	double* from = data.data() + 2*i*nj;
+	double* from = data_v->data() + 2*i*nj;
 	memcpy(to,from,2*nj*sizeof(double));
       }
-      data.clear();
+      data_v->free();
+      tt.t_copy_in += dclock();
+
+      tt.t_clear -= dclock();
+      data.reset(nullptr);
+      tt.t_clear += dclock();
       init = false;
-    }
+    }    
   }
 };
 
-
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-nodeSumPartialAsyncHandle A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeSumPartialAsync(const int istart, const int ni, const int jstart, const int nj) const{
-  nodeSumPartialAsyncHandle h;
+template<typename AllocPolicy>
+nodeSumPartialAsyncHandle<AllocPolicy> A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeSumPartialAsync(const int istart, const int ni, const int jstart, const int nj) const{
+  nodeSumPartialAsyncHandle<AllocPolicy> h;
   h.start(*this,istart,ni,jstart,nj);
   return h;
 }
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeSumPartialComplete(nodeSumPartialAsyncHandle &handle){
+template<typename AllocPolicy>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeSumPartialAsyncComplete(nodeSumPartialAsyncHandle<AllocPolicy> &handle){
   handle.complete(*this);
 }
+
+
+
+
+
+
+struct nodeSumRowBlockAsyncInPlaceHandle{
+  struct Timings{   
+    double t_enqueue;
+    int start_count;
+    
+    double t_wait;
+    int complete_count;
+    
+    void clear(){
+      t_enqueue= t_wait= 0.;
+      start_count = complete_count = 0;
+    }
+    static Timings &globalInstance(){ static Timings t; return t; }
+
+    void report() const{
+#define rep(nm, v, c) nm << "=" << v << "s(" << v/c << "s)"
+      std::cout << "nodeSumRowBlockAsyncInPlaceHandle report total(avg)\n      start:  calls=" << start_count
+		<< " " << rep("enqueue", t_enqueue,start_count)
+		<< "\n      complete:  calls=" << complete_count
+		<< " " << rep("wait", t_wait, complete_count);
+#undef rep
+    }
+  };     
+
+  void* mf_view_p;
   
+  double* ptr;
+  size_t size;
+  
+#ifdef MF_ASYNCREDUCE_THREAD
+    MPIallReduceQueued::handleType req;
+#else
+  MPI_Request req;
+#endif
+    
+  bool init;
+
+  nodeSumRowBlockAsyncInPlaceHandle(): init(false){}
+  nodeSumRowBlockAsyncInPlaceHandle(const nodeSumRowBlockAsyncInPlaceHandle &r) = delete;
+  nodeSumRowBlockAsyncInPlaceHandle(nodeSumRowBlockAsyncInPlaceHandle &&r) = default;
+ 
+  template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+  void start(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf, const int istart, const int ni){
+    Timings &tt = Timings::globalInstance();
+    tt.start_count++;
+    
+    assert( sizeof(typename mf_Policies::ScalarComplexType) == 2*sizeof(double) );
+    typedef typename A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View ViewType;
+    ViewType *mf_v = new ViewType(mf.view(HostRead));
+    mf_view_p = (void*)mf_v; //keep the view around to act as a lock on evictions
+
+    int nj = mf_v->getNcols();
+    size = 2*ni*nj;
+    ptr = (double*)( mf_v->ptr() + mf_v->getNcols()* istart );
+    
+    tt.t_enqueue -= dclock();
+#ifdef MF_ASYNCREDUCE_THREAD
+    req = MPIallReduceQueued::globalInstance().enqueue(ptr,size,MPI_DOUBLE);
+#else
+    assert( MPI_Iallreduce(MPI_IN_PLACE,ptr,size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, &req) == MPI_SUCCESS );
+#endif    
+    tt.t_enqueue += dclock();    
+    init = true;
+  }
+  template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+  void complete(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf){
+    if(init){
+      Timings &tt = Timings::globalInstance();
+      tt.complete_count++;
+    
+      tt.t_wait -= dclock();
+#ifdef MF_ASYNCREDUCE_THREAD
+      req->wait();
+#else
+      assert( MPI_Wait(&req, MPI_STATUS_IGNORE) == MPI_SUCCESS );
+#endif      
+      tt.t_wait += dclock();
+
+      typedef typename A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::View ViewType;
+      ViewType *mf_v = (ViewType*)mf_view_p;
+      mf_v->free();
+      delete mf_v;
+
+      init = false;
+    }    
+  }
+};
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+nodeSumRowBlockAsyncInPlaceHandle A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeSumRowBlockAsyncInPlace(const int istart, const int ni){
+  nodeSumRowBlockAsyncInPlaceHandle h;
+  h.start(*this,istart,ni);
+  return h;
+}
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeSumRowBlockAsyncInPlaceComplete(nodeSumRowBlockAsyncInPlaceHandle &handle){
+  handle.complete(*this);
+}
+
+
+
+
+
+
+
+
+
 
 #endif
 

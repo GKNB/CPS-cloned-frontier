@@ -1149,27 +1149,27 @@ class HolisticMemoryPoolManager{
 public:
   struct Handle;
 
-  struct Entry{
+  struct Entry{ //A memory region of a specific size
     size_t bytes;
     void* ptr;
-    Handle* owned_by;
+    Handle* owned_by; //if attached, set to attached handle
   };
   typedef std::list<Entry>::iterator EntryIterator;
 
   struct Handle{
-    size_t lock_entry;
+    size_t lock_entry; //if >0 , eviction is disabled 
 
-    bool device_valid;
-    EntryIterator device_entry;
+    bool device_valid; //device entry is attached; set false upon eviction
+    EntryIterator device_entry; //memory region on device
 
-    bool host_valid;
-    EntryIterator host_entry;
+    bool host_valid; //host entry is attached; set false upon eviction
+    EntryIterator host_entry; //memory region on host
 
     size_t bytes;
 
-    bool device_in_sync;
-    bool host_in_sync;
-    bool disk_in_sync;
+    bool device_in_sync; //device copy (if exists) is up-to-date
+    bool host_in_sync; //host copy (if exists) is up-to-date
+    bool disk_in_sync; //disk copy (if exists) is up-to-date
     std::string disk_file;
 
     bool device_prefetch_underway; //allow for error checking if try to open device read view with a pending prefetch
@@ -1183,7 +1183,7 @@ public:
   
 protected:
   bool verbose;
-  std::list<Handle> handles; //active fields
+  std::list<Handle> handles; //managed objects currently in use
 
   std::list<Entry> device_in_use_pool; //LRU
   std::map<size_t,std::list<Entry>, std::greater<size_t> > device_free_pool; //sorted by size in descending order
@@ -1729,7 +1729,7 @@ public:
     sanityCheck();
     if(mode == HostRead || mode == HostReadWrite){
       //no support for device->host async copies yet
-    }else if( (mode == DeviceRead || mode == DeviceReadWrite) && h->host_valid && h->host_in_sync){
+    }else if( (mode == DeviceRead || mode == DeviceReadWrite) && h->host_valid && h->host_in_sync){ //only start a prefetch if the host memory region is attached and up-to-date
       prepareEntryForView(*h,DevicePool); 
       if(!h->device_in_sync){
 	asyncTransferManager::globalInstance().enqueue(h->device_entry->ptr,h->host_entry->ptr,h->bytes);
@@ -1760,7 +1760,7 @@ public:
     }
     device_queued_prefetches.clear();
   }
-  
+
   void free(HandleIterator h){
     if(omp_in_parallel()) ERR.General("HolisticMemoryPoolManager","free","Cannot call in OMP parallel region");
     sanityCheck();

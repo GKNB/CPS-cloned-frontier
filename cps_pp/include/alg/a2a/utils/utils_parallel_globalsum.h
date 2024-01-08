@@ -12,6 +12,10 @@
 #include "utils_parallel.h"
 #include "utils_logging.h"
 
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
 CPS_START_NAMESPACE
 
 inline void globalSum(double *result, size_t len = 1){
@@ -101,6 +105,126 @@ inline void globalSum(Grid::vComplexF* v, const size_t n = 1){
 }
 
 #endif //GRID
+
+
+class MPIallReduceQueued{
+public:
+  class Request;
+  typedef std::list<Request>::iterator handleType;
+
+  class Request{
+    friend class MPIallReduceQueued;
+    std::condition_variable cv;
+    std::mutex* mutex_p;
+    bool complete;
+
+    void* data;
+    size_t size;
+    MPI_Datatype datatype;
+
+    handleType handle;
+    std::list<Request>* tasks;
+
+    void setHandle(handleType h){ handle = h; }
+
+  public:
+    Request(void* data, size_t size, MPI_Datatype datatype, std::mutex &m, std::list<Request> &tasks): data(data), size(size), datatype(datatype), mutex_p(&m), tasks(&tasks), complete(false){}   
+    Request(Request &&r): mutex_p(r.mutex_p), complete(r.complete), data(r.data), size(r.size), datatype(r.datatype), handle(r.handle), tasks(r.tasks){};
+
+    void signalComplete(){
+      std::unique_lock lk(*mutex_p);
+      complete = true;
+      lk.unlock(); //cf https://en.cppreference.com/w/cpp/thread/condition_variable
+      cv.notify_one();
+    }
+
+    void wait(){
+      std::unique_lock lk(*mutex_p);
+      cv.wait(lk, [&c=complete]{ return c; });
+
+      //Once the wait has completed, the request should be removed from the queue
+      //Do this under the mutex lock!
+      if(!lk.owns_lock()) lk.lock();
+      tasks->erase(handle);
+    }
+  };
+
+private:
+  mutable std::mutex m_mutex;
+  std::list<Request> m_tasks;
+  std::thread* m_thr;
+  bool m_stop; //stop signal for thread
+  bool m_have_work; //signal if work is available
+  std::condition_variable m_work_cv; //condition variable to check for work
+  std::list<handleType> m_queue;
+  bool m_verbose;
+  
+  inline static bool checkStop(bool & stop, std::mutex& mutex){
+    std::lock_guard _(mutex); return stop;
+  }
+  inline static bool getWork(handleType &into, std::list<handleType> &queue, bool &have_work, std::mutex& mutex){
+    std::lock_guard _(mutex);
+    if(queue.size()){ //FIFO queue
+      into=queue.front();
+      queue.pop_front();
+      return true;
+    }else{
+      have_work = false;
+      return false;
+    }
+  }
+
+public:
+  MPIallReduceQueued(): m_thr(nullptr), m_stop(false), m_have_work(false), m_verbose(false){
+
+    m_thr = new std::thread([&m_stop=m_stop,&m_queue=m_queue,&m_mutex=m_mutex, &m_have_work=m_have_work, &m_work_cv=m_work_cv, &m_verbose=m_verbose]{
+	while(!checkStop(m_stop, m_mutex)){ //outer loop
+	  //wait until there is some work to be done
+	  if(m_verbose) std::cout << "MPIAllReduceQueued waiting for work" << std::endl;
+	  {
+	    std::unique_lock lk(m_mutex);
+	    m_work_cv.wait(lk, [&m_have_work=m_have_work, &m_stop=m_stop]{ return m_have_work || m_stop; }); //allow it to break out if told to stop
+	  }
+	  if(m_verbose) std::cout << "MPIAllReduceQueued work is available" << std::endl;
+	  handleType h;
+	  while(getWork(h,m_queue,m_have_work,m_mutex)){
+	    if(m_verbose) std::cout << "MPIAllReduceQueued reducing " << h->data << " size " << h->size << std::endl;
+	    assert( MPI_Allreduce(MPI_IN_PLACE, h->data, h->size, h->datatype, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
+	    if(m_verbose) std::cout << "MPIAllReduceQueued completed reduction, signaling completion" << std::endl;
+	    h->signalComplete();
+	  }
+	}
+      });
+    
+  }
+
+  void setVerbose(bool to){ m_verbose=to; }
+  
+  handleType enqueue(void *data, size_t size, MPI_Datatype type){
+    std::unique_lock lk(m_mutex);
+    auto h = m_tasks.insert(m_tasks.end(), Request(data,size,type,m_mutex,m_tasks));
+    h->setHandle(h);
+    m_queue.push_back(h);
+    m_have_work = true;
+    lk.unlock();
+    m_work_cv.notify_one();
+    return h;
+  }
+
+  ~MPIallReduceQueued(){
+    if(m_thr){
+      {
+	std::unique_lock lk(m_mutex);
+	m_stop = true;
+	lk.unlock();
+	m_work_cv.notify_one();
+      }
+      m_thr->join();
+    }
+  }
+
+  static inline MPIallReduceQueued & globalInstance(){ static MPIallReduceQueued q; return q; }
+};
 
 
 CPS_END_NAMESPACE
