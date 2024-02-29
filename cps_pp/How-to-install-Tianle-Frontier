@@ -1,0 +1,92 @@
+1). Setup env:
+
+source env-preset.sh
+
+
+2). Install Lime for IO:
+
+wget http://usqcd-software.github.io/downloads/c-lime/lime-1.3.2.tar.gz
+tar -xf xxyxyxyxyxyxy
+generate a config.sh and run it
+make; make install
+
+
+3). Build Grid:
+
+(Inside main directory)
+git clone https://github.com/giltirn/Grid.git 
+cd Grid
+git switch feature/Xconjugate_BCs_dirichlet
+./bootstrap.sh
+mkdir build
+cd build
+cp ~/Record/latticd_qcd/test_build_004/config_grid.sh ./config.sh
+
+###############!!!Needs modification for the following step!!!#####################
+./config.sh
+#Things to be careful: add fopenmp, remove std=c++14
+
+make -j16
+make check
+make install
+
+###############!!!We might need this if Grid build install fails!!!#####################
+###############!!!Needs modification for the following two steps!!!#####################
+mkdir -p /ccs/home/tianle/lattice_qcd_02202023/install/Grid_crusher_Xconj/bin
+cp /ccs/home/tianle/lattice_qcd_02202023/Grid/build/grid-config /ccs/home/tianle/lattice_qcd_02202023/install/Grid_crusher_Xconj/bin
+
+
+4). Build qmp:
+
+(Inside main directory)
+git clone https://github.com/giltirn/cps.git
+mv cps cps-src
+mkdir qmp-build
+cd qmp-build/
+cp ../config_qmp.sh ./config.sh
+
+###############!!!Needs modification for the following step!!!#####################
+./config.sh
+
+make
+make install
+
+
+5). Build cps:
+
+(Inside main directory)
+##### add inline for secs_since_first_call() in cps-src/cps_pp/include/alg/a2a/utils/utils_generic.h
+##### comment out two hipDeviceSetCacheConfig call in cps-src/cps_pp/include/alg/a2a/mesonfield/linalg/implementation/mesonfield_mult_vMv_field_offload.h
+
+mkdir cps-build
+cd cps-build
+cp ~/Record/latticd_qcd/test_build_004/config_cps.sh ./config.sh
+
+###############!!!Needs modification for the following step!!!#####################
+./config.sh
+
+##### modify makefile and comment out vml in recurse
+make -j60 buildlib
+rm libcps.a
+make buildlib
+
+
+6). Build ktopipi:
+
+(Inside cps-build directory)
+mkdir production_code/meas/gparity/ktopipi/ -p
+cp ../cps-src/cps_pp/production_code/meas/gparity/ktopipi/ production_code/meas/gparity -r
+cd production_code/meas/gparity/ktopipi
+cp ~/Record/latticd_qcd/test_build_003/Makefile ./
+
+###############!!!Needs modification for the following step!!!#####################
+make
+
+mkdir my_test_v1
+cp ~/Record/latticd_qcd/script_run_and_correctness/* my_test_v1/
+cd my_test_v1
+
+###############!!!Needs modification for the following step!!!#####################
+sbatch run_crusher.sh
+
+./docompare.sh

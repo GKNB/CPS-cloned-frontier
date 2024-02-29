@@ -1,0 +1,52 @@
+class JobParams job_params = {
+BfmSolverType solver = BFM_HmCayleyTanh
+double mobius_scale = 2
+bool convert_evecs_to_single_precision = 1
+class CGcontrols cg_controls = {
+A2ACGalgorithm CGalgorithm = AlgorithmMixedPrecisionRestartedCG
+double CG_tolerance = 1e-08
+int CG_max_iters = 10000
+double mixedCG_init_inner_tolerance = 1e-4
+double reliable_update_delta = 0.1
+double reliable_update_transition_tol = 0
+int multiCG_block_size = 16
+Array split_grid_geometry[4] = { 
+int split_grid_geometry[0] = 1
+int split_grid_geometry[1] = 1
+int split_grid_geometry[2] = 1
+int split_grid_geometry[3] = 1
+}
+MADWFparams madwf_params = {
+int Ls_inner = 4
+double b_plus_c_inner = 2.0
+A2Apreconditioning precond = SchurOriginal
+bool use_ZMobius = 0
+ZMobiusParams ZMobius_params = {
+A2A_ZMobiusGammaSource gamma_src = A2A_ZMobiusGammaSourceInput
+double compute_lambda_max =  2.4
+Array gamma_real[4] = {
+double gamma_real[0] = 1.
+double gamma_real[1] = 1.
+double gamma_real[2] = 1.
+double gamma_real[3] = 1.
+}
+Array gamma_imag[4] = {
+double gamma_imag[0] = 0.
+double gamma_imag[1] = 0.
+double gamma_imag[2] = 0.
+double gamma_imag[3] = 0.
+}
+}
+}
+}
+double pion_rad =   2
+double kaon_rad =   2
+int pipi_separation = 2
+int tstep_pipi = 2
+Array k_pi_separation[2] = { 
+int k_pi_separation[0] = 2
+int k_pi_separation[1] = 4
+}
+int xyzstep_type1 = 1
+int tstep_type12 = 2
+}

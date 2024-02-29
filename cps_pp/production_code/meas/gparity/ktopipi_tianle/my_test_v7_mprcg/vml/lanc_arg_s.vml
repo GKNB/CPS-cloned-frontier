@@ -1,0 +1,18 @@
+class LancArg lanc_arg = {
+double mass =   0.07
+double stop_rsd =   1e-8
+double qr_rsd =   1e-14
+EigenType EigenOper = DDAGD
+bool precon = 1
+int N_get = 100
+int N_use = 120
+int N_true_get = 100
+int ch_ord = 80
+double ch_alpha = 6.5
+double ch_beta = 1.6
+bool ch_sh = 0
+double ch_mu = 0
+bool lock = 0
+int maxits = 10000
+string fname = "lanc_s.dat"
+}

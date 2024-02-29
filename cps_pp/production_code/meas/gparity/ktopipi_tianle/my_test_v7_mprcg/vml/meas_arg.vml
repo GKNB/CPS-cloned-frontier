@@ -1,0 +1,18 @@
+class MeasArg meas_arg = {
+FclassType Fermion = F_CLASS_NONE
+GclassType Gluon = G_CLASS_NONE
+string WorkDirectory = "../results/"
+string GaugeStem = "/ccs/home/tianle/test_diff_module/rocm-5.3.0-mpich-8.1.17/cps-build/production_code/meas/gparity/ktopipi/my_test_v7_mprcg/conf_rng/ckpoint_lat"
+string RNGStem = "/ccs/home/tianle/test_diff_module/rocm-5.3.0-mpich-8.1.17/cps-build/production_code/meas/gparity/ktopipi/my_test_v7_mprcg/conf_rng/ckpoint_rng"
+MeasIOTask GaugeIO = MeasIOLoad
+MeasIOTask RNGIO = MeasIOLoad
+int TrajStart = 0
+int TrajIncrement = 1
+int TrajLessThanLimit = 1
+int TrajCur = 0
+int HdwXCsum = 0
+int HdwRCsum = 0
+int IOconcurrency = 0
+Array TaskList[0] = { 
+}
+}

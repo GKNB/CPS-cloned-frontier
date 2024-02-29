@@ -1,0 +1,6 @@
+class A2AArg a2a_arg = {
+int nl = 100
+int nhits = 1
+RandomType rand_type = UONE
+int src_width = 1
+}

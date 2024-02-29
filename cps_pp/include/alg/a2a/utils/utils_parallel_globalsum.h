@@ -132,14 +132,14 @@ public:
     Request(Request &&r): mutex_p(r.mutex_p), complete(r.complete), data(r.data), size(r.size), datatype(r.datatype), handle(r.handle), tasks(r.tasks){};
 
     void signalComplete(){
-      std::unique_lock lk(*mutex_p);
+      std::unique_lock<std::mutex> lk(*mutex_p);
       complete = true;
       lk.unlock(); //cf https://en.cppreference.com/w/cpp/thread/condition_variable
       cv.notify_one();
     }
 
     void wait(){
-      std::unique_lock lk(*mutex_p);
+      std::unique_lock<std::mutex> lk(*mutex_p);
       cv.wait(lk, [&c=complete]{ return c; });
 
       //Once the wait has completed, the request should be removed from the queue
@@ -160,10 +160,10 @@ private:
   bool m_verbose;
   
   inline static bool checkStop(bool & stop, std::mutex& mutex){
-    std::lock_guard _(mutex); return stop;
+    std::lock_guard<std::mutex> _(mutex); return stop;
   }
   inline static bool getWork(handleType &into, std::list<handleType> &queue, bool &have_work, std::mutex& mutex){
-    std::lock_guard _(mutex);
+    std::lock_guard<std::mutex> _(mutex);
     if(queue.size()){ //FIFO queue
       into=queue.front();
       queue.pop_front();
@@ -182,7 +182,7 @@ public:
 	  //wait until there is some work to be done
 	  if(m_verbose) std::cout << "MPIAllReduceQueued waiting for work" << std::endl;
 	  {
-	    std::unique_lock lk(m_mutex);
+	    std::unique_lock<std::mutex> lk(m_mutex);
 	    m_work_cv.wait(lk, [&m_have_work=m_have_work, &m_stop=m_stop]{ return m_have_work || m_stop; }); //allow it to break out if told to stop
 	  }
 	  if(m_verbose) std::cout << "MPIAllReduceQueued work is available" << std::endl;
@@ -201,7 +201,7 @@ public:
   void setVerbose(bool to){ m_verbose=to; }
   
   handleType enqueue(void *data, size_t size, MPI_Datatype type){
-    std::unique_lock lk(m_mutex);
+    std::unique_lock<std::mutex> lk(m_mutex);
     auto h = m_tasks.insert(m_tasks.end(), Request(data,size,type,m_mutex,m_tasks));
     h->setHandle(h);
     m_queue.push_back(h);
@@ -214,7 +214,7 @@ public:
   ~MPIallReduceQueued(){
     if(m_thr){
       {
-	std::unique_lock lk(m_mutex);
+	std::unique_lock<std::mutex> lk(m_mutex);
 	m_stop = true;
 	lk.unlock();
 	m_work_cv.notify_one();
